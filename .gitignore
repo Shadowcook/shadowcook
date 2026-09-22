@@ -1,0 +1,70 @@
+# Local reference code
+/old/
+
+# Dependencies
+/node_modules/
+/bower_components/
+/jspm_packages/
+
+# Build output and generated files
+/dist/
+/build/
+/out/
+/.next/
+/.nuxt/
+/.output/
+/.svelte-kit/
+/.angular/
+/.cache/
+/.parcel-cache/
+/.turbo/
+/.vite/
+/.vercel/
+/.netlify/
+/.serverless/
+/.aws-sam/
+/*.tsbuildinfo
+
+# Test and coverage output
+/coverage/
+/.nyc_output/
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Logs and runtime data
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+*.pid
+*.pid.lock
+*.seed
+*.pidfile
+
+# Package-manager caches
+.npm/
+.pnpm-store/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Environment and local configuration
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
