@@ -2,14 +2,14 @@
 /old/
 
 # Dependencies
-/node_modules/
+node_modules/
 /bower_components/
 /jspm_packages/
 
 # Build output and generated files
-/dist/
-/build/
-/out/
+dist/
+build/
+out/
 /.next/
 /.nuxt/
 /.output/
@@ -18,7 +18,8 @@
 /.cache/
 /.parcel-cache/
 /.turbo/
-/.vite/
+.vite/
+.astro/
 /.vercel/
 /.netlify/
 /.serverless/
@@ -68,3 +69,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
+/personal_agents.md
+development-seed.json
+/.run/

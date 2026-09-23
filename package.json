@@ -1,0 +1,15 @@
+{
+  "name": "shadowcook-v2",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "build": "npm --prefix packages/db run build && npm --prefix apps/api run build && npm --prefix apps/web run build",
+    "check": "npm --prefix packages/db run check && npm --prefix apps/api run check && npm --prefix apps/web run check",
+    "dev:api": "npm --prefix packages/db run build && npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "start:api": "npm --prefix apps/api run start",
+    "maintenance": "npm --prefix apps/api run maintenance",
+    "reset:dev-db": "npm --prefix apps/api run reset:dev-db"
+  }
+}

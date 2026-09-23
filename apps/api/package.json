@@ -1,0 +1,28 @@
+{
+  "name": "@shadowcook/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "check": "tsc --noEmit -p tsconfig.json",
+    "dev": "NODE_ENV=development tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "maintenance": "tsx src/maintenance.ts",
+    "reset:dev-db": "NODE_ENV=development tsx src/reset-development-database.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.1.0",
+    "@shadowcook/db": "workspace:*",
+    "fastify": "^5.6.0",
+    "nodemailer": "^10.0.10",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.3"
+  }
+}

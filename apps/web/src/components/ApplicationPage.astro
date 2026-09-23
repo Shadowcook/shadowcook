@@ -1,0 +1,31 @@
+---
+import LoginScreen from './LoginScreen';
+import AdminArea from './AdminArea';
+import InvitationScreen from './InvitationScreen';
+import TenantSelection from './TenantSelection';
+import Brand from './Brand.astro';
+import { resolveLocale, translations } from '../i18n';
+import type { Locale } from '../i18n';
+import '../styles/global.css';
+
+const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
+const text = translations[locale];
+interface Properties { path: string; }
+const { path } = Astro.props;
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={text.metadata.description} />
+    <title>{text.metadata.title}</title>
+  </head>
+  <body>
+    <main class="application-shell">
+      <Brand name={text.brandName} />
+      {path === '/' ? <TenantSelection client:load locale={locale} /> : path.startsWith('/invitations/') ? <InvitationScreen client:load locale={locale} token={path.slice('/invitations/'.length)} /> : path === '/admin' || path.startsWith('/admin/') ? <AdminArea client:load locale={locale} path={path} /> : <LoginScreen client:load locale={locale} />}
+    </main>
+  </body>
+</html>

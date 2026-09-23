@@ -1,0 +1,502 @@
+openapi: 3.1.1
+info:
+  title: Shadowcook API
+  version: 0.1.0
+paths:
+  /auth/login:
+    post:
+      operationId: login
+      summary: Authenticates a human user and starts a browser session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password]
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+      responses:
+        '200':
+          description: Authentication succeeded. The response sets the HttpOnly session cookie.
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [passwordChangeRequired]
+                properties:
+                  passwordChangeRequired:
+                    type: boolean
+        '400':
+          description: The request body is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      summary: Changes the authenticated user's password.
+      security:
+        - sessionCookie: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                newPassword:
+                  type: string
+                  format: password
+                  minLength: 12
+      responses:
+        '204':
+          description: The password was changed.
+        '400':
+          description: The request body or new password is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '401':
+          description: Authentication failed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /auth/session:
+    get:
+      operationId: getCurrentSession
+      summary: Returns the current browser session state.
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: The active session.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [email, passwordChangeRequired]
+                properties:
+                  email:
+                    type: string
+                    format: email
+                  passwordChangeRequired:
+                    type: boolean
+        '401':
+          description: Authentication is required.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /auth/logout:
+    post:
+      operationId: logout
+      summary: Revokes the current browser session.
+      security:
+        - sessionCookie: []
+      responses:
+        '204':
+          description: The session was revoked.
+  /auth/authentication-methods:
+    get:
+      operationId: getAuthenticationMethods
+      summary: Returns publicly enabled browser sign-in methods.
+      responses:
+        '200':
+          description: Enabled methods.
+          content: {application/json: {schema: {type: object, additionalProperties: false, required: [password, emailCode], properties: {password: {type: boolean}, emailCode: {type: boolean}}}}}
+  /auth/email-code/request:
+    post:
+      operationId: requestLoginEmailCode
+      summary: Requests a sign-in code without revealing whether an account exists.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [email], properties: {email: {type: string, format: email}}}}}
+      responses: {'204': {description: The request was accepted.}}
+  /auth/email-code/verify:
+    post:
+      operationId: verifyLoginEmailCode
+      summary: Verifies a login code and starts a browser session.
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, required: [email, code], properties: {email: {type: string, format: email}, code: {type: string, pattern: '^[0-9]{6}$'}}}}}
+      responses:
+        '200': {description: Authentication succeeded., content: {application/json: {schema: {type: object, required: [passwordChangeRequired], properties: {passwordChangeRequired: {type: boolean}}}}}}
+        '400': {description: Invalid request, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '401': {description: Invalid or expired code, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+  /admin/authentication-settings:
+    get:
+      operationId: getAuthenticationSettings
+      security: [{sessionCookie: []}]
+      responses: {'200': {description: Settings, content: {application/json: {schema: {type: object, required: [loginMode], properties: {loginMode: {type: string, enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE]}}}}}}}
+    put:
+      operationId: saveAuthenticationSettings
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [loginMode], properties: {loginMode: {type: string, enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE]}}}}}
+      responses: {'204': {description: Saved.}, '409': {description: SMTP required for email-only mode, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+  /admin/tenants:
+    get:
+      operationId: listTenants
+      security: [{sessionCookie: []}]
+      responses: {'200': {description: Tenant list.}}
+    post:
+      operationId: createTenant
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [firstName, lastName, email, cookbookName, slug], properties: {firstName: {type: string}, lastName: {type: string}, email: {type: string, format: email}, cookbookName: {type: string}, slug: {type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'}}}}}
+      responses: {'201': {description: Tenant and owner invitation created.}, '400': {description: Invalid tenant, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '409': {description: Tenant slug conflict, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '429': {description: Invitation-code request limit reached; no tenant was created, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '502': {description: SMTP delivery failed; no tenant was created, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '503': {description: SMTP is not configured; no tenant was created, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+  /admin/tenants/{publicId}:
+    patch:
+      operationId: updateTenant
+      summary: Renames a tenant or changes its enabled state.
+      security: [{sessionCookie: []}]
+      parameters: [{name: publicId, in: path, required: true, schema: {type: string, format: uuid}}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: false, properties: {displayName: {type: string, minLength: 1}, disabled: {type: boolean}}, minProperties: 1}}}
+      responses: {'204': {description: Tenant updated.}, '400': {description: Invalid update, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '404': {description: Tenant not found, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+    delete:
+      operationId: deleteTenant
+      summary: Permanently deletes a tenant and all tenant-owned data.
+      security: [{sessionCookie: []}]
+      parameters: [{name: publicId, in: path, required: true, schema: {type: string, format: uuid}}]
+      responses: {'204': {description: Tenant and tenant-owned data deleted.}, '404': {description: Tenant not found, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+  /admin/users:
+    get:
+      operationId: listUsers
+      security: [{sessionCookie: []}]
+      responses: {'200': {description: Users and tenant memberships.}}
+  /invitations/{token}:
+    get:
+      operationId: getTenantInvitation
+      parameters: [{name: token, in: path, required: true, schema: {type: string}}]
+      responses: {'200': {description: Invitation details.}, '404': {description: Invitation unavailable, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+  /invitations/{token}/accept:
+    post:
+      operationId: acceptTenantInvitation
+      parameters: [{name: token, in: path, required: true, schema: {type: string}}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [code], properties: {code: {type: string, pattern: '^[0-9]{6}$'}}}}}
+      responses: {'204': {description: Invitation accepted.}, '401': {description: Invalid email code, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '404': {description: Invitation unavailable, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+  /health:
+    get:
+      operationId: getHealth
+      summary: Returns API process readiness after database migrations have completed.
+      responses:
+        '200':
+          description: The API process is accepting requests.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - status
+                properties:
+                  status:
+                    type: string
+                    const: ok
+  /admin/mail-settings:
+    get:
+      operationId: getInstanceMailSettings
+      summary: Returns non-secret SMTP settings for the instance.
+      security: [{sessionCookie: []}]
+      responses:
+        '200':
+          description: The mail settings state.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceMailSettings'
+        '401': {description: Authentication is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '403': {description: An instance permission is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+    put:
+      operationId: saveInstanceMailSettings
+      summary: Stores encrypted SMTP settings for the instance.
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InstanceMailSettingsInput'
+      responses:
+        '204': {description: The mail settings were stored.}
+        '400': {description: The settings are invalid, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '401': {description: Authentication is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '403': {description: An instance permission is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '503': {description: The instance encryption key is not configured, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+  /admin/mail-settings/test:
+    post:
+      operationId: sendInstanceMailSettingsTest
+      summary: Sends a test message using the stored SMTP settings.
+      security: [{sessionCookie: []}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [recipient]
+              properties:
+                recipient: {type: string, format: email}
+      responses:
+        '204': {description: The test message was accepted for delivery.}
+        '400': {description: The recipient is invalid, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '401': {description: Authentication is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '403': {description: An instance permission is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '409': {description: Mail is not configured, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '502': {description: SMTP delivery failed, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '503': {description: The instance encryption key is not configured, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+  /cookbook:
+    get:
+      operationId: getCookbook
+      summary: Returns published public recipes and, for an authenticated user, recipes in the user's tenant memberships.
+      responses:
+        '200':
+          description: The accessible cookbook overview.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [tenant, categories, recipes]
+                properties:
+                  tenant:
+                    oneOf:
+                      - type: 'null'
+                      - type: object
+                        additionalProperties: false
+                        required: [display_name]
+                        properties:
+                          display_name: {type: string}
+                  categories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CookbookCategory'
+                  recipes:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/CookbookRecipe'
+        '403':
+          description: A password change is required before accessing the cookbook.
+          content:
+            application/json:
+              schema:
+              $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The requested tenant is disabled or does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+  /cookbook/tenants:
+    get:
+      operationId: listAccessibleCookbookTenants
+      summary: Returns accessible enabled tenants.
+      responses: {'200': {description: Enabled accessible tenants.}}
+  /cookbook/recipes/{publicId}:
+    get:
+      operationId: getCookbookRecipe
+      summary: Returns one accessible published recipe with its step-specific ingredient usages.
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: The accessible published recipe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CookbookRecipeDetail'
+        '403':
+          description: A password change is required before accessing the recipe.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '404':
+          description: The recipe is not accessible or does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+components:
+  schemas:
+    InstanceMailSettings:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [configured]
+          properties: {configured: {const: false}}
+        - type: object
+          additionalProperties: false
+          required: [configured, host, port, transportSecurity, username, hasPassword, fromEmail, fromName]
+          properties:
+            configured: {const: true}
+            host: {type: string}
+            port: {type: integer}
+            transportSecurity: {type: string, enum: [STARTTLS, IMPLICIT_TLS]}
+            username: {type: [string, 'null']}
+            hasPassword: {type: boolean}
+            fromEmail: {type: string, format: email}
+            fromName: {type: string}
+    InstanceMailSettingsInput:
+      type: object
+      additionalProperties: false
+      required: [host, port, transportSecurity, username, fromEmail, fromName]
+      properties:
+        host: {type: string, minLength: 1}
+        port: {type: integer, minimum: 1, maximum: 65535}
+        transportSecurity: {type: string, enum: [STARTTLS, IMPLICIT_TLS]}
+        username: {type: [string, 'null']}
+        password: {type: [string, 'null'], writeOnly: true}
+        fromEmail: {type: string, format: email}
+        fromName: {type: string, minLength: 1}
+    CookbookCategory:
+      type: object
+      additionalProperties: false
+      required: [public_id, parent_public_id, name, slug, sort_order]
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        parent_public_id:
+          type: [string, 'null']
+          format: uuid
+        name:
+          type: string
+        slug:
+          type: string
+        sort_order:
+          type: integer
+          minimum: 0
+    CookbookRecipe:
+      type: object
+      additionalProperties: false
+      required: [public_id, slug, title, summary, category_public_ids]
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        summary:
+          type: [string, 'null']
+        category_public_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+    CookbookRecipeDetail:
+      type: object
+      additionalProperties: false
+      required: [public_id, slug, title, summary, steps]
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        title:
+          type: string
+        summary:
+          type: [string, 'null']
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/CookbookRecipeStep'
+    CookbookRecipeStep:
+      type: object
+      additionalProperties: false
+      required: [public_id, sort_order, instruction, ingredients]
+      properties:
+        public_id:
+          type: string
+          format: uuid
+        sort_order:
+          type: integer
+          minimum: 0
+        instruction:
+          type: string
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/CookbookIngredientUsage'
+    CookbookIngredientUsage:
+      type: object
+      additionalProperties: false
+      required: [sort_order, amount, unit_symbol, ingredient_name, note, is_optional]
+      properties:
+        sort_order:
+          type: integer
+          minimum: 0
+        amount:
+          type: [string, 'null']
+        unit_symbol:
+          type: [string, 'null']
+        ingredient_name:
+          type: string
+        note:
+          type: [string, 'null']
+        is_optional:
+          type: boolean
+    ApiError:
+      type: object
+      additionalProperties: false
+      required: [code, error]
+      properties:
+        code:
+          type: string
+          enum:
+            - AUTHENTICATION_FAILED
+            - AUTHENTICATION_REQUIRED
+            - INVALID_CREDENTIALS
+            - INVALID_LOGIN_BODY
+            - INVALID_PASSWORD
+            - PASSWORD_CHANGE_REQUIRED
+            - RECIPE_NOT_FOUND
+        error:
+          type: string
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: shadowcook_session
