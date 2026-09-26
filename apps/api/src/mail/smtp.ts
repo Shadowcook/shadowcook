@@ -18,7 +18,10 @@ export function createSmtpTransport(configuration: SmtpConfiguration): Transport
     port: configuration.port,
     secure: configuration.transportSecurity === 'IMPLICIT_TLS',
     requireTLS: configuration.transportSecurity === 'STARTTLS',
-    auth: configuration.username === null || configuration.password === null ? undefined : { user: configuration.username, pass: configuration.password },
+    auth:
+      configuration.username === null || configuration.password === null
+        ? undefined
+        : { user: configuration.username, pass: configuration.password },
   });
 }
 

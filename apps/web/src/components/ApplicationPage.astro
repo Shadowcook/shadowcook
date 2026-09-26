@@ -1,5 +1,5 @@
 ---
-import LoginScreen from './LoginScreen';
+import CookbookScreen from './CookbookScreen';
 import AdminArea from './AdminArea';
 import InvitationScreen from './InvitationScreen';
 import TenantSelection from './TenantSelection';
@@ -10,8 +10,17 @@ import '../styles/global.css';
 
 const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
 const text = translations[locale];
-interface Properties { path: string; }
+interface Properties {
+  path: string;
+}
 const { path } = Astro.props;
+const isAdministrationPath: boolean = path === '/admin' || path.startsWith('/admin/');
+const isTenantManagementPath: boolean =
+  path.endsWith('/drafts') ||
+  path.endsWith('/categories') ||
+  path.includes('/manage/') ||
+  path.endsWith('/recipes/new') ||
+  /\/recipes\/[^/]+\/edit$/.test(path);
 ---
 
 <!doctype html>
@@ -23,9 +32,27 @@ const { path } = Astro.props;
     <title>{text.metadata.title}</title>
   </head>
   <body>
-    <main class="application-shell">
+    <main
+      class={isAdministrationPath || isTenantManagementPath
+        ? 'application-shell application-shell--admin'
+        : 'application-shell'}
+    >
       <Brand name={text.brandName} />
-      {path === '/' ? <TenantSelection client:load locale={locale} /> : path.startsWith('/invitations/') ? <InvitationScreen client:load locale={locale} token={path.slice('/invitations/'.length)} /> : path === '/admin' || path.startsWith('/admin/') ? <AdminArea client:load locale={locale} path={path} /> : <LoginScreen client:load locale={locale} />}
+      {
+        path === '/' ? (
+          <TenantSelection client:load locale={locale} />
+        ) : path.startsWith('/invitations/') ? (
+          <InvitationScreen
+            client:load
+            locale={locale}
+            token={path.slice('/invitations/'.length)}
+          />
+        ) : isAdministrationPath ? (
+          <AdminArea client:load locale={locale} path={path} />
+        ) : (
+          <CookbookScreen client:load locale={locale} />
+        )
+      }
     </main>
   </body>
 </html>

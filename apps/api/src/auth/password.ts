@@ -1,7 +1,8 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
 
-const scrypt: (password: string, salt: Buffer, keyLength: number) => Promise<Buffer> = promisify(scryptCallback);
+const scrypt: (password: string, salt: Buffer, keyLength: number) => Promise<Buffer> =
+  promisify(scryptCallback);
 const saltLength: number = 16;
 const keyLength: number = 32;
 

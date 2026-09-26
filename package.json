@@ -8,8 +8,14 @@
     "check": "npm --prefix packages/db run check && npm --prefix apps/api run check && npm --prefix apps/web run check",
     "dev:api": "npm --prefix packages/db run build && npm --prefix apps/api run dev",
     "dev:web": "npm --prefix apps/web run dev",
+    "format": "prettier --write --plugin=prettier-plugin-astro apps/api/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md package.json apps/api/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
+    "format:check": "prettier --check --plugin=prettier-plugin-astro apps/api/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md package.json apps/api/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
     "start:api": "npm --prefix apps/api run start",
     "maintenance": "npm --prefix apps/api run maintenance",
     "reset:dev-db": "npm --prefix apps/api run reset:dev-db"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.8",
+    "prettier-plugin-astro": "^0.14.1"
   }
 }

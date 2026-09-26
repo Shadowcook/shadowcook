@@ -194,6 +194,8 @@ shadowcook/
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
 - The cookbook overview exposes category and recipe public identifiers, slugs, titles, summaries, category assignments, and category parent public identifiers.
 - The API process seeds the `local-cookbook` tenant, its bootstrap administrator membership, four categories, and three published recipes only when `NODE_ENV=development`.
+- The development bootstrap administrator receives the `Owner` tenant role for `local-cookbook` after development seed data is loaded.
+- The API process runs the tracked `initial-deployment-units-v1` seed once for each database after migrations and before bootstrap administration. The seed inserts instance-owned recipe units from `initial-deployment-seed.json` and records its identifier in `application_seed` in the same transaction.
 - Tenant recipe visibility defaults to `PUBLIC`; a recipe visibility override can restrict an individual recipe.
 - Categories support parent-child trees with no fixed database depth limit.
 - A category slug is unique within its tenant. A recipe slug is unique within its tenant.
@@ -201,17 +203,25 @@ shadowcook/
 - The category and recipe slug reservation list is `admin`, `api`, `assets`, `auth`, `health`, `login`, `logout`, `recipes`, and `settings`. The database rejects these values for both entity types.
 - `/login` is the public sign-in route. An unauthenticated request to it renders the sign-in form; an authenticated request redirects to `/`.
 - `/` presents the accessible tenant selection. Cookbook content is loaded only after choosing a tenant at `/tenants/{tenant-slug}`; a cookbook response contains records from exactly one tenant.
+- Successful sign-in and sign-out navigate to `/` as full page transitions so the tenant-selection route, rather than a previously mounted cookbook client, controls the root page.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`.
 - Sibling categories have a non-negative tenant-scoped `sort_order` that is unique within their parent category.
-- Every recipe revision has at least one category.
+- Every published recipe revision has at least one category. Draft revisions may be uncategorized.
+- The tenant-scoped category editor is available at `/{tenant-slug}/categories`. It requires `category:update` and creates, updates, reparents, and deletes categories through `/cookbook/tenants/{tenantSlug}/categories`.
+- The category editor changes a category's sibling order only by moving it one position up or down. The operation swaps `sort_order` with the adjacent category under the same parent.
+- A category deletion is rejected when the category or any of its descendants is assigned to a recipe revision. Category slugs reserve `categories` in addition to the other cookbook route segments.
+- Editable category responses expose whether a category tree can be deleted, based on recipe-revision assignments in that category and all descendants.
+- A future draft view will list recipes with an active draft revision separately from published cookbook navigation.
 - `GET /cookbook/recipes/{publicId}` returns one accessible published recipe with ordered preparation steps and the ingredient usages assigned to each step.
+- The web client separates cookbook orchestration, cookbook dashboard rendering, category tree rendering, public tenant selection, tenant management, sign-in, password change, status messages, and browser API requests into dedicated components or modules.
 
 ### 4.3 Development database reset
 
 - `pnpm reset:dev-db` drops and recreates the PostgreSQL `public` schema only when `NODE_ENV=development`.
 - The next API startup applies the current initial schema and development seed.
 - The optional repository-root `development-seed.json` stores development database records as table-name keys and row arrays. The loader validates every table and column against the active PostgreSQL schema and inserts rows in JSON property order. Omitted columns use database defaults; relations use explicit stable identifiers. `$seedRef` resolves bootstrap seed values, and `$encrypt` encrypts a string for a `bytea` column. The local file is excluded from version control; `development-seed.example.json` is the template.
+- The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.
 
 ### 4.4 Instance mail delivery
 
@@ -234,14 +244,19 @@ shadowcook/
 - `/admin` is a reserved, instance-wide web namespace and is not a tenant slug.
 - The instance administration UI has its own navigation and does not use cookbook breadcrumbs.
 - `/admin` is the administration dashboard, `/admin/tenants` is tenant management, `/admin/users` is instance and tenant user management, `/admin/settings` is the instance settings overview, and `/admin/settings/smtp` manages SMTP delivery.
+- `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.
+- An active session may accept a tenant-owner invitation only when its email address matches the invited email address; the invitation page provides a sign-out action for a mismatched session.
+- One-time email and invitation codes are cleared on session, account, and authentication-step changes and are excluded from browser autocomplete.
+- The six-field login-code control distributes pasted digits from the active field and uses backspace in an empty field to remove and focus the preceding digit.
 - `PUBLIC_WEB_ORIGIN` is the public web origin used to construct invitation URLs.
 - Tenant creation commits only after SMTP delivery of the owner invitation succeeds.
 - A disabled tenant is excluded from tenant selection, cookbook responses, recipe-detail responses, and invitation acceptance.
 - Deleting a tenant permanently deletes its tenant-owned records and inbound sharing records that identify the deleted tenant by public ID.
 - A cookbook response includes the selected tenant display name for the tenant-scoped page heading and breadcrumb.
+- Successful tenant creation from the tenant-management dialog closes the dialog, refreshes the tenant list, and displays a transient success toast.
 
 ---
 
@@ -321,7 +336,7 @@ Tenant context should be explicit in repository and authorization code.
 Repository calls should prefer patterns such as:
 
 ```ts
-recipeRepository.findById(tenantId, recipeId)
+recipeRepository.findById(tenantId, recipeId);
 ```
 
 instead of globally querying by recipe ID and applying tenant filtering later.
@@ -423,6 +438,14 @@ A recipe has:
 Categories remain hierarchical.
 
 A recipe may belong to multiple categories.
+
+Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe visibility is `PRIVATE` or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens.
+
+An ingredient usage contains either a normalized ingredient reference or a non-empty text override. Text overrides support non-ingredient recipe entries such as prepared components and oven settings. A text override can have a special entry kind: no icon, remove, add, information, important, cook, cool, heat, wait, or work step. The editor keeps amount, unit, and optional controls visible for every entry. The API ignores these values for special entry kinds.
+
+The recipe editor retrieves at most twenty matching ingredients for a non-empty ingredient search query. The web client delays each ingredient-search request by 300 milliseconds and does not request or render catalogue ingredient results for an empty query.
+
+The recipe editor presents one note input for every recipe step entry. A normalized ingredient stores this input as its ingredient note. Free-text and special entries store it as their text override.
 
 Suggested structure:
 
@@ -589,6 +612,14 @@ Unit
 ├── base factor
 └── optional offset
 ```
+
+Instance-owned units have no owner tenant. The server converts an amount to its dimension base value as `amount × base factor + base offset`, then converts that base value to the target unit. Only temperature units may have a non-zero base offset.
+
+Seeded standard units have a stable `localization_key`. Web clients resolve their localized names and symbols from that key. Units without a `localization_key` are administrator-defined and use their stored name and symbol without translation. Recipe ingredient usages store a unit reference and receive the unit localization key with the recipe detail response.
+
+Seeded standard ingredients and their aliases have stable `localization_key` values. Web clients resolve localized ingredient and alias names from these keys. Administrator-defined ingredients and aliases have no localization key and use their stored names without translation. Recipe ingredient usages store an ingredient reference and receive its localization key with the recipe detail response.
+
+Ingredient translations and ingredient aliases are separate concepts. A future ingredient translation stores one preferred display name for an ingredient and locale. A future ingredient alias stores an additional recognized name for an ingredient and locale. Tenant-owned ingredients will support tenant-managed translations and aliases. Recipe ingredient usages continue to reference ingredient identities rather than translated names.
 
 Examples of dimensions:
 
@@ -974,6 +1005,8 @@ Service accounts should normally receive least-privilege permissions.
 - Tenant-role names and their permission assignments are tenant data. The initial tenant-role set will be `Owner`, `Editor`, and `Viewer`.
 - `user_session` stores a SHA-256 verifier of an opaque browser session token. The plaintext token is only held in the `shadowcook_session` HttpOnly cookie.
 - Non-development session cookies include the `Secure` attribute. Development session cookies omit it for local HTTP access.
+- The web client caches the session presentation state and granted or denied administration-access results in per-tab session storage for 15 minutes. An unauthenticated administration result is rechecked on the next administration visit. API authorization continues to validate the opaque session and permissions server-side for every protected request.
+- Administration navigation uses browser History API transitions within its React island. Administration URLs remain directly reachable and links preserve their normal behavior for modified clicks and new tabs.
 
 ### 15.2.2 Bootstrap administrator and password recovery
 

@@ -2,8 +2,36 @@
 
 ## Completed
 
+- Recipe step entries support either a validated catalogue ingredient or an explicit free-text override; the database enforces exactly one representation per entry.
+
+- Recipe step editing presents each step's instruction and ingredient list side by side on desktop viewports, with a responsive stacked mobile layout.
+
+- Astro middleware validates browser sessions before serving tenant recipe-management routes and returns 401 for missing or invalid tokens.
+
+- Recipe drafts support creation, editing, deletion, and persisted up/down ordering of preparation steps and their normalized ingredient usages.
+
+- Recipe category assignment uses an expandable hierarchy while retaining independent category checkboxes.
+
+- The permission-aware tenant navigation is confined to the cookbook management workspace, which provides recipe management, draft list, category management, and recipe creation.
+
+- Tenant recipe editor creates and saves mutable drafts, turns changes to published recipes into new drafts, and publishes category-assigned drafts as incrementing immutable versions.
+- Recipe visibility supports private and public publication; published recipes can receive opaque tokenized share links.
+- Deep-linkable editor routes support recipe creation, editing, and a dedicated tenant draft list.
+
+- Tenant-scoped, deep-linkable category management creates, renames, reparents, and deletes unused category trees. Category operations require the tenant `category:update` permission.
+- Category deletion is prevented for categories and subtrees used by recipe revisions.
+- Category delete controls are disabled when the category or any of its descendants is used by a recipe revision.
+- The category editor suggests a URL name from a new category name and validates its format, reserved route names, and tenant-local conflicts while editing.
+- The category editor provides accessible up and down controls for sibling ordering.
+- The development bootstrap administrator receives the `Owner` role for the seeded local cookbook.
+
+- Cookbook client responsibilities are split into dedicated screen, dashboard, category tree, public tenant-selection, tenant-management, sign-in, password-change, status-message, and API-client modules.
+- The web client validates every restored browser session against the API; invalid server-side sessions clear the per-tab presentation cache immediately.
+- Administration navigation uses History API transitions, retaining the active administration island between internal page changes.
+- Project source, styles, contracts, and documentation use the shared Prettier formatting configuration.
 - Tenant administration supports renaming and permanently deleting tenants. Disabled tenants are excluded from selection and cookbook access.
 - Tenant-scoped cookbook headings and breadcrumbs use the selected tenant display name.
+- Tenant creation closes its management dialog and shows a transient success toast after the tenant list refreshes.
 
 - Stepwise sign-in form with an email-first code flow, six individual code inputs, and password fallback.
 - Tenant creation generates an editable slug from the cookbook name and validates the slug server-side.
@@ -18,11 +46,19 @@
 - Configurable instance authentication policy with password and email-code login modes.
 - Hashed, expiring, rate-limited email one-time codes and SMTP-delivered login codes.
 - Tenant creation with tenant-manager authorization, owner role, audit event, and email-verified invitation acceptance.
+- Tenant invitations explain active-session email mismatches and allow sign-out before accepting the invitation.
+- One-time-code inputs clear their state on account and session changes and disable browser autocomplete.
+- The six-field login-code input supports digit distribution on paste and backward deletion across fields.
 - Instance authentication settings and tenant creation administration views.
 
 - Instance SMTP configuration API with encrypted password storage, permission-gated access, and test-message delivery.
 - Deep-linkable `/admin/settings` interface for SMTP configuration and test-message delivery.
 - Dedicated deep-linkable instance administration area with dashboard, tenant, user, settings, and SMTP settings navigation.
+- Instance administration provides deep-linkable UOM management with server-owned unit CRUD, recipe-usage deletion protection, and same-dimension conversion checks.
+- Administration pages use the available desktop viewport width; recipe detail layout stacks its ingredient and preparation columns on narrow screens.
+- A one-time initial-deployment seed populates common instance-owned recipe units for mass, volume, count, and temperature before bootstrap administration and development seeding.
+- Seeded standard units provide stable localization keys; the web client localizes their names and symbols in the unit administration and recipe detail interfaces while administrator-defined units retain their stored presentation.
+- Instance administration provides deep-linkable ingredient and alias management. The initial deployment seed contains localized standard ingredients and aliases, and recipe details localize referenced standard ingredients.
 
 - pnpm workspace baseline with API and database packages.
 - PostgreSQL initial schema migration for tenants, identities, principals, authorization, catalogues, recipes, immutable revisions, revision content, media, audit events, cooking sessions, sharing, federation upstreams, and federation mappings.
@@ -45,11 +81,15 @@
 - Public read-only cookbook overview without an automatic login gate; authenticated users additionally receive their tenant recipes.
 - Initial-schema public recipe visibility default.
 - Development category tree with seed data through five levels and recipes assigned to multiple categories.
-- Deferred database constraint that requires every recipe revision to have a category.
+- Deferred database constraint that requires every published recipe revision to have a category while allowing uncategorized drafts.
 - Development-only command for recreating the disposable PostgreSQL schema.
 - Collapsible cookbook category tree with localized accessible expand and collapse controls.
 - Persisted category sibling ordering in the database, API, development seed, and cookbook tree.
 - Accessible recipe detail endpoint with ordered preparation steps and step-specific ingredient usages.
+- Recipe step entries support validated ingredient references, plain text overrides, and icon-marked semantic entries for remove, add, information, important, cook, cool, heat, wait, and work-step instructions.
+- Recipe ingredient selection uses a delayed, server-backed catalogue search and keeps special entries available without loading the ingredient catalogue.
+- Recipe step entries use one shared note input for ingredient notes, free text, and special-entry descriptions.
+- Recipe step rows retain editable amount, unit, ingredient, note, and optional controls for every selection; the API discards amount, unit, ingredient note, and optional values for special entries.
 - Clickable cookbook recipe cards with a localized recipe detail view.
 - Deep-linkable cookbook navigation with hierarchical category and recipe-slug URLs.
 - Tenant-unique category slugs in the initial database schema.

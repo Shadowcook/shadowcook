@@ -130,84 +130,670 @@ paths:
       responses:
         '200':
           description: Enabled methods.
-          content: {application/json: {schema: {type: object, additionalProperties: false, required: [password, emailCode], properties: {password: {type: boolean}, emailCode: {type: boolean}}}}}
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [password, emailCode],
+                      properties: { password: { type: boolean }, emailCode: { type: boolean } },
+                    },
+                },
+            }
   /auth/email-code/request:
     post:
       operationId: requestLoginEmailCode
       summary: Requests a sign-in code without revealing whether an account exists.
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object, additionalProperties: false, required: [email], properties: {email: {type: string, format: email}}}}}
-      responses: {'204': {description: The request was accepted.}}
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [email],
+                    properties: { email: { type: string, format: email } },
+                  },
+              },
+          }
+      responses: { '204': { description: The request was accepted. } }
   /auth/email-code/verify:
     post:
       operationId: verifyLoginEmailCode
       summary: Verifies a login code and starts a browser session.
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object, additionalProperties: false, required: [email, code], properties: {email: {type: string, format: email}, code: {type: string, pattern: '^[0-9]{6}$'}}}}}
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [email, code],
+                    properties:
+                      {
+                        email: { type: string, format: email },
+                        code: { type: string, pattern: '^[0-9]{6}$' },
+                      },
+                  },
+              },
+          }
       responses:
-        '200': {description: Authentication succeeded., content: {application/json: {schema: {type: object, required: [passwordChangeRequired], properties: {passwordChangeRequired: {type: boolean}}}}}}
-        '400': {description: Invalid request, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '401': {description: Invalid or expired code, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '200':
+          {
+            description: Authentication succeeded.,
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        type: object,
+                        required: [passwordChangeRequired],
+                        properties: { passwordChangeRequired: { type: boolean } },
+                      },
+                  },
+              },
+          }
+        '400':
+          {
+            description: Invalid request,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '401':
+          {
+            description: Invalid or expired code,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
   /admin/authentication-settings:
     get:
       operationId: getAuthenticationSettings
-      security: [{sessionCookie: []}]
-      responses: {'200': {description: Settings, content: {application/json: {schema: {type: object, required: [loginMode], properties: {loginMode: {type: string, enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE]}}}}}}}
+      security: [{ sessionCookie: [] }]
+      responses:
+        {
+          '200':
+            {
+              description: Settings,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          required: [loginMode],
+                          properties:
+                            {
+                              loginMode:
+                                {
+                                  type: string,
+                                  enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE],
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+        }
     put:
       operationId: saveAuthenticationSettings
-      security: [{sessionCookie: []}]
+      security: [{ sessionCookie: [] }]
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object, required: [loginMode], properties: {loginMode: {type: string, enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE]}}}}}
-      responses: {'204': {description: Saved.}, '409': {description: SMTP required for email-only mode, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    required: [loginMode],
+                    properties:
+                      {
+                        loginMode:
+                          {
+                            type: string,
+                            enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE],
+                          },
+                      },
+                  },
+              },
+          }
+      responses:
+        {
+          '204': { description: Saved. },
+          '409':
+            {
+              description: SMTP required for email-only mode,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/ingredients:
+    get:
+      operationId: listIngredients
+      summary: Lists instance-owned ingredients with aliases and recipe usage counts.
+      security: [{ sessionCookie: [] }]
+      responses:
+        {
+          '200':
+            {
+              description: Ingredients,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          required: [ingredients],
+                          properties:
+                            {
+                              ingredients:
+                                { type: array, items: { $ref: '#/components/schemas/Ingredient' } },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    post:
+      operationId: createIngredient
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/IngredientInput' } } },
+        }
+      responses:
+        {
+          '201':
+            {
+              description: Ingredient created,
+              content:
+                { application/json: { schema: { $ref: '#/components/schemas/Ingredient' } } },
+            },
+          '400':
+            {
+              description: Invalid ingredient,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Ingredient conflict,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/ingredients/{publicId}:
+    patch:
+      operationId: updateIngredient
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/IngredientInput' } } },
+        }
+      responses:
+        {
+          '204': { description: Ingredient updated. },
+          '400':
+            {
+              description: Invalid ingredient,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Ingredient not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+    delete:
+      operationId: deleteIngredient
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        {
+          '204': { description: Ingredient deleted. },
+          '404':
+            {
+              description: Ingredient not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Ingredient is in use,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/ingredients/{publicId}/aliases:
+    post:
+      operationId: createIngredientAlias
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/IngredientAliasInput' } } },
+        }
+      responses:
+        {
+          '201':
+            {
+              description: Alias created,
+              content:
+                { application/json: { schema: { $ref: '#/components/schemas/IngredientAlias' } } },
+            },
+          '400':
+            {
+              description: Invalid alias,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Ingredient not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Alias conflict,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/ingredients/{publicId}/aliases/{aliasPublicId}:
+    patch:
+      operationId: updateIngredientAlias
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+          { name: aliasPublicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/IngredientAliasInput' } } },
+        }
+      responses:
+        {
+          '204': { description: Alias updated. },
+          '400':
+            {
+              description: Invalid alias,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Alias not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Alias conflict,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+    delete:
+      operationId: deleteIngredientAlias
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+          { name: aliasPublicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses:
+        {
+          '204': { description: Alias deleted. },
+          '404':
+            {
+              description: Alias not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/units:
+    get:
+      operationId: listUnits
+      summary: Lists instance-owned units of measure and recipe usage counts.
+      security: [{ sessionCookie: [] }]
+      responses:
+        {
+          '200':
+            {
+              description: Units,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          required: [units],
+                          properties:
+                            {
+                              units: { type: array, items: { $ref: '#/components/schemas/Unit' } },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+    post:
+      operationId: createUnit
+      summary: Creates an instance-owned unit of measure.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
+      responses:
+        {
+          '201':
+            {
+              description: Unit created,
+              content: { application/json: { schema: { $ref: '#/components/schemas/Unit' } } },
+            },
+          '400':
+            {
+              description: Invalid unit,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Unit name or symbol conflict,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/units/convert:
+    post:
+      operationId: convertUnitAmount
+      summary: Converts an amount between two instance-owned units of the same dimension.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    required: [amount, sourceUnitPublicId, targetUnitPublicId],
+                    properties:
+                      {
+                        amount:
+                          { type: string, pattern: '^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' },
+                        sourceUnitPublicId: { type: string, format: uuid },
+                        targetUnitPublicId: { type: string, format: uuid },
+                      },
+                  },
+              },
+          }
+      responses:
+        {
+          '200':
+            {
+              description: Converted amount,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          required: [amount, dimension],
+                          properties:
+                            {
+                              amount: { type: string },
+                              dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] },
+                            },
+                        },
+                    },
+                },
+            },
+          '400':
+            {
+              description: Invalid conversion,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Unit not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Unit dimension mismatch,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+  /admin/units/{publicId}:
+    patch:
+      operationId: updateUnit
+      summary: Updates an instance-owned unit of measure.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
+      responses:
+        {
+          '204': { description: Unit updated. },
+          '400':
+            {
+              description: Invalid unit,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Unit not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Unit name or symbol conflict,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
+    delete:
+      operationId: deleteUnit
+      summary: Deletes an unused instance-owned unit of measure.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        {
+          '204': { description: Unit deleted. },
+          '404':
+            {
+              description: Unit not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Unit is used by recipe ingredients,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
   /admin/tenants:
     get:
       operationId: listTenants
-      security: [{sessionCookie: []}]
-      responses: {'200': {description: Tenant list.}}
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Tenant list. } }
     post:
       operationId: createTenant
-      security: [{sessionCookie: []}]
+      security: [{ sessionCookie: [] }]
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object, required: [firstName, lastName, email, cookbookName, slug], properties: {firstName: {type: string}, lastName: {type: string}, email: {type: string, format: email}, cookbookName: {type: string}, slug: {type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'}}}}}
-      responses: {'201': {description: Tenant and owner invitation created.}, '400': {description: Invalid tenant, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '409': {description: Tenant slug conflict, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '429': {description: Invitation-code request limit reached; no tenant was created, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '502': {description: SMTP delivery failed; no tenant was created, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '503': {description: SMTP is not configured; no tenant was created, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    required: [firstName, lastName, email, cookbookName, slug],
+                    properties:
+                      {
+                        firstName: { type: string },
+                        lastName: { type: string },
+                        email: { type: string, format: email },
+                        cookbookName: { type: string },
+                        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' },
+                      },
+                  },
+              },
+          }
+      responses:
+        {
+          '201': { description: Tenant and owner invitation created. },
+          '400':
+            {
+              description: Invalid tenant,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Tenant slug conflict,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '429':
+            {
+              description: Invitation-code request limit reached; no tenant was created,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '502':
+            {
+              description: SMTP delivery failed; no tenant was created,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '503':
+            {
+              description: SMTP is not configured; no tenant was created,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
   /admin/tenants/{publicId}:
     patch:
       operationId: updateTenant
       summary: Renames a tenant or changes its enabled state.
-      security: [{sessionCookie: []}]
-      parameters: [{name: publicId, in: path, required: true, schema: {type: string, format: uuid}}]
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object, additionalProperties: false, properties: {displayName: {type: string, minLength: 1}, disabled: {type: boolean}}, minProperties: 1}}}
-      responses: {'204': {description: Tenant updated.}, '400': {description: Invalid update, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '404': {description: Tenant not found, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    properties:
+                      { displayName: { type: string, minLength: 1 }, disabled: { type: boolean } },
+                    minProperties: 1,
+                  },
+              },
+          }
+      responses:
+        {
+          '204': { description: Tenant updated. },
+          '400':
+            {
+              description: Invalid update,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Tenant not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
     delete:
       operationId: deleteTenant
       summary: Permanently deletes a tenant and all tenant-owned data.
-      security: [{sessionCookie: []}]
-      parameters: [{name: publicId, in: path, required: true, schema: {type: string, format: uuid}}]
-      responses: {'204': {description: Tenant and tenant-owned data deleted.}, '404': {description: Tenant not found, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        {
+          '204': { description: Tenant and tenant-owned data deleted. },
+          '404':
+            {
+              description: Tenant not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
   /admin/users:
     get:
       operationId: listUsers
-      security: [{sessionCookie: []}]
-      responses: {'200': {description: Users and tenant memberships.}}
+      security: [{ sessionCookie: [] }]
+      responses: { '200': { description: Users and tenant memberships. } }
   /invitations/{token}:
     get:
       operationId: getTenantInvitation
-      parameters: [{name: token, in: path, required: true, schema: {type: string}}]
-      responses: {'200': {description: Invitation details.}, '404': {description: Invitation unavailable, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        {
+          '200': { description: Invitation details. },
+          '404':
+            {
+              description: Invitation unavailable,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
   /invitations/{token}/accept:
     post:
       operationId: acceptTenantInvitation
-      parameters: [{name: token, in: path, required: true, schema: {type: string}}]
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       requestBody:
         required: true
-        content: {application/json: {schema: {type: object, required: [code], properties: {code: {type: string, pattern: '^[0-9]{6}$'}}}}}
-      responses: {'204': {description: Invitation accepted.}, '401': {description: Invalid email code, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}, '404': {description: Invitation unavailable, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}}
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    required: [code],
+                    properties: { code: { type: string, pattern: '^[0-9]{6}$' } },
+                  },
+              },
+          }
+      responses:
+        {
+          '204': { description: Invitation accepted. },
+          '401':
+            {
+              description: Invalid email code,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '403':
+            {
+              description: The active session uses a different email address,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '404':
+            {
+              description: Invitation unavailable,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+        }
   /health:
     get:
       operationId: getHealth
@@ -230,7 +816,7 @@ paths:
     get:
       operationId: getInstanceMailSettings
       summary: Returns non-secret SMTP settings for the instance.
-      security: [{sessionCookie: []}]
+      security: [{ sessionCookie: [] }]
       responses:
         '200':
           description: The mail settings state.
@@ -238,12 +824,20 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/InstanceMailSettings'
-        '401': {description: Authentication is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '403': {description: An instance permission is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '401':
+          {
+            description: Authentication is required,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '403':
+          {
+            description: An instance permission is required,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
     put:
       operationId: saveInstanceMailSettings
       summary: Stores encrypted SMTP settings for the instance.
-      security: [{sessionCookie: []}]
+      security: [{ sessionCookie: [] }]
       requestBody:
         required: true
         content:
@@ -251,16 +845,32 @@ paths:
             schema:
               $ref: '#/components/schemas/InstanceMailSettingsInput'
       responses:
-        '204': {description: The mail settings were stored.}
-        '400': {description: The settings are invalid, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '401': {description: Authentication is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '403': {description: An instance permission is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '503': {description: The instance encryption key is not configured, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '204': { description: The mail settings were stored. }
+        '400':
+          {
+            description: The settings are invalid,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '401':
+          {
+            description: Authentication is required,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '403':
+          {
+            description: An instance permission is required,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '503':
+          {
+            description: The instance encryption key is not configured,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
   /admin/mail-settings/test:
     post:
       operationId: sendInstanceMailSettingsTest
       summary: Sends a test message using the stored SMTP settings.
-      security: [{sessionCookie: []}]
+      security: [{ sessionCookie: [] }]
       requestBody:
         required: true
         content:
@@ -270,15 +880,39 @@ paths:
               additionalProperties: false
               required: [recipient]
               properties:
-                recipient: {type: string, format: email}
+                recipient: { type: string, format: email }
       responses:
-        '204': {description: The test message was accepted for delivery.}
-        '400': {description: The recipient is invalid, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '401': {description: Authentication is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '403': {description: An instance permission is required, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '409': {description: Mail is not configured, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '502': {description: SMTP delivery failed, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
-        '503': {description: The instance encryption key is not configured, content: {application/json: {schema: {$ref: '#/components/schemas/ApiError'}}}}
+        '204': { description: The test message was accepted for delivery. }
+        '400':
+          {
+            description: The recipient is invalid,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '401':
+          {
+            description: Authentication is required,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '403':
+          {
+            description: An instance permission is required,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '409':
+          {
+            description: Mail is not configured,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '502':
+          {
+            description: SMTP delivery failed,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
+        '503':
+          {
+            description: The instance encryption key is not configured,
+            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+          }
   /cookbook:
     get:
       operationId: getCookbook
@@ -291,7 +925,7 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [tenant, categories, recipes]
+                required: [tenant, categories, recipes, canManageCategories]
                 properties:
                   tenant:
                     oneOf:
@@ -300,7 +934,7 @@ paths:
                         additionalProperties: false
                         required: [display_name]
                         properties:
-                          display_name: {type: string}
+                          display_name: { type: string }
                   categories:
                     type: array
                     items:
@@ -309,6 +943,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/CookbookRecipe'
+                  canManageCategories:
+                    type: boolean
         '403':
           description: A password change is required before accessing the cookbook.
           content:
@@ -325,7 +961,104 @@ paths:
     get:
       operationId: listAccessibleCookbookTenants
       summary: Returns accessible enabled tenants.
-      responses: {'200': {description: Enabled accessible tenants.}}
+      responses: { '200': { description: Enabled accessible tenants. } }
+  /cookbook/tenants/{tenantSlug}/categories:
+    get:
+      operationId: listEditableCategories
+      summary: Returns all categories in a tenant for category editors.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Tenant categories.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [categories]
+                properties:
+                  categories:
+                    { type: array, items: { $ref: '#/components/schemas/EditableCategory' } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/TenantNotFound' }
+    post:
+      operationId: createCategory
+      summary: Creates a category in a tenant.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CategoryInput' } } }
+      responses:
+        '201':
+          description: Category created.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/EditableCategory' } } }
+        '400': { $ref: '#/components/responses/InvalidCategory' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '409': { $ref: '#/components/responses/CategoryConflict' }
+  /cookbook/tenants/{tenantSlug}/categories/{publicId}:
+    patch:
+      operationId: updateCategory
+      summary: Updates a category's name, URL name, or parent category.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/PublicId'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/CategoryInput' } } }
+      responses:
+        '200':
+          description: Category updated.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/EditableCategory' } } }
+        '400': { $ref: '#/components/responses/InvalidCategory' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/CategoryNotFound' }
+        '409': { $ref: '#/components/responses/CategoryConflict' }
+    delete:
+      operationId: deleteCategory
+      summary: Deletes an unused category and its unused descendants.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/PublicId'
+      responses:
+        '204': { description: Category deleted. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/CategoryNotFound' }
+        '409': { $ref: '#/components/responses/CategoryInUse' }
+  /cookbook/tenants/{tenantSlug}/categories/{publicId}/move:
+    post:
+      operationId: moveCategory
+      summary: Moves a category before or after its adjacent sibling.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - $ref: '#/components/parameters/PublicId'
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/CategoryMoveInput' } } }
+      responses:
+        '204': { description: Category order updated or already at the requested boundary. }
+        '400': { $ref: '#/components/responses/InvalidCategory' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/CategoryNotFound' }
   /cookbook/recipes/{publicId}:
     get:
       operationId: getCookbookRecipe
@@ -356,38 +1089,425 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /cookbook/tenants/{tenantSlug}/drafts:
+    get:
+      operationId: listRecipeDrafts
+      summary: Lists editable recipe drafts for a tenant.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Recipe drafts.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [recipes]
+                properties:
+                  recipes:
+                    type: array
+                    items: { $ref: '#/components/schemas/EditableRecipe' }
+  /cookbook/tenants/{tenantSlug}/recipes:
+    post:
+      operationId: createRecipeDraft
+      summary: Creates a recipe with its first draft revision.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecipeDraftInput' }
+      responses:
+        '201':
+          description: Draft created.
+          content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft:
+    get:
+      operationId: getRecipeDraft
+      summary: Returns the current editable revision or published revision.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '200':
+          {
+            description: Recipe editor state,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } },
+          }
+    patch:
+      operationId: updateRecipeDraft
+      summary: Saves a recipe draft, creating one from the published revision when needed.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/RecipeDraftInput' } } },
+        }
+      responses:
+        '200':
+          {
+            description: Draft saved,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } },
+          }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/publish:
+    post:
+      operationId: publishRecipeDraft
+      summary: Publishes the current draft when it has at least one category.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '200':
+          {
+            description: Recipe published,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } },
+          }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/steps:
+    get:
+      operationId: getRecipeDraftSteps
+      summary: Returns the editable preparation steps for a recipe revision.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '200':
+          description: Editable preparation steps.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [steps]
+                properties:
+                  steps:
+                    type: array
+                    items: { $ref: '#/components/schemas/RecipeDraftStep' }
+    put:
+      operationId: replaceRecipeDraftSteps
+      summary: Replaces the editable preparation steps, creating a draft from the published revision when needed.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [steps]
+              properties:
+                steps:
+                  type: array
+                  items: { $ref: '#/components/schemas/RecipeDraftStepInput' }
+      responses:
+        '204': { description: Preparation steps saved. }
+        '400': { description: The recipe step input is invalid. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+  /cookbook/tenants/{tenantSlug}/editor-catalogue:
+    get:
+      operationId: getRecipeEditorCatalogue
+      summary: Returns units for the recipe editor.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+      responses:
+        '200':
+          description: Recipe editor units.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [units]
+                properties:
+                  units:
+                    type: array
+                    items: { $ref: '#/components/schemas/EditorUnit' }
+  /cookbook/tenants/{tenantSlug}/editor-catalogue/ingredients:
+    get:
+      operationId: searchRecipeEditorIngredients
+      summary: Searches up to twenty accessible ingredients for the recipe editor.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: search
+          in: query
+          required: false
+          schema: { type: string }
+      responses:
+        '200':
+          description: Matching ingredients.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [ingredients]
+                properties:
+                  ingredients:
+                    type: array
+                    maxItems: 20
+                    items: { $ref: '#/components/schemas/EditorIngredient' }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/share-links:
+    post:
+      operationId: createRecipeShareLink
+      summary: Creates a tokenized share link for the published recipe.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '201':
+          {
+            description: Share link created,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/RecipeShareLink' } } },
+          }
+  /cookbook/share-links/{token}:
+    get:
+      operationId: getSharedRecipe
+      summary: Resolves an active share link to its published recipe metadata.
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          {
+            description: Shared recipe,
+            content:
+              { application/json: { schema: { $ref: '#/components/schemas/SharedRecipe' } } },
+          }
 components:
+  parameters:
+    TenantSlug:
+      name: tenantSlug
+      in: path
+      required: true
+      schema: { type: string }
+    PublicId:
+      name: publicId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    RecipePublicId:
+      name: publicId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    AuthenticationRequired:
+      description: Authentication is required.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    TenantPermissionRequired:
+      description: The active user lacks the required tenant permission.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    TenantNotFound:
+      description: The tenant does not exist or is disabled.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    CategoryNotFound:
+      description: The category was not found.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    InvalidCategory:
+      description: The category input or parent relation is invalid.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    CategoryConflict:
+      description: A category with the supplied URL name already exists.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    CategoryInUse:
+      description: The category or one of its descendants is used by a recipe revision.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    RecipeDraftInput:
+      type: object
+      additionalProperties: false
+      required: [title, summary, slug, categoryPublicIds, visibility]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 240 }
+        summary: { type: string, maxLength: 2000 }
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        categoryPublicIds:
+          type: array
+          items: { type: string, format: uuid }
+        visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+    EditableRecipe:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          publicId,
+          slug,
+          title,
+          summary,
+          categoryPublicIds,
+          visibility,
+          publishedVersion,
+          hasPublishedRevision,
+          isDraft,
+        ]
+      properties:
+        publicId: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        categoryPublicIds: { type: array, items: { type: string, format: uuid } }
+        visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+        publishedVersion: { type: [integer, 'null'], minimum: 1 }
+        hasPublishedRevision: { type: boolean }
+        isDraft: { type: boolean }
+    RecipeShareLink:
+      type: object
+      additionalProperties: false
+      required: [token, path]
+      properties:
+        token: { type: string }
+        path: { type: string }
+    SharedRecipe:
+      type: object
+      additionalProperties: false
+      required: [public_id, slug, title, summary]
+      properties:
+        public_id: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+    CategoryInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug, parentPublicId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        parentPublicId: { type: [string, 'null'], format: uuid }
+    EditableCategory:
+      type: object
+      additionalProperties: false
+      required: [publicId, parentPublicId, name, slug, sortOrder, canDelete]
+      properties:
+        publicId: { type: string, format: uuid }
+        parentPublicId: { type: [string, 'null'], format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        sortOrder: { type: integer, minimum: 0 }
+        canDelete: { type: boolean }
+    CategoryMoveInput:
+      type: object
+      additionalProperties: false
+      required: [direction]
+      properties:
+        direction: { type: string, enum: [UP, DOWN] }
     InstanceMailSettings:
       oneOf:
         - type: object
           additionalProperties: false
           required: [configured]
-          properties: {configured: {const: false}}
+          properties: { configured: { const: false } }
         - type: object
           additionalProperties: false
-          required: [configured, host, port, transportSecurity, username, hasPassword, fromEmail, fromName]
+          required:
+            [configured, host, port, transportSecurity, username, hasPassword, fromEmail, fromName]
           properties:
-            configured: {const: true}
-            host: {type: string}
-            port: {type: integer}
-            transportSecurity: {type: string, enum: [STARTTLS, IMPLICIT_TLS]}
-            username: {type: [string, 'null']}
-            hasPassword: {type: boolean}
-            fromEmail: {type: string, format: email}
-            fromName: {type: string}
+            configured: { const: true }
+            host: { type: string }
+            port: { type: integer }
+            transportSecurity: { type: string, enum: [STARTTLS, IMPLICIT_TLS] }
+            username: { type: [string, 'null'] }
+            hasPassword: { type: boolean }
+            fromEmail: { type: string, format: email }
+            fromName: { type: string }
     InstanceMailSettingsInput:
       type: object
       additionalProperties: false
       required: [host, port, transportSecurity, username, fromEmail, fromName]
       properties:
-        host: {type: string, minLength: 1}
-        port: {type: integer, minimum: 1, maximum: 65535}
-        transportSecurity: {type: string, enum: [STARTTLS, IMPLICIT_TLS]}
-        username: {type: [string, 'null']}
-        password: {type: [string, 'null'], writeOnly: true}
-        fromEmail: {type: string, format: email}
-        fromName: {type: string, minLength: 1}
+        host: { type: string, minLength: 1 }
+        port: { type: integer, minimum: 1, maximum: 65535 }
+        transportSecurity: { type: string, enum: [STARTTLS, IMPLICIT_TLS] }
+        username: { type: [string, 'null'] }
+        password: { type: [string, 'null'], writeOnly: true }
+        fromEmail: { type: string, format: email }
+        fromName: { type: string, minLength: 1 }
+    IngredientInput:
+      type: object
+      additionalProperties: false
+      required: [canonicalName]
+      properties: { canonicalName: { type: string, minLength: 1, maxLength: 160 } }
+    IngredientAliasInput:
+      type: object
+      additionalProperties: false
+      required: [alias]
+      properties: { alias: { type: string, minLength: 1, maxLength: 160 } }
+    IngredientAlias:
+      type: object
+      additionalProperties: false
+      required: [publicId, alias, localizationKey]
+      properties:
+        publicId: { type: string, format: uuid }
+        alias: { type: string }
+        localizationKey: { type: [string, 'null'] }
+    Ingredient:
+      type: object
+      additionalProperties: false
+      required: [publicId, canonicalName, localizationKey, usageCount, aliases]
+      properties:
+        publicId: { type: string, format: uuid }
+        canonicalName: { type: string }
+        localizationKey: { type: [string, 'null'] }
+        usageCount: { type: integer, minimum: 0 }
+        aliases: { type: array, items: { $ref: '#/components/schemas/IngredientAlias' } }
+    UnitInput:
+      type: object
+      additionalProperties: false
+      required: [name, symbol, dimension, baseFactor, baseOffset]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        symbol: { type: string, minLength: 1, maxLength: 100 }
+        dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] }
+        baseFactor: { type: string, pattern: '^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' }
+        baseOffset: { type: string, pattern: '^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' }
+    Unit:
+      type: object
+      additionalProperties: false
+      required:
+        [publicId, name, symbol, localizationKey, dimension, baseFactor, baseOffset, usageCount]
+      properties:
+        publicId: { type: string, format: uuid }
+        name: { type: string }
+        symbol: { type: string }
+        localizationKey: { type: [string, 'null'] }
+        dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] }
+        baseFactor: { type: string }
+        baseOffset: { type: string }
+        usageCount: { type: integer, minimum: 0 }
     CookbookCategory:
       type: object
       additionalProperties: false
@@ -463,7 +1583,18 @@ components:
     CookbookIngredientUsage:
       type: object
       additionalProperties: false
-      required: [sort_order, amount, unit_symbol, ingredient_name, note, is_optional]
+      required:
+        [
+          sort_order,
+          amount,
+          unit_symbol,
+          unit_localization_key,
+          ingredient_name,
+          ingredient_localization_key,
+          special_kind,
+          note,
+          is_optional,
+        ]
       properties:
         sort_order:
           type: integer
@@ -472,12 +1603,96 @@ components:
           type: [string, 'null']
         unit_symbol:
           type: [string, 'null']
+        unit_localization_key:
+          type: [string, 'null']
         ingredient_name:
           type: string
+        ingredient_localization_key:
+          type: [string, 'null']
+        special_kind:
+          type: [string, 'null']
+          enum: [NO_ICON, REMOVE, ADD, INFO, IMPORTANT, COOK, COOL, HEAT, WAIT, WORK_STEP, null]
         note:
           type: [string, 'null']
         is_optional:
           type: boolean
+    RecipeDraftStep:
+      type: object
+      additionalProperties: false
+      required: [id, instruction, sortOrder, ingredients]
+      properties:
+        id: { type: string, format: uuid }
+        instruction: { type: string }
+        sortOrder: { type: integer, minimum: 0 }
+        ingredients:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeDraftUsage' }
+    RecipeDraftStepInput:
+      type: object
+      additionalProperties: false
+      required: [instruction, ingredients]
+      properties:
+        instruction: { type: string, minLength: 1 }
+        ingredients:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeDraftUsageInput' }
+    RecipeDraftUsage:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          id,
+          ingredientPublicId,
+          ingredientName,
+          textOverride,
+          specialKind,
+          amount,
+          unitPublicId,
+          note,
+          isOptional,
+          sortOrder,
+        ]
+      properties:
+        id: { type: string, format: uuid }
+        ingredientPublicId: { type: [string, 'null'], format: uuid }
+        ingredientName: { type: [string, 'null'] }
+        textOverride: { type: [string, 'null'] }
+        specialKind:
+          type: [string, 'null']
+          enum: [NO_ICON, REMOVE, ADD, INFO, IMPORTANT, COOK, COOL, HEAT, WAIT, WORK_STEP, null]
+        amount: { type: [string, 'null'] }
+        unitPublicId: { type: [string, 'null'], format: uuid }
+        note: { type: [string, 'null'] }
+        isOptional: { type: boolean }
+        sortOrder: { type: integer, minimum: 0 }
+    RecipeDraftUsageInput:
+      type: object
+      additionalProperties: false
+      properties:
+        ingredientPublicId: { type: string, format: uuid }
+        textOverride: { type: string, minLength: 1 }
+        specialKind:
+          type: string
+          enum: [NO_ICON, REMOVE, ADD, INFO, IMPORTANT, COOK, COOL, HEAT, WAIT, WORK_STEP]
+          description: When supplied, amount, unitPublicId, note, and isOptional are ignored.
+        amount: { type: string, pattern: '^\\d+(?:\\.\\d+)?$' }
+        unitPublicId: { type: string, format: uuid }
+        note: { type: string }
+        isOptional: { type: boolean }
+    EditorUnit:
+      type: object
+      additionalProperties: false
+      required: [publicId, symbol]
+      properties:
+        publicId: { type: string, format: uuid }
+        symbol: { type: string }
+    EditorIngredient:
+      type: object
+      additionalProperties: false
+      required: [publicId, name]
+      properties:
+        publicId: { type: string, format: uuid }
+        name: { type: string }
     ApiError:
       type: object
       additionalProperties: false
@@ -493,6 +1708,24 @@ components:
             - INVALID_PASSWORD
             - PASSWORD_CHANGE_REQUIRED
             - RECIPE_NOT_FOUND
+            - RECIPE_CONFLICT
+            - INVALID_RECIPE
+            - INVALID_RECIPE_CATEGORY
+            - PUBLISH_CATEGORY_REQUIRED
+            - RECIPE_NOT_PUBLISHED
+            - INVALID_UNIT
+            - UNIT_CONFLICT
+            - UNIT_NOT_FOUND
+            - UNIT_IN_USE
+            - INVALID_CONVERSION
+            - UNIT_DIMENSION_MISMATCH
+            - INVALID_INGREDIENT
+            - INGREDIENT_CONFLICT
+            - INGREDIENT_NOT_FOUND
+            - INGREDIENT_IN_USE
+            - INVALID_ALIAS
+            - ALIAS_CONFLICT
+            - ALIAS_NOT_FOUND
         error:
           type: string
   securitySchemes:

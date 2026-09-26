@@ -12,9 +12,13 @@ export function encryptSecret(value: string, key: Buffer): Buffer {
 }
 
 export function decryptSecret(value: Buffer, key: Buffer): string {
-  if (value.length <= initializationVectorLength + authenticationTagLength) throw new Error('Stored secret has an invalid format.');
+  if (value.length <= initializationVectorLength + authenticationTagLength)
+    throw new Error('Stored secret has an invalid format.');
   const initializationVector: Buffer = value.subarray(0, initializationVectorLength);
-  const authenticationTag: Buffer = value.subarray(initializationVectorLength, initializationVectorLength + authenticationTagLength);
+  const authenticationTag: Buffer = value.subarray(
+    initializationVectorLength,
+    initializationVectorLength + authenticationTagLength,
+  );
   const encrypted: Buffer = value.subarray(initializationVectorLength + authenticationTagLength);
   const decipher = createDecipheriv('aes-256-gcm', key, initializationVector);
   decipher.setAuthTag(authenticationTag);

@@ -2,7 +2,13 @@ import type { Pool } from 'pg';
 import { loadSmtpConfiguration } from '../admin/mail-routes.js';
 import { createSmtpTransport, senderAddress } from './smtp.js';
 
-export async function sendInstanceMail(pool: Pool, instanceSecretKey: Buffer | null, recipient: string, subject: string, text: string): Promise<boolean> {
+export async function sendInstanceMail(
+  pool: Pool,
+  instanceSecretKey: Buffer | null,
+  recipient: string,
+  subject: string,
+  text: string,
+): Promise<boolean> {
   if (instanceSecretKey === null) return false;
   const configuration = await loadSmtpConfiguration(pool, instanceSecretKey);
   if (configuration === null) return false;

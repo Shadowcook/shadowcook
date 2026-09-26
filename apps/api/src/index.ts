@@ -6,6 +6,7 @@ import { createApi } from './app.js';
 import { loadApiConfig } from './config.js';
 import { loadLocalEnvironment } from './environment.js';
 import { seedDevelopmentCookbook } from './development-seed.js';
+import { seedInitialDeployment } from './initial-deployment-seed.js';
 
 async function start(): Promise<void> {
   loadLocalEnvironment();
@@ -14,23 +15,35 @@ async function start(): Promise<void> {
 
   try {
     await migrateDatabase(connection.pool);
+    await seedInitialDeployment(connection.pool);
     const bootstrapResult = await bootstrapAdministrator(connection.pool, {
       email: config.bootstrapAdminEmail,
       password: config.bootstrapAdminPassword,
       passwordChangeRequired: config.bootstrapPasswordChangeRequired,
     });
     if (process.env.NODE_ENV === 'development') {
-      await seedDevelopmentCookbook(connection.pool, config.bootstrapAdminEmail, config.instanceSecretKey);
+      await seedDevelopmentCookbook(
+        connection.pool,
+        config.bootstrapAdminEmail,
+        config.instanceSecretKey,
+      );
     }
     if (bootstrapResult.created) {
-      console.warn(`Bootstrap administrator created: email=${bootstrapResult.email} password=${bootstrapResult.password}`);
+      console.warn(
+        `Bootstrap administrator created: email=${bootstrapResult.email} password=${bootstrapResult.password}`,
+      );
     }
   } catch (error: unknown) {
     await closeDatabaseConnection(connection);
     throw error;
   }
 
-  const api: FastifyInstance = createApi(connection.pool, config.secureCookies, config.instanceSecretKey, config.publicWebOrigin);
+  const api: FastifyInstance = createApi(
+    connection.pool,
+    config.secureCookies,
+    config.instanceSecretKey,
+    config.publicWebOrigin,
+  );
   api.addHook('onClose', async () => {
     await closeDatabaseConnection(connection);
   });

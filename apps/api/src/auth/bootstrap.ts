@@ -28,7 +28,9 @@ export async function bootstrapAdministrator(
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query("SELECT pg_advisory_xact_lock(hashtext('shadowcook-bootstrap-administrator'))");
+    await client.query(
+      "SELECT pg_advisory_xact_lock(hashtext('shadowcook-bootstrap-administrator'))",
+    );
     const administratorResult = await client.query<{ exists: boolean }>(`
       SELECT EXISTS (
         SELECT 1

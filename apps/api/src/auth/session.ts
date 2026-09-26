@@ -27,16 +27,22 @@ export function sessionTokenFromRequest(request: FastifyRequest): string | null 
   return null;
 }
 
-export async function currentSessionUser(pool: Pool, request: FastifyRequest): Promise<AuthenticatedSessionUser | null> {
+export async function currentSessionUser(
+  pool: Pool,
+  request: FastifyRequest,
+): Promise<AuthenticatedSessionUser | null> {
   const token: string | null = sessionTokenFromRequest(request);
   if (token === null) return null;
 
-  const result = await pool.query<AuthenticatedSessionUser>(`
+  const result = await pool.query<AuthenticatedSessionUser>(
+    `
     SELECT user_account.id, user_account.principal_id, user_account.email, user_account.password_hash,
       user_account.password_change_required, user_account.disabled_at
     FROM user_session
     INNER JOIN user_account ON user_account.id = user_session.user_account_id
     WHERE user_session.token_hash = $1 AND user_session.revoked_at IS NULL AND user_session.expires_at > now()
-  `, [hashSessionToken(token)]);
+  `,
+    [hashSessionToken(token)],
+  );
   return result.rows[0] ?? null;
 }

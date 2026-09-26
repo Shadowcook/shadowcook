@@ -41,7 +41,9 @@ export async function migrateDatabase(pool: Pool): Promise<void> {
     }
   } finally {
     try {
-      await client.query('SELECT pg_advisory_unlock(hashtext($1))', ['shadowcook-schema-migration']);
+      await client.query('SELECT pg_advisory_unlock(hashtext($1))', [
+        'shadowcook-schema-migration',
+      ]);
     } finally {
       client.release();
     }
@@ -63,10 +65,10 @@ async function applyMigration(
   await client.query('BEGIN');
   try {
     await client.query(migration.sql);
-    await client.query(
-      'INSERT INTO application_schema_migration (id, checksum) VALUES ($1, $2)',
-      [migration.id, migration.checksum],
-    );
+    await client.query('INSERT INTO application_schema_migration (id, checksum) VALUES ($1, $2)', [
+      migration.id,
+      migration.checksum,
+    ]);
     await client.query('COMMIT');
   } catch (error: unknown) {
     await client.query('ROLLBACK');

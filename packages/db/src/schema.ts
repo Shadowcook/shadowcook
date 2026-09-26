@@ -68,6 +68,51 @@ export interface RecipeRevisionTable {
   published_at: Timestamp | null;
 }
 
+export interface RecipeShareLinkTable {
+  id: Generated<Uuid>;
+  recipe_id: string;
+  token_hash: Buffer;
+  created_by_principal_id: string | null;
+  expires_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface UnitTable {
+  id: Generated<Uuid>;
+  owner_tenant_id: string | null;
+  public_id: Generated<Uuid>;
+  name: string;
+  symbol: string;
+  localization_key: string | null;
+  dimension: 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE';
+  base_factor: string;
+  base_offset: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface IngredientTable {
+  id: Generated<Uuid>;
+  owner_tenant_id: string | null;
+  public_id: Generated<Uuid>;
+  canonical_name: string;
+  localization_key: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface IngredientAliasTable {
+  id: Generated<Uuid>;
+  ingredient_id: string;
+  public_id: Generated<Uuid>;
+  alias: string;
+  localization_key: string | null;
+}
+
+export interface ApplicationSeedTable {
+  id: string;
+  applied_at: Generated<Timestamp>;
+}
+
 /**
  * The complete database contains additional domain tables created by the
  * initial migration. These core tables are typed now because they are the
@@ -79,4 +124,9 @@ export interface Database {
   user_session: UserSessionTable;
   recipe: RecipeTable;
   recipe_revision: RecipeRevisionTable;
+  recipe_share_link: RecipeShareLinkTable;
+  unit: UnitTable;
+  ingredient: IngredientTable;
+  ingredient_alias: IngredientAliasTable;
+  application_seed: ApplicationSeedTable;
 }

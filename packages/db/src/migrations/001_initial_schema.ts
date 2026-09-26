@@ -185,6 +185,11 @@ CREATE TABLE instance_authentication_settings (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
+CREATE TABLE application_seed (
+  id text PRIMARY KEY,
+  applied_at timestamptz NOT NULL DEFAULT now()
+);
+
 CREATE TABLE email_one_time_code (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   normalized_email text NOT NULL,
@@ -208,14 +213,18 @@ CREATE TABLE ingredient (
   owner_tenant_id uuid REFERENCES tenant(id) ON DELETE CASCADE,
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   canonical_name text NOT NULL CHECK (length(trim(canonical_name)) > 0),
+  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\\.[a-z]+(?:\\.[a-z]+)*$'),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE NULLS NOT DISTINCT (owner_tenant_id, canonical_name)
 );
 
 CREATE TABLE ingredient_alias (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  ingredient_id uuid NOT NULL REFERENCES ingredient(id) ON DELETE CASCADE,
+  ingredient_id uuid REFERENCES ingredient(id) ON DELETE CASCADE,
+  text_override text,
+  public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   alias text NOT NULL CHECK (length(trim(alias)) > 0),
+  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\\.[a-z]+(?:\\.[a-z]+)*$'),
   UNIQUE (ingredient_id, alias)
 );
 
@@ -225,12 +234,14 @@ CREATE TABLE unit (
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   name text NOT NULL CHECK (length(trim(name)) > 0),
   symbol text NOT NULL CHECK (length(trim(symbol)) > 0),
+  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^unit\\.[a-z]+(?:\\.[a-z]+)*$'),
   dimension text NOT NULL CHECK (dimension IN ('MASS', 'VOLUME', 'COUNT', 'TEMPERATURE')),
   base_factor numeric(24, 12) NOT NULL CHECK (base_factor > 0),
   base_offset numeric(24, 12) NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE NULLS NOT DISTINCT (owner_tenant_id, name),
-  UNIQUE NULLS NOT DISTINCT (owner_tenant_id, symbol)
+  UNIQUE NULLS NOT DISTINCT (owner_tenant_id, symbol),
+  CHECK (dimension = 'TEMPERATURE' OR base_offset = 0)
 );
 
 CREATE TABLE ingredient_modifier (
@@ -248,7 +259,7 @@ CREATE TABLE category (
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   parent_id uuid,
   name text NOT NULL CHECK (length(trim(name)) > 0),
-  slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$') CHECK (slug NOT IN ('admin', 'api', 'assets', 'auth', 'health', 'login', 'logout', 'recipes', 'settings')),
+  slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$') CHECK (slug NOT IN ('admin', 'api', 'assets', 'auth', 'categories', 'health', 'login', 'logout', 'recipes', 'settings')),
   sort_order integer NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -326,16 +337,16 @@ BEGIN
   ELSE
     target_recipe_revision_id := NEW.recipe_revision_id;
   END IF;
-  IF EXISTS (SELECT 1 FROM recipe_revision WHERE id = target_recipe_revision_id)
+  IF EXISTS (SELECT 1 FROM recipe_revision WHERE id = target_recipe_revision_id AND status = 'PUBLISHED')
     AND NOT EXISTS (SELECT 1 FROM recipe_revision_category WHERE recipe_revision_id = target_recipe_revision_id) THEN
-    RAISE EXCEPTION 'Every recipe revision must have at least one category.';
+    RAISE EXCEPTION 'Every published recipe revision must have at least one category.';
   END IF;
   RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
 
 CREATE CONSTRAINT TRIGGER recipe_revision_requires_category_on_revision
-AFTER INSERT ON recipe_revision
+AFTER INSERT OR UPDATE OF status ON recipe_revision
 DEFERRABLE INITIALLY DEFERRED
 FOR EACH ROW EXECUTE FUNCTION assert_recipe_revision_has_category();
 
@@ -379,14 +390,20 @@ CREATE TABLE ingredient_usage (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   recipe_step_id uuid NOT NULL REFERENCES recipe_step(id) ON DELETE CASCADE,
   usage_key uuid NOT NULL,
-  ingredient_id uuid NOT NULL REFERENCES ingredient(id) ON DELETE CASCADE,
+  ingredient_id uuid REFERENCES ingredient(id) ON DELETE CASCADE,
+  text_override text,
+  special_kind text CHECK (special_kind IN ('NO_ICON', 'REMOVE', 'ADD', 'INFO', 'IMPORTANT', 'COOK', 'COOL', 'HEAT', 'WAIT', 'WORK_STEP')),
   unit_id uuid REFERENCES unit(id) ON DELETE CASCADE,
   amount numeric(24, 12) CHECK (amount IS NULL OR amount >= 0),
   is_optional boolean NOT NULL DEFAULT false,
   note text,
   sort_order integer NOT NULL CHECK (sort_order >= 0),
   UNIQUE (recipe_step_id, usage_key),
-  UNIQUE (recipe_step_id, sort_order)
+  UNIQUE (recipe_step_id, sort_order),
+  CHECK ((ingredient_id IS NOT NULL) <> (text_override IS NOT NULL)),
+  CHECK (text_override IS NULL OR length(trim(text_override)) > 0),
+  CHECK (special_kind IS NULL OR text_override IS NOT NULL),
+  CHECK (special_kind IS NULL OR (amount IS NULL AND unit_id IS NULL AND is_optional = false))
 );
 
 CREATE TABLE ingredient_usage_modifier (
@@ -402,6 +419,16 @@ CREATE TABLE recipe_revision_media (
   sort_order integer NOT NULL DEFAULT 0 CHECK (sort_order >= 0),
   PRIMARY KEY (recipe_revision_id, media_asset_id),
   UNIQUE (recipe_revision_id, usage_kind, sort_order)
+);
+
+CREATE TABLE recipe_share_link (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id uuid NOT NULL REFERENCES recipe(id) ON DELETE CASCADE,
+  token_hash bytea NOT NULL UNIQUE,
+  created_by_principal_id uuid REFERENCES principal(id) ON DELETE RESTRICT,
+  expires_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now()
 );
 
 CREATE TABLE audit_event (
@@ -509,6 +536,7 @@ CREATE TABLE federation_entity_mapping (
 CREATE INDEX category_tenant_parent_idx ON category(tenant_id, parent_id);
 CREATE INDEX recipe_tenant_idx ON recipe(tenant_id);
 CREATE INDEX recipe_revision_recipe_idx ON recipe_revision(recipe_id, revision_no DESC);
+CREATE INDEX recipe_share_link_recipe_idx ON recipe_share_link(recipe_id) WHERE revoked_at IS NULL;
 CREATE INDEX recipe_step_revision_idx ON recipe_step(recipe_revision_id, sort_order);
 CREATE INDEX ingredient_usage_step_idx ON ingredient_usage(recipe_step_id, sort_order);
 CREATE INDEX audit_event_tenant_created_idx ON audit_event(tenant_id, created_at DESC);

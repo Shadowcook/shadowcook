@@ -23,9 +23,12 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   }
 
   const isDevelopment: boolean = environment.NODE_ENV === 'development';
-  const bootstrapAdminEmail: string = environment.BOOTSTRAP_ADMIN_EMAIL ?? (isDevelopment ? 'admin@local' : 'admin@localhost');
+  const bootstrapAdminEmail: string =
+    environment.BOOTSTRAP_ADMIN_EMAIL ?? (isDevelopment ? 'admin@local' : 'admin@localhost');
 
-  const instanceSecretKey: Buffer | null = parseInstanceSecretKey(readSecretEnvironmentValue(environment, 'INSTANCE_SECRET_KEY'));
+  const instanceSecretKey: Buffer | null = parseInstanceSecretKey(
+    readSecretEnvironmentValue(environment, 'INSTANCE_SECRET_KEY'),
+  );
   return {
     databaseUrl,
     host: environment.HOST ?? '0.0.0.0',
@@ -39,12 +42,19 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   };
 }
 
-
-function readSecretEnvironmentValue(environment: NodeJS.ProcessEnv, name: string): string | undefined {
+function readSecretEnvironmentValue(
+  environment: NodeJS.ProcessEnv,
+  name: string,
+): string | undefined {
   const directValue: string | undefined = environment[name];
   const fileName: string = `${name}_FILE`;
   const secretFilePath: string | undefined = environment[fileName];
-  if (directValue !== undefined && directValue.trim().length > 0 && secretFilePath !== undefined && secretFilePath.trim().length > 0) {
+  if (
+    directValue !== undefined &&
+    directValue.trim().length > 0 &&
+    secretFilePath !== undefined &&
+    secretFilePath.trim().length > 0
+  ) {
     throw new Error(`${name} and ${fileName} cannot both be configured.`);
   }
   if (secretFilePath === undefined || secretFilePath.trim().length === 0) return directValue;
@@ -54,7 +64,8 @@ function readSecretEnvironmentValue(environment: NodeJS.ProcessEnv, name: string
 function parseInstanceSecretKey(value: string | undefined): Buffer | null {
   if (value === undefined || value.trim().length === 0) return null;
   const key: Buffer = Buffer.from(value, 'base64');
-  if (key.length !== 32) throw new Error('INSTANCE_SECRET_KEY must be a base64-encoded 32-byte key.');
+  if (key.length !== 32)
+    throw new Error('INSTANCE_SECRET_KEY must be a base64-encoded 32-byte key.');
   return key;
 }
 import { readFileSync } from 'node:fs';

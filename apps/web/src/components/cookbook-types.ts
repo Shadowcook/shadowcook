@@ -2,7 +2,10 @@ export interface IngredientUsage {
   sort_order: number;
   amount: string | null;
   unit_symbol: string | null;
+  unit_localization_key: string | null;
   ingredient_name: string;
+  ingredient_localization_key: string | null;
+  special_kind: string | null;
   note: string | null;
   is_optional: boolean;
 }
@@ -42,5 +45,27 @@ export interface CookbookResponse {
   tenant: { display_name: string } | null;
   categories: Category[];
   recipes: Recipe[];
+  canManageCategories: boolean;
+  canManageRecipes: boolean;
 }
-export interface CookbookTenant { public_id: string; display_name: string; description: string | null; slug: string; recipe_count: number; owner_name?: string | null; disabled_at: string | null; }
+
+export interface EditableRecipe {
+  publicId: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  categoryPublicIds: string[];
+  visibility: 'PRIVATE' | 'PUBLIC';
+  publishedVersion: number | null;
+  hasPublishedRevision: boolean;
+  isDraft: boolean;
+}
+export interface CookbookTenant {
+  public_id: string;
+  display_name: string;
+  description: string | null;
+  slug: string;
+  recipe_count: number;
+  owner_name?: string | null;
+  disabled_at: string | null;
+}
