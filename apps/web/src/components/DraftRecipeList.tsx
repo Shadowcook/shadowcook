@@ -8,7 +8,6 @@ import type { EditableRecipe } from './cookbook-types';
 interface DraftRecipeListProperties {
   locale: Locale;
   tenantSlug: string;
-  onClose: () => void;
   onEdit: (publicId: string) => void;
   onCreate: () => void;
 }
@@ -25,9 +24,6 @@ export default function DraftRecipeList(properties: DraftRecipeListProperties): 
   }, [properties.tenantSlug]);
   return (
     <section className="recipe-editor">
-      <button type="button" className="button--secondary" onClick={properties.onClose}>
-        {text.recipeEditor.back}
-      </button>
       <p className="eyebrow">{text.recipeEditor.drafts}</p>
       <h1>{text.recipeEditor.draftsTitle}</h1>
       <p className="lede">{text.recipeEditor.draftsDescription}</p>

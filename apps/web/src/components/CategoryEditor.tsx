@@ -16,7 +16,6 @@ interface ManagedCategory {
 interface CategoryEditorProperties {
   locale: Locale;
   tenantSlug: string;
-  onClose: () => void;
   onChanged: () => Promise<void>;
 }
 
@@ -38,7 +37,6 @@ const reservedSlugs: ReadonlySet<string> = new Set([
 export default function CategoryEditor({
   locale,
   tenantSlug,
-  onClose,
   onChanged,
 }: CategoryEditorProperties): JSX.Element {
   const text: Translation = translations[locale];
@@ -161,9 +159,6 @@ export default function CategoryEditor({
   }
   return (
     <section className="category-editor">
-      <button type="button" className="button--secondary" onClick={onClose}>
-        {text.categoryEditor.back}
-      </button>
       <p className="eyebrow">{text.dashboard.categories}</p>
       <h1>{text.categoryEditor.title}</h1>
       <p className="lede">{text.categoryEditor.description}</p>

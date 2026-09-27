@@ -23,7 +23,16 @@ export interface RecipeDetail {
   slug: string;
   title: string;
   summary: string | null;
+  selectedVariant: string;
+  variants: RecipeVariant[];
   steps: RecipeStep[];
+}
+export interface RecipeVariant {
+  variant_key: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  is_visible: boolean;
 }
 
 export interface Category {

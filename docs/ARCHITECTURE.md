@@ -16,7 +16,7 @@ Version 2.0 expands that idea into a broader architecture with:
 
 - human-readable, crawlable public recipe pages,
 - normalized ingredient data,
-- recipe variants with inheritance,
+- recipe variants with direct step membership,
 - immutable published recipe history,
 - tenant-owned sharing policies,
 - AI- and automation-friendly editing APIs,
@@ -200,7 +200,7 @@ shadowcook/
 - Tenant recipe visibility defaults to `PUBLIC`; a recipe visibility override can restrict an individual recipe.
 - Categories support parent-child trees with no fixed database depth limit.
 - A category slug is unique within its tenant. A recipe slug is unique within its tenant.
-- Cookbook navigation is deep-linkable: category pages use `/{category-slug}/{sub-category-slug...}` and recipe pages use `/{category-slug}/{sub-category-slug...}/recipes/{recipe-slug}`. A recipe opened from the root cookbook view uses `/recipes/{recipe-slug}`; a recipe opened from a category view uses that category path.
+- Cookbook navigation is deep-linkable: category pages use `/{category-slug}/{sub-category-slug...}` and recipe pages use `/{category-slug}/{sub-category-slug...}/recipes/{recipe-slug}`. A non-default visible variant appends `/{variant-slug}`. A recipe opened from the root cookbook view uses `/recipes/{recipe-slug}`; a recipe opened from a category view uses that category path.
 - The category and recipe slug reservation list is `admin`, `api`, `assets`, `auth`, `health`, `login`, `logout`, `recipes`, and `settings`. The database rejects these values for both entity types.
 - `/login` is the public sign-in route. An unauthenticated request to it renders the sign-in form; an authenticated request redirects to `/`.
 - `/` presents the accessible tenant selection. Cookbook content is loaded only after choosing a tenant at `/tenants/{tenant-slug}`; a cookbook response contains records from exactly one tenant.
@@ -682,45 +682,19 @@ Every recipe has one or more variants.
 
 Exactly one variant is the recipe's default variant.
 
+The default variant is always visible.
+
 The default variant is not a special "base" implementation primitive. It is simply the variant shown when no alternate variant is selected.
 
-Variants may inherit from another variant within the same recipe.
-
-Examples:
-
-```text
-Classic
-└── Parmesan
-    └── Fancy Parmesan
-```
-
-### 12.2 Variant inheritance
-
-A variant stores only differences from its source variant.
-
-Effective recipe state is resolved as:
-
-```text
-effective(source)
-+ local includes
-- local excludes
-```
-
-A variant may:
-
-- inherit a step,
-- explicitly exclude an inherited step,
-- include a new/local step.
-
-### 12.3 Step ownership
+### 12.2 Step membership
 
 RecipeStep belongs to the Recipe, not to a variant.
 
-Variants reference recipe steps through overrides/selection state.
+Variants reference recipe steps through direct inclusion state.
 
-This allows a step to remain available when variant topology changes.
+Changing a shared recipe step changes it for every variant that includes that step.
 
-### 12.4 Suggested structure
+### 12.3 Structure
 
 ```text
 recipe_variant
@@ -730,7 +704,7 @@ recipe_revision_id
 public_key
 name
 slug
-source_variant_id NULL
+is_visible
 
 recipe_step
 -----------
@@ -744,50 +718,26 @@ recipe_variant_step_override
 ----------------------------
 variant_id
 step_id
-state = INCLUDE | EXCLUDE
+state = INCLUDE
 ```
 
-The root/source-less variant defines its effective state from its own included steps.
+### 12.4 Variant deletion
 
-### 12.5 Variant rebase on deletion
+Deleting a variant requires removing that variant from every included recipe step.
 
-Deleting a variant must not destroy the effective recipes of its direct child variants.
-
-If:
-
-```text
-Classic
-└── Parmesan
-    └── Fancy
-```
-
-and Parmesan is deleted, Fancy is rebased onto Classic.
-
-Algorithm:
-
-```text
-oldEffective = effective(Fancy)
-newSource = Parmesan.source
-newOverrides = diff(effective(newSource), oldEffective)
-Fancy.source = newSource
-Fancy.overrides = newOverrides
-```
-
-The invariant is:
-
-> The effective recipe of every direct child remains unchanged after its parent variant is deleted.
-
-Steps that were effectively inherited by Fancy through Parmesan remain represented after the rebase.
-
-Steps that belonged only to Parmesan and were not part of Fancy's effective state do not survive merely because Parmesan existed.
-
-### 12.6 Root variant deletion
-
-If a source-less/root variant is deleted, direct child variants must become source-less and receive the overrides/includes required to preserve their effective recipes.
-
-### 12.7 Default variant deletion
+### 12.5 Default variant deletion
 
 Deleting the current default variant requires selecting a replacement default as part of the same transaction.
+
+### 12.6 Variant API and reader resolution
+
+Variant edits operate on the mutable recipe draft. Creating, updating, or deleting a variant creates a draft from the published revision when necessary.
+
+The variant API exposes stable `variant_key` values and recipe-step row IDs.
+
+Published recipe reads resolve the default variant when no `variant` slug is requested. A requested variant slug resolves that published revision's effective step state.
+
+Variant visibility controls whether a non-default variant is offered to recipe readers. It does not affect step membership.
 
 ---
 
@@ -2310,7 +2260,7 @@ The following concepts are considered part of the V2.0 architecture baseline:
 - normalized units,
 - same-dimension unit conversion,
 - pantry ingredient matching,
-- recipe variants with inheritance and rebase,
+- recipe variants with direct step membership,
 - draft/published revision snapshots,
 - immutable published history,
 - audit events,
@@ -2385,9 +2335,9 @@ These invariants should be treated as design/test requirements.
 
 1. Every recipe has at least one variant.
 2. Every recipe has exactly one default variant.
-3. A variant source, if present, belongs to the same recipe.
-4. Variant inheritance cannot contain cycles.
-5. Deleting a variant preserves the effective state of its direct child variants through rebase.
+3. The default variant is visible.
+4. A recipe step may be included in zero or more variants of the same recipe revision.
+5. Deleting a variant is permitted only when no recipe step is included in it.
 6. Recipe steps belong to recipes/revisions, not exclusively to variants.
 
 ### Revisioning
@@ -2478,7 +2428,7 @@ DISCOVERABILITY
   answers whether eligible readers are likely to find it
 
 VARIANT
-  is an inherited recipe configuration
+  is a named recipe configuration with direct step membership
 
 STEP
   describes preparation

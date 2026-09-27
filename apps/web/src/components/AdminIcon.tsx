@@ -4,6 +4,7 @@ type IconName =
   | 'add'
   | 'aliases'
   | 'delete'
+  | 'default'
   | 'disable'
   | 'edit'
   | 'enable'
@@ -15,6 +16,10 @@ type IconName =
 export default function AdminIcon({ name }: { name: IconName }): JSX.Element {
   let content: JSX.Element;
   if (name === 'add') content = <path d="M12 5v14M5 12h14" />;
+  else if (name === 'default')
+    content = (
+      <path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8L12 4Z" />
+    );
   else if (name === 'edit') content = <path d="m6 18 2.5-.5L18 8l-2-2-9.5 9.5L6 18Z" />;
   else if (name === 'delete') content = <path d="M5 7h14M9 7V5h6v2M8 7l1 12h6l1-12" />;
   else if (name === 'disable') content = <path d="M7 5v14M17 5v14" />;

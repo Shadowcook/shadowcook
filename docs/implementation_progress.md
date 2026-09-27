@@ -2,6 +2,17 @@
 
 ## Completed
 
+- Recipe editing has Recipe, Steps, and Variants tabs. The Variants tab provides a table for names, URL slugs, default selection, visibility, and icon actions; add and edit actions use dialogs with immediate recipe-local slug collision feedback. Only visible variants may be selected as the default.
+
+- The recipe reader shows a variant selector only when a visible non-default variant is available.
+
+- Tenant-management subpages use one shared Back to cookbook control above their content frame.
+
+- Recipe-step amounts omit insignificant trailing decimal zeroes in the editor.
+
+- Recipe variants now have permission-gated draft APIs for listing, creating, editing, deleting, and replacing direct step memberships. Published recipe reads resolve the default variant or an explicitly requested variant slug.
+- Recipe creation and the development seed create a default variant. Draft creation copies stable step and variant keys and direct step memberships.
+
 - Tenant user invitations require an email address and exactly one selected tenant role; acceptance creates the account and its tenant membership.
 - Tenant-Managers can access every tenant, create, edit, disable, and delete tenants, and manage tenant-user role assignments for every tenant. Only instance administrators can assign instance-wide roles.
 - Instance administrators can assign and remove instance roles for users from the deep-linkable user management view.

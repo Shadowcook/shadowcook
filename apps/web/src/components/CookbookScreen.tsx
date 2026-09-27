@@ -256,12 +256,49 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
         window.history.pushState(
           null,
           '',
-          cookbookPath(slug, cookbook.categories, selectedCategoryId, overviewRecipe),
+          cookbookPath(
+            slug,
+            cookbook.categories,
+            selectedCategoryId,
+            overviewRecipe,
+            recipe.selectedVariant === recipe.variants.find((variant) => variant.is_default)?.slug
+              ? null
+              : recipe.selectedVariant,
+          ),
         );
     } catch (_error: unknown) {
       setRecipeError(text.dashboard.recipeLoadFailed);
     } finally {
       setIsRecipeLoading(false);
+    }
+  }
+  async function selectRecipeVariant(slug: string): Promise<void> {
+    if (selectedRecipe === null) return;
+    try {
+      const recipe: RecipeDetail = await request<RecipeDetail>(
+        `/cookbook/recipes/${selectedRecipe.public_id}?variant=${encodeURIComponent(slug)}`,
+      );
+      setSelectedRecipe(recipe);
+      const overviewRecipe = cookbook.recipes.find(
+        (candidate: Recipe): boolean => candidate.public_id === selectedRecipe.public_id,
+      );
+      const tenantSlug = tenantSlugFromPath();
+      if (overviewRecipe !== undefined && tenantSlug !== null)
+        window.history.pushState(
+          null,
+          '',
+          cookbookPath(
+            tenantSlug,
+            cookbook.categories,
+            selectedCategoryId,
+            overviewRecipe,
+            recipe.selectedVariant === recipe.variants.find((variant) => variant.is_default)?.slug
+              ? null
+              : recipe.selectedVariant,
+          ),
+        );
+    } catch (_error: unknown) {
+      setRecipeError(text.dashboard.recipeLoadFailed);
     }
   }
   function selectCategory(categoryId: string | null): void {
@@ -323,17 +360,13 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     setSelectedCategoryId(null);
     setSelectedRecipe(null);
   }
-  function closeRecipeEditor(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}`);
-    setEditorPath(null);
-    void loadCookbook();
-  }
-  function closeCategoryEditor(): void {
+  function closeTenantManagement(): void {
     const slug: string | null = tenantSlugFromPath();
     if (slug !== null) window.history.pushState(null, '', `/${slug}`);
     setIsCategoryEditor(false);
+    setEditorPath(null);
     setSelectedCategoryId(null);
+    setSelectedRecipe(null);
     void loadCookbook();
   }
   async function loadCookbook(): Promise<CookbookResponse> {
@@ -369,7 +402,9 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     if (location.recipe === null) return;
     try {
       setSelectedRecipe(
-        await request<RecipeDetail>(`/cookbook/recipes/${location.recipe.public_id}`),
+        await request<RecipeDetail>(
+          `/cookbook/recipes/${location.recipe.public_id}${location.variantSlug === null ? '' : `?variant=${encodeURIComponent(location.variantSlug)}`}`,
+        ),
       );
     } catch (_error: unknown) {
       setRecipeError(text.dashboard.recipeLoadFailed);
@@ -410,91 +445,100 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       <AccessDeniedScreen text={text} />
     ) : (
       <section
-        className={isCategoryEditor || editorPath !== null ? 'tenant-area' : 'tenant-content'}
+        className={isCategoryEditor || editorPath !== null ? 'tenant-management' : 'tenant-content'}
       >
         {isCategoryEditor || editorPath !== null ? (
-          <TenantNavigation
-            text={text}
-            cookbook={cookbook}
-            activeView={
-              isCategoryEditor
-                ? 'categories'
-                : editorPath === 'manage'
-                  ? 'none'
-                  : editorPath === 'drafts'
-                    ? 'drafts'
-                    : editorPath === 'manage-recipes'
-                      ? 'recipes'
-                      : editorPath === 'manage-users'
-                        ? 'users'
-                        : editorPath !== null
-                          ? 'editor'
-                          : 'recipes'
-            }
-            onOpenRecipes={openRecipes}
-            onOpenDrafts={openDrafts}
-            onOpenCategories={openCategoryEditor}
-            onOpenUsers={openUsers}
-            onCreateRecipe={(): void => openRecipeEditor(null)}
-          />
+          <button
+            type="button"
+            className="button--secondary tenant-management__back"
+            onClick={closeTenantManagement}
+          >
+            {text.tenantNavigation.backToCookbook}
+          </button>
         ) : null}
-        <div className="tenant-content">
-          {editorPath === 'manage' ? (
-            <ManagementPlaceholder text={text} />
-          ) : editorPath === 'manage-users' && tenantSlugFromPath() !== null ? (
-            <TenantUserManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
-          ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
-            <CategoryEditor
-              locale={locale}
-              tenantSlug={tenantSlugFromPath()!}
-              onClose={closeCategoryEditor}
-              onChanged={async (): Promise<void> => {
-                await loadCookbook();
-              }}
-            />
-          ) : editorPath === 'drafts' && tenantSlugFromPath() !== null ? (
-            <DraftRecipeList
-              locale={locale}
-              tenantSlug={tenantSlugFromPath()!}
-              onClose={closeRecipeEditor}
-              onEdit={openRecipeEditor}
-              onCreate={(): void => openRecipeEditor(null)}
-            />
-          ) : editorPath === 'manage-recipes' ? (
-            <RecipeManagementList
+        <div className={isCategoryEditor || editorPath !== null ? 'tenant-area' : undefined}>
+          {isCategoryEditor || editorPath !== null ? (
+            <TenantNavigation
               text={text}
-              recipes={cookbook.recipes}
-              onEdit={openRecipeEditor}
-              onCreate={(): void => openRecipeEditor(null)}
-            />
-          ) : editorPath !== null && tenantSlugFromPath() !== null ? (
-            <RecipeEditor
-              locale={locale}
-              tenantSlug={tenantSlugFromPath()!}
-              recipePublicId={editorPath === 'new' ? null : editorPath}
-              categories={cookbook.categories}
-              onClose={closeRecipeEditor}
-              onChanged={loadCookbook}
-              onCreated={(publicId: string): void => openRecipeEditor(publicId)}
-            />
-          ) : (
-            <CookbookDashboard
-              text={text}
-              email={email}
               cookbook={cookbook}
-              isAuthenticated={isAuthenticated}
-              selectedCategoryId={selectedCategoryId}
-              selectedRecipe={selectedRecipe}
-              isRecipeLoading={isRecipeLoading}
-              recipeError={recipeError}
-              onSelectCategory={selectCategory}
-              onSelectRecipe={openRecipe}
-              onCloseRecipe={closeRecipe}
-              onLogin={openLogin}
-              onLogout={logout}
-              onManageCookbook={openDrafts}
+              activeView={
+                isCategoryEditor
+                  ? 'categories'
+                  : editorPath === 'manage'
+                    ? 'none'
+                    : editorPath === 'drafts'
+                      ? 'drafts'
+                      : editorPath === 'manage-recipes'
+                        ? 'recipes'
+                        : editorPath === 'manage-users'
+                          ? 'users'
+                          : editorPath !== null
+                            ? 'editor'
+                            : 'recipes'
+              }
+              onOpenRecipes={openRecipes}
+              onOpenDrafts={openDrafts}
+              onOpenCategories={openCategoryEditor}
+              onOpenUsers={openUsers}
+              onCreateRecipe={(): void => openRecipeEditor(null)}
             />
-          )}
+          ) : null}
+          <div className="tenant-content">
+            {editorPath === 'manage' ? (
+              <ManagementPlaceholder text={text} />
+            ) : editorPath === 'manage-users' && tenantSlugFromPath() !== null ? (
+              <TenantUserManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
+            ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
+              <CategoryEditor
+                locale={locale}
+                tenantSlug={tenantSlugFromPath()!}
+                onChanged={async (): Promise<void> => {
+                  await loadCookbook();
+                }}
+              />
+            ) : editorPath === 'drafts' && tenantSlugFromPath() !== null ? (
+              <DraftRecipeList
+                locale={locale}
+                tenantSlug={tenantSlugFromPath()!}
+                onEdit={openRecipeEditor}
+                onCreate={(): void => openRecipeEditor(null)}
+              />
+            ) : editorPath === 'manage-recipes' ? (
+              <RecipeManagementList
+                text={text}
+                recipes={cookbook.recipes}
+                onEdit={openRecipeEditor}
+                onCreate={(): void => openRecipeEditor(null)}
+              />
+            ) : editorPath !== null && tenantSlugFromPath() !== null ? (
+              <RecipeEditor
+                locale={locale}
+                tenantSlug={tenantSlugFromPath()!}
+                recipePublicId={editorPath === 'new' ? null : editorPath}
+                categories={cookbook.categories}
+                onChanged={loadCookbook}
+                onCreated={(publicId: string): void => openRecipeEditor(publicId)}
+              />
+            ) : (
+              <CookbookDashboard
+                text={text}
+                email={email}
+                cookbook={cookbook}
+                isAuthenticated={isAuthenticated}
+                selectedCategoryId={selectedCategoryId}
+                selectedRecipe={selectedRecipe}
+                isRecipeLoading={isRecipeLoading}
+                recipeError={recipeError}
+                onSelectCategory={selectCategory}
+                onSelectRecipe={openRecipe}
+                onCloseRecipe={closeRecipe}
+                onSelectVariant={selectRecipeVariant}
+                onLogin={openLogin}
+                onLogout={logout}
+                onManageCookbook={openDrafts}
+              />
+            )}
+          </div>
         </div>
       </section>
     );

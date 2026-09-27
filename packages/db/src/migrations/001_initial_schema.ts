@@ -361,10 +361,11 @@ CREATE TABLE recipe_variant (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   recipe_revision_id uuid NOT NULL REFERENCES recipe_revision(id) ON DELETE CASCADE,
   variant_key uuid NOT NULL,
-  source_variant_id uuid REFERENCES recipe_variant(id) ON DELETE CASCADE,
   name text NOT NULL CHECK (length(trim(name)) > 0),
   slug text NOT NULL CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   is_default boolean NOT NULL DEFAULT false,
+  is_visible boolean NOT NULL DEFAULT true,
+  CHECK (NOT is_default OR is_visible),
   UNIQUE (recipe_revision_id, variant_key),
   UNIQUE (recipe_revision_id, slug)
 );
@@ -384,7 +385,7 @@ CREATE TABLE recipe_step (
 CREATE TABLE recipe_variant_step_override (
   variant_id uuid NOT NULL REFERENCES recipe_variant(id) ON DELETE CASCADE,
   step_id uuid NOT NULL REFERENCES recipe_step(id) ON DELETE CASCADE,
-  state text NOT NULL CHECK (state IN ('INCLUDE', 'EXCLUDE')),
+  state text NOT NULL CHECK (state = 'INCLUDE'),
   PRIMARY KEY (variant_id, step_id)
 );
 

@@ -2,19 +2,25 @@ import type { JSX } from 'react';
 import type { Translation } from '../i18n';
 import { localizedUnitSymbol } from '../i18n/unit-localization';
 import { localizedIngredientName } from '../i18n/ingredient-localization';
-import type { IngredientUsage, RecipeDetail, RecipeStep } from './cookbook-types';
+import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from './cookbook-types';
 
 interface RecipeDetailViewProperties {
   text: Translation;
   recipe: RecipeDetail;
   onClose: () => void;
+  onSelectVariant: (slug: string) => void;
 }
 
 export default function RecipeDetailView({
   text,
   recipe,
   onClose,
+  onSelectVariant,
 }: RecipeDetailViewProperties): JSX.Element {
+  const hasVisibleAlternative: boolean = recipe.variants.some(
+    (variant: RecipeVariant): boolean => !variant.is_default && variant.is_visible,
+  );
+
   return (
     <section className="recipe-detail">
       <button className="button--secondary recipe-detail__back" type="button" onClick={onClose}>
@@ -23,12 +29,27 @@ export default function RecipeDetailView({
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <h2>{recipe.title}</h2>
       {recipe.summary === null ? null : <p className="recipe-detail__summary">{recipe.summary}</p>}
+      {hasVisibleAlternative ? (
+        <label className="recipe-detail__variant">
+          {text.recipeEditor.variant}
+          <select
+            value={recipe.selectedVariant}
+            onChange={(event): void => onSelectVariant(event.currentTarget.value)}
+          >
+            {recipe.variants.map((variant) => (
+              <option key={variant.variant_key} value={variant.slug}>
+                {variant.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : null}
       <div className="recipe-detail__heading">
         <p className="eyebrow">{text.dashboard.ingredients}</p>
         <p className="eyebrow">{text.dashboard.preparation}</p>
       </div>
       <ol className="recipe-steps">
-        {recipe.steps.map((step: RecipeStep): JSX.Element => (
+        {recipe.steps.map((step: RecipeStep, index: number): JSX.Element => (
           <li key={step.public_id}>
             <ul>
               {step.ingredients.map((ingredient: IngredientUsage): JSX.Element => (
@@ -51,7 +72,7 @@ export default function RecipeDetailView({
             </ul>
             <section>
               <p className="recipe-step__number">
-                {text.dashboard.step} {step.sort_order + 1}
+                {text.dashboard.step} {index + 1}
               </p>
               <p>{step.instruction}</p>
             </section>

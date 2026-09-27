@@ -261,6 +261,27 @@ export interface Translation {
     shareCreated: string;
     edit: string;
     steps: string;
+    variant: string;
+    variants: string;
+    recipe: string;
+    variantName: string;
+    variantUrl: string;
+    addVariant: string;
+    editVariant: string;
+    makeDefaultVariant: string;
+    deleteVariant: string;
+    variantSlugConflict: string;
+    variantVisible: string;
+    variantHasSteps: string;
+    inherited: string;
+    restoreInheritance: string;
+    variantSource: string;
+    variantActions: string;
+    variantDefault: string;
+    variantIncluded: string;
+    variantNotIncluded: string;
+    variantBasedOn: string;
+    resetVariantAdjustment: string;
     addStep: string;
     deleteStep: string;
     stepInstruction: string;
@@ -294,6 +315,7 @@ export interface Translation {
   };
   tenantNavigation: {
     title: string;
+    backToCookbook: string;
     selectArea: string;
     recipes: string;
     categories: string;

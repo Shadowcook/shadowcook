@@ -5,6 +5,7 @@ const recipePathSegment: string = 'recipes';
 export interface CookbookLocation {
   categoryId: string | null;
   recipe: Recipe | null;
+  variantSlug: string | null;
 }
 
 export function categoryPath(categories: readonly Category[], categoryId: string): string[] | null {
@@ -26,13 +27,15 @@ export function cookbookPath(
   categories: readonly Category[],
   categoryId: string | null,
   recipe: Recipe | null,
+  variantSlug: string | null = null,
 ): string {
   const segments: string[] | null =
     categoryId === null ? null : categoryPath(categories, categoryId);
   if (recipe === null)
     return segments === null ? `/${tenantSlug}` : `/${tenantSlug}/${segments.join('/')}`;
-  if (segments === null) return `/${tenantSlug}/${recipePathSegment}/${recipe.slug}`;
-  return `/${tenantSlug}/${segments.join('/')}/${recipePathSegment}/${recipe.slug}`;
+  const suffix: string = variantSlug === null ? recipe.slug : `${recipe.slug}/${variantSlug}`;
+  if (segments === null) return `/${tenantSlug}/${recipePathSegment}/${suffix}`;
+  return `/${tenantSlug}/${segments.join('/')}/${recipePathSegment}/${suffix}`;
 }
 
 export function resolveCookbookLocation(
@@ -43,21 +46,26 @@ export function resolveCookbookLocation(
     .split('/')
     .filter((segment: string): boolean => segment.length > 0)
     .map((segment: string): string => decodeURIComponent(segment));
-  if (segments.length <= 1) return { categoryId: null, recipe: null };
+  if (segments.length <= 1) return { categoryId: null, recipe: null, variantSlug: null };
   segments.shift();
   const recipeIndex: number = segments.indexOf(recipePathSegment);
   const categorySegments: string[] = recipeIndex === -1 ? segments : segments.slice(0, recipeIndex);
-  if (recipeIndex !== -1 && recipeIndex !== segments.length - 2)
-    return { categoryId: null, recipe: null };
+  if (
+    recipeIndex !== -1 &&
+    recipeIndex !== segments.length - 2 &&
+    recipeIndex !== segments.length - 3
+  )
+    return { categoryId: null, recipe: null, variantSlug: null };
   const categoryId: string | null = categoryIdForSegments(cookbook.categories, categorySegments);
-  if (categorySegments.length > 0 && categoryId === null) return { categoryId: null, recipe: null };
-  if (recipeIndex === -1) return { categoryId, recipe: null };
+  if (categorySegments.length > 0 && categoryId === null)
+    return { categoryId: null, recipe: null, variantSlug: null };
+  if (recipeIndex === -1) return { categoryId, recipe: null, variantSlug: null };
   const recipe: Recipe | undefined = cookbook.recipes.find(
     (candidate: Recipe): boolean =>
       candidate.slug === segments[recipeIndex + 1] &&
       (categoryId === null || candidate.category_public_ids.includes(categoryId)),
   );
-  return { categoryId, recipe: recipe ?? null };
+  return { categoryId, recipe: recipe ?? null, variantSlug: segments[recipeIndex + 2] ?? null };
 }
 
 function categoryIdForSegments(

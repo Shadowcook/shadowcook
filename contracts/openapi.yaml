@@ -1496,6 +1496,10 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: variant
+          in: query
+          required: false
+          schema: { type: string }
       responses:
         '200':
           description: The accessible published recipe.
@@ -1652,6 +1656,158 @@ paths:
       responses:
         '204': { description: Preparation steps saved. }
         '400': { description: The recipe step input is invalid. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/variants:
+    get:
+      operationId: listRecipeDraftVariants
+      summary: Lists the variants and direct step memberships of an editable recipe revision.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '200':
+          description: Recipe variants.
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [variants],
+                      properties:
+                        {
+                          variants:
+                            { type: array, items: { $ref: '#/components/schemas/RecipeVariant' } },
+                        },
+                    },
+                },
+            }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+    post:
+      operationId: createRecipeDraftVariant
+      summary: Creates a variant in the editable revision.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/RecipeVariantInput' } } },
+        }
+      responses:
+        '201':
+          description: Variant created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [variantKey]
+                properties:
+                  variantKey: { type: string, format: uuid }
+        '400': { description: The variant input is invalid. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/variants/{variantKey}:
+    put:
+      operationId: updateRecipeDraftVariant
+      summary: Updates a variant in the editable revision.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+          { name: variantKey, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/RecipeVariantInput' } } },
+        }
+      responses:
+        '204': { description: Variant updated. }
+        '400': { description: The variant input is invalid. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+    delete:
+      operationId: deleteRecipeDraftVariant
+      summary: Deletes a variant when no recipe steps are assigned to it.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+          { name: variantKey, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        {
+          required: false,
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/RecipeVariantDeleteInput' } },
+            },
+        }
+      responses:
+        '204': { description: Variant deleted. }
+        '400': { description: The variant or replacement default is invalid. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/variants/{variantKey}/step-overrides:
+    put:
+      operationId: replaceRecipeDraftVariantStepOverrides
+      summary: Replaces one variant's direct recipe-step memberships.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+          { name: variantKey, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        {
+          required: true,
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      type: object,
+                      additionalProperties: false,
+                      required: [overrides],
+                      properties:
+                        {
+                          overrides:
+                            {
+                              type: array,
+                              items: { $ref: '#/components/schemas/RecipeVariantStepOverride' },
+                            },
+                        },
+                    },
+                },
+            },
+        }
+      responses:
+        '204': { description: Step memberships replaced. }
+        '400': { description: The variant step-membership input is invalid. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404': { description: The recipe does not exist. }
@@ -1974,7 +2130,7 @@ components:
     CookbookRecipeDetail:
       type: object
       additionalProperties: false
-      required: [public_id, slug, title, summary, steps]
+      required: [public_id, slug, title, summary, selectedVariant, variants, steps]
       properties:
         public_id:
           type: string
@@ -1985,6 +2141,11 @@ components:
           type: string
         summary:
           type: [string, 'null']
+        selectedVariant:
+          type: string
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/PublishedRecipeVariant' }
         steps:
           type: array
           items:
@@ -2122,6 +2283,50 @@ components:
       properties:
         publicId: { type: string, format: uuid }
         name: { type: string }
+    PublishedRecipeVariant:
+      type: object
+      additionalProperties: false
+      required: [variant_key, name, slug, is_default, is_visible]
+      properties:
+        variant_key: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        is_default: { type: boolean }
+        is_visible: { type: boolean }
+    RecipeVariant:
+      type: object
+      additionalProperties: false
+      required: [variantKey, name, slug, isDefault, isVisible, overrides]
+      properties:
+        variantKey: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        isDefault: { type: boolean, description: Only a visible variant may be the default. }
+        isVisible: { type: boolean }
+        overrides:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeVariantStepOverride' }
+    RecipeVariantInput:
+      type: object
+      additionalProperties: false
+      required: [name, slug, isDefault, isVisible]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 240 }
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        isDefault: { type: boolean, description: Only a visible variant may be the default. }
+        isVisible: { type: boolean }
+    RecipeVariantDeleteInput:
+      type: object
+      additionalProperties: false
+      properties:
+        replacementDefaultVariantKey: { type: string, format: uuid }
+    RecipeVariantStepOverride:
+      type: object
+      additionalProperties: false
+      required: [stepId, state]
+      properties:
+        stepId: { type: string, format: uuid }
+        state: { type: string, enum: [INCLUDE] }
     ApiError:
       type: object
       additionalProperties: false

@@ -6,13 +6,13 @@ import { ApiRequestError, jsonRequest, request } from './api-client';
 import type { Category, EditableRecipe } from './cookbook-types';
 import RecipeCategorySelector from './RecipeCategorySelector';
 import RecipeStepsEditor from './RecipeStepsEditor';
+import RecipeVariantsEditor from './RecipeVariantsEditor';
 
 interface RecipeEditorProperties {
   locale: Locale;
   tenantSlug: string;
   recipePublicId: string | null;
   categories: Category[];
-  onClose: () => void;
   onChanged: () => Promise<unknown>;
   onCreated: (publicId: string) => void;
 }
@@ -40,6 +40,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [message, setMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(properties.recipePublicId !== null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [tab, setTab] = useState<'recipe' | 'steps' | 'variants'>('recipe');
 
   useEffect((): void => {
     if (properties.recipePublicId === null) return;
@@ -151,9 +152,6 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
     );
   return (
     <section className="recipe-editor">
-      <button type="button" className="button--secondary" onClick={properties.onClose}>
-        {text.recipeEditor.back}
-      </button>
       <p className="eyebrow">
         {recipe === null ? text.recipeEditor.create : text.recipeEditor.title}
       </p>
@@ -163,88 +161,122 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           {text.recipeEditor.version}: {recipe.publishedVersion}
         </p>
       ) : null}
-      <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}>
-        <label>
-          {text.recipeEditor.recipeTitle}
-          <input value={form.title} onChange={changeTitle} maxLength={240} required autoFocus />
-        </label>
-        <label>
-          {text.recipeEditor.summary}
-          <textarea
-            value={form.summary}
-            onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
-              setForm({ ...form, summary: event.currentTarget.value })
-            }
-            maxLength={2000}
-          />
-        </label>
-        <label>
-          {text.recipeEditor.slug}
-          <input
-            value={form.slug}
-            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-              setForm({ ...form, slug: event.currentTarget.value.toLowerCase() })
-            }
-            pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-            required
-          />
-        </label>
-        <fieldset>
-          <legend>{text.recipeEditor.categories}</legend>
-          <RecipeCategorySelector
-            categories={properties.categories}
-            selectedCategoryIds={form.categoryPublicIds}
-            text={text}
-            onToggleCategory={toggleCategory}
-          />
-        </fieldset>
-        <label>
-          {text.recipeEditor.visibility}
-          <select
-            value={form.visibility}
-            onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-              setForm({ ...form, visibility: event.currentTarget.value as 'PRIVATE' | 'PUBLIC' })
-            }
-          >
-            <option value="PRIVATE">{text.recipeEditor.private}</option>
-            <option value="PUBLIC">{text.recipeEditor.public}</option>
-          </select>
-        </label>
-        {message.length > 0 ? (
-          <p className="message" role="status">
-            {message}
-          </p>
-        ) : null}
-        <div className="recipe-editor__actions">
-          <button type="submit" disabled={isSaving}>
-            {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
-          </button>
-          {recipe !== null && recipe.isDraft ? (
-            <button
-              type="button"
-              disabled={isSaving || form.categoryPublicIds.length === 0}
-              onClick={(): void => void publish()}
-            >
-              {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
-            </button>
-          ) : null}
-          {recipe?.hasPublishedRevision ? (
-            <button
-              type="button"
-              className="button--secondary"
-              disabled={isSaving}
-              onClick={(): void => void createShareLink()}
-            >
-              {text.recipeEditor.share}
-            </button>
-          ) : null}
-        </div>
-        {recipe !== null && recipe.isDraft && form.categoryPublicIds.length === 0 ? (
-          <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
-        ) : null}
-      </form>
       {recipe === null ? null : (
+        <nav className="recipe-editor__tabs">
+          <button
+            type="button"
+            className={tab === 'recipe' ? '' : 'button--secondary'}
+            onClick={(): void => setTab('recipe')}
+          >
+            {text.recipeEditor.recipe}
+          </button>
+          <button
+            type="button"
+            className={tab === 'steps' ? '' : 'button--secondary'}
+            onClick={(): void => setTab('steps')}
+          >
+            {text.recipeEditor.steps}
+          </button>
+          <button
+            type="button"
+            className={tab === 'variants' ? '' : 'button--secondary'}
+            onClick={(): void => setTab('variants')}
+          >
+            {text.recipeEditor.variants}
+          </button>
+        </nav>
+      )}
+      {tab === 'recipe' ? (
+        <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}>
+          <label>
+            {text.recipeEditor.recipeTitle}
+            <input value={form.title} onChange={changeTitle} maxLength={240} required autoFocus />
+          </label>
+          <label>
+            {text.recipeEditor.summary}
+            <textarea
+              value={form.summary}
+              onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
+                setForm({ ...form, summary: event.currentTarget.value })
+              }
+              maxLength={2000}
+            />
+          </label>
+          <label>
+            {text.recipeEditor.slug}
+            <input
+              value={form.slug}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setForm({ ...form, slug: event.currentTarget.value.toLowerCase() })
+              }
+              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+              required
+            />
+          </label>
+          <fieldset>
+            <legend>{text.recipeEditor.categories}</legend>
+            <RecipeCategorySelector
+              categories={properties.categories}
+              selectedCategoryIds={form.categoryPublicIds}
+              text={text}
+              onToggleCategory={toggleCategory}
+            />
+          </fieldset>
+          <label>
+            {text.recipeEditor.visibility}
+            <select
+              value={form.visibility}
+              onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                setForm({ ...form, visibility: event.currentTarget.value as 'PRIVATE' | 'PUBLIC' })
+              }
+            >
+              <option value="PRIVATE">{text.recipeEditor.private}</option>
+              <option value="PUBLIC">{text.recipeEditor.public}</option>
+            </select>
+          </label>
+          {message.length > 0 ? (
+            <p className="message" role="status">
+              {message}
+            </p>
+          ) : null}
+          <div className="recipe-editor__actions">
+            <button type="submit" disabled={isSaving}>
+              {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
+            </button>
+            {recipe !== null && recipe.isDraft ? (
+              <button
+                type="button"
+                disabled={isSaving || form.categoryPublicIds.length === 0}
+                onClick={(): void => void publish()}
+              >
+                {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
+              </button>
+            ) : null}
+            {recipe?.hasPublishedRevision ? (
+              <button
+                type="button"
+                className="button--secondary"
+                disabled={isSaving}
+                onClick={(): void => void createShareLink()}
+              >
+                {text.recipeEditor.share}
+              </button>
+            ) : null}
+          </div>
+          {recipe !== null && recipe.isDraft && form.categoryPublicIds.length === 0 ? (
+            <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
+          ) : null}
+        </form>
+      ) : null}
+      {recipe === null || tab !== 'steps' ? null : (
         <RecipeStepsEditor
+          tenantSlug={properties.tenantSlug}
+          recipePublicId={recipe.publicId}
+          text={text}
+        />
+      )}
+      {recipe === null || tab !== 'variants' ? null : (
+        <RecipeVariantsEditor
           tenantSlug={properties.tenantSlug}
           recipePublicId={recipe.publicId}
           text={text}

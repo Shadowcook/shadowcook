@@ -3,6 +3,7 @@ import type { ChangeEvent, JSX } from 'react';
 import type { Translation } from '../i18n';
 import { request } from './api-client';
 import IngredientPicker from './IngredientPicker';
+import type { DraftVariant } from './RecipeVariantsEditor';
 
 interface Unit {
   publicId: string;
@@ -45,17 +46,19 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
+  const [variants, setVariants] = useState<DraftVariant[]>([]);
   const base: string = `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${properties.recipePublicId}/draft`;
-  useEffect((): void => {
-    void Promise.all([
+  async function loadEditor(): Promise<void> {
+    await Promise.all([
       request<{ steps: Array<{ id: string; instruction: string; ingredients: Usage[] }> }>(
         `${base}/steps`,
       ),
       request<{ units: Unit[] }>(
         `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue`,
       ),
+      request<{ variants: DraftVariant[] }>(`${base}/variants`),
     ])
-      .then(([stepResponse, catalogue]): void => {
+      .then(([stepResponse, catalogue, variantResponse]): void => {
         setSteps(
           stepResponse.steps.map((step): Step => ({
             id: step.id,
@@ -66,16 +69,20 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
               ingredientName: usage.ingredientName ?? '',
               textOverride: usage.textOverride ?? '',
               specialKind: usage.specialKind ?? '',
-              amount: usage.amount ?? '',
+              amount: normalizeAmount(usage.amount ?? ''),
               unitPublicId: usage.unitPublicId ?? '',
               note: usage.note ?? '',
             })),
           })),
         );
         setUnits(catalogue.units);
+        setVariants(variantResponse.variants);
       })
       .catch((): void => setMessage(properties.text.errors.requestFailed))
       .finally((): void => setIsLoading(false));
+  }
+  useEffect((): void => {
+    void loadEditor();
   }, [base, properties.tenantSlug, properties.text.errors.requestFailed]);
   function updateStep(index: number, patch: Partial<Step>): void {
     setSteps((current): Step[] =>
@@ -108,6 +115,38 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
       ),
     );
   }
+  function effectiveState(variant: DraftVariant, stepId: string): boolean {
+    const local = variant.overrides.find((override) => override.stepId === stepId);
+    return local?.state === 'INCLUDE';
+  }
+  async function toggleVariant(variant: DraftVariant, stepId: string): Promise<void> {
+    const next = !effectiveState(variant, stepId);
+    const overrides = variant.overrides.filter((override) => override.stepId !== stepId);
+    if (next) overrides.push({ stepId, state: 'INCLUDE' });
+    try {
+      await request<void>(`${base}/variants/${variant.variantKey}/step-overrides`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides }),
+      });
+      await loadEditor();
+    } catch {
+      setMessage(properties.text.errors.requestFailed);
+    }
+  }
+  async function resetVariantOverride(variant: DraftVariant, stepId: string): Promise<void> {
+    const overrides = variant.overrides.filter((override) => override.stepId !== stepId);
+    try {
+      await request<void>(`${base}/variants/${variant.variantKey}/step-overrides`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ overrides }),
+      });
+      await loadEditor();
+    } catch {
+      setMessage(properties.text.errors.requestFailed);
+    }
+  }
   async function save(): Promise<void> {
     setIsSaving(true);
     setMessage('');
@@ -120,6 +159,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
         }),
       });
       setMessage(properties.text.recipeEditor.stepsSaved);
+      await loadEditor();
     } catch {
       setMessage(properties.text.errors.requestFailed);
     } finally {
@@ -179,6 +219,26 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
             </div>
           </div>
           <div className="recipe-step-editor__ingredients">
+            <fieldset className="recipe-step-editor__variants">
+              <legend>{properties.text.recipeEditor.variants}</legend>
+              {variants.map((variant) => (
+                <div className="recipe-step-variant" key={variant.variantKey}>
+                  <label className="recipe-editor__check">
+                    <input
+                      type="checkbox"
+                      checked={effectiveState(variant, step.id)}
+                      onChange={(): void => void toggleVariant(variant, step.id)}
+                    />
+                    <span>{variant.name}</span>
+                    <span className="recipe-step-variant__state">
+                      {effectiveState(variant, step.id)
+                        ? properties.text.recipeEditor.variantIncluded
+                        : properties.text.recipeEditor.variantNotIncluded}
+                    </span>
+                  </label>
+                </div>
+              ))}
+            </fieldset>
             <strong>{properties.text.dashboard.ingredients}</strong>
             {step.ingredients.map((usage, usageIndex): JSX.Element => (
               <div className="recipe-usage-editor" key={`${step.id}-${usageIndex}`}>
@@ -186,6 +246,11 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
                   value={usage.amount}
                   onChange={(event): void =>
                     updateUsage(stepIndex, usageIndex, { amount: event.currentTarget.value })
+                  }
+                  onBlur={(event): void =>
+                    updateUsage(stepIndex, usageIndex, {
+                      amount: normalizeAmount(event.currentTarget.value),
+                    })
                   }
                   inputMode="decimal"
                   placeholder={properties.text.recipeEditor.amount}
@@ -307,6 +372,12 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     </section>
   );
 }
+
+function normalizeAmount(amount: string): string {
+  if (!amount.includes('.')) return amount;
+  return amount.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
 function move<T>(items: T[], index: number, direction: number): T[] {
   const target: number = index + direction;
   if (target < 0 || target >= items.length) return items;

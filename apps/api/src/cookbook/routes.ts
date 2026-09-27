@@ -23,6 +23,7 @@ interface RecipeDetailRow {
   slug: string;
   title: string;
   summary: string | null;
+  revision_id: string;
 }
 
 interface RecipeStepRow {
@@ -192,7 +193,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         user === null || user.disabled_at !== null ? null : user.principal_id;
       const recipeResult = await pool.query<RecipeDetailRow>(
         `
-      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary
+      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.id AS revision_id
       FROM recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id
       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
@@ -208,16 +209,37 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
           .code(404)
           .send({ code: 'RECIPE_NOT_FOUND', error: 'The recipe was not found.' });
       }
+      const requestedVariantSlug: string | null =
+        typeof (request.query as { variant?: unknown }).variant === 'string'
+          ? (request.query as { variant: string }).variant
+          : null;
+      const variants = await pool.query<{
+        variant_key: string;
+        name: string;
+        slug: string;
+        is_default: boolean;
+        is_visible: boolean;
+      }>(
+        'SELECT variant_key, name, slug, is_default, is_visible FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name',
+        [recipe.revision_id],
+      );
+      const selectedVariant =
+        requestedVariantSlug === null
+          ? variants.rows.find((variant) => variant.is_default)
+          : variants.rows.find((variant) => variant.slug === requestedVariantSlug);
+      if (selectedVariant === undefined)
+        return reply
+          .code(404)
+          .send({ code: 'RECIPE_VARIANT_NOT_FOUND', error: 'The recipe variant was not found.' });
       const steps = await pool.query<RecipeStepRow>(
         `
       SELECT recipe_step.id AS public_id, recipe_step.sort_order, recipe_step.instruction
-      FROM recipe_step
-      INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
-      INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
-      WHERE recipe.public_id = $1
+      FROM recipe_step INNER JOIN recipe_variant_step_override AS membership ON membership.step_id = recipe_step.id
+      INNER JOIN recipe_variant AS variant ON variant.id = membership.variant_id
+      WHERE recipe_step.recipe_revision_id = $1 AND variant.variant_key = $2 AND membership.state = 'INCLUDE'
       ORDER BY recipe_step.sort_order ASC
     `,
-        [recipe.public_id],
+        [recipe.revision_id, selectedVariant.variant_key],
       );
       const ingredientUsages = await pool.query<IngredientUsageRow>(
         `
@@ -234,10 +256,10 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
       LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
       LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
-      WHERE recipe.public_id = $1
+      WHERE recipe.public_id = $1 AND recipe_step.id = ANY($2::uuid[])
       ORDER BY recipe_step.sort_order ASC, ingredient_usage.sort_order ASC
     `,
-        [recipe.public_id],
+        [recipe.public_id, steps.rows.map((step: RecipeStepRow): string => step.public_id)],
       );
       const detailSteps = steps.rows.map((step: RecipeStepRow) => ({
         ...step,
@@ -245,7 +267,15 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
           .filter((usage: IngredientUsageRow) => usage.step_public_id === step.public_id)
           .map(({ step_public_id: _stepPublicId, ...usage }: IngredientUsageRow) => usage),
       }));
-      return reply.send({ ...recipe, steps: detailSteps });
+      return reply.send({
+        public_id: recipe.public_id,
+        slug: recipe.slug,
+        title: recipe.title,
+        summary: recipe.summary,
+        selectedVariant: selectedVariant.slug,
+        variants: variants.rows,
+        steps: detailSteps,
+      });
     },
   );
 }
