@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { PoolClient } from 'pg';
+import { hashPassword } from './auth/password.js';
 import { encryptSecret } from './security/encryption.js';
 
 type JsonScalar = boolean | number | string | null;
@@ -11,6 +12,7 @@ interface JsonObject {
 interface SeedContext {
   bootstrapAdministratorPrincipalId: string | null;
   instanceSecretKey: Buffer | null;
+  allowDevelopmentPasswordHashes: boolean;
 }
 
 const identifierPattern: RegExp = /^[a-z][a-z0-9_]*$/;
@@ -25,6 +27,7 @@ export async function loadInitialDeploymentSeed(client: PoolClient): Promise<voi
   await loadSeed(client, seed, {
     bootstrapAdministratorPrincipalId: null,
     instanceSecretKey: null,
+    allowDevelopmentPasswordHashes: false,
   });
 }
 
@@ -115,6 +118,20 @@ async function resolveValue(value: JsonValue, context: SeedContext): Promise<unk
     if (context.instanceSecretKey === null)
       throw new Error('INSTANCE_SECRET_KEY is required to encrypt a seed value.');
     return encryptSecret(secret, context.instanceSecretKey);
+  }
+  const password: JsonValue | undefined = value.$passwordHash;
+  if (typeof password === 'string') {
+    if (!context.allowDevelopmentPasswordHashes)
+      throw new Error('The initial deployment seed cannot create password hashes.');
+    const minimumLength: JsonValue | undefined = value.minimumLength;
+    if (
+      minimumLength !== undefined &&
+      (typeof minimumLength !== 'number' ||
+        !Number.isSafeInteger(minimumLength) ||
+        minimumLength < 1)
+    )
+      throw new Error('Development seed password minimumLength must be a positive integer.');
+    return hashPassword(password, typeof minimumLength === 'number' ? minimumLength : 12);
   }
   return value;
 }

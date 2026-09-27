@@ -30,7 +30,7 @@ async function main(): Promise<void> {
       throw new Error(`No active user exists for '${argumentsValue.email}'.`);
     await connection.pool.query(
       `UPDATE user_session SET revoked_at = now()
-       WHERE user_account_id = (SELECT id FROM user_account WHERE email = $1) AND revoked_at IS NULL`,
+       WHERE user_account_id = (SELECT id FROM user_account WHERE email = $1 AND deleted_at IS NULL) AND revoked_at IS NULL`,
       [argumentsValue.email],
     );
   } finally {

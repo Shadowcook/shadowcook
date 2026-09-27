@@ -6,6 +6,8 @@ import AdminTenantManagement from './AdminTenantManagement';
 import AdminTenantCreate from './AdminTenantCreate';
 import AdminUnitManagement from './AdminUnitManagement';
 import AdminIngredientManagement from './AdminIngredientManagement';
+import AdminUserManagement from './AdminUserManagement';
+import AccessDeniedScreen from './AccessDeniedScreen';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { cacheAdminAccess, cachedAdminAccess } from './browser-session-cache';
@@ -20,9 +22,13 @@ type AccessState = 'loading' | AdminAccessState;
 export default function AdminArea({ locale, path }: Properties): JSX.Element {
   const text: Translation = translations[locale];
   const [access, setAccess] = useState<AccessState>(initialAccessState);
+  const [isAdministrator, setIsAdministrator] = useState<boolean>(false);
   const [currentPath, setCurrentPath] = useState<string>(path);
   useEffect((): void => {
     void checkAccess(setAccess);
+  }, []);
+  useEffect((): void => {
+    void checkAdministrator(setIsAdministrator);
   }, []);
   useEffect((): (() => void) => {
     function updatePath(): void {
@@ -64,31 +70,25 @@ export default function AdminArea({ locale, path }: Properties): JSX.Element {
         </a>
       </section>
     );
-  if (access === 'denied')
-    return (
-      <section className="panel">
-        <h1>{text.admin.title}</h1>
-        <p className="message" role="alert">
-          {text.adminMail.accessDenied}
-        </p>
-      </section>
-    );
+  if (access === 'denied') return <AccessDeniedScreen text={text} />;
   return (
     <section className="admin-area">
       <aside className="admin-navigation">
         <p className="eyebrow">{text.admin.title}</p>
         <nav aria-label={text.admin.title}>
-          <a
-            className={
-              currentPath === '/admin'
-                ? 'admin-navigation__link admin-navigation__link--active'
-                : 'admin-navigation__link'
-            }
-            href="/admin"
-            onClick={(event: MouseEvent<HTMLAnchorElement>): void => navigate(event, '/admin')}
-          >
-            {text.admin.dashboard}
-          </a>
+          {isAdministrator ? (
+            <a
+              className={
+                currentPath === '/admin'
+                  ? 'admin-navigation__link admin-navigation__link--active'
+                  : 'admin-navigation__link'
+              }
+              href="/admin"
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void => navigate(event, '/admin')}
+            >
+              {text.admin.dashboard}
+            </a>
+          ) : null}
           <a
             className={
               currentPath.startsWith('/admin/tenants')
@@ -102,59 +102,67 @@ export default function AdminArea({ locale, path }: Properties): JSX.Element {
           >
             {text.admin.tenants}
           </a>
-          <a
-            className={
-              currentPath.startsWith('/admin/units')
-                ? 'admin-navigation__link admin-navigation__link--active'
-                : 'admin-navigation__link'
-            }
-            href="/admin/units"
-            onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
-              navigate(event, '/admin/units')
-            }
-          >
-            {text.admin.units}
-          </a>
-          <a
-            className={
-              currentPath.startsWith('/admin/ingredients')
-                ? 'admin-navigation__link admin-navigation__link--active'
-                : 'admin-navigation__link'
-            }
-            href="/admin/ingredients"
-            onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
-              navigate(event, '/admin/ingredients')
-            }
-          >
-            {text.dashboard.ingredients}
-          </a>
-          <a
-            className={
-              currentPath === '/admin/users'
-                ? 'admin-navigation__link admin-navigation__link--active'
-                : 'admin-navigation__link'
-            }
-            href="/admin/users"
-            onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
-              navigate(event, '/admin/users')
-            }
-          >
-            {text.admin.users}
-          </a>
-          <a
-            className={
-              currentPath.startsWith('/admin/settings')
-                ? 'admin-navigation__link admin-navigation__link--active'
-                : 'admin-navigation__link'
-            }
-            href="/admin/settings"
-            onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
-              navigate(event, '/admin/settings')
-            }
-          >
-            {text.admin.settings}
-          </a>
-          {currentPath.startsWith('/admin/settings') ? (
+          {isAdministrator ? (
+            <a
+              className={
+                currentPath.startsWith('/admin/units')
+                  ? 'admin-navigation__link admin-navigation__link--active'
+                  : 'admin-navigation__link'
+              }
+              href="/admin/units"
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                navigate(event, '/admin/units')
+              }
+            >
+              {text.admin.units}
+            </a>
+          ) : null}
+          {isAdministrator ? (
+            <a
+              className={
+                currentPath.startsWith('/admin/ingredients')
+                  ? 'admin-navigation__link admin-navigation__link--active'
+                  : 'admin-navigation__link'
+              }
+              href="/admin/ingredients"
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                navigate(event, '/admin/ingredients')
+              }
+            >
+              {text.dashboard.ingredients}
+            </a>
+          ) : null}
+          {isAdministrator ? (
+            <a
+              className={
+                currentPath === '/admin/users'
+                  ? 'admin-navigation__link admin-navigation__link--active'
+                  : 'admin-navigation__link'
+              }
+              href="/admin/users"
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                navigate(event, '/admin/users')
+              }
+            >
+              {text.admin.users}
+            </a>
+          ) : null}
+          {isAdministrator ? (
+            <a
+              className={
+                currentPath.startsWith('/admin/settings')
+                  ? 'admin-navigation__link admin-navigation__link--active'
+                  : 'admin-navigation__link'
+              }
+              href="/admin/settings"
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                navigate(event, '/admin/settings')
+              }
+            >
+              {text.admin.settings}
+            </a>
+          ) : null}
+          {isAdministrator && currentPath.startsWith('/admin/settings') ? (
             <>
               <a
                 className={
@@ -208,10 +216,7 @@ function page(
   if (path === '/admin/tenants') return <AdminTenantManagement locale={locale} />;
   if (path === '/admin/units') return <AdminUnitManagement locale={locale} />;
   if (path === '/admin/ingredients') return <AdminIngredientManagement locale={locale} />;
-  if (path === '/admin/users')
-    return (
-      <AdminPlaceholder title={text.admin.usersTitle} description={text.admin.usersDescription} />
-    );
+  if (path === '/admin/users') return <AdminUserManagement locale={locale} />;
   if (path === '/admin/settings')
     return (
       <section className="admin-page">
@@ -269,7 +274,7 @@ async function checkAccess(setAccess: (value: AccessState) => void): Promise<voi
     setAccess(cached);
     return;
   }
-  const response: Response = await fetch('/api/admin/mail-settings', {
+  const response: Response = await fetch('/api/admin/tenants', {
     credentials: 'same-origin',
   });
   if (response.ok) {
@@ -284,4 +289,10 @@ async function checkAccess(setAccess: (value: AccessState) => void): Promise<voi
   }
   cacheAdminAccess('denied');
   setAccess('denied');
+}
+async function checkAdministrator(setAdministrator: (value: boolean) => void): Promise<void> {
+  const response: Response = await fetch('/api/admin/instance-roles', {
+    credentials: 'same-origin',
+  });
+  setAdministrator(response.ok);
 }

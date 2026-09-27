@@ -5,6 +5,7 @@ export interface IngredientUsage {
   unit_localization_key: string | null;
   ingredient_name: string;
   ingredient_localization_key: string | null;
+  is_catalog_ingredient: boolean;
   special_kind: string | null;
   note: string | null;
   is_optional: boolean;
@@ -47,6 +48,7 @@ export interface CookbookResponse {
   recipes: Recipe[];
   canManageCategories: boolean;
   canManageRecipes: boolean;
+  canManageUsers: boolean;
 }
 
 export interface EditableRecipe {

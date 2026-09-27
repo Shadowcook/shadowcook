@@ -10,6 +10,11 @@ export interface Translation {
     applicationName: string;
   };
   loading: string;
+  accessDenied: {
+    title: string;
+    description: string;
+    backToCookbook: string;
+  };
   units: Record<string, { name: string; symbol: string }>;
   ingredients: Record<string, string>;
   login: {
@@ -27,6 +32,26 @@ export interface Translation {
     codeSent: string;
     usePasswordInstead: string;
     changeEmail: string;
+    resetPassword: string;
+    passwordResetRequested: string;
+  };
+  passwordReset: {
+    title: string;
+    subtitle: string;
+    newPassword: string;
+    submit: string;
+    submitting: string;
+    completed: string;
+    invalid: string;
+  };
+  userInvitation: {
+    title: string;
+    subtitle: string;
+    displayName: string;
+    password: string;
+    accept: string;
+    accepted: string;
+    unavailable: string;
   };
   passwordChange: {
     currentPasswordLabel: string;
@@ -84,6 +109,33 @@ export interface Translation {
     tenantsDescription: string;
     usersTitle: string;
     usersDescription: string;
+    instanceRoles: string;
+    assignInstanceRoles: string;
+    instanceRolesUpdated: string;
+    addUser: string;
+    addUserDescription: string;
+    sendUserInvitation: string;
+    userInvitationSent: string;
+    filterUsers: string;
+    userName: string;
+    userEmail: string;
+    userTenants: string;
+    userStatus: string;
+    userActive: string;
+    userDeactivated: string;
+    userDeletedStatus: string;
+    userPasswordChangeRequired: string;
+    deactivateUser: string;
+    activateUser: string;
+    renameUser: string;
+    deleteUser: string;
+    deleteUserDescription: string;
+    resetUserPassword: string;
+    resetUserPasswordDescription: string;
+    userRenamed: string;
+    userStatusUpdated: string;
+    userDeleted: string;
+    passwordReset: string;
     settingsTitle: string;
     settingsDescription: string;
     openSmtp: string;
@@ -242,8 +294,20 @@ export interface Translation {
   };
   tenantNavigation: {
     title: string;
+    selectArea: string;
     recipes: string;
     categories: string;
+    users: string;
+  };
+  tenantUsers: {
+    title: string;
+    description: string;
+    roles: string;
+    assignRoles: string;
+    rolesUpdated: string;
+    inviteUser: string;
+    inviteUserDescription: string;
+    invitationSent: string;
   };
   dashboard: {
     accountRecipes: string;

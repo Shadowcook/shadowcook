@@ -15,6 +15,7 @@
 - Never start the project on your own. You can test on different ports or in sandboxes. But not in a way that the dev DB or ports configured by the dev environment are affected
 - All items have to be "deep-linkable". Each category, each recipe should be reflected in the URL
 - Write clean code! Not everything in one line! Readability and Style: Use clear naming rules, consistent spacing, and proper indentation so other humans can read the code like a book.
+- UI pictograms must use simple, stylized, and immediately distinguishable silhouettes. Prefer a few bold geometric strokes over detailed or realistic representations.
 
 ## Personal developer preferences
 

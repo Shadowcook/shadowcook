@@ -22,6 +22,9 @@ import RecipeManagementList from './RecipeManagementList';
 import LoginScreen from './LoginScreen';
 import type { AuthenticationMethods } from './LoginScreen';
 import PasswordChangeScreen from './PasswordChangeScreen';
+import AccessDeniedScreen from './AccessDeniedScreen';
+import ManagementPlaceholder from './ManagementPlaceholder';
+import TenantUserManagement from './TenantUserManagement';
 import '../styles/cookbook.css';
 
 interface CookbookScreenProperties {
@@ -43,6 +46,7 @@ const emptyCookbook: CookbookResponse = {
   recipes: [],
   canManageCategories: false,
   canManageRecipes: false,
+  canManageUsers: false,
 };
 
 export default function CookbookScreen({ locale }: CookbookScreenProperties): JSX.Element {
@@ -66,7 +70,7 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
   const [isRecipeLoading, setIsRecipeLoading] = useState<boolean>(false);
   const [recipeError, setRecipeError] = useState<string>('');
   const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(false);
-  const [editorPath, setEditorPath] = useState<'new' | 'drafts' | string | null>(null);
+  const [editorPath, setEditorPath] = useState<'manage' | 'new' | 'drafts' | string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(sharedRecipeToken());
 
   useEffect((): void => {
@@ -133,7 +137,7 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       return;
     }
     if (isLoginPath()) {
-      window.location.replace('/');
+      window.location.replace(postLoginPath());
       return;
     }
     const loaded: CookbookResponse = await loadCookbook();
@@ -153,7 +157,7 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       setScreen('change-password');
       return;
     }
-    window.location.replace('/');
+    window.location.replace(postLoginPath());
   }
   async function login(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -193,6 +197,18 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       );
     } catch (error: unknown) {
       setMessage(errorMessage(error, locale));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function requestPasswordReset(): Promise<void> {
+    setIsSubmitting(true);
+    setMessage('');
+    try {
+      await request<void>('/auth/password-reset/request', jsonRequest({ email }));
+      setMessage(text.login.passwordResetRequested);
+    } catch (_error: unknown) {
+      setMessage(text.errors.requestFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -299,6 +315,14 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     setSelectedCategoryId(null);
     setSelectedRecipe(null);
   }
+  function openUsers(): void {
+    const slug: string | null = tenantSlugFromPath();
+    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/users`);
+    setIsCategoryEditor(false);
+    setEditorPath('manage-users');
+    setSelectedCategoryId(null);
+    setSelectedRecipe(null);
+  }
   function closeRecipeEditor(): void {
     const slug: string | null = tenantSlugFromPath();
     if (slug !== null) window.history.pushState(null, '', `/${slug}`);
@@ -373,6 +397,17 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
   if (screen === 'dashboard')
     return shareToken !== null ? (
       <SharedRecipeView token={shareToken} text={text} />
+    ) : editorPath === 'manage' && !cookbook.canManageRecipes && !cookbook.canManageCategories ? (
+      <AccessDeniedScreen text={text} />
+    ) : editorPath === 'manage-users' && !cookbook.canManageUsers ? (
+      <AccessDeniedScreen text={text} />
+    ) : isCategoryEditor && !cookbook.canManageCategories ? (
+      <AccessDeniedScreen text={text} />
+    ) : editorPath !== null &&
+      editorPath !== 'manage' &&
+      editorPath !== 'manage-users' &&
+      !cookbook.canManageRecipes ? (
+      <AccessDeniedScreen text={text} />
     ) : (
       <section
         className={isCategoryEditor || editorPath !== null ? 'tenant-area' : 'tenant-content'}
@@ -384,22 +419,31 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
             activeView={
               isCategoryEditor
                 ? 'categories'
-                : editorPath === 'drafts'
-                  ? 'drafts'
-                  : editorPath === 'manage-recipes'
-                    ? 'recipes'
-                    : editorPath !== null
-                      ? 'editor'
-                      : 'recipes'
+                : editorPath === 'manage'
+                  ? 'none'
+                  : editorPath === 'drafts'
+                    ? 'drafts'
+                    : editorPath === 'manage-recipes'
+                      ? 'recipes'
+                      : editorPath === 'manage-users'
+                        ? 'users'
+                        : editorPath !== null
+                          ? 'editor'
+                          : 'recipes'
             }
             onOpenRecipes={openRecipes}
             onOpenDrafts={openDrafts}
             onOpenCategories={openCategoryEditor}
+            onOpenUsers={openUsers}
             onCreateRecipe={(): void => openRecipeEditor(null)}
           />
         ) : null}
         <div className="tenant-content">
-          {isCategoryEditor && tenantSlugFromPath() !== null ? (
+          {editorPath === 'manage' ? (
+            <ManagementPlaceholder text={text} />
+          ) : editorPath === 'manage-users' && tenantSlugFromPath() !== null ? (
+            <TenantUserManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
+          ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
             <CategoryEditor
               locale={locale}
               tenantSlug={tenantSlugFromPath()!}
@@ -466,6 +510,7 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       onSubmit={login}
       onRequestCode={requestCode}
       onVerifyCode={verifyCode}
+      onRequestPasswordReset={requestPasswordReset}
       onEmailChange={(event: ChangeEvent<HTMLInputElement>): void => {
         setEmail(event.currentTarget.value);
         setEmailCode('');
@@ -483,6 +528,15 @@ function onValueChange(
 }
 function isLoginPath(): boolean {
   return window.location.pathname === loginPath;
+}
+function postLoginPath(): string {
+  const requestedPath: string | null = new URLSearchParams(window.location.search).get('next');
+  return requestedPath !== null &&
+    requestedPath.startsWith('/') &&
+    !requestedPath.startsWith('//') &&
+    !requestedPath.includes('\\')
+    ? requestedPath
+    : '/';
 }
 function tenantSlugFromPath(): string | null {
   const segment: string | undefined = window.location.pathname
@@ -514,7 +568,7 @@ function categoryEditorPath(): boolean {
   return segments.length === 2 && segments[1] === 'categories';
 }
 
-function recipeEditorPath(): 'new' | 'drafts' | string | null {
+function recipeEditorPath(): 'manage' | 'new' | 'drafts' | string | null {
   const segments: string[] = window.location.pathname
     .split('/')
     .filter((segment: string): boolean => segment.length > 0);
@@ -524,6 +578,9 @@ function recipeEditorPath(): 'new' | 'drafts' | string | null {
     return segments[2]!;
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'recipes')
     return 'manage-recipes';
+  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'users')
+    return 'manage-users';
+  if (segments.length === 2 && segments[1] === 'manage') return 'manage';
   return null;
 }
 function sharedRecipeToken(): string | null {

@@ -3,6 +3,8 @@ import CookbookScreen from './CookbookScreen';
 import AdminArea from './AdminArea';
 import InvitationScreen from './InvitationScreen';
 import TenantSelection from './TenantSelection';
+import PasswordResetScreen from './PasswordResetScreen';
+import UserInvitationScreen from './UserInvitationScreen';
 import Brand from './Brand.astro';
 import { resolveLocale, translations } from '../i18n';
 import type { Locale } from '../i18n';
@@ -46,6 +48,18 @@ const isTenantManagementPath: boolean =
             client:load
             locale={locale}
             token={path.slice('/invitations/'.length)}
+          />
+        ) : path.startsWith('/password-reset/') ? (
+          <PasswordResetScreen
+            client:load
+            text={text}
+            token={path.slice('/password-reset/'.length)}
+          />
+        ) : path.startsWith('/user-invitations/') ? (
+          <UserInvitationScreen
+            client:load
+            locale={locale}
+            token={path.slice('/user-invitations/'.length)}
           />
         ) : isAdministrationPath ? (
           <AdminArea client:load locale={locale} path={path} />

@@ -57,17 +57,19 @@ CREATE TABLE principal (
   disabled_at timestamptz
 );
 
+
 CREATE TABLE user_account (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   principal_id uuid NOT NULL UNIQUE REFERENCES principal(id) ON DELETE RESTRICT,
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-  email text NOT NULL UNIQUE,
+  email text NOT NULL,
   display_name text NOT NULL CHECK (length(trim(display_name)) > 0),
   password_hash text,
   password_change_required boolean NOT NULL DEFAULT false,
   password_changed_at timestamptz,
   last_login_at timestamptz,
   disabled_at timestamptz,
+  deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -113,7 +115,7 @@ CREATE TABLE tenant_membership_role (
   tenant_id uuid NOT NULL,
   principal_id uuid NOT NULL,
   tenant_role_id uuid NOT NULL,
-  PRIMARY KEY (tenant_id, principal_id, tenant_role_id),
+  PRIMARY KEY (tenant_id, principal_id),
   FOREIGN KEY (tenant_id, principal_id) REFERENCES tenant_membership(tenant_id, principal_id) ON DELETE CASCADE,
   FOREIGN KEY (tenant_role_id, tenant_id) REFERENCES tenant_role(id, tenant_id) ON DELETE CASCADE
 );
@@ -135,7 +137,7 @@ CREATE TABLE principal_instance_role (
   principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
   instance_role_id uuid NOT NULL REFERENCES instance_role(id) ON DELETE RESTRICT,
   assigned_at timestamptz NOT NULL DEFAULT now(),
-  PRIMARY KEY (principal_id, instance_role_id)
+  PRIMARY KEY (principal_id)
 );
 
 CREATE TABLE user_session (
@@ -543,6 +545,35 @@ CREATE INDEX audit_event_tenant_created_idx ON audit_event(tenant_id, created_at
 CREATE INDEX tenant_access_grant_receiver_idx ON tenant_access_grant(receiving_tenant_public_id);
 CREATE INDEX user_session_user_account_idx ON user_session(user_account_id);
 CREATE INDEX user_session_active_lookup_idx ON user_session(token_hash) WHERE revoked_at IS NULL;
+CREATE UNIQUE INDEX user_account_active_email_unique ON user_account(email) WHERE deleted_at IS NULL;
+
+CREATE TABLE password_reset_token (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_account_id uuid NOT NULL REFERENCES user_account(id) ON DELETE RESTRICT,
+  token_hash bytea NOT NULL UNIQUE,
+  force_password_change boolean NOT NULL DEFAULT false,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (expires_at > created_at)
+);
+CREATE INDEX password_reset_token_user_active_idx ON password_reset_token(user_account_id, created_at DESC) WHERE consumed_at IS NULL;
+
+CREATE TABLE user_invitation (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid REFERENCES tenant(id) ON DELETE CASCADE,
+  tenant_role_id uuid,
+  instance_role_id uuid REFERENCES instance_role(id) ON DELETE RESTRICT,
+  invited_email text NOT NULL,
+  token_hash bytea NOT NULL UNIQUE,
+  expires_at timestamptz NOT NULL,
+  accepted_at timestamptz,
+  created_by_principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (expires_at > created_at),
+  FOREIGN KEY (tenant_role_id, tenant_id) REFERENCES tenant_role(id, tenant_id) ON DELETE CASCADE
+);
+CREATE INDEX user_invitation_email_active_idx ON user_invitation(invited_email) WHERE accepted_at IS NULL;
 
 INSERT INTO permission (code, description) VALUES
   ('instance:administer', 'Administer the Shadowcook instance.'),
@@ -567,7 +598,8 @@ INSERT INTO permission (code, description) VALUES
 
 INSERT INTO instance_role (code, name) VALUES
   ('administrator', 'Administrator'),
-  ('tenant-manager', 'Tenant manager');
+  ('tenant-manager', 'Tenant manager'),
+  ('user', 'User');
 
 INSERT INTO instance_role_permission (instance_role_id, permission_code)
 SELECT instance_role.id, permission.code

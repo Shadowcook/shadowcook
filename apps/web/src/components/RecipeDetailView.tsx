@@ -33,16 +33,18 @@ export default function RecipeDetailView({
             <ul>
               {step.ingredients.map((ingredient: IngredientUsage): JSX.Element => (
                 <li key={`${ingredient.sort_order}-${ingredient.ingredient_name}`}>
-                  {ingredient.special_kind === null ? null : (
-                    <span
-                      className="recipe-special-icon"
-                      aria-label={specialKindLabel(ingredient.special_kind, text)}
-                      title={specialKindLabel(ingredient.special_kind, text)}
-                    >
-                      {specialKindIcon(ingredient.special_kind)}
-                    </span>
-                  )}
-                  <span>{formatIngredient(ingredient, text)}</span>
+                  <span className="recipe-step-entry">
+                    {ingredient.special_kind === null ? null : (
+                      <span
+                        className="recipe-special-icon"
+                        aria-label={specialKindLabel(ingredient.special_kind, text)}
+                        title={specialKindLabel(ingredient.special_kind, text)}
+                      >
+                        {specialKindIcon(ingredient.special_kind)}
+                      </span>
+                    )}
+                    <IngredientText ingredient={ingredient} text={text} />
+                  </span>
                   {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
                 </li>
               ))}
@@ -60,21 +62,37 @@ export default function RecipeDetailView({
   );
 }
 
-function formatIngredient(ingredient: IngredientUsage, text: Translation): string {
-  return [
-    formatAmount(ingredient.amount),
+interface IngredientTextProperties {
+  ingredient: IngredientUsage;
+  text: Translation;
+}
+
+function IngredientText(properties: IngredientTextProperties): JSX.Element {
+  const { ingredient, text } = properties;
+  const amount: string | null = formatAmount(ingredient.amount);
+  const unit: string | null =
     ingredient.unit_symbol === null
       ? null
-      : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol),
-    localizedIngredientName(
-      text,
-      ingredient.ingredient_localization_key,
-      ingredient.ingredient_name,
-    ),
-    ingredient.note,
-  ]
-    .filter((value: string | null): value is string => value !== null && value.length > 0)
-    .join(' ');
+      : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol);
+  const ingredientName: string = localizedIngredientName(
+    text,
+    ingredient.ingredient_localization_key,
+    ingredient.ingredient_name,
+  );
+  return (
+    <span>
+      {[amount, unit]
+        .filter((value: string | null): value is string => value !== null && value.length > 0)
+        .join(' ')}
+      {amount === null && unit === null ? null : ' '}
+      {ingredient.is_catalog_ingredient ? <strong>{ingredientName}</strong> : ingredientName}
+      {ingredient.is_catalog_ingredient &&
+      ingredient.note !== null &&
+      ingredient.note.length > 0 ? (
+        <em className="recipe-ingredient-note"> {ingredient.note}</em>
+      ) : null}
+    </span>
+  );
 }
 
 function formatAmount(amount: string | null): string | null {

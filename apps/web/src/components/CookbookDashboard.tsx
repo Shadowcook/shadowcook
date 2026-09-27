@@ -60,7 +60,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           <h1>{text.dashboard.greeting}</h1>
         </div>
         <div className="account">
-          {cookbook.canManageRecipes || cookbook.canManageCategories ? (
+          {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
             <button type="button" className="button--secondary" onClick={onManageCookbook}>
               {text.tenantNavigation.title}
             </button>

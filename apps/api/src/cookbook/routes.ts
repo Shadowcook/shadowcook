@@ -39,6 +39,7 @@ interface IngredientUsageRow {
   unit_localization_key: string | null;
   ingredient_name: string;
   ingredient_localization_key: string | null;
+  is_catalog_ingredient: boolean;
   special_kind: string | null;
   note: string | null;
   is_optional: boolean;
@@ -78,6 +79,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         recipes: [],
         canManageCategories: false,
         canManageRecipes: false,
+        canManageUsers: false,
       });
     const tenantResult = await pool.query<TenantRow>(
       'SELECT id, display_name FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
@@ -136,6 +138,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     const permissions = await pool.query<{
       can_manage_categories: boolean;
       can_manage_recipes: boolean;
+      can_manage_users: boolean;
     }>(
       `SELECT EXISTS (
          SELECT 1 FROM tenant_membership_role
@@ -150,7 +153,19 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
            AND tenant_role_permission.permission_code IN ('recipe:create', 'recipe:update')
-       ) AS can_manage_recipes`,
+       ) AS can_manage_recipes,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'tenant:manage'
+       ) OR EXISTS (
+         SELECT 1 FROM principal_instance_role
+         INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
+         WHERE principal_instance_role.principal_id = $2
+           AND instance_role_permission.permission_code IN ('tenant:create', 'instance:administer')
+       ) AS can_manage_users`,
       [tenant.id, principalId],
     );
     return reply.send({
@@ -159,6 +174,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       recipes: recipes.rows,
       canManageCategories: permissions.rows[0]?.can_manage_categories === true,
       canManageRecipes: permissions.rows[0]?.can_manage_recipes === true,
+      canManageUsers: permissions.rows[0]?.can_manage_users === true,
     });
   });
 
@@ -208,7 +224,9 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text, unit.symbol AS unit_symbol,
         unit.localization_key AS unit_localization_key,
         COALESCE(ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
-        ingredient.localization_key AS ingredient_localization_key, ingredient_usage.special_kind,
+        ingredient.localization_key AS ingredient_localization_key,
+        (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
+        ingredient_usage.special_kind,
         ingredient_usage.note, ingredient_usage.is_optional
       FROM ingredient_usage
       INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id

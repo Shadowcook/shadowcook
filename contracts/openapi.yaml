@@ -87,6 +87,44 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /auth/password-reset/request:
+    post:
+      operationId: requestPasswordReset
+      summary: Requests a password-reset email without exposing whether an account exists.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '204': { description: The request was accepted without account-existence disclosure. }
+  /auth/password-reset/complete:
+    post:
+      operationId: completePasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token, newPassword]
+              properties:
+                token: { type: string }
+                newPassword: { type: string, format: password, minLength: 12 }
+      responses:
+        '204': { description: The password was changed and the reset token was consumed. }
+        '400':
+          description: The reset token or password is invalid.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
   /auth/session:
     get:
       operationId: getCurrentSession
@@ -743,7 +781,395 @@ paths:
     get:
       operationId: listUsers
       security: [{ sessionCookie: [] }]
-      responses: { '200': { description: Users and tenant memberships. } }
+      responses:
+        {
+          '200':
+            {
+              description: Users,
+              their lifecycle state,
+              and tenant memberships.,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          additionalProperties: false,
+                          required: [users],
+                          properties:
+                            {
+                              users:
+                                {
+                                  type: array,
+                                  items:
+                                    {
+                                      type: object,
+                                      additionalProperties: false,
+                                      required:
+                                        [
+                                          public_id,
+                                          email,
+                                          display_name,
+                                          password_change_required,
+                                          disabled_at,
+                                          deleted_at,
+                                          last_login_at,
+                                          tenants,
+                                          instance_roles,
+                                        ],
+                                      properties:
+                                        {
+                                          public_id: { type: string, format: uuid },
+                                          email: { type: string, format: email },
+                                          display_name: { type: string },
+                                          password_change_required: { type: boolean },
+                                          disabled_at:
+                                            { type: [string, 'null'], format: date-time },
+                                          deleted_at: { type: [string, 'null'], format: date-time },
+                                          last_login_at:
+                                            { type: [string, 'null'], format: date-time },
+                                          tenants:
+                                            {
+                                              type: array,
+                                              items:
+                                                {
+                                                  type: object,
+                                                  additionalProperties: false,
+                                                  required: [publicId, name],
+                                                  properties:
+                                                    {
+                                                      publicId: { type: string, format: uuid },
+                                                      name: { type: string },
+                                                    },
+                                                },
+                                            },
+                                          instance_roles: { type: array, items: { type: string } },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          '401': { description: Authentication required. },
+          '403': { description: Instance administration permission required. },
+        }
+  /admin/instance-roles:
+    get:
+      operationId: listInstanceRoles
+      summary: Lists assignable instance roles.
+      security: [{ sessionCookie: [] }]
+      responses:
+        {
+          '200':
+            {
+              description: Instance roles,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          additionalProperties: false,
+                          required: [roles],
+                          properties:
+                            {
+                              roles:
+                                {
+                                  type: array,
+                                  items:
+                                    {
+                                      type: object,
+                                      additionalProperties: false,
+                                      required: [code, name],
+                                      properties:
+                                        { code: { type: string }, name: { type: string } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          '401': { description: Authentication required. },
+          '403': { description: Instance administration permission required. },
+        }
+  /admin/users/{publicId}/instance-roles:
+    put:
+      operationId: replaceUserInstanceRoles
+      summary: Replaces a user's instance role assignments.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [roleCodes]
+              properties: { roleCodes: { type: array, items: { type: string }, uniqueItems: true } }
+      responses:
+        {
+          '204': { description: Instance roles replaced. },
+          '400': { description: Invalid instance role assignment. },
+          '401': { description: Authentication required. },
+          '403': { description: Instance administration permission required. },
+          '404': { description: Active user not found. },
+        }
+  /cookbook/tenant-users:
+    get:
+      operationId: listTenantUsers
+      summary: Lists only the users and assignable roles of the managed tenant.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: tenantSlug, in: query, required: true, schema: { type: string } }]
+      responses:
+        {
+          '200':
+            {
+              description: Tenant users and roles,
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          type: object,
+                          additionalProperties: false,
+                          required: [users, roles],
+                          properties:
+                            {
+                              users:
+                                {
+                                  type: array,
+                                  items:
+                                    {
+                                      type: object,
+                                      additionalProperties: false,
+                                      required: [public_id, email, display_name, roles],
+                                      properties:
+                                        {
+                                          public_id: { type: string, format: uuid },
+                                          email: { type: string, format: email },
+                                          display_name: { type: string },
+                                          roles:
+                                            {
+                                              type: array,
+                                              items:
+                                                {
+                                                  type: object,
+                                                  additionalProperties: false,
+                                                  required: [id, name],
+                                                  properties:
+                                                    {
+                                                      id: { type: string, format: uuid },
+                                                      name: { type: string },
+                                                    },
+                                                },
+                                            },
+                                        },
+                                    },
+                                },
+                              roles:
+                                {
+                                  type: array,
+                                  items:
+                                    {
+                                      type: object,
+                                      additionalProperties: false,
+                                      required: [id, name],
+                                      properties:
+                                        {
+                                          id: { type: string, format: uuid },
+                                          name: { type: string },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                },
+            },
+          '400': { description: Invalid tenant. },
+          '401': { description: Authentication required. },
+          '403': { description: Tenant management permission required. },
+          '404': { description: Tenant not found. },
+        }
+  /cookbook/tenant-users/invitations:
+    post:
+      operationId: inviteTenantUser
+      summary: Invites a new user to a tenant with one selected tenant role.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ name: tenantSlug, in: query, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, roleId]
+              properties:
+                { email: { type: string, format: email }, roleId: { type: string, format: uuid } }
+      responses:
+        {
+          '201': { description: Tenant invitation sent. },
+          '400': { description: Invalid invitation or tenant role. },
+          '401': { description: Authentication required. },
+          '403': { description: Tenant management permission required. },
+          '409': { description: Active user already uses the email. },
+          '503': { description: Email delivery is not configured. },
+        }
+  /cookbook/tenant-users/{publicId}/roles:
+    put:
+      operationId: replaceTenantUserRoles
+      summary: Replaces roles for an existing user of the specified tenant.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+          { name: tenantSlug, in: query, required: true, schema: { type: string } },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [roleIds]
+              properties:
+                {
+                  roleIds:
+                    {
+                      type: array,
+                      minItems: 1,
+                      uniqueItems: true,
+                      items: { type: string, format: uuid },
+                    },
+                }
+      responses:
+        {
+          '204': { description: Tenant roles replaced. },
+          '400': { description: Invalid tenant role assignment. },
+          '401': { description: Authentication required. },
+          '403': { description: Tenant management permission required. },
+          '404': { description: Tenant or tenant user not found. },
+        }
+  /admin/users/{publicId}:
+    patch:
+      operationId: updateUser
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              {
+                schema:
+                  {
+                    type: object,
+                    additionalProperties: false,
+                    minProperties: 1,
+                    properties:
+                      { displayName: { type: string, minLength: 1 }, disabled: { type: boolean } },
+                  },
+              },
+          }
+      responses:
+        {
+          '204': { description: User updated. },
+          '400': { description: Invalid user update. },
+          '404': { description: Active user not found. },
+        }
+    delete:
+      operationId: deleteUser
+      summary: Soft-deletes a user, revokes sessions, and releases the email address for a new account.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        {
+          '204': { description: User soft-deleted. },
+          '404': { description: Active user not found. },
+        }
+  /admin/users/invitations:
+    post:
+      operationId: inviteUser
+      summary: Sends an account-creation invitation to an email address.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '201': { description: Invitation email sent. }
+        '400': { description: Invalid invitation email. }
+        '409': { description: An active user already has this email address. }
+        '503': { description: Invitation email delivery is not configured. }
+  /admin/users/{publicId}/reset-password:
+    post:
+      operationId: resetUserPassword
+      summary: Sends an administrator-required password-reset link to the registered email address.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        {
+          '204': { description: Reset email sent and existing sessions revoked. },
+          '404': { description: Active user not found. },
+          '502': { description: Password-reset email delivery failed. },
+          '503': { description: Password-reset email delivery is not configured. },
+        }
+  /user-invitations/{token}:
+    get:
+      operationId: getUserInvitation
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      responses:
+        '200':
+          description: Invitation details and current password requirement.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [email, passwordRequired]
+                properties:
+                  email: { type: string, format: email }
+                  passwordRequired: { type: boolean }
+        '404': { description: Invitation unavailable. }
+  /user-invitations/{token}/accept:
+    post:
+      operationId: acceptUserInvitation
+      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [displayName]
+              properties:
+                displayName: { type: string, minLength: 1 }
+                password: { type: string, format: password, minLength: 12 }
+      responses:
+        '204': { description: Account created and invitation accepted. }
+        '400': { description: Invalid invitation details or password. }
+        '404': { description: Invitation unavailable. }
+        '409': { description: An active user already has this email address. }
   /invitations/{token}:
     get:
       operationId: getTenantInvitation
@@ -1591,6 +2017,7 @@ components:
           unit_localization_key,
           ingredient_name,
           ingredient_localization_key,
+          is_catalog_ingredient,
           special_kind,
           note,
           is_optional,
@@ -1609,6 +2036,8 @@ components:
           type: string
         ingredient_localization_key:
           type: [string, 'null']
+        is_catalog_ingredient:
+          type: boolean
         special_kind:
           type: [string, 'null']
           enum: [NO_ICON, REMOVE, ADD, INFO, IMPORTANT, COOK, COOL, HEAT, WAIT, WORK_STEP, null]

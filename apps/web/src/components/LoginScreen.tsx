@@ -19,6 +19,7 @@ interface LoginScreenProperties {
   onSubmit: (event: SubmitEvent<HTMLFormElement>) => void;
   onRequestCode: () => Promise<void>;
   onVerifyCode: (event: SubmitEvent<HTMLFormElement>) => void;
+  onRequestPasswordReset: () => Promise<void>;
   onEmailChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onPasswordChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onCodeChange: (value: string) => void;
@@ -38,6 +39,7 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
     onSubmit,
     onRequestCode,
     onVerifyCode,
+    onRequestPasswordReset,
     onEmailChange,
     onPasswordChange,
     onCodeChange,
@@ -114,17 +116,26 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
           </>
         ) : null}
         {step === 'password' ? (
-          <label>
-            {text.login.passwordLabel}
-            <input
-              value={password}
-              onChange={onPasswordChange}
-              type="password"
-              autoComplete="current-password"
-              required
-              autoFocus
-            />
-          </label>
+          <>
+            <label>
+              {text.login.passwordLabel}
+              <input
+                value={password}
+                onChange={onPasswordChange}
+                type="password"
+                autoComplete="current-password"
+                required
+                autoFocus
+              />
+            </label>
+            <button
+              className="button--secondary"
+              type="button"
+              onClick={(): void => void onRequestPasswordReset()}
+            >
+              {text.login.resetPassword}
+            </button>
+          </>
         ) : null}
         {step !== 'code' ? (
           <button type="submit" disabled={isSubmitting}>

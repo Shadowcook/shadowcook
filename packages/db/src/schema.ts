@@ -28,6 +28,7 @@ export interface UserAccountTable {
   password_changed_at: Timestamp | null;
   last_login_at: Timestamp | null;
   disabled_at: Timestamp | null;
+  deleted_at: Timestamp | null;
 }
 
 export interface UserSessionTable {
@@ -38,6 +39,29 @@ export interface UserSessionTable {
   expires_at: Timestamp;
   last_seen_at: Timestamp;
   revoked_at: Timestamp | null;
+}
+
+export interface PasswordResetTokenTable {
+  id: Generated<Uuid>;
+  user_account_id: string;
+  token_hash: Buffer;
+  force_password_change: Generated<boolean>;
+  expires_at: Timestamp;
+  consumed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface UserInvitationTable {
+  id: Generated<Uuid>;
+  tenant_id: string | null;
+  tenant_role_id: string | null;
+  instance_role_id: string | null;
+  invited_email: string;
+  token_hash: Buffer;
+  expires_at: Timestamp;
+  accepted_at: Timestamp | null;
+  created_by_principal_id: string;
+  created_at: Generated<Timestamp>;
 }
 
 export interface RecipeTable {
@@ -122,6 +146,8 @@ export interface Database {
   tenant: TenantTable;
   user_account: UserAccountTable;
   user_session: UserSessionTable;
+  password_reset_token: PasswordResetTokenTable;
+  user_invitation: UserInvitationTable;
   recipe: RecipeTable;
   recipe_revision: RecipeRevisionTable;
   recipe_share_link: RecipeShareLinkTable;

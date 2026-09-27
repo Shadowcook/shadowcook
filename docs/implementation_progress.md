@@ -2,6 +2,17 @@
 
 ## Completed
 
+- Tenant user invitations require an email address and exactly one selected tenant role; acceptance creates the account and its tenant membership.
+- Tenant-Managers can access every tenant, create, edit, disable, and delete tenants, and manage tenant-user role assignments for every tenant. Only instance administrators can assign instance-wide roles.
+- Instance administrators can assign and remove instance roles for users from the deep-linkable user management view.
+- Tenant managers can open `/{tenant-slug}/manage/users` and assign tenant roles only to existing users of that tenant. Tenant role APIs enforce the tenant scope for user lookup and role IDs.
+- New tenants receive `Owner`, `Editor`, and `Viewer` tenant roles. The development seed includes the local owner and a local viewer membership.
+- Instance administration provides a deep-linkable user list with display-name rename, activation control, email-delivered password reset, and soft-delete actions. Soft-deleted accounts retain historical records while their email addresses are reusable by new accounts.
+- Instance administration can invite users by email. Invitation acceptance creates the account with a user-selected display name and password, then redirects to login; password entry is omitted for email-code-only instances.
+- Password-reset links are single-use and expire after one hour. Administrator requests revoke sessions and require the reset; self-service requests do not force a password change before their reset link is completed.
+- Astro middleware redirects unauthenticated administration and tenant-management requests to login while preserving the requested internal path for post-login navigation. Authenticated users without the needed tenant-management permission receive an access-denied page.
+- The deep-linkable `/{tenant-slug}/manage` route opens the cookbook-management workspace with a placeholder until a management area is selected.
+
 - Recipe step entries support either a validated catalogue ingredient or an explicit free-text override; the database enforces exactly one representation per entry.
 
 - Recipe step editing presents each step's instruction and ingredient list side by side on desktop viewports, with a responsive stacked mobile layout.
@@ -23,7 +34,7 @@
 - Category delete controls are disabled when the category or any of its descendants is used by a recipe revision.
 - The category editor suggests a URL name from a new category name and validates its format, reserved route names, and tenant-local conflicts while editing.
 - The category editor provides accessible up and down controls for sibling ordering.
-- The development bootstrap administrator receives the `Owner` role for the seeded local cookbook.
+- The JSON development seed defines `user@local` / `user` as the local cookbook Owner and `guest@local` / `guest` as the local cookbook Viewer without instance management roles.
 
 - Cookbook client responsibilities are split into dedicated screen, dashboard, category tree, public tenant-selection, tenant-management, sign-in, password-change, status-message, and API-client modules.
 - The web client validates every restored browser session against the API; invalid server-side sessions clear the per-tab presentation cache immediately.
@@ -90,6 +101,8 @@
 - Recipe ingredient selection uses a delayed, server-backed catalogue search and keeps special entries available without loading the ingredient catalogue.
 - Recipe step entries use one shared note input for ingredient notes, free text, and special-entry descriptions.
 - Recipe step rows retain editable amount, unit, ingredient, note, and optional controls for every selection; the API discards amount, unit, ingredient note, and optional values for special entries.
+- Recipe detail rows render free-text and special-entry descriptions in the ingredient position, with special-entry icons immediately preceding their descriptions.
+- Recipe detail rows emphasize normalized ingredient names and render their notes in italic secondary text.
 - Clickable cookbook recipe cards with a localized recipe detail view.
 - Deep-linkable cookbook navigation with hierarchical category and recipe-slug URLs.
 - Tenant-unique category slugs in the initial database schema.

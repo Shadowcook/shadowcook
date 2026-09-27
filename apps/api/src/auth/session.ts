@@ -41,6 +41,7 @@ export async function currentSessionUser(
     FROM user_session
     INNER JOIN user_account ON user_account.id = user_session.user_account_id
     WHERE user_session.token_hash = $1 AND user_session.revoked_at IS NULL AND user_session.expires_at > now()
+      AND user_account.deleted_at IS NULL
   `,
     [hashSessionToken(token)],
   );

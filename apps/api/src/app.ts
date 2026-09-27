@@ -9,6 +9,7 @@ import { registerUnitRoutes } from './admin/unit-routes.js';
 import { registerIngredientRoutes } from './admin/ingredient-routes.js';
 import { registerCategoryRoutes } from './cookbook/category-routes.js';
 import { registerRecipeEditorRoutes } from './cookbook/recipe-editor-routes.js';
+import { registerTenantUserRoutes } from './cookbook/tenant-user-routes.js';
 
 export function createApi(
   pool: Pool,
@@ -23,10 +24,11 @@ export function createApi(
   });
 
   api.get('/health', async () => ({ status: 'ok' }));
-  registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey);
+  registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerCookbookRoutes(api, pool);
   registerCategoryRoutes(api, pool);
   registerRecipeEditorRoutes(api, pool);
+  registerTenantUserRoutes(api, pool);
   registerAdminMailRoutes(api, pool, instanceSecretKey);
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
   registerTenantRoutes(api, pool, instanceSecretKey, publicWebOrigin);

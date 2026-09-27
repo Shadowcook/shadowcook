@@ -193,8 +193,9 @@ shadowcook/
 
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
 - The cookbook overview exposes category and recipe public identifiers, slugs, titles, summaries, category assignments, and category parent public identifiers.
-- The API process seeds the `local-cookbook` tenant, its bootstrap administrator membership, four categories, and three published recipes only when `NODE_ENV=development`.
-- The development bootstrap administrator receives the `Owner` tenant role for `local-cookbook` after development seed data is loaded.
+- The API process seeds the `local-cookbook` tenant, four categories, and three published recipes only when `NODE_ENV=development`.
+- The development seed defines `user@local` with password `user` and assigns it the `Owner` tenant role for `local-cookbook` without an instance role.
+- The development seed defines `guest@local` with password `guest` as a `Viewer` member of `local-cookbook` without instance role assignments.
 - The API process runs the tracked `initial-deployment-units-v1` seed once for each database after migrations and before bootstrap administration. The seed inserts instance-owned recipe units from `initial-deployment-seed.json` and records its identifier in `application_seed` in the same transaction.
 - Tenant recipe visibility defaults to `PUBLIC`; a recipe visibility override can restrict an individual recipe.
 - Categories support parent-child trees with no fixed database depth limit.
@@ -209,6 +210,7 @@ shadowcook/
 - Sibling categories have a non-negative tenant-scoped `sort_order` that is unique within their parent category.
 - Every published recipe revision has at least one category. Draft revisions may be uncategorized.
 - The tenant-scoped category editor is available at `/{tenant-slug}/categories`. It requires `category:update` and creates, updates, reparents, and deletes categories through `/cookbook/tenants/{tenantSlug}/categories`.
+- `/{tenant-slug}/manage` is the deep-linkable cookbook-management entry route. It displays the tenant management navigation and an empty management-area placeholder until a concrete management route is selected.
 - The category editor changes a category's sibling order only by moving it one position up or down. The operation swaps `sort_order` with the adjacent category under the same parent.
 - A category deletion is rejected when the category or any of its descendants is assigned to a recipe revision. Category slugs reserve `categories` in addition to the other cookbook route segments.
 - Editable category responses expose whether a category tree can be deleted, based on recipe-revision assignments in that category and all descendants.
@@ -220,7 +222,7 @@ shadowcook/
 
 - `pnpm reset:dev-db` drops and recreates the PostgreSQL `public` schema only when `NODE_ENV=development`.
 - The next API startup applies the current initial schema and development seed.
-- The optional repository-root `development-seed.json` stores development database records as table-name keys and row arrays. The loader validates every table and column against the active PostgreSQL schema and inserts rows in JSON property order. Omitted columns use database defaults; relations use explicit stable identifiers. `$seedRef` resolves bootstrap seed values, and `$encrypt` encrypts a string for a `bytea` column. The local file is excluded from version control; `development-seed.example.json` is the template.
+- The optional repository-root `development-seed.json` stores development database records as table-name keys and row arrays. The loader validates every table and column against the active PostgreSQL schema and inserts rows in JSON property order. Omitted columns use database defaults; relations use explicit stable identifiers. `$seedRef` resolves bootstrap seed values, `$encrypt` encrypts a string for a `bytea` column, and the development-only `$passwordHash` creates an scrypt password verifier. The local file is excluded from version control; `development-seed.example.json` is the template.
 - The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.
 
 ### 4.4 Instance mail delivery
@@ -242,6 +244,7 @@ shadowcook/
 ### 4.6 Instance administration
 
 - `/admin` is a reserved, instance-wide web namespace and is not a tenant slug.
+- Astro middleware redirects an unauthenticated request for a protected administration or tenant-management route to `/login?next=<requested-path>` before the page is served. After successful login, the web client returns to the validated internal `next` path.
 - The instance administration UI has its own navigation and does not use cookbook breadcrumbs.
 - `/admin` is the administration dashboard, `/admin/tenants` is tenant management, `/admin/users` is instance and tenant user management, `/admin/settings` is the instance settings overview, and `/admin/settings/smtp` manages SMTP delivery.
 - `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
@@ -446,6 +449,8 @@ An ingredient usage contains either a normalized ingredient reference or a non-e
 The recipe editor retrieves at most twenty matching ingredients for a non-empty ingredient search query. The web client delays each ingredient-search request by 300 milliseconds and does not request or render catalogue ingredient results for an empty query.
 
 The recipe editor presents one note input for every recipe step entry. A normalized ingredient stores this input as its ingredient note. Free-text and special entries store it as their text override.
+
+Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render normalized ingredient names prominently and render their notes as secondary text.
 
 Suggested structure:
 
@@ -968,6 +973,18 @@ Service accounts and automation use scoped API credentials.
 
 Roles are convenience collections of explicit permissions.
 
+### 15.2.1 Tenant management roles
+
+- `administrator` and `tenant-manager` are the only instance-wide roles.
+- Only an `administrator` can assign or remove instance-wide roles.
+- `Tenant-Manager` is the user-facing name of the `tenant-manager` instance-wide role.
+- A Tenant-Manager can create tenants and manage users, tenant-role assignments, and invitations for every tenant.
+- A Tenant-Manager cannot assign or remove `administrator` or `tenant-manager` roles.
+- `Tenant-Owner` is a tenant-scoped role for complete administration of one tenant.
+- A Tenant-Owner can manage users, roles, cookbook content, settings, and service accounts only within the tenant in which the role is assigned.
+- Tenant-Manager permissions do not make the assignee a Tenant-Owner of any tenant.
+- Tenant-user invitations select exactly one tenant role and assign the accepted account to that tenant with the selected role.
+
 Example permissions:
 
 ```text
@@ -994,21 +1011,31 @@ service-account:manage
 
 Service accounts should normally receive least-privilege permissions.
 
-### 15.2.1 Implemented access structure
+### 15.2.2 Implemented access structure
 
 - `principal` is the authenticated actor identity.
-- `user_account` is a human principal with a unique email address and an optional password verifier.
+- `user_account` is a human principal with an optional password verifier. Email addresses are unique among accounts whose `deleted_at` is null.
+- User deletion sets `deleted_at` and `disabled_at`, retains the user account and its principal relationships, revokes active sessions, and releases the email address for a later account.
+- User deactivation sets `disabled_at` and revokes active sessions. Password-reset tokens are opaque, SHA-256-hashed database records with a one-hour lifetime and single-use consumption.
+- An administrator password-reset request revokes active sessions, sets `password_change_required`, and sends a reset link to the registered email address. Completing the linked reset replaces the password verifier and clears `password_change_required`.
+- A user-requested password reset sends the same reset-link type without changing `password_change_required`; its request endpoint returns no account-existence information and limits email delivery to one request per account in ten minutes.
+- Display names are not unique.
+- `user_invitation` stores a SHA-256 verifier of an opaque seven-day invitation token, the invited email address, the creator principal, and acceptance state.
+- Instance administrators invite a user by email only. The invitation acceptance page creates the account with the invited email address and the user-selected display name, then redirects to `/login`. It requires a password unless the instance login mode is `EMAIL_CODE_ONLY`.
 - `instance_role` is an instance-wide role. The seeded `administrator` role has every registered permission.
 - `principal_instance_role` assigns an instance role to a principal.
 - `tenant_role` is tenant-scoped. `tenant_membership` associates a principal with a tenant and `tenant_membership_role` assigns its tenant roles.
 - `permission` is the canonical permission catalogue. Role-permission relationships are stored in `instance_role_permission` and `tenant_role_permission`.
 - Tenant-role names and their permission assignments are tenant data. The initial tenant-role set will be `Owner`, `Editor`, and `Viewer`.
+- Instance administrators can list assignable instance roles and replace a user's instance-role assignments through `/admin/users/{publicId}/instance-roles`.
+- Tenant members with `tenant:manage` can list only users of their own tenant and replace roles only for existing memberships through `/cookbook/tenant-users`. Instance administrators and Tenant-Managers can use the same endpoints for every tenant.
+- Tenant-user role assignment verifies every assigned role belongs to the managed tenant.
 - `user_session` stores a SHA-256 verifier of an opaque browser session token. The plaintext token is only held in the `shadowcook_session` HttpOnly cookie.
 - Non-development session cookies include the `Secure` attribute. Development session cookies omit it for local HTTP access.
-- The web client caches the session presentation state and granted or denied administration-access results in per-tab session storage for 15 minutes. An unauthenticated administration result is rechecked on the next administration visit. API authorization continues to validate the opaque session and permissions server-side for every protected request.
+- The web client caches the session presentation state and granted or denied administration-access results in per-tab session storage for 15 minutes. API authorization continues to validate the opaque session and permissions server-side for every protected request.
 - Administration navigation uses browser History API transitions within its React island. Administration URLs remain directly reachable and links preserve their normal behavior for modified clicks and new tabs.
 
-### 15.2.2 Bootstrap administrator and password recovery
+### 15.2.3 Bootstrap administrator and password recovery
 
 - API startup creates one instance administrator when no principal holds the `administrator` instance role.
 - With `NODE_ENV=development`, the bootstrap account is `admin@local` with password `admin` and `password_change_required` is `false`.

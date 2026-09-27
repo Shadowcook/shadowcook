@@ -404,6 +404,9 @@ code {
 .admin-page--wide {
   max-width: 1100px;
 }
+.admin-page--users {
+  max-width: none;
+}
 .tenant-table {
   table-layout: fixed;
 }
@@ -427,6 +430,33 @@ code {
 }
 .tenant-table th:nth-child(5) {
   width: 18%;
+}
+.user-table th:nth-child(1) {
+  width: 16%;
+}
+.user-table th:nth-child(2) {
+  width: 22%;
+}
+.user-table th:nth-child(3) {
+  width: 22%;
+}
+.user-table th:nth-child(4) {
+  width: 14%;
+}
+.user-table th:nth-child(5) {
+  width: 12%;
+}
+.user-table th:nth-child(6) {
+  width: 14%;
+}
+.user-table td:nth-child(3),
+.user-table td:nth-child(4) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.user-table-container {
+  overflow-x: visible;
 }
 .tenant-description {
   overflow: hidden;
@@ -456,7 +486,7 @@ code {
   stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
-  stroke-width: 2.25;
+  stroke-width: 2.75;
 }
 .unit-form,
 .unit-converter form,
@@ -566,6 +596,9 @@ code {
     sans-serif;
 }
 @media (max-width: 760px) {
+  .user-table-container {
+    overflow-x: auto;
+  }
   .unit-form,
   .unit-converter form,
   .ingredient-form {
@@ -588,6 +621,31 @@ code {
   padding: 2rem;
   border-radius: 0.5rem;
   background: #fffaf0;
+}
+.role-assignment__options {
+  display: grid;
+  gap: 0.65rem;
+  margin: 1.5rem 0;
+}
+.role-assignment__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #4d4037;
+  font:
+    600 0.82rem Arial,
+    sans-serif;
+  letter-spacing: normal;
+}
+.role-assignment__option input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+.role-assignment__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.65rem;
 }
 .toast {
   position: fixed;

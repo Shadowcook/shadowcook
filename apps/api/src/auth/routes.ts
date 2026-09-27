@@ -2,6 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { hashPassword, verifyPassword } from './password.js';
+import { completePasswordReset, createPasswordResetToken } from './password-reset.js';
 import { currentSessionUser, hashSessionToken, sessionTokenFromRequest } from './session.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from './email-code.js';
 import { sendInstanceMail } from '../mail/service.js';
@@ -27,6 +28,11 @@ interface EmailCodeBody {
 interface AuthenticationSettingsRow {
   login_mode: 'PASSWORD_ONLY' | 'EMAIL_CODE_ONLY' | 'PASSWORD_OR_EMAIL_CODE';
 }
+interface PasswordResetBody {
+  email?: string;
+  token?: string;
+  newPassword?: string;
+}
 
 const sessionCookieName: string = 'shadowcook_session';
 const sessionLifetimeMilliseconds: number = 1000 * 60 * 60 * 24 * 14;
@@ -36,6 +42,7 @@ export function registerAuthenticationRoutes(
   pool: Pool,
   secureCookies: boolean,
   instanceSecretKey: Buffer | null,
+  publicWebOrigin: string,
 ): void {
   api.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
     const requestPath: string = request.url.split('?', 1)[0];
@@ -43,12 +50,15 @@ export function registerAuthenticationRoutes(
       requestPath === '/health' ||
       requestPath === '/auth/login' ||
       requestPath === '/auth/change-password' ||
+      requestPath === '/auth/password-reset/request' ||
+      requestPath === '/auth/password-reset/complete' ||
       requestPath === '/auth/logout' ||
       requestPath === '/auth/session' ||
       requestPath === '/auth/email-code/request' ||
       requestPath === '/auth/email-code/verify' ||
       requestPath === '/auth/authentication-methods' ||
-      requestPath.startsWith('/invitations/')
+      requestPath.startsWith('/invitations/') ||
+      requestPath.startsWith('/user-invitations/')
     )
       return;
     const user = await currentSessionUser(pool, request);
@@ -71,7 +81,7 @@ export function registerAuthenticationRoutes(
     if (settings.login_mode === 'EMAIL_CODE_ONLY')
       return sendError(reply, 403, 'PASSWORD_LOGIN_DISABLED', 'Password login is disabled.');
     const result = await pool.query<LoginUserRow>(
-      'SELECT id, password_hash, password_change_required, disabled_at FROM user_account WHERE email = $1',
+      'SELECT id, password_hash, password_change_required, disabled_at FROM user_account WHERE email = $1 AND deleted_at IS NULL',
       [body.email.trim().toLowerCase()],
     );
     const user: LoginUserRow | undefined = result.rows[0];
@@ -102,7 +112,7 @@ export function registerAuthenticationRoutes(
     if (settings.login_mode === 'PASSWORD_ONLY') return reply.code(204).send();
     if (email === null) return reply.code(204).send();
     const user = await pool.query<{ id: string; disabled_at: Date | null }>(
-      'SELECT id, disabled_at FROM user_account WHERE email = $1',
+      'SELECT id, disabled_at FROM user_account WHERE email = $1 AND deleted_at IS NULL',
       [email],
     );
     if (user.rows[0] === undefined || user.rows[0].disabled_at !== null)
@@ -133,7 +143,7 @@ export function registerAuthenticationRoutes(
       return sendError(reply, 403, 'EMAIL_CODE_LOGIN_DISABLED', 'Email-code login is disabled.');
     const consumed = await consumeEmailCode(pool, email, 'LOGIN', body.code);
     const user = await pool.query<LoginUserRow>(
-      'SELECT id, password_hash, password_change_required, disabled_at FROM user_account WHERE email = $1',
+      'SELECT id, password_hash, password_change_required, disabled_at FROM user_account WHERE email = $1 AND deleted_at IS NULL',
       [email],
     );
     if (consumed === null || user.rows[0] === undefined || user.rows[0].disabled_at !== null)
@@ -176,6 +186,66 @@ export function registerAuthenticationRoutes(
     }
     return reply.code(204).send();
   });
+
+  api.post('/auth/password-reset/request', async (request: FastifyRequest, reply: FastifyReply) => {
+    const body: PasswordResetBody | null = parsePasswordResetBody(request.body);
+    const email: string | null = body?.email === undefined ? null : normalizeEmail(body.email);
+    if (email === null) return reply.code(204).send();
+    const result = await pool.query<{ id: string }>(
+      'SELECT id FROM user_account WHERE email = $1 AND disabled_at IS NULL AND deleted_at IS NULL',
+      [email],
+    );
+    const user = result.rows[0];
+    if (user === undefined) return reply.code(204).send();
+    const recentReset = await pool.query<{ requested: boolean }>(
+      `SELECT EXISTS (
+        SELECT 1 FROM password_reset_token
+        WHERE user_account_id = $1 AND created_at > now() - interval '10 minutes'
+      ) AS requested`,
+      [user.id],
+    );
+    if (recentReset.rows[0]?.requested === true) return reply.code(204).send();
+    const token: string = await createPasswordResetToken(pool, user.id, false);
+    try {
+      await sendInstanceMail(
+        pool,
+        instanceSecretKey,
+        email,
+        'Reset your Shadowcook password',
+        `Use this link to reset your Shadowcook password: ${publicWebOrigin}/password-reset/${token}. The link expires in one hour.`,
+      );
+    } catch (error: unknown) {
+      request.log.warn({ error }, 'Password-reset email delivery failed');
+    }
+    return reply.code(204).send();
+  });
+
+  api.post(
+    '/auth/password-reset/complete',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const body: PasswordResetBody | null = parsePasswordResetBody(request.body);
+      if (
+        body?.token === undefined ||
+        body.token.length === 0 ||
+        body.newPassword === undefined ||
+        body.newPassword.length === 0
+      )
+        return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
+      try {
+        const completed: boolean = await completePasswordReset(pool, body.token, body.newPassword);
+        if (!completed)
+          return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
+        return reply.code(204).send();
+      } catch (error: unknown) {
+        return sendError(
+          reply,
+          400,
+          'INVALID_PASSWORD',
+          error instanceof Error ? error.message : 'Invalid password.',
+        );
+      }
+    },
+  );
 
   api.get('/auth/session', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await currentSessionUser(pool, request);
@@ -229,6 +299,20 @@ function parseEmailCodeBody(body: unknown, requireCode: boolean): EmailCodeBody 
   )
     return null;
   return { email: body.email, code: typeof body.code === 'string' ? body.code : undefined };
+}
+function parsePasswordResetBody(body: unknown): PasswordResetBody | null {
+  if (!isRecord(body)) return null;
+  if (
+    (body.email !== undefined && typeof body.email !== 'string') ||
+    (body.token !== undefined && typeof body.token !== 'string') ||
+    (body.newPassword !== undefined && typeof body.newPassword !== 'string')
+  )
+    return null;
+  return {
+    email: typeof body.email === 'string' ? body.email : undefined,
+    token: typeof body.token === 'string' ? body.token : undefined,
+    newPassword: typeof body.newPassword === 'string' ? body.newPassword : undefined,
+  };
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

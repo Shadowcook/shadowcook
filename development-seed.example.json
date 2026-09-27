@@ -1,4 +1,32 @@
 {
+  "principal": [
+    {
+      "id": "90000000-0000-4000-8000-000000000001",
+      "principal_type": "USER"
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000002",
+      "principal_type": "USER"
+    }
+  ],
+  "user_account": [
+    {
+      "id": "91000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000001",
+      "public_id": "91000000-0000-4000-8000-000000000011",
+      "email": "user@local",
+      "display_name": "Local cookbook owner",
+      "password_hash": { "$passwordHash": "user", "minimumLength": 1 }
+    },
+    {
+      "id": "91000000-0000-4000-8000-000000000002",
+      "principal_id": "90000000-0000-4000-8000-000000000002",
+      "public_id": "91000000-0000-4000-8000-000000000012",
+      "email": "guest@local",
+      "display_name": "Local cookbook guest",
+      "password_hash": { "$passwordHash": "guest", "minimumLength": 1 }
+    }
+  ],
   "tenant": [
     {
       "id": "10000000-0000-4000-8000-000000000001",
@@ -8,10 +36,103 @@
       "slug": "local-cookbook"
     }
   ],
+  "tenant_role": [
+    {
+      "id": "92000000-0000-4000-8000-000000000001",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Owner"
+    },
+    {
+      "id": "92000000-0000-4000-8000-000000000002",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Editor"
+    },
+    {
+      "id": "92000000-0000-4000-8000-000000000003",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Viewer"
+    }
+  ],
+  "tenant_role_permission": [
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "tenant:manage"
+    },
+    { "tenant_role_id": "92000000-0000-4000-8000-000000000001", "permission_code": "recipe:read" },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:create"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:delete"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:publish"
+    },
+    { "tenant_role_id": "92000000-0000-4000-8000-000000000001", "permission_code": "variant:read" },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:create"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:delete"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "ingredient:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "ingredient:create"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "ingredient:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "category:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "category:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "service-account:manage"
+    }
+  ],
   "tenant_membership": [
     {
       "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "principal_id": { "$seedRef": "bootstrapAdministratorPrincipalId" }
+      "principal_id": "90000000-0000-4000-8000-000000000001"
+    },
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "tenant_membership_role": [
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000001",
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001"
+    },
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000002",
+      "tenant_role_id": "92000000-0000-4000-8000-000000000003"
     }
   ],
   "instance_mail_settings": [
