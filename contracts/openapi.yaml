@@ -1360,6 +1360,7 @@ paths:
                     canManageRecipes,
                     canManageUsers,
                     canManageIngredients,
+                    canManageUnits,
                   ]
                 properties:
                   tenant:
@@ -1385,6 +1386,8 @@ paths:
                   canManageUsers:
                     type: boolean
                   canManageIngredients:
+                    type: boolean
+                  canManageUnits:
                     type: boolean
         '403':
           description: A password change is required before accessing the cookbook.
@@ -1968,6 +1971,59 @@ paths:
           { name: aliasPublicId, in: path, required: true, schema: { type: string, format: uuid } },
         ]
       responses: { '204': { description: Alias deleted. } }
+  /cookbook/tenants/{tenantSlug}/units:
+    get:
+      operationId: listTenantUnits
+      summary: Lists units of measure owned by a cookbook.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      responses:
+        '200':
+          description: Tenant units.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [units]
+                properties:
+                  units:
+                    type: array
+                    items: { $ref: '#/components/schemas/TenantUnit' }
+    post:
+      operationId: createTenantUnit
+      summary: Creates a cookbook-owned unit of measure.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
+      responses:
+        '201':
+          description: Unit created.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnit' } } }
+  /cookbook/tenants/{tenantSlug}/units/{publicId}:
+    patch:
+      operationId: updateTenantUnit
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
+      responses: { '204': { description: Unit updated. } }
+    delete:
+      operationId: deleteTenantUnit
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses: { '204': { description: Unit deleted. }, '409': { description: Unit is in use. } }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/share-links:
     post:
       operationId: createRecipeShareLink
@@ -2203,6 +2259,18 @@ components:
         canonicalName: { type: string }
         usageCount: { type: integer, minimum: 0 }
         aliases: { type: array, items: { $ref: '#/components/schemas/TenantIngredientAlias' } }
+    TenantUnit:
+      type: object
+      additionalProperties: false
+      required: [publicId, name, symbol, dimension, baseFactor, baseOffset, usageCount]
+      properties:
+        publicId: { type: string, format: uuid }
+        name: { type: string }
+        symbol: { type: string }
+        dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] }
+        baseFactor: { type: string }
+        baseOffset: { type: string }
+        usageCount: { type: integer, minimum: 0 }
     UnitInput:
       type: object
       additionalProperties: false
@@ -2316,8 +2384,10 @@ components:
         [
           sort_order,
           amount,
+          unit_public_id,
           unit_symbol,
           unit_localization_key,
+          ingredient_public_id,
           ingredient_name,
           ingredient_localization_key,
           is_catalog_ingredient,
@@ -2331,10 +2401,16 @@ components:
           minimum: 0
         amount:
           type: [string, 'null']
+        unit_public_id:
+          type: [string, 'null']
+          format: uuid
         unit_symbol:
           type: [string, 'null']
         unit_localization_key:
           type: [string, 'null']
+        ingredient_public_id:
+          type: [string, 'null']
+          format: uuid
         ingredient_name:
           type: string
         ingredient_localization_key:

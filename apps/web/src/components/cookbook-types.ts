@@ -1,8 +1,10 @@
 export interface IngredientUsage {
   sort_order: number;
   amount: string | null;
+  unit_public_id: string | null;
   unit_symbol: string | null;
   unit_localization_key: string | null;
+  ingredient_public_id: string | null;
   ingredient_name: string;
   ingredient_localization_key: string | null;
   is_catalog_ingredient: boolean;
@@ -61,6 +63,7 @@ export interface CookbookResponse {
   canManageRecipes: boolean;
   canManageUsers: boolean;
   canManageIngredients: boolean;
+  canManageUnits: boolean;
 }
 
 export interface EditableRecipe {

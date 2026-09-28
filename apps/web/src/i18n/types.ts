@@ -327,6 +327,24 @@ export interface Translation {
     categories: string;
     users: string;
     ingredients: string;
+    units: string;
+  };
+  tenantUnits: {
+    title: string;
+    description: string;
+    create: string;
+    edit: string;
+    name: string;
+    symbol: string;
+    dimension: string;
+    baseFactor: string;
+    baseOffset: string;
+    usage: string;
+    dimensions: Record<'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE', string>;
+    created: string;
+    updated: string;
+    deleted: string;
+    cannotDelete: string;
   };
   tenantIngredients: {
     title: string;
@@ -378,6 +396,7 @@ export interface Translation {
     uncategorized: string;
     backToRecipes: string;
     ingredients: string;
+    shoppingList: string;
     optional: string;
     preparation: string;
     recipeLoadFailed: string;

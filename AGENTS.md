@@ -10,6 +10,7 @@
 - Implementation progress must be documented in `docs/implementation_progress.md`.
 - The API contract must be complete and up to date in `contracts/openapi.yaml`. Any implemented API route, request body, response body, authentication scheme, or changed field must be represented there without gaps.
 - Log times must always be UTC, never the local time zone. However, time stamps in the UI can be displayed in the users preferred time format. But the backend or logfile must always have UTC time.
+- Do not display unnecessary trailing decimal places in the UI.
 - All relational database schemas MUST satisfy at least Third Normal Form (3NF). Intentional denormalization is permitted only when explicitly required by the architecture or an ADR and must be documented with its rationale and consistency guarantees. An implementation agent must not introduce denormalized columns merely to avoid joins or simplify queries.
 - Do not use type inference if not absolutely necessary
 - Never start the project on your own. You can test on different ports or in sandboxes. But not in a way that the dev DB or ports configured by the dev environment are affected

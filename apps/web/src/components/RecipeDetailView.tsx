@@ -5,6 +5,7 @@ import { localizedUnitSymbol } from '../i18n/unit-localization';
 import { localizedIngredientName } from '../i18n/ingredient-localization';
 import AdminIcon from './AdminIcon';
 import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from './cookbook-types';
+import RecipeShoppingList from './RecipeShoppingList';
 
 interface RecipeDetailViewProperties {
   text: Translation;
@@ -46,54 +47,61 @@ export default function RecipeDetailView({
       </button>
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <h2>{recipe.title}</h2>
-      {recipe.can_edit || recipe.can_share ? (
-        <div className="recipe-detail__actions">
-          {recipe.can_edit ? (
-            <button
-              type="button"
-              className="button--secondary"
-              onClick={onEdit}
-              aria-label={text.recipeEditor.edit}
-              title={text.recipeEditor.edit}
-            >
-              <AdminIcon name="edit" />
-            </button>
+      <div className="recipe-detail__overview">
+        <div className="recipe-detail__overview-content">
+          {recipe.can_edit || recipe.can_share ? (
+            <div className="recipe-detail__actions">
+              {recipe.can_edit ? (
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={onEdit}
+                  aria-label={text.recipeEditor.edit}
+                  title={text.recipeEditor.edit}
+                >
+                  <AdminIcon name="edit" />
+                </button>
+              ) : null}
+              {recipe.can_share ? (
+                <button
+                  type="button"
+                  className="button--secondary"
+                  disabled={isSharing}
+                  onClick={(): void => void shareRecipe()}
+                  aria-label={text.recipeEditor.share}
+                  title={text.recipeEditor.share}
+                >
+                  <AdminIcon name="share" />
+                </button>
+              ) : null}
+            </div>
           ) : null}
-          {recipe.can_share ? (
-            <button
-              type="button"
-              className="button--secondary"
-              disabled={isSharing}
-              onClick={(): void => void shareRecipe()}
-              aria-label={text.recipeEditor.share}
-              title={text.recipeEditor.share}
-            >
-              <AdminIcon name="share" />
-            </button>
+          {shareMessage.length > 0 ? (
+            <p className="message" role="status">
+              {shareMessage}
+            </p>
+          ) : null}
+          {recipe.summary === null ? null : (
+            <p className="recipe-detail__summary">{recipe.summary}</p>
+          )}
+          {hasVisibleAlternative ? (
+            <label className="recipe-detail__variant">
+              {text.recipeEditor.variant}
+              <select
+                value={recipe.selectedVariant}
+                onChange={(event): void => onSelectVariant(event.currentTarget.value)}
+              >
+                {recipe.variants.map((variant) => (
+                  <option key={variant.variant_key} value={variant.slug}>
+                    {variant.name}
+                  </option>
+                ))}
+              </select>
+            </label>
           ) : null}
         </div>
-      ) : null}
-      {shareMessage.length > 0 ? (
-        <p className="message" role="status">
-          {shareMessage}
-        </p>
-      ) : null}
-      {recipe.summary === null ? null : <p className="recipe-detail__summary">{recipe.summary}</p>}
-      {hasVisibleAlternative ? (
-        <label className="recipe-detail__variant">
-          {text.recipeEditor.variant}
-          <select
-            value={recipe.selectedVariant}
-            onChange={(event): void => onSelectVariant(event.currentTarget.value)}
-          >
-            {recipe.variants.map((variant) => (
-              <option key={variant.variant_key} value={variant.slug}>
-                {variant.name}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
+        <RecipeShoppingList recipe={recipe} text={text} />
+      </div>
       <div className="recipe-detail__heading">
         <p className="eyebrow">{text.dashboard.ingredients}</p>
         <p className="eyebrow">{text.dashboard.preparation}</p>

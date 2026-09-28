@@ -26,6 +26,7 @@ import AccessDeniedScreen from './AccessDeniedScreen';
 import ManagementPlaceholder from './ManagementPlaceholder';
 import TenantUserManagement from './TenantUserManagement';
 import TenantIngredientManagement from './TenantIngredientManagement';
+import TenantUnitManagement from './TenantUnitManagement';
 import '../styles/cookbook.css';
 
 interface CookbookScreenProperties {
@@ -49,6 +50,7 @@ const emptyCookbook: CookbookResponse = {
   canManageRecipes: false,
   canManageUsers: false,
   canManageIngredients: false,
+  canManageUnits: false,
 };
 
 export default function CookbookScreen({ locale }: CookbookScreenProperties): JSX.Element {
@@ -389,6 +391,14 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     setSelectedCategoryId(null);
     setSelectedRecipe(null);
   }
+  function openUnits(): void {
+    const slug: string | null = tenantSlugFromPath();
+    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/units`);
+    setIsCategoryEditor(false);
+    setEditorPath('manage-units');
+    setSelectedCategoryId(null);
+    setSelectedRecipe(null);
+  }
   function closeTenantManagement(): void {
     const slug: string | null = tenantSlugFromPath();
     if (slug !== null) window.history.pushState(null, '', `/${slug}`);
@@ -467,6 +477,8 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       <AccessDeniedScreen text={text} />
     ) : editorPath === 'manage-ingredients' && !cookbook.canManageIngredients ? (
       <AccessDeniedScreen text={text} />
+    ) : editorPath === 'manage-units' && !cookbook.canManageUnits ? (
+      <AccessDeniedScreen text={text} />
     ) : isCategoryEditor && !cookbook.canManageCategories ? (
       <AccessDeniedScreen text={text} />
     ) : editorPath !== null &&
@@ -505,15 +517,18 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
                           ? 'users'
                           : editorPath === 'manage-ingredients'
                             ? 'ingredients'
-                            : editorPath !== null
-                              ? 'editor'
-                              : 'recipes'
+                            : editorPath === 'manage-units'
+                              ? 'units'
+                              : editorPath !== null
+                                ? 'editor'
+                                : 'recipes'
               }
               onOpenRecipes={openRecipes}
               onOpenDrafts={openDrafts}
               onOpenCategories={openCategoryEditor}
               onOpenUsers={openUsers}
               onOpenIngredients={openIngredients}
+              onOpenUnits={openUnits}
               onCreateRecipe={(): void => openRecipeEditor(null)}
             />
           ) : null}
@@ -524,6 +539,8 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
               <TenantUserManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
             ) : editorPath === 'manage-ingredients' && tenantSlugFromPath() !== null ? (
               <TenantIngredientManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
+            ) : editorPath === 'manage-units' && tenantSlugFromPath() !== null ? (
+              <TenantUnitManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
             ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
               <CategoryEditor
                 locale={locale}
@@ -664,6 +681,8 @@ function recipeEditorPath(): 'manage' | 'new' | 'drafts' | string | null {
     return 'manage-users';
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'ingredients')
     return 'manage-ingredients';
+  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'units')
+    return 'manage-units';
   if (segments.length === 2 && segments[1] === 'manage') return 'manage';
   return null;
 }

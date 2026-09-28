@@ -452,6 +452,8 @@ The recipe editor presents one note input for every recipe step entry. A normali
 
 Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render normalized ingredient names prominently and render their notes as secondary text.
 
+Recipe detail responses provide ingredient and unit public identities for shopping-list aggregation. Shopping lists aggregate non-special ingredient usages by ingredient identity, optional status, and unit identity for the selected recipe variant.
+
 Suggested structure:
 
 ```text
@@ -2496,6 +2498,8 @@ Tenant-owned ingredients and aliases are stored in the shared normalized ingredi
 Recipe-editor catalogue search returns instance-owned and current-tenant ingredients. It searches canonical names and aliases and returns an exact-match indicator for the submitted search value.
 
 Tenant ingredient administration and on-the-fly ingredient creation use tenant ingredient permissions. Tenant ingredient administration exposes only ingredients owned by the current tenant.
+
+Tenant-owned units of measure use the shared normalized unit catalogue with `owner_tenant_id` set to the owning tenant. Tenant unit administration exposes only units owned by the current tenant. Recipe-editor unit selection includes instance-owned and current-tenant units.
 
 ## 40. Architectural direction
 

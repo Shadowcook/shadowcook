@@ -742,6 +742,22 @@
   gap: 0.35rem;
   margin: 0 0 2.5rem;
 }
+.recipe-detail__overview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(13rem, 0.42fr);
+  gap: clamp(1.5rem, 4vw, 4rem);
+  align-items: start;
+  margin-bottom: 2.5rem;
+}
+.recipe-detail__overview-content {
+  display: flex;
+  align-self: stretch;
+  flex-direction: column;
+  align-items: flex-start;
+}
+.recipe-detail__overview-content .recipe-detail__variant {
+  margin: auto 0 0;
+}
 .recipe-detail__heading,
 .recipe-steps > li {
   display: grid;
@@ -814,6 +830,47 @@
   font-weight: 400;
   white-space: normal;
 }
+.recipe-shopping-list {
+  padding: 1.15rem;
+  border: 1px solid #eadfd2;
+  border-radius: 0.35rem;
+  background: #fffdf9;
+}
+.recipe-shopping-list .eyebrow {
+  margin: 0 0 0.9rem;
+}
+.recipe-shopping-list ul {
+  display: grid;
+  gap: 0.7rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font:
+    0.9rem/1.35 Arial,
+    sans-serif;
+}
+.recipe-shopping-list li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+.recipe-shopping-list li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.recipe-shopping-list li strong {
+  flex: 0 0 auto;
+  color: #77402e;
+  white-space: nowrap;
+}
+.recipe-shopping-list em {
+  display: block;
+  margin-top: 0.1rem;
+  color: #75675d;
+  font-size: 0.8rem;
+  font-style: normal;
+}
 @media (max-width: 700px) {
   .tenant-area {
     grid-template-columns: 1fr;
@@ -827,6 +884,7 @@
   .cookbook-layout,
   .recipe-grid,
   .category-editor__layout,
+  .recipe-detail__overview,
   .recipe-detail__heading,
   .recipe-steps > li {
     grid-template-columns: 1fr;
@@ -857,6 +915,10 @@
   }
   .recipe-detail__summary {
     margin-bottom: 2rem;
+  }
+  .recipe-shopping-list {
+    position: static;
+    margin-top: 2rem;
   }
   .recipe-steps ul li {
     align-items: flex-start;

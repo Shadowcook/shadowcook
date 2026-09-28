@@ -122,6 +122,9 @@
 - Recipe step rows retain editable amount, unit, ingredient, note, and optional controls for every selection; the API discards amount, unit, ingredient note, and optional values for special entries.
 - Recipe detail rows render free-text and special-entry descriptions in the ingredient position, with special-entry icons immediately preceding their descriptions.
 - Recipe detail rows emphasize normalized ingredient names and render their notes in italic secondary text.
+- Recipe detail views provide a selected-variant shopping list with aggregated ingredient quantities.
+- Recipe detail variant selection aligns with the start of the preparation steps beside the shopping list.
+- Development seed includes the multi-variant Grand harvest lasagna recipe with all supported special ingredient-entry kinds.
 - Clickable cookbook recipe cards with a localized recipe detail view.
 - Recipe detail views display localized, accessible edit and share-link pictogram actions when the current session has the corresponding recipe capability.
 - Deep-linkable cookbook navigation with hierarchical category and recipe-slug URLs.
@@ -133,3 +136,4 @@
 - Direct and in-application sign-in routing at `/login`.
 - Tenant-owned ingredient CRUD and alias administration at deep-linkable tenant management routes.
 - Recipe-editor ingredient search covers aliases, marks exact matches, and provides an on-the-fly tenant ingredient dialog with optional aliases.
+- Tenant administration provides deep-linkable CRUD management for tenant-owned units of measure.
