@@ -1,8 +1,16 @@
 # Shadowcook 2.0 implementation progress
 
+## Version 2.5 planned scope
+
+- Media upload, storage, rendering, and lifecycle management.
+- Pantry ingredient matching, portion scaling, timers, cooking mode, favorites, and AI-assisted cooking sessions.
+- Tenant federation sharing policy, recipe import and upstream synchronization, and subscriptions.
+- Portable tenant backup, restore, and migration.
+- Background workers for synchronization, backup reminders, and maintenance.
+
 ## Completed
 
-- Recipe editing has Recipe, Steps, and Variants tabs. The Variants tab provides a table for names, URL slugs, default selection, visibility, and icon actions; add and edit actions use dialogs with immediate recipe-local slug collision feedback. Only visible variants may be selected as the default.
+- Recipe editing has Recipe, Steps, and Variants tabs. Draft saving and publishing actions are available on every existing-recipe tab. The Variants tab provides a table for names, URL slugs, default selection, visibility, and icon actions; add and edit actions use dialogs with immediate recipe-local slug collision feedback. Variant mutations update the recipe draft state locally so they enable publishing without resetting the editor scroll position. Only visible variants may be selected as the default.
 
 - The recipe reader shows a variant selector only when a visible non-default variant is available.
 
@@ -115,6 +123,7 @@
 - Recipe detail rows render free-text and special-entry descriptions in the ingredient position, with special-entry icons immediately preceding their descriptions.
 - Recipe detail rows emphasize normalized ingredient names and render their notes in italic secondary text.
 - Clickable cookbook recipe cards with a localized recipe detail view.
+- Recipe detail views display localized, accessible edit and share-link pictogram actions when the current session has the corresponding recipe capability.
 - Deep-linkable cookbook navigation with hierarchical category and recipe-slug URLs.
 - Tenant-unique category slugs in the initial database schema.
 - Astro SSR and same-origin `/api` forwarding for directly reachable cookbook deep links.
@@ -122,3 +131,5 @@
 - Accessible breadcrumb navigation for the cookbook, category hierarchy, and recipe detail views.
 - Canonical root cookbook recipe URLs without a category segment.
 - Direct and in-application sign-in routing at `/login`.
+- Tenant-owned ingredient CRUD and alias administration at deep-linkable tenant management routes.
+- Recipe-editor ingredient search covers aliases, marks exact matches, and provides an on-the-fly tenant ingredient dialog with optional aliases.

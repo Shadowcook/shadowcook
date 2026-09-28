@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { JSX } from 'react';
+import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
 import { request } from './api-client';
 import { recipeSpecialEntries } from './RecipeSpecialEntries';
@@ -7,6 +7,12 @@ import { recipeSpecialEntries } from './RecipeSpecialEntries';
 interface Ingredient {
   publicId: string;
   name: string;
+  exactMatch: boolean;
+}
+
+interface CreatedIngredient {
+  publicId: string;
+  canonicalName: string;
 }
 
 interface IngredientPickerProperties {
@@ -32,6 +38,10 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
   const [search, setSearch] = useState<string>('');
   const [results, setResults] = useState<Ingredient[]>([]);
   const [searchFailed, setSearchFailed] = useState<boolean>(false);
+  const [isCreating, setIsCreating] = useState<boolean>(false);
+  const [newIngredientName, setNewIngredientName] = useState<string>('');
+  const [newAliases, setNewAliases] = useState<string[]>([]);
+  const [creationMessage, setCreationMessage] = useState<string>('');
   const pickerReference = useRef<HTMLDetailsElement>(null);
 
   useEffect((): (() => void) | undefined => {
@@ -75,6 +85,37 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
     closePicker();
   }
 
+  function openCreateIngredient(): void {
+    setNewIngredientName(search.trim());
+    setNewAliases([]);
+    setCreationMessage('');
+    setIsCreating(true);
+  }
+
+  async function createIngredient(event: SubmitEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const response: Response = await fetch(
+      `/api/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/ingredients`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ canonicalName: newIngredientName, aliases: newAliases }),
+      },
+    );
+    if (!response.ok) {
+      setCreationMessage(properties.text.errors.requestFailed);
+      return;
+    }
+    const ingredient: CreatedIngredient = (await response.json()) as CreatedIngredient;
+    selectIngredient({
+      publicId: ingredient.publicId,
+      name: ingredient.canonicalName,
+      exactMatch: true,
+    });
+    setIsCreating(false);
+  }
+
   function selectFreeText(): void {
     properties.onChange({
       ingredientPublicId: '',
@@ -102,6 +143,9 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
   }
 
   const selectedLabel: string = selectionLabel(properties);
+  const hasExactMatch: boolean = results.some(
+    (ingredient: Ingredient): boolean => ingredient.exactMatch,
+  );
 
   return (
     <details className="ingredient-picker" ref={pickerReference}>
@@ -131,6 +175,13 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
             {searchFailed ? (
               <li className="ingredient-picker__empty">{properties.text.errors.requestFailed}</li>
             ) : null}
+            {!searchFailed && !hasExactMatch ? (
+              <li>
+                <button type="button" onClick={openCreateIngredient}>
+                  {properties.text.recipeEditor.createIngredient}: {search.trim()}
+                </button>
+              </li>
+            ) : null}
           </ul>
         ) : null}
         <div className="ingredient-picker__special-entries">
@@ -149,6 +200,82 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
           ))}
         </div>
       </div>
+      {!isCreating ? null : (
+        <div className="modal-backdrop">
+          <section className="modal" aria-labelledby="create-ingredient-title">
+            <h2 id="create-ingredient-title">{properties.text.recipeEditor.createIngredient}</h2>
+            <p>{properties.text.recipeEditor.createIngredientDescription}</p>
+            {creationMessage.length > 0 ? (
+              <p className="message" role="status">
+                {creationMessage}
+              </p>
+            ) : null}
+            <form
+              onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void createIngredient(event)}
+            >
+              <label>
+                {properties.text.tenantIngredients.name}
+                <input
+                  required
+                  autoFocus
+                  value={newIngredientName}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    setNewIngredientName(event.currentTarget.value)
+                  }
+                />
+              </label>
+              <fieldset>
+                <legend>{properties.text.recipeEditor.ingredientAliases}</legend>
+                {newAliases.map((alias: string, index: number): JSX.Element => (
+                  <div className="ingredient-form__alias" key={index}>
+                    <input
+                      aria-label={properties.text.recipeEditor.ingredientAlias}
+                      required
+                      value={alias}
+                      onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                        setNewAliases(
+                          newAliases.map((candidate: string, aliasIndex: number): string =>
+                            aliasIndex === index ? event.currentTarget.value : candidate,
+                          ),
+                        )
+                      }
+                    />
+                    <button
+                      type="button"
+                      className="button--secondary"
+                      onClick={(): void =>
+                        setNewAliases(
+                          newAliases.filter(
+                            (_candidate: string, aliasIndex: number): boolean =>
+                              aliasIndex !== index,
+                          ),
+                        )
+                      }
+                    >
+                      {properties.text.dashboard.delete}
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => setNewAliases([...newAliases, ''])}
+                >
+                  {properties.text.tenantIngredients.addAlias}
+                </button>
+              </fieldset>
+              <button type="submit">{properties.text.recipeEditor.createIngredientSubmit}</button>
+              <button
+                type="button"
+                className="button--secondary"
+                onClick={(): void => setIsCreating(false)}
+              >
+                {properties.text.admin.cancel}
+              </button>
+            </form>
+          </section>
+        </div>
+      )}
     </details>
   );
 }

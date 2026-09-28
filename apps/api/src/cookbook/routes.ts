@@ -24,6 +24,8 @@ interface RecipeDetailRow {
   title: string;
   summary: string | null;
   revision_id: string;
+  can_edit: boolean;
+  can_share: boolean;
 }
 
 interface RecipeStepRow {
@@ -140,6 +142,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       can_manage_categories: boolean;
       can_manage_recipes: boolean;
       can_manage_users: boolean;
+      can_manage_ingredients: boolean;
     }>(
       `SELECT EXISTS (
          SELECT 1 FROM tenant_membership_role
@@ -166,7 +169,19 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
          WHERE principal_instance_role.principal_id = $2
            AND instance_role_permission.permission_code IN ('tenant:create', 'instance:administer')
-       ) AS can_manage_users`,
+       ) AS can_manage_users,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code IN ('ingredient:read', 'ingredient:create', 'ingredient:update')
+       ) OR EXISTS (
+         SELECT 1 FROM principal_instance_role
+         INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
+         WHERE principal_instance_role.principal_id = $2
+           AND instance_role_permission.permission_code = 'instance:administer'
+       ) AS can_manage_ingredients`,
       [tenant.id, principalId],
     );
     return reply.send({
@@ -176,6 +191,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       canManageCategories: permissions.rows[0]?.can_manage_categories === true,
       canManageRecipes: permissions.rows[0]?.can_manage_recipes === true,
       canManageUsers: permissions.rows[0]?.can_manage_users === true,
+      canManageIngredients: permissions.rows[0]?.can_manage_ingredients === true,
     });
   });
 
@@ -193,7 +209,24 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         user === null || user.disabled_at !== null ? null : user.principal_id;
       const recipeResult = await pool.query<RecipeDetailRow>(
         `
-      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.id AS revision_id
+      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+        recipe_revision.id AS revision_id,
+        EXISTS (
+          SELECT 1
+          FROM tenant_membership_role
+          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+          WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+            AND tenant_membership_role.principal_id = $1
+            AND tenant_role_permission.permission_code = 'recipe:update'
+        ) AS can_edit,
+        EXISTS (
+          SELECT 1
+          FROM tenant_membership_role
+          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+          WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+            AND tenant_membership_role.principal_id = $1
+            AND tenant_role_permission.permission_code = 'recipe:update'
+        ) AS can_share
       FROM recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id
       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
@@ -272,6 +305,8 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         slug: recipe.slug,
         title: recipe.title,
         summary: recipe.summary,
+        can_edit: recipe.can_edit,
+        can_share: recipe.can_share,
         selectedVariant: selectedVariant.slug,
         variants: variants.rows,
         steps: detailSteps,

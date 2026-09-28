@@ -17,6 +17,7 @@ interface Properties {
   tenantSlug: string;
   recipePublicId: string;
   text: Translation;
+  onDraftChanged: () => Promise<void>;
 }
 
 interface VariantForm {
@@ -102,15 +103,20 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ ...form, isDefault: false, isVisible: true }),
         });
-      } else if (!(await updateVariant({ ...editing, ...form }, false))) return;
+      } else if (!(await updateVariant({ ...editing, ...form }, false, false))) return;
       closeDialog();
       await load();
+      await properties.onDraftChanged();
     } catch {
       setMessage(properties.text.errors.requestFailed);
     }
   }
 
-  async function updateVariant(variant: DraftVariant, reload: boolean = true): Promise<boolean> {
+  async function updateVariant(
+    variant: DraftVariant,
+    reload: boolean = true,
+    notifyDraftChange: boolean = true,
+  ): Promise<boolean> {
     try {
       await request<void>(`${base}/${variant.variantKey}`, {
         method: 'PUT',
@@ -118,6 +124,7 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
         body: JSON.stringify(variant),
       });
       if (reload) await load();
+      if (notifyDraftChange) await properties.onDraftChanged();
       return true;
     } catch {
       setMessage(properties.text.errors.requestFailed);
@@ -136,6 +143,7 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
         body: JSON.stringify({ replacementDefaultVariantKey: defaultVariant?.variantKey }),
       });
       await load();
+      await properties.onDraftChanged();
     } catch (error: unknown) {
       setMessage(
         error instanceof ApiRequestError && error.code === 'RECIPE_VARIANT_HAS_STEPS'

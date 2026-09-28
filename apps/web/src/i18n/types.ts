@@ -300,6 +300,12 @@ export interface Translation {
     freeText: string;
     searchIngredients: string;
     noIngredientsFound: string;
+    createIngredient: string;
+    createIngredientDescription: string;
+    ingredientAliases: string;
+    ingredientAlias: string;
+    createIngredientSubmit: string;
+    ingredientCreated: string;
     clearIngredient: string;
     specialEntry: string;
     specialNoIcon: string;
@@ -320,6 +326,25 @@ export interface Translation {
     recipes: string;
     categories: string;
     users: string;
+    ingredients: string;
+  };
+  tenantIngredients: {
+    title: string;
+    description: string;
+    create: string;
+    edit: string;
+    name: string;
+    aliases: string;
+    usage: string;
+    manageAliases: string;
+    aliasName: string;
+    addAlias: string;
+    created: string;
+    updated: string;
+    deleted: string;
+    cannotDelete: string;
+    aliasCreated: string;
+    aliasDeleted: string;
   };
   tenantUsers: {
     title: string;

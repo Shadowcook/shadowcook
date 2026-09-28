@@ -10,6 +10,7 @@ import { registerIngredientRoutes } from './admin/ingredient-routes.js';
 import { registerCategoryRoutes } from './cookbook/category-routes.js';
 import { registerRecipeEditorRoutes } from './cookbook/recipe-editor-routes.js';
 import { registerTenantUserRoutes } from './cookbook/tenant-user-routes.js';
+import { registerTenantIngredientRoutes } from './cookbook/ingredient-routes.js';
 
 export function createApi(
   pool: Pool,
@@ -29,6 +30,7 @@ export function createApi(
   registerCategoryRoutes(api, pool);
   registerRecipeEditorRoutes(api, pool);
   registerTenantUserRoutes(api, pool);
+  registerTenantIngredientRoutes(api, pool);
   registerAdminMailRoutes(api, pool, instanceSecretKey);
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
   registerTenantRoutes(api, pool, instanceSecretKey, publicWebOrigin);

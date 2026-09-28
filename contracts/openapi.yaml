@@ -1351,7 +1351,16 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [tenant, categories, recipes, canManageCategories]
+                required:
+                  [
+                    tenant,
+                    categories,
+                    recipes,
+                    canManageCategories,
+                    canManageRecipes,
+                    canManageUsers,
+                    canManageIngredients,
+                  ]
                 properties:
                   tenant:
                     oneOf:
@@ -1370,6 +1379,12 @@ paths:
                     items:
                       $ref: '#/components/schemas/CookbookRecipe'
                   canManageCategories:
+                    type: boolean
+                  canManageRecipes:
+                    type: boolean
+                  canManageUsers:
+                    type: boolean
+                  canManageIngredients:
                     type: boolean
         '403':
           description: A password change is required before accessing the cookbook.
@@ -1856,6 +1871,103 @@ paths:
                     type: array
                     maxItems: 20
                     items: { $ref: '#/components/schemas/EditorIngredient' }
+  /cookbook/tenants/{tenantSlug}/ingredients:
+    get:
+      operationId: listTenantIngredients
+      summary: Lists ingredients owned by a cookbook with aliases and recipe usage counts.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      responses:
+        '200':
+          description: Tenant ingredients.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [ingredients]
+                properties:
+                  ingredients:
+                    type: array
+                    items: { $ref: '#/components/schemas/TenantIngredient' }
+    post:
+      operationId: createTenantIngredient
+      summary: Creates a cookbook-owned ingredient and optional aliases.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/TenantIngredientInput' } } }
+      responses:
+        '201':
+          description: Ingredient created.
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/TenantIngredient' } } }
+        '400': { description: Invalid ingredient input. }
+        '409': { description: Ingredient or alias conflict. }
+  /cookbook/tenants/{tenantSlug}/ingredients/{publicId}:
+    patch:
+      operationId: updateTenantIngredient
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/IngredientInput' } } }
+      responses: { '204': { description: Ingredient updated. } }
+    delete:
+      operationId: deleteTenantIngredient
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses:
+        {
+          '204': { description: Ingredient deleted. },
+          '409': { description: Ingredient is in use. },
+        }
+  /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/aliases:
+    post:
+      operationId: createTenantIngredientAlias
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/IngredientAliasInput' } } }
+      responses:
+        {
+          '201':
+            {
+              description: Alias created,
+              content:
+                {
+                  application/json:
+                    { schema: { $ref: '#/components/schemas/TenantIngredientAlias' } },
+                },
+            },
+        }
+  /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/aliases/{aliasPublicId}:
+    delete:
+      operationId: deleteTenantIngredientAlias
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+          { name: aliasPublicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses: { '204': { description: Alias deleted. } }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/share-links:
     post:
       operationId: createRecipeShareLink
@@ -2043,6 +2155,15 @@ components:
       additionalProperties: false
       required: [canonicalName]
       properties: { canonicalName: { type: string, minLength: 1, maxLength: 160 } }
+    TenantIngredientInput:
+      type: object
+      additionalProperties: false
+      required: [canonicalName]
+      properties:
+        canonicalName: { type: string, minLength: 1, maxLength: 160 }
+        aliases:
+          type: array
+          items: { type: string, minLength: 1, maxLength: 160 }
     IngredientAliasInput:
       type: object
       additionalProperties: false
@@ -2066,6 +2187,22 @@ components:
         localizationKey: { type: [string, 'null'] }
         usageCount: { type: integer, minimum: 0 }
         aliases: { type: array, items: { $ref: '#/components/schemas/IngredientAlias' } }
+    TenantIngredientAlias:
+      type: object
+      additionalProperties: false
+      required: [publicId, alias]
+      properties:
+        publicId: { type: string, format: uuid }
+        alias: { type: string }
+    TenantIngredient:
+      type: object
+      additionalProperties: false
+      required: [publicId, canonicalName, usageCount, aliases]
+      properties:
+        publicId: { type: string, format: uuid }
+        canonicalName: { type: string }
+        usageCount: { type: integer, minimum: 0 }
+        aliases: { type: array, items: { $ref: '#/components/schemas/TenantIngredientAlias' } }
     UnitInput:
       type: object
       additionalProperties: false
@@ -2130,7 +2267,8 @@ components:
     CookbookRecipeDetail:
       type: object
       additionalProperties: false
-      required: [public_id, slug, title, summary, selectedVariant, variants, steps]
+      required:
+        [public_id, slug, title, summary, can_edit, can_share, selectedVariant, variants, steps]
       properties:
         public_id:
           type: string
@@ -2141,6 +2279,10 @@ components:
           type: string
         summary:
           type: [string, 'null']
+        can_edit:
+          type: boolean
+        can_share:
+          type: boolean
         selectedVariant:
           type: string
         variants:
@@ -2279,10 +2421,11 @@ components:
     EditorIngredient:
       type: object
       additionalProperties: false
-      required: [publicId, name]
+      required: [publicId, name, exactMatch]
       properties:
         publicId: { type: string, format: uuid }
         name: { type: string }
+        exactMatch: { type: boolean }
     PublishedRecipeVariant:
       type: object
       additionalProperties: false

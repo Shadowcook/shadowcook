@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
+import AdminIcon from './AdminIcon';
 import type { Recipe } from './cookbook-types';
 
 interface RecipeManagementListProperties {
@@ -33,8 +34,10 @@ export default function RecipeManagementList(
                 type="button"
                 className="button--secondary"
                 onClick={(): void => properties.onEdit(recipe.public_id)}
+                aria-label={properties.text.recipeEditor.edit}
+                title={properties.text.recipeEditor.edit}
               >
-                {properties.text.recipeEditor.edit}
+                <AdminIcon name="edit" />
               </button>
             </li>
           ))}

@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { ApiRequestError, jsonRequest, request } from './api-client';
 import type { Category, EditableRecipe } from './cookbook-types';
+import AdminIcon from './AdminIcon';
 import RecipeCategorySelector from './RecipeCategorySelector';
 import RecipeStepsEditor from './RecipeStepsEditor';
+import type { RecipeStepsEditorHandle } from './RecipeStepsEditor';
 import RecipeVariantsEditor from './RecipeVariantsEditor';
 
 interface RecipeEditorProperties {
@@ -41,6 +43,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [isLoading, setIsLoading] = useState<boolean>(properties.recipePublicId !== null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants'>('recipe');
+  const stepsEditor = useRef<RecipeStepsEditorHandle | null>(null);
 
   useEffect((): void => {
     if (properties.recipePublicId === null) return;
@@ -79,8 +82,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
         : [...current.categoryPublicIds, categoryId],
     }));
   }
-  async function save(event: SubmitEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
+  async function saveRecipeDraft(): Promise<void> {
     setMessage('');
     setIsSaving(true);
     try {
@@ -108,6 +110,25 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
     } finally {
       setIsSaving(false);
     }
+  }
+
+  async function saveCurrentDraft(): Promise<void> {
+    if (tab === 'steps') {
+      setIsSaving(true);
+      try {
+        await stepsEditor.current?.saveDraft();
+      } finally {
+        setIsSaving(false);
+      }
+      return;
+    }
+    await saveRecipeDraft();
+  }
+
+  async function markDraftChanged(): Promise<void> {
+    setRecipe((current: EditableRecipe | null): EditableRecipe | null =>
+      current === null ? null : { ...current, isDraft: true },
+    );
   }
   async function publish(): Promise<void> {
     if (recipe === null) return;
@@ -187,7 +208,12 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
         </nav>
       )}
       {tab === 'recipe' ? (
-        <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}>
+        <form
+          onSubmit={(event: SubmitEvent<HTMLFormElement>): void => {
+            event.preventDefault();
+            void saveRecipeDraft();
+          }}
+        >
           <label>
             {text.recipeEditor.recipeTitle}
             <input value={form.title} onChange={changeTitle} maxLength={240} required autoFocus />
@@ -239,40 +265,15 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
               {message}
             </p>
           ) : null}
-          <div className="recipe-editor__actions">
-            <button type="submit" disabled={isSaving}>
-              {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
-            </button>
-            {recipe !== null && recipe.isDraft ? (
-              <button
-                type="button"
-                disabled={isSaving || form.categoryPublicIds.length === 0}
-                onClick={(): void => void publish()}
-              >
-                {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
-              </button>
-            ) : null}
-            {recipe?.hasPublishedRevision ? (
-              <button
-                type="button"
-                className="button--secondary"
-                disabled={isSaving}
-                onClick={(): void => void createShareLink()}
-              >
-                {text.recipeEditor.share}
-              </button>
-            ) : null}
-          </div>
-          {recipe !== null && recipe.isDraft && form.categoryPublicIds.length === 0 ? (
-            <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
-          ) : null}
         </form>
       ) : null}
       {recipe === null || tab !== 'steps' ? null : (
         <RecipeStepsEditor
+          ref={stepsEditor}
           tenantSlug={properties.tenantSlug}
           recipePublicId={recipe.publicId}
           text={text}
+          onDraftChanged={markDraftChanged}
         />
       )}
       {recipe === null || tab !== 'variants' ? null : (
@@ -280,7 +281,39 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           tenantSlug={properties.tenantSlug}
           recipePublicId={recipe.publicId}
           text={text}
+          onDraftChanged={markDraftChanged}
         />
+      )}
+      {recipe === null ? null : (
+        <>
+          <div className="recipe-editor__actions">
+            <button type="button" disabled={isSaving} onClick={(): void => void saveCurrentDraft()}>
+              {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
+            </button>
+            <button
+              type="button"
+              disabled={isSaving || !recipe.isDraft || form.categoryPublicIds.length === 0}
+              onClick={(): void => void publish()}
+            >
+              {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
+            </button>
+            {recipe.hasPublishedRevision ? (
+              <button
+                type="button"
+                className="button--secondary"
+                disabled={isSaving}
+                onClick={(): void => void createShareLink()}
+                aria-label={text.recipeEditor.share}
+                title={text.recipeEditor.share}
+              >
+                <AdminIcon name="share" />
+              </button>
+            ) : null}
+          </div>
+          {recipe.isDraft && form.categoryPublicIds.length === 0 ? (
+            <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
+          ) : null}
+        </>
       )}
     </section>
   );

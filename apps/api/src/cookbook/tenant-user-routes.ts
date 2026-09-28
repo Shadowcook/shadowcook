@@ -51,12 +51,10 @@ export function registerTenantUserRoutes(api: FastifyInstance, pool: Pool): void
       const tenantSlug: string | null = tenantSlugFromRequest(request);
       const body: TenantUserRoleBody | null = parseTenantUserRoleBody(request.body);
       if (tenantSlug === null || body === null)
-        return reply
-          .code(400)
-          .send({
-            code: 'INVALID_TENANT_ROLE_ASSIGNMENT',
-            error: 'The role assignment is invalid.',
-          });
+        return reply.code(400).send({
+          code: 'INVALID_TENANT_ROLE_ASSIGNMENT',
+          error: 'The role assignment is invalid.',
+        });
       const tenantId: string | null = await requireTenantPermission(
         pool,
         request,
@@ -87,12 +85,10 @@ export function registerTenantUserRoutes(api: FastifyInstance, pool: Pool): void
         );
         if (roles.rowCount !== body.roleIds.length) {
           await client.query('ROLLBACK');
-          return reply
-            .code(400)
-            .send({
-              code: 'INVALID_TENANT_ROLE_ASSIGNMENT',
-              error: 'The role assignment is invalid.',
-            });
+          return reply.code(400).send({
+            code: 'INVALID_TENANT_ROLE_ASSIGNMENT',
+            error: 'The role assignment is invalid.',
+          });
         }
         await client.query(
           'DELETE FROM tenant_membership_role WHERE tenant_id = $1 AND principal_id = $2',

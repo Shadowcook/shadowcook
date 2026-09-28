@@ -442,7 +442,7 @@ Categories remain hierarchical.
 
 A recipe may belong to multiple categories.
 
-Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe visibility is `PRIVATE` or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens.
+Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe visibility is `PRIVATE` or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens. Recipe detail responses provide session-specific edit and share capabilities for the recipe-detail actions.
 
 An ingredient usage contains either a normalized ingredient reference or a non-empty text override. Text overrides support non-ingredient recipe entries such as prepared components and oven settings. A text override can have a special entry kind: no icon, remove, add, information, important, cook, cool, heat, wait, or work step. The editor keeps amount, unit, and optional controls visible for every entry. The API ignores these values for special entry kinds.
 
@@ -1966,7 +1966,7 @@ The hostname is updated as a locator; tenant identity remains unchanged.
 
 ## 27. Backup and restore
 
-Portable backup is a V2.0 requirement.
+Portable backup is a Version 2.5 feature.
 
 ### 27.1 Backup purpose
 
@@ -2259,7 +2259,6 @@ The following concepts are considered part of the V2.0 architecture baseline:
 - normalized modifiers,
 - normalized units,
 - same-dimension unit conversion,
-- pantry ingredient matching,
 - recipe variants with direct step membership,
 - draft/published revision snapshots,
 - immutable published history,
@@ -2267,31 +2266,39 @@ The following concepts are considered part of the V2.0 architecture baseline:
 - human/service principals,
 - scoped permissions,
 - AI-agent editing,
-- AI-assisted cooking sessions with structured notes and draft updates,
 - tenant-owned recipe visibility defaults with per-recipe overrides,
 - published-but-private recipe history,
-- tenant-owned sharing/discovery policy,
-- tenant-to-tenant grants,
-- invitation-based trust bootstrap,
-- cryptographic tenant identity,
-- delegated federation keys,
-- pull-based federation,
-- recipe import/fork with upstream tracking,
-- persistent ingredient/unit/modifier federation mapping,
-- remote revision checks,
-- three-way merge/conflict handling,
-- tenant subscriptions and sync offers,
-- portable backup/restore,
-- optional backup encryption,
-- tenant migration.
+- recipe discoverability.
 
 ---
 
-## 34. Deferred / later features
+## 34. Version 2.5 scope
+
+The following concepts are planned for Version 2.5:
+
+- media upload, storage, rendering, and lifecycle management,
+- pantry ingredient matching,
+- portion scaling, timers, cooking mode, favorites, and AI-assisted cooking sessions,
+- tenant-owned federation sharing policy,
+- tenant-to-tenant grants,
+- invitation-based trust bootstrap,
+- cryptographic tenant identity and delegated federation keys,
+- pull-based federation,
+- recipe import/fork with upstream tracking,
+- persistent ingredient/unit/modifier federation mapping,
+- remote revision checks and three-way merge/conflict handling,
+- tenant subscriptions and sync offers,
+- portable backup/restore and optional backup encryption,
+- tenant migration,
+- background workers for upstream checks, subscription discovery, backup reminders, and maintenance.
+
+---
+
+## 35. Deferred / later features
 
 Likely later additions include:
 
-### 34.1 Ingredient-specific mass/volume conversion
+### 35.1 Ingredient-specific mass/volume conversion
 
 Example:
 
@@ -2303,13 +2310,13 @@ Requires curated density/conversion data and possibly modifier-aware conversion 
 
 Target: approximately V2.5 or later.
 
-### 34.2 Quantity-aware pantry inventory
+### 35.2 Quantity-aware pantry inventory
 
 Track not only whether an ingredient exists, but whether enough is available.
 
 Requires robust unit conversion and inventory semantics.
 
-### 34.3 Ingredient substitution graph
+### 35.3 Ingredient substitution graph
 
 Examples:
 
@@ -2319,7 +2326,7 @@ Examples:
 
 Not required for V2.0.
 
-### 34.4 Rich portable tenant-location discovery
+### 35.4 Rich portable tenant-location discovery
 
 Automatic discovery of a tenant after migration may evolve beyond direct known locators.
 
@@ -2327,7 +2334,7 @@ The cryptographic identity model is designed to support this later.
 
 ---
 
-## 35. Core invariants
+## 36. Core invariants
 
 These invariants should be treated as design/test requirements.
 
@@ -2401,7 +2408,7 @@ These invariants should be treated as design/test requirements.
 
 ---
 
-## 36. Mental model
+## 37. Mental model
 
 A concise way to think about Shadowcook 2.0:
 
@@ -2472,7 +2479,7 @@ BACKUP
 
 ---
 
-## 37. Legacy data migration
+## 38. Legacy data migration
 
 Existing Shadowcook installations must have a one-way migration path into the Shadowcook 2.0 data model so that existing recipes are not stranded.
 
@@ -2482,7 +2489,15 @@ The detailed migration strategy is intentionally deferred until the Shadowcook 2
 
 ---
 
-## 38. Architectural direction
+## 39. Tenant ingredient catalogues
+
+Tenant-owned ingredients and aliases are stored in the shared normalized ingredient catalogue with `owner_tenant_id` set to the owning tenant. Instance-owned standard ingredients have a null owner tenant.
+
+Recipe-editor catalogue search returns instance-owned and current-tenant ingredients. It searches canonical names and aliases and returns an exact-match indicator for the submitted search value.
+
+Tenant ingredient administration and on-the-fly ingredient creation use tenant ingredient permissions. Tenant ingredient administration exposes only ingredients owned by the current tenant.
+
+## 40. Architectural direction
 
 Shadowcook 2.0 is a content-first, tenant-owned, federated cookbook platform whose architecture deliberately treats recipes as portable, shareable, versioned domain objects.
 

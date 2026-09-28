@@ -82,12 +82,23 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const query = request.query as { search?: unknown };
     const search: string = typeof query.search === 'string' ? query.search.trim() : '';
     if (search.length === 0) return reply.send({ ingredients: [] });
-    const ingredients = await pool.query<{ public_id: string; canonical_name: string }>(
-      `SELECT public_id, canonical_name
+    const ingredients = await pool.query<{
+      public_id: string;
+      canonical_name: string;
+      exact_match: boolean;
+    }>(
+      `SELECT ingredient.public_id, ingredient.canonical_name,
+         (lower(ingredient.canonical_name) = lower($2) OR EXISTS (
+           SELECT 1 FROM ingredient_alias
+           WHERE ingredient_alias.ingredient_id = ingredient.id AND lower(ingredient_alias.alias) = lower($2)
+         )) AS exact_match
        FROM ingredient
-       WHERE (owner_tenant_id IS NULL OR owner_tenant_id = $1)
-         AND canonical_name ILIKE '%' || $2 || '%'
-       ORDER BY canonical_name
+       WHERE (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $1)
+         AND (ingredient.canonical_name ILIKE '%' || $2 || '%' OR EXISTS (
+           SELECT 1 FROM ingredient_alias
+           WHERE ingredient_alias.ingredient_id = ingredient.id AND ingredient_alias.alias ILIKE '%' || $2 || '%'
+         ))
+       ORDER BY exact_match DESC, ingredient.canonical_name
        LIMIT 20`,
       [tenantId, search],
     );
@@ -95,6 +106,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       ingredients: ingredients.rows.map((row) => ({
         publicId: row.public_id,
         name: row.canonical_name,
+        exactMatch: row.exact_match,
       })),
     });
   });

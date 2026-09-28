@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { request } from './api-client';
+import AdminIcon from './AdminIcon';
 import type { EditableRecipe } from './cookbook-types';
 
 interface DraftRecipeListProperties {
@@ -50,8 +51,10 @@ export default function DraftRecipeList(properties: DraftRecipeListProperties): 
                 type="button"
                 className="button--secondary"
                 onClick={(): void => properties.onEdit(recipe.publicId)}
+                aria-label={text.recipeEditor.edit}
+                title={text.recipeEditor.edit}
               >
-                {text.recipeEditor.edit}
+                <AdminIcon name="edit" />
               </button>
             </li>
           ))}

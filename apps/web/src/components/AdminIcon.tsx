@@ -11,7 +11,8 @@ type IconName =
   | 'moveDown'
   | 'moveUp'
   | 'roles'
-  | 'resetPassword';
+  | 'resetPassword'
+  | 'share';
 
 export default function AdminIcon({ name }: { name: IconName }): JSX.Element {
   let content: JSX.Element;
@@ -25,6 +26,10 @@ export default function AdminIcon({ name }: { name: IconName }): JSX.Element {
   else if (name === 'disable') content = <path d="M7 5v14M17 5v14" />;
   else if (name === 'enable') content = <path d="m9 5 10 7-10 7V5Z" />;
   else if (name === 'resetPassword') content = <path d="M19 8a7 7 0 1 0 1 5M19 4v4h-4" />;
+  else if (name === 'share')
+    content = (
+      <path d="M18 7.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM6 14.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM18 21.5a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5ZM8.3 10.9l7.4-4.2m-7.4 6.4 7.4 4.2" />
+    );
   else if (name === 'roles')
     content = (
       <path d="M8.5 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7-1a2.5 2.5 0 1 0 0-5M3.5 19c.4-3 2.1-5 5-5s4.6 2 5 5M14 14c2.8 0 4.7 1.7 5.2 4" />
@@ -39,7 +44,11 @@ export default function AdminIcon({ name }: { name: IconName }): JSX.Element {
       </>
     );
   return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className="admin-icon">
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={name === 'edit' ? 'admin-icon admin-icon--edit' : 'admin-icon'}
+    >
       {content}
     </svg>
   );

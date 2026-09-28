@@ -5,11 +5,12 @@ import type { CookbookResponse } from './cookbook-types';
 interface TenantNavigationProperties {
   text: Translation;
   cookbook: CookbookResponse;
-  activeView: 'none' | 'recipes' | 'drafts' | 'categories' | 'users' | 'editor';
+  activeView: 'none' | 'recipes' | 'drafts' | 'categories' | 'users' | 'ingredients' | 'editor';
   onOpenRecipes: () => void;
   onOpenDrafts: () => void;
   onOpenCategories: () => void;
   onOpenUsers: () => void;
+  onOpenIngredients: () => void;
   onCreateRecipe: () => void;
 }
 
@@ -22,6 +23,7 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
     onOpenDrafts,
     onOpenCategories,
     onOpenUsers,
+    onOpenIngredients,
     onCreateRecipe,
   } = properties;
   return (
@@ -76,6 +78,19 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
             onClick={onOpenUsers}
           >
             {text.tenantNavigation.users}
+          </button>
+        ) : null}
+        {cookbook.canManageIngredients ? (
+          <button
+            type="button"
+            className={
+              activeView === 'ingredients'
+                ? 'tenant-navigation__link tenant-navigation__link--active'
+                : 'tenant-navigation__link'
+            }
+            onClick={onOpenIngredients}
+          >
+            {text.tenantNavigation.ingredients}
           </button>
         ) : null}
       </nav>

@@ -17,6 +17,8 @@ interface CookbookDashboardProperties {
   onSelectCategory: (categoryId: string | null) => void;
   onSelectRecipe: (publicId: string) => Promise<void>;
   onCloseRecipe: () => void;
+  onEditRecipe: () => void;
+  onShareRecipe: () => Promise<string>;
   onSelectVariant: (slug: string) => void;
   onLogin: () => void;
   onLogout: () => Promise<void>;
@@ -36,6 +38,8 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onSelectCategory,
     onSelectRecipe,
     onCloseRecipe,
+    onEditRecipe,
+    onShareRecipe,
     onSelectVariant,
     onLogin,
     onLogout,
@@ -98,6 +102,8 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           text={text}
           recipe={selectedRecipe}
           onClose={onCloseRecipe}
+          onEdit={onEditRecipe}
+          onShare={onShareRecipe}
           onSelectVariant={onSelectVariant}
         />
       ) : (

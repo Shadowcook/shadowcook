@@ -23,6 +23,8 @@ export interface RecipeDetail {
   slug: string;
   title: string;
   summary: string | null;
+  can_edit: boolean;
+  can_share: boolean;
   selectedVariant: string;
   variants: RecipeVariant[];
   steps: RecipeStep[];
@@ -58,6 +60,7 @@ export interface CookbookResponse {
   canManageCategories: boolean;
   canManageRecipes: boolean;
   canManageUsers: boolean;
+  canManageIngredients: boolean;
 }
 
 export interface EditableRecipe {
