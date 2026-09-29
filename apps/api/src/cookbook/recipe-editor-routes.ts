@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
-import { currentSessionUser } from '../auth/session.js';
+import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantPermission } from '../admin/authorization.js';
 
 interface RecipeInput {
@@ -215,7 +215,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         .code(400)
         .send({ code: 'INVALID_RECIPE_STEPS', error: 'The recipe steps are invalid.' });
     const publicId: string = (request.params as { publicId: string }).publicId;
-    const user = await currentSessionUser(pool, request);
+    const user = await currentAuthenticatedPrincipal(pool, request);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -452,7 +452,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       'recipe:read',
     );
     if (tenantId === null) return;
-    const user = await currentSessionUser(pool, request);
+    const user = await currentAuthenticatedPrincipal(pool, request);
     const drafts = await pool.query<DraftRow>(
       draftSelectSql('recipe.draft_revision_id IS NOT NULL'),
       [tenantId, user?.principal_id ?? null],
@@ -482,7 +482,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       );
       if (visibilityTenantId === null) return;
     }
-    const user = await currentSessionUser(pool, request);
+    const user = await currentAuthenticatedPrincipal(pool, request);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -535,7 +535,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     );
     if (tenantId === null) return;
     const publicId: string = (request.params as { publicId: string }).publicId;
-    const user = await currentSessionUser(pool, request);
+    const user = await currentAuthenticatedPrincipal(pool, request);
     const draft: DraftRow | null = await draftForRecipe(
       pool,
       tenantId,
@@ -663,7 +663,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const input: RecipeInput | null = parseRecipeInput(request.body);
     if (input === null) return invalidRecipe(reply);
     const publicId: string = (request.params as { publicId: string }).publicId;
-    const user = await currentSessionUser(pool, request);
+    const user = await currentAuthenticatedPrincipal(pool, request);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -769,7 +769,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       const input: VariantInput | null = parseVariantInput(request.body);
       if (input === null) return invalidVariant(reply);
       const publicId: string = (request.params as { publicId: string }).publicId;
-      const user = await currentSessionUser(pool, request);
+      const user = await currentAuthenticatedPrincipal(pool, request);
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -821,7 +821,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       const input: VariantInput | null = parseVariantInput(request.body);
       if (input === null) return invalidVariant(reply);
       const params = request.params as { publicId: string; variantKey: string };
-      const user = await currentSessionUser(pool, request);
+      const user = await currentAuthenticatedPrincipal(pool, request);
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -880,7 +880,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       if (!Array.isArray(overrides) || !overrides.every(isValidVariantOverride))
         return invalidVariant(reply);
       const params = request.params as { publicId: string; variantKey: string };
-      const user = await currentSessionUser(pool, request);
+      const user = await currentAuthenticatedPrincipal(pool, request);
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -966,7 +966,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         request.body as { replacementDefaultVariantKey?: unknown }
       )?.replacementDefaultVariantKey;
       const params = request.params as { publicId: string; variantKey: string };
-      const user = await currentSessionUser(pool, request);
+      const user = await currentAuthenticatedPrincipal(pool, request);
       const client = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -1080,7 +1080,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         [current.draft_revision_id, current.id],
       );
       await client.query('COMMIT');
-      const user = await currentSessionUser(pool, request);
+      const user = await currentAuthenticatedPrincipal(pool, request);
       return reply.send(
         draftResponse(
           (await draftForRecipe(pool, tenantId, user?.principal_id ?? null, publicId))!,
@@ -1107,7 +1107,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       );
       if (tenantId === null) return;
       const publicId: string = (request.params as { publicId: string }).publicId;
-      const user = await currentSessionUser(pool, request);
+      const user = await currentAuthenticatedPrincipal(pool, request);
       const recipe = await pool.query<{ id: string }>(
         'SELECT id FROM recipe WHERE tenant_id = $1 AND public_id = $2 AND published_revision_id IS NOT NULL',
         [tenantId, publicId],

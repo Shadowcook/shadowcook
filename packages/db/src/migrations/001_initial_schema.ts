@@ -115,7 +115,7 @@ CREATE TABLE tenant_membership_role (
   tenant_id uuid NOT NULL,
   principal_id uuid NOT NULL,
   tenant_role_id uuid NOT NULL,
-  PRIMARY KEY (tenant_id, principal_id),
+  PRIMARY KEY (tenant_id, principal_id, tenant_role_id),
   FOREIGN KEY (tenant_id, principal_id) REFERENCES tenant_membership(tenant_id, principal_id) ON DELETE CASCADE,
   FOREIGN KEY (tenant_role_id, tenant_id) REFERENCES tenant_role(id, tenant_id) ON DELETE CASCADE
 );

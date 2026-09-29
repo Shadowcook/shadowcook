@@ -29,6 +29,7 @@ import TenantIngredientManagement from './components/TenantIngredientManagement'
 import TenantUnitManagement from './components/TenantUnitManagement';
 import RecipePolicySettings from './components/RecipePolicySettings';
 import RecipeShareDialog from './components/RecipeShareDialog';
+import ServiceAccountManagement from './components/ServiceAccountManagement';
 import type { RecipeShareLink } from './components/RecipeShareDialog';
 import '../../styles/cookbook.css';
 
@@ -55,9 +56,13 @@ const emptyCookbook: CookbookResponse = {
   canManageUsers: false,
   canManageIngredients: false,
   canManageUnits: false,
+  canManageServiceAccounts: false,
 };
 
-export default function CookbookScreen({ locale, notifyWhenReady = false }: CookbookScreenProperties): JSX.Element {
+export default function CookbookScreen({
+  locale,
+  notifyWhenReady = false,
+}: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
   const [screen, setScreen] = useState<Screen>('loading');
   const [email, setEmail] = useState<string>('');
@@ -335,7 +340,9 @@ export default function CookbookScreen({ locale, notifyWhenReady = false }: Cook
     if (selectedRecipe === null) return;
     const tenantSlug: string | null = tenantSlugFromPath();
     if (tenantSlug === null) return;
-    const response: { shareLinks: RecipeShareLink[] } = await request<{ shareLinks: RecipeShareLink[] }>(
+    const response: { shareLinks: RecipeShareLink[] } = await request<{
+      shareLinks: RecipeShareLink[];
+    }>(
       `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links`,
     );
     setDetailShareLinks(response.shareLinks);
@@ -448,6 +455,14 @@ export default function CookbookScreen({ locale, notifyWhenReady = false }: Cook
     setSelectedCategoryId(null);
     setSelectedRecipe(null);
   }
+  function openServiceAccounts(): void {
+    const slug: string | null = tenantSlugFromPath();
+    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/service-accounts`);
+    setIsCategoryEditor(false);
+    setEditorPath('manage-service-accounts');
+    setSelectedCategoryId(null);
+    setSelectedRecipe(null);
+  }
   function closeTenantManagement(): void {
     const slug: string | null = tenantSlugFromPath();
     if (slug !== null) window.history.pushState(null, '', `/${slug}`);
@@ -530,6 +545,8 @@ export default function CookbookScreen({ locale, notifyWhenReady = false }: Cook
       <AccessDeniedScreen text={text} />
     ) : editorPath === 'manage-recipe-policy' && !cookbook.canManageUsers ? (
       <AccessDeniedScreen text={text} />
+    ) : editorPath === 'manage-service-accounts' && !cookbook.canManageServiceAccounts ? (
+      <AccessDeniedScreen text={text} />
     ) : isCategoryEditor && !cookbook.canManageCategories ? (
       <AccessDeniedScreen text={text} />
     ) : editorPath !== null &&
@@ -573,9 +590,11 @@ export default function CookbookScreen({ locale, notifyWhenReady = false }: Cook
                               ? 'units'
                               : editorPath === 'manage-recipe-policy'
                                 ? 'settings'
-                              : editorPath !== null
-                                ? 'editor'
-                                : 'recipes'
+                                : editorPath === 'manage-service-accounts'
+                                  ? 'service-accounts'
+                                  : editorPath !== null
+                                    ? 'editor'
+                                    : 'recipes'
               }
               onOpenRecipes={openRecipes}
               onOpenDrafts={openDrafts}
@@ -584,6 +603,7 @@ export default function CookbookScreen({ locale, notifyWhenReady = false }: Cook
               onOpenIngredients={openIngredients}
               onOpenUnits={openUnits}
               onOpenSettings={openRecipePolicy}
+              onOpenServiceAccounts={openServiceAccounts}
               onCreateRecipe={(): void => openRecipeEditor(null)}
             />
           ) : null}
@@ -598,6 +618,8 @@ export default function CookbookScreen({ locale, notifyWhenReady = false }: Cook
               <TenantUnitManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
             ) : editorPath === 'manage-recipe-policy' && tenantSlugFromPath() !== null ? (
               <RecipePolicySettings tenantSlug={tenantSlugFromPath()!} text={text} />
+            ) : editorPath === 'manage-service-accounts' && tenantSlugFromPath() !== null ? (
+              <ServiceAccountManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
             ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
               <CategoryEditor
                 locale={locale}
@@ -755,6 +777,8 @@ function recipeEditorPath(): 'manage' | 'new' | 'drafts' | string | null {
     return 'manage-units';
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'recipe-policy')
     return 'manage-recipe-policy';
+  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'service-accounts')
+    return 'manage-service-accounts';
   if (segments.length === 2 && segments[1] === 'manage') return 'manage';
   return null;
 }

@@ -64,6 +64,7 @@ export interface CookbookResponse {
   canManageUsers: boolean;
   canManageIngredients: boolean;
   canManageUnits: boolean;
+  canManageServiceAccounts: boolean;
 }
 
 export interface EditableRecipe {

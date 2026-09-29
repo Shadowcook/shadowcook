@@ -53,3 +53,5 @@
 - Instance administration provides deep-linkable dashboards and tenant, user, authentication, SMTP, ingredient, and unit management.
 - Middleware protects administration and tenant-management routes, preserves validated post-login navigation, and the web client validates restored sessions with the API.
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.
+- Tenant owners can create service accounts, assign existing tenant roles, issue one-time-view opaque bearer tokens, inspect token lifecycle metadata, revoke tokens, and disable service accounts.
+- Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.

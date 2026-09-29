@@ -1036,6 +1036,15 @@ revoked_at
 created_at
 ```
 
+- `service_account` has one `SERVICE_ACCOUNT` principal and belongs to exactly one tenant.
+- A service account has a tenant membership and one or more tenant roles; it cannot receive an instance role.
+- `api_token` stores only a SHA-256 token verifier, an eight-character token prefix, lifecycle timestamps, and the owning service account.
+- A token is accepted through the `Authorization: Bearer <token>` header only while the token, service account, and principal are active.
+- Every accepted bearer token updates its `last_used_at` timestamp in UTC.
+- Creating a token returns its plaintext value once. Token listing returns metadata only.
+- Disabling a service account disables its principal and revokes all of its active API tokens.
+- Service-account credentials use the same tenant-scoped authorization checks and recipe draft endpoints as browser sessions.
+
 ### 15.4 AI agents
 
 AI agents are service accounts, not special superusers.

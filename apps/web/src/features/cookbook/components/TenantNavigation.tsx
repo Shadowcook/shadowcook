@@ -6,7 +6,16 @@ interface TenantNavigationProperties {
   text: Translation;
   cookbook: CookbookResponse;
   activeView:
-    'none' | 'recipes' | 'drafts' | 'categories' | 'users' | 'ingredients' | 'units' | 'settings' | 'editor';
+    | 'none'
+    | 'recipes'
+    | 'drafts'
+    | 'categories'
+    | 'users'
+    | 'ingredients'
+    | 'units'
+    | 'settings'
+    | 'service-accounts'
+    | 'editor';
   onOpenRecipes: () => void;
   onOpenDrafts: () => void;
   onOpenCategories: () => void;
@@ -14,6 +23,7 @@ interface TenantNavigationProperties {
   onOpenIngredients: () => void;
   onOpenUnits: () => void;
   onOpenSettings: () => void;
+  onOpenServiceAccounts: () => void;
   onCreateRecipe: () => void;
 }
 
@@ -29,6 +39,7 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
     onOpenIngredients,
     onOpenUnits,
     onOpenSettings,
+    onOpenServiceAccounts,
     onCreateRecipe,
   } = properties;
   return (
@@ -83,6 +94,19 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
             onClick={onOpenSettings}
           >
             {text.tenantNavigation.settings}
+          </button>
+        ) : null}
+        {cookbook.canManageServiceAccounts ? (
+          <button
+            type="button"
+            className={
+              activeView === 'service-accounts'
+                ? 'tenant-navigation__link tenant-navigation__link--active'
+                : 'tenant-navigation__link'
+            }
+            onClick={onOpenServiceAccounts}
+          >
+            {text.tenantNavigation.serviceAccounts}
           </button>
         ) : null}
         {cookbook.canManageUsers ? (

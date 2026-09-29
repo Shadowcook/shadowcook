@@ -1587,7 +1587,7 @@ paths:
     post:
       operationId: createRecipeDraft
       summary: Creates a recipe with its first draft revision.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       requestBody:
@@ -1603,7 +1603,7 @@ paths:
     get:
       operationId: getRecipeDraft
       summary: Returns the current editable revision or published revision.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1619,7 +1619,7 @@ paths:
     patch:
       operationId: updateRecipeDraft
       summary: Saves a recipe draft, creating one from the published revision when needed.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1710,7 +1710,7 @@ paths:
     get:
       operationId: getRecipeDraftSteps
       summary: Returns the editable preparation steps for a recipe revision.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1731,7 +1731,7 @@ paths:
     put:
       operationId: replaceRecipeDraftSteps
       summary: Replaces the editable preparation steps, creating a draft from the published revision when needed.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1759,7 +1759,7 @@ paths:
     get:
       operationId: listRecipeDraftVariants
       summary: Lists the variants and direct step memberships of an editable recipe revision.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1791,7 +1791,7 @@ paths:
     post:
       operationId: createRecipeDraftVariant
       summary: Creates a variant in the editable revision.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1822,7 +1822,7 @@ paths:
     put:
       operationId: updateRecipeDraftVariant
       summary: Updates a variant in the editable revision.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1844,7 +1844,7 @@ paths:
     delete:
       operationId: deleteRecipeDraftVariant
       summary: Deletes a variant when no recipe steps are assigned to it.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1870,7 +1870,7 @@ paths:
     put:
       operationId: replaceRecipeDraftVariantStepOverrides
       summary: Replaces one variant's direct recipe-step memberships.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -1911,7 +1911,7 @@ paths:
     get:
       operationId: getRecipeEditorCatalogue
       summary: Returns units for the recipe editor.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       responses:
@@ -1931,7 +1931,7 @@ paths:
     get:
       operationId: searchRecipeEditorIngredients
       summary: Searches up to twenty accessible ingredients for the recipe editor.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
         - name: search
@@ -1956,7 +1956,7 @@ paths:
     get:
       operationId: listTenantIngredients
       summary: Lists ingredients owned by a cookbook with aliases and recipe usage counts.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
         '200':
@@ -1974,7 +1974,7 @@ paths:
     post:
       operationId: createTenantIngredient
       summary: Creates a cookbook-owned ingredient and optional aliases.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
         required: true
@@ -2170,6 +2170,107 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404': { description: Share link not found. }
+  /cookbook/tenants/{tenantSlug}/service-accounts:
+    get:
+      operationId: listServiceAccounts
+      summary: Lists tenant-scoped service accounts, roles, and token metadata.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      responses:
+        '200':
+          description: Service accounts and assignable tenant roles.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [serviceAccounts, roles]
+                properties:
+                  serviceAccounts:
+                    type: array
+                    items: { $ref: '#/components/schemas/ServiceAccount' }
+                  roles:
+                    type: array
+                    items: { $ref: '#/components/schemas/TenantRole' }
+    post:
+      operationId: createServiceAccount
+      summary: Creates a tenant-scoped service account with explicit tenant roles.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/ServiceAccountInput' } } }
+      responses:
+        '201':
+          description: Service account created.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [publicId]
+                properties: { publicId: { type: string, format: uuid } }
+  /cookbook/tenants/{tenantSlug}/service-accounts/{publicId}:
+    patch:
+      operationId: updateServiceAccount
+      summary: Updates a service account's name and tenant roles.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/PublicId' },
+        ]
+      requestBody:
+        required: true
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/ServiceAccountInput' } } }
+      responses: { '204': { description: Service account updated. } }
+    delete:
+      operationId: disableServiceAccount
+      summary: Disables a service account and revokes all of its API tokens.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/PublicId' },
+        ]
+      responses: { '204': { description: Service account disabled. } }
+  /cookbook/tenants/{tenantSlug}/service-accounts/{publicId}/tokens:
+    post:
+      operationId: createServiceAccountToken
+      summary: Creates an opaque bearer token and returns its plaintext value once.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/PublicId' },
+        ]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json: { schema: { $ref: '#/components/schemas/ServiceAccountTokenInput' } },
+          }
+      responses:
+        '201':
+          description: Token created. Persist the token now; it cannot be retrieved again.
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/ServiceAccountTokenCreated' } },
+            }
+  /cookbook/tenants/{tenantSlug}/service-accounts/{publicId}/tokens/{tokenId}:
+    delete:
+      operationId: revokeServiceAccountToken
+      summary: Revokes a service-account token.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/PublicId' },
+          { name: tokenId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses: { '204': { description: Token revoked. } }
   /cookbook/share-links/{token}:
     get:
       operationId: getSharedRecipe
@@ -2772,6 +2873,65 @@ components:
         slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         isDefault: { type: boolean, description: Only a visible variant may be the default. }
         isVisible: { type: boolean }
+    TenantRole:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+    ServiceAccountInput:
+      type: object
+      additionalProperties: false
+      required: [name, roleIds]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        roleIds:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    ServiceAccountToken:
+      type: object
+      additionalProperties: false
+      required: [id, name, tokenPrefix, expiresAt, lastUsedAt, revokedAt, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        tokenPrefix: { type: string }
+        expiresAt: { type: [string, 'null'], format: date-time }
+        lastUsedAt: { type: [string, 'null'], format: date-time }
+        revokedAt: { type: [string, 'null'], format: date-time }
+        createdAt: { type: string, format: date-time }
+    ServiceAccount:
+      type: object
+      additionalProperties: false
+      required: [public_id, name, disabled_at, roles, tokens]
+      properties:
+        public_id: { type: string, format: uuid }
+        name: { type: string }
+        disabled_at: { type: [string, 'null'], format: date-time }
+        roles:
+          type: array
+          items: { $ref: '#/components/schemas/TenantRole' }
+        tokens:
+          type: array
+          items: { $ref: '#/components/schemas/ServiceAccountToken' }
+    ServiceAccountTokenInput:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        expiresAt: { type: [string, 'null'], format: date-time }
+    ServiceAccountTokenCreated:
+      type: object
+      additionalProperties: false
+      required: [id, token, tokenPrefix]
+      properties:
+        id: { type: string, format: uuid }
+        token: { type: string, writeOnly: true }
+        tokenPrefix: { type: string }
     RecipeVariantDeleteInput:
       type: object
       additionalProperties: false
@@ -2824,3 +2984,7 @@ components:
       type: apiKey
       in: cookie
       name: shadowcook_session
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque API token

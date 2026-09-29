@@ -376,6 +376,7 @@ export interface Translation {
     ingredients: string;
     units: string;
     settings: string;
+    serviceAccounts: string;
   };
   tenantUnits: {
     title: string;
@@ -421,6 +422,21 @@ export interface Translation {
     inviteUser: string;
     inviteUserDescription: string;
     invitationSent: string;
+  };
+  serviceAccounts: {
+    title: string;
+    description: string;
+    create: string;
+    name: string;
+    roles: string;
+    createToken: string;
+    tokenName: string;
+    tokenCreated: string;
+    tokenWarning: string;
+    revokeToken: string;
+    disabled: string;
+    created: string;
+    deleted: string;
   };
   dashboard: {
     accountRecipes: string;
