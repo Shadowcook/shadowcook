@@ -207,6 +207,8 @@ shadowcook/
 - Successful sign-in and sign-out navigate to `/` as full page transitions so the tenant-selection route, rather than a previously mounted cookbook client, controls the root page.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`.
+- A direct recipe navigation renders its title, summary, category links, selected visible variant links, ingredient usages, and preparation steps as semantic server-rendered HTML. The server forwards the request cookie when resolving recipe access.
+- Server-rendered recipe pages include a canonical URL and a Schema.org `Recipe` JSON-LD document with the recipe URL, tenant author, title, optional summary, category names, non-special ingredient usages, and ordered preparation steps.
 - Sibling categories have a non-negative tenant-scoped `sort_order` that is unique within their parent category.
 - Every published recipe revision has at least one category. Draft revisions may be uncategorized.
 - The tenant-scoped category editor is available at `/{tenant-slug}/categories`. It requires `category:update` and creates, updates, reparents, and deletes categories through `/cookbook/tenants/{tenantSlug}/categories`.
@@ -408,7 +410,7 @@ JavaScript must not be required to discover recipe content.
 
 ### 7.2 Structured data
 
-Public recipe pages should expose Recipe JSON-LD where appropriate.
+Public recipe pages expose Schema.org Recipe JSON-LD.
 
 Shadowcook's step-oriented ingredient structure is converted into the flatter structures expected by external consumers only at render/export time.
 

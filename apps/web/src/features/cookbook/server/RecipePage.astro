@@ -1,0 +1,147 @@
+---
+import Brand from '../../../components/Brand.astro';
+import { translations } from '../../../i18n';
+import type { Locale, Translation } from '../../../i18n';
+import { categoryPath } from '../model/routing';
+import type {
+  Category,
+  CookbookResponse,
+  IngredientUsage,
+  Recipe,
+  RecipeDetail,
+  RecipeVariant,
+} from '../model/types';
+import { recipeIngredientText, recipeJsonLd } from './recipe-structured-data';
+import '../../../styles/global.css';
+import '../../../styles/cookbook.css';
+
+interface Properties {
+  cookbook: CookbookResponse;
+  categoryId: string | null;
+  locale: Locale;
+  recipe: RecipeDetail;
+}
+
+const { cookbook, categoryId, locale, recipe } = Astro.props;
+const text: Translation = translations[locale];
+const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+const canonicalUrl: string = `${Astro.url.origin}${Astro.url.pathname}`;
+const categoryIds: string[] = recipeCategories(cookbook, recipe.public_id);
+const structuredData = recipeJsonLd(
+  recipe,
+  cookbook.categories,
+  categoryIds,
+  cookbookName,
+  canonicalUrl,
+  text,
+);
+const structuredDataJson: string = JSON.stringify(structuredData).replace(/</g, '\\u003c');
+const overviewPath: string = categoryId === null ? `/${tenantSlug()}` : categoryUrl(categoryId);
+
+function tenantSlug(): string {
+  const segment: string | undefined = Astro.url.pathname.split('/').filter(Boolean)[0];
+  return segment === undefined ? '' : encodeURIComponent(decodeURIComponent(segment));
+}
+
+function recipeCategories(response: CookbookResponse, publicId: string): string[] {
+  const recipeSummary = response.recipes.find(
+    (candidate: Recipe): boolean => candidate.public_id === publicId,
+  );
+  return recipeSummary?.category_public_ids ?? [];
+}
+
+function categoryUrl(id: string): string {
+  const segments: string[] | null = categoryPath(cookbook.categories, id);
+  return segments === null ? `/${tenantSlug()}` : `/${tenantSlug()}/${segments.map(encodeURIComponent).join('/')}`;
+}
+
+function variantUrl(slug: string, isDefault: boolean): string {
+  if (isDefault) return `${overviewPath}/recipes/${encodeURIComponent(recipe.slug)}`;
+  const defaultVariant = recipe.variants.find(
+    (variant: RecipeVariant): boolean => variant.is_default,
+  );
+  const base: string = variantUrl(defaultVariant?.slug ?? recipe.slug, true);
+  return `${base}/${encodeURIComponent(slug)}`;
+}
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={recipe.summary ?? text.metadata.description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <title>{recipe.title} · {text.metadata.title}</title>
+    <script type="application/ld+json" set:html={structuredDataJson}></script>
+  </head>
+  <body>
+    <main class="application-shell">
+      <Brand name={text.brandName} />
+      <article class="recipe-detail">
+        <a class="button--secondary recipe-detail__back" href={overviewPath}>
+          {text.dashboard.backToRecipes}
+        </a>
+        <header>
+          <p class="eyebrow">{cookbookName}</p>
+          <h1>{recipe.title}</h1>
+          {recipe.summary === null ? null : <p class="recipe-detail__summary">{recipe.summary}</p>}
+          {
+            categoryIds.length === 0 ? null : (
+              <ul class="recipe-page__categories">
+                {categoryIds.map((id: string) => {
+                  const category: Category | undefined = cookbook.categories.find(
+                    (candidate: Category): boolean => candidate.public_id === id,
+                  );
+                  return category === undefined ? null : <li><a href={categoryUrl(id)}>{category.name}</a></li>;
+                })}
+              </ul>
+            )
+          }
+        </header>
+        {
+          recipe.variants.length > 1 ? (
+            <nav class="recipe-page__variants">
+              <ul>
+                {recipe.variants.filter(
+                  (variant: RecipeVariant): boolean => variant.is_default || variant.is_visible,
+                ).map((variant: RecipeVariant) => (
+                  <li>
+                    <a
+                      href={variantUrl(variant.slug, variant.is_default)}
+                      aria-current={variant.slug === recipe.selectedVariant ? 'page' : undefined}
+                    >{variant.name}</a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          ) : null
+        }
+        <div class="recipe-detail__heading">
+          <h2 class="eyebrow">{text.dashboard.ingredients}</h2>
+          <h2 class="eyebrow">{text.dashboard.preparation}</h2>
+        </div>
+        <ol class="recipe-steps">
+          {
+            recipe.steps.map((step, index: number) => (
+              <li>
+                <ul>
+                  {step.ingredients.map((ingredient: IngredientUsage) => (
+                    <li>
+                      <span class="recipe-step-entry">{recipeIngredientText(ingredient, text)}</span>
+                      {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
+                    </li>
+                  ))}
+                </ul>
+                <section>
+                  <p class="recipe-step__number">{text.dashboard.step} {index + 1}</p>
+                  <p>{step.instruction}</p>
+                </section>
+              </li>
+            ))
+          }
+        </ol>
+      </article>
+    </main>
+  </body>
+</html>

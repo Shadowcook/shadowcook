@@ -736,6 +736,30 @@
   font-size: 1.1rem;
   line-height: 1.55;
 }
+.recipe-page__categories,
+.recipe-page__variants ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0;
+  list-style: none;
+}
+.recipe-page__categories a,
+.recipe-page__variants a {
+  display: inline-block;
+  padding: 0.35rem 0.55rem;
+  color: #77402e;
+  border: 1px solid #d7cabb;
+  border-radius: 0.2rem;
+  text-decoration: none;
+}
+.recipe-page__categories a:hover,
+.recipe-page__variants a:hover,
+.recipe-page__variants a[aria-current='page'] {
+  color: #fffaf0;
+  background: #314d42;
+}
 .recipe-detail__variant {
   display: grid;
   width: min(100%, 22rem);
