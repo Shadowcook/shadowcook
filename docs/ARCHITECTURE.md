@@ -1044,6 +1044,14 @@ created_at
 - Creating a token returns its plaintext value once. Token listing returns metadata only.
 - Disabling a service account disables its principal and revokes all of its active API tokens.
 - Service-account credentials use the same tenant-scoped authorization checks and recipe draft endpoints as browser sessions.
+- `POST /mcp` is a remote Model Context Protocol endpoint for active service-account bearer tokens.
+- The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
+- MCP tools do not publish or delete recipes.
+- MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE and the `shadowcook:recipes` scope.
+- `/.well-known/oauth-protected-resource` publishes the MCP resource metadata. `/.well-known/oauth-authorization-server` publishes authorization-server metadata.
+- OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.
+- OAuth access tokens represent authenticated human principals and are constrained by their existing tenant memberships and permissions.
+- `PUBLIC_API_ORIGIN` is the canonical public HTTPS API origin used in MCP OAuth discovery and token audience binding. It defaults to `${PUBLIC_WEB_ORIGIN}/api`.
 
 ### 15.4 AI agents
 

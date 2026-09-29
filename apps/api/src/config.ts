@@ -8,6 +8,7 @@ export interface ApiConfig {
   secureCookies: boolean;
   instanceSecretKey: Buffer | null;
   publicWebOrigin: string;
+  publicApiOrigin: string;
 }
 
 export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
@@ -29,6 +30,9 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
   const instanceSecretKey: Buffer | null = parseInstanceSecretKey(
     readSecretEnvironmentValue(environment, 'INSTANCE_SECRET_KEY'),
   );
+  const publicWebOrigin: string = (
+    environment.PUBLIC_WEB_ORIGIN ?? 'http://localhost:4321'
+  ).replace(/\/$/, '');
   return {
     databaseUrl,
     host: environment.HOST ?? '0.0.0.0',
@@ -38,7 +42,8 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     bootstrapPasswordChangeRequired: !isDevelopment,
     secureCookies: !isDevelopment,
     instanceSecretKey,
-    publicWebOrigin: (environment.PUBLIC_WEB_ORIGIN ?? 'http://localhost:4321').replace(/\/$/, ''),
+    publicWebOrigin,
+    publicApiOrigin: (environment.PUBLIC_API_ORIGIN ?? `${publicWebOrigin}/api`).replace(/\/$/, ''),
   };
 }
 

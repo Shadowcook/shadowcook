@@ -1238,6 +1238,95 @@ paths:
                   status:
                     type: string
                     const: ok
+  /mcp:
+    post:
+      operationId: modelContextProtocol
+      summary: Serves authenticated Shadowcook Model Context Protocol tools for service accounts.
+      description: Only active service-account bearer tokens are accepted. Tools can search recipes and create or modify drafts; none publish or delete recipes.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc: { type: string, const: '2.0' }
+                id: {}
+                method: { type: string }
+                params: {}
+      responses:
+        '200': { description: JSON-RPC response. }
+        '202': { description: JSON-RPC notification accepted. }
+        '401': { description: OAuth authentication is required. }
+  /.well-known/oauth-protected-resource:
+    get:
+      operationId: getMcpProtectedResourceMetadata
+      summary: Returns OAuth protected-resource metadata for the MCP endpoint.
+      responses:
+        '200': { description: Protected-resource metadata. }
+  /.well-known/oauth-authorization-server:
+    get:
+      operationId: getOAuthAuthorizationServerMetadata
+      summary: Returns OAuth authorization-server metadata.
+      responses:
+        '200': { description: Authorization-server metadata. }
+  /oauth/register:
+    post:
+      operationId: registerOAuthClient
+      summary: Registers a public OAuth client for the Shadowcook MCP authorization server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [redirect_uris, client_name]
+              properties:
+                redirect_uris:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uri }
+                client_name: { type: string }
+      responses:
+        '201': { description: OAuth client registered. }
+  /oauth/authorize:
+    get:
+      operationId: authorizeMcpOAuthClient
+      summary: Authenticates a Shadowcook user and issues an OAuth authorization code.
+      parameters:
+        - { name: response_type, in: query, required: true, schema: { type: string, const: code } }
+        - { name: client_id, in: query, required: true, schema: { type: string } }
+        - { name: redirect_uri, in: query, required: true, schema: { type: string, format: uri } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: resource, in: query, required: true, schema: { type: string, format: uri } }
+        - {
+            name: scope,
+            in: query,
+            required: true,
+            schema: { type: string, const: shadowcook:recipes },
+          }
+        - { name: code_challenge, in: query, required: true, schema: { type: string } }
+        - {
+            name: code_challenge_method,
+            in: query,
+            required: true,
+            schema: { type: string, const: S256 },
+          }
+      responses:
+        '302': { description: Redirects to Shadowcook sign-in or the client's redirect URI. }
+  /oauth/token:
+    post:
+      operationId: exchangeMcpOAuthToken
+      summary: Exchanges an OAuth authorization code or refresh token for an MCP access token.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { type: object }
+      responses:
+        '200': { description: OAuth token response. }
   /admin/mail-settings:
     get:
       operationId: getInstanceMailSettings

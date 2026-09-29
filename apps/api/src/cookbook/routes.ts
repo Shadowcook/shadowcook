@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { currentSessionUser } from '../auth/session.js';
+import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 
 interface CategoryRow {
   public_id: string;
@@ -58,8 +59,9 @@ interface TenantRow {
 export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await currentSessionUser(pool, request);
+    const principal = await currentAuthenticatedPrincipal(pool, request);
     const principalId: string | null =
-      user === null || user.disabled_at !== null ? null : user.principal_id;
+      principal === null || principal.disabled_at !== null ? null : principal.principal_id;
     const tenants = await pool.query(
       `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, count(recipe.id) FILTER (WHERE recipe.published_revision_id IS NOT NULL AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE')::integer AS recipe_count FROM tenant LEFT JOIN recipe ON recipe.tenant_id = tenant.id WHERE tenant.disabled_at IS NULL AND (EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1) OR EXISTS (SELECT 1 FROM recipe AS public_recipe WHERE public_recipe.tenant_id = tenant.id AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC' AND COALESCE(public_recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE' AND public_recipe.published_revision_id IS NOT NULL)) GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug ORDER BY tenant.display_name`,
       [principalId],
@@ -68,6 +70,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
   });
   api.get('/cookbook', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await currentSessionUser(pool, request);
+    const principal = await currentAuthenticatedPrincipal(pool, request);
     if (user?.password_change_required === true) {
       return reply.code(403).send({
         code: 'PASSWORD_CHANGE_REQUIRED',
@@ -75,7 +78,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       });
     }
     const principalId: string | null =
-      user === null || user.disabled_at !== null ? null : user.principal_id;
+      principal === null || principal.disabled_at !== null ? null : principal.principal_id;
     const tenantSlug: unknown = (request.query as { tenantSlug?: unknown }).tenantSlug;
     if (typeof tenantSlug !== 'string' || tenantSlug.length === 0)
       return reply.send({

@@ -7,6 +7,7 @@ export interface AuthenticatedPrincipal {
   principal_id: string;
   principal_type: 'USER' | 'SERVICE_ACCOUNT';
   disabled_at: Date | null;
+  authentication_type: 'SESSION' | 'SERVICE_TOKEN' | 'OAUTH_TOKEN';
 }
 
 interface ApiTokenPrincipalRow extends AuthenticatedPrincipal {
@@ -18,11 +19,20 @@ export async function currentAuthenticatedPrincipal(
   request: FastifyRequest,
 ): Promise<AuthenticatedPrincipal | null> {
   const bearerToken: string | null = bearerTokenFromRequest(request);
-  if (bearerToken !== null) return currentApiTokenPrincipal(pool, bearerToken);
+  if (bearerToken !== null) {
+    const serviceAccount = await currentApiTokenPrincipal(pool, bearerToken);
+    if (serviceAccount !== null) return serviceAccount;
+    return currentOAuthTokenPrincipal(pool, bearerToken);
+  }
 
   const user = await currentSessionUser(pool, request);
   if (user === null) return null;
-  return { principal_id: user.principal_id, principal_type: 'USER', disabled_at: user.disabled_at };
+  return {
+    principal_id: user.principal_id,
+    principal_type: 'USER',
+    disabled_at: user.disabled_at,
+    authentication_type: 'SESSION',
+  };
 }
 
 function bearerTokenFromRequest(request: FastifyRequest): string | null {
@@ -51,5 +61,24 @@ async function currentApiTokenPrincipal(
   const principal: ApiTokenPrincipalRow | undefined = result.rows[0];
   if (principal === undefined) return null;
   await pool.query('UPDATE api_token SET last_used_at = now() WHERE id = $1', [principal.token_id]);
-  return principal;
+  return { ...principal, authentication_type: 'SERVICE_TOKEN' };
+}
+
+async function currentOAuthTokenPrincipal(
+  pool: Pool,
+  token: string,
+): Promise<AuthenticatedPrincipal | null> {
+  const result = await pool.query<AuthenticatedPrincipal>(
+    `SELECT principal.id AS principal_id, principal.principal_type, principal.disabled_at
+     FROM oauth_access_token
+     INNER JOIN principal ON principal.id = oauth_access_token.principal_id
+     INNER JOIN user_account ON user_account.principal_id = principal.id
+     WHERE oauth_access_token.token_hash = $1 AND oauth_access_token.revoked_at IS NULL
+       AND oauth_access_token.expires_at > now() AND principal.disabled_at IS NULL
+       AND user_account.disabled_at IS NULL AND user_account.deleted_at IS NULL
+       AND user_account.password_change_required = false`,
+    [createHash('sha256').update(token, 'utf8').digest()],
+  );
+  const principal: AuthenticatedPrincipal | undefined = result.rows[0];
+  return principal === undefined ? null : { ...principal, authentication_type: 'OAUTH_TOKEN' };
 }

@@ -43,6 +43,7 @@ async function start(): Promise<void> {
     config.secureCookies,
     config.instanceSecretKey,
     config.publicWebOrigin,
+    config.publicApiOrigin,
   );
   api.addHook('onClose', async () => {
     await closeDatabaseConnection(connection);

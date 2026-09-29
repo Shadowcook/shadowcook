@@ -55,3 +55,5 @@
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.
 - Tenant owners can create service accounts, assign existing tenant roles, issue one-time-view opaque bearer tokens, inspect token lifecycle metadata, revoke tokens, and disable service accounts.
 - Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.
+- The authenticated remote MCP endpoint exposes provider-neutral recipe search and draft-editing tools for compatible AI clients. It cannot publish or delete recipes.
+- The MCP endpoint supports OAuth 2.1 authorization-code flow with S256 PKCE, protected-resource metadata, authorization-server metadata, public-client registration, rotating refresh tokens, and human-principal authorization.
