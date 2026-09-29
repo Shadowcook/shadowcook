@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
-import type { CookbookTenant } from './cookbook-types';
+import type { CookbookTenant } from '../features/cookbook/model/types';
 
 interface TenantSelectionProperties {
   locale: Locale;

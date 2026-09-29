@@ -217,10 +217,12 @@ shadowcook/
 - A future draft view will list recipes with an active draft revision separately from published cookbook navigation.
 - `GET /cookbook/recipes/{publicId}` returns one accessible published recipe with ordered preparation steps and the ingredient usages assigned to each step.
 - The web client separates cookbook orchestration, cookbook dashboard rendering, category tree rendering, public tenant selection, tenant management, sign-in, password change, status messages, and browser API requests into dedicated components or modules.
+- `apps/web/src/features/cookbook` contains cookbook orchestration, cookbook UI components, routing, and cookbook model types. `apps/web/src/features/admin` contains instance-administration orchestration and UI components. `apps/web/src/lib` contains shared browser-session and API-request infrastructure.
 
 ### 4.3 Development database reset
 
-- `pnpm reset:dev-db` drops and recreates the PostgreSQL `public` schema only when `NODE_ENV=development`.
+- `pnpm reset:shadowcook-db` drops and recreates the PostgreSQL `public` schema in the `shadowcook` database only when `NODE_ENV=development`.
+- `pnpm reset:dev-db` remains an alias for the development database reset.
 - The next API startup applies the current initial schema and development seed.
 - The optional repository-root `development-seed.json` stores development database records as table-name keys and row arrays. The loader validates every table and column against the active PostgreSQL schema and inserts rows in JSON property order. Omitted columns use database defaults; relations use explicit stable identifiers. `$seedRef` resolves bootstrap seed values, `$encrypt` encrypts a string for a `bytea` column, and the development-only `$passwordHash` creates an scrypt password verifier. The local file is excluded from version control; `development-seed.example.json` is the template.
 - The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.

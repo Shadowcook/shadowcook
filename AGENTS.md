@@ -8,6 +8,7 @@
 - Modularize code. Do not put everything in one big file. Make code reusable where it makes sense.
 - All relevant architectural decisions must be documented in `docs/ARCHITECTURE.md`. Never write down reason or explain. Only hard facts. No need to track or comment changes.
 - Implementation progress must be documented in `docs/implementation_progress.md`.
+- Not every bugfix needs to be tracked in `docs/implementation_progress.md`. Rather track the feature implementation only against the `docs/ARCHITECTURE.md`.
 - The API contract must be complete and up to date in `contracts/openapi.yaml`. Any implemented API route, request body, response body, authentication scheme, or changed field must be represented there without gaps.
 - Log times must always be UTC, never the local time zone. However, time stamps in the UI can be displayed in the users preferred time format. But the backend or logfile must always have UTC time.
 - Do not display unnecessary trailing decimal places in the UI.

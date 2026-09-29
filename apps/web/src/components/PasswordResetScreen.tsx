@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
-import { ApiRequestError, jsonRequest, request } from './api-client';
+import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 import StatusMessage from './StatusMessage';
 
 export default function PasswordResetScreen({

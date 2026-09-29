@@ -2,6 +2,8 @@ import { closeDatabaseConnection, createDatabaseConnection } from '@shadowcook/d
 import type { DatabaseConnection } from '@shadowcook/db';
 import { loadLocalEnvironment } from './environment.js';
 
+const shadowcookDatabaseName: string = 'shadowcook';
+
 async function resetDevelopmentDatabase(): Promise<void> {
   loadLocalEnvironment();
   if (process.env.NODE_ENV !== 'development') {
@@ -14,6 +16,14 @@ async function resetDevelopmentDatabase(): Promise<void> {
 
   const connection: DatabaseConnection = createDatabaseConnection(databaseUrl);
   try {
+    const result: { rows: Array<{ database_name: string }> } = await connection.pool.query(
+      'SELECT current_database() AS database_name',
+    );
+    const databaseName: string | undefined = result.rows[0]?.database_name;
+    if (databaseName !== shadowcookDatabaseName) {
+      throw new Error(`The database reset is only available for ${shadowcookDatabaseName}.`);
+    }
+
     await connection.pool.query('DROP SCHEMA public CASCADE');
     await connection.pool.query('CREATE SCHEMA public');
   } finally {
