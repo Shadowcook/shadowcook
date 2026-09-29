@@ -312,7 +312,7 @@ CREATE TABLE recipe_revision (
   published_at timestamptz,
   UNIQUE (recipe_id, revision_no),
   UNIQUE (id, recipe_id),
-  CHECK ((status = 'PUBLISHED') = (published_at IS NOT NULL))
+  CHECK ((status = 'DRAFT') = (published_at IS NULL))
 );
 
 ALTER TABLE recipe
@@ -584,6 +584,7 @@ INSERT INTO permission (code, description) VALUES
   ('tenant:create', 'Create tenants and their initial owner invitations.'),
   ('tenant:manage', 'Manage tenant settings and memberships.'),
   ('recipe:read', 'Read tenant recipes.'),
+  ('recipe:revision:read', 'Read tenant recipe revision history.'),
   ('recipe:create', 'Create tenant recipes.'),
   ('recipe:update', 'Update tenant recipe drafts.'),
   ('recipe:visibility-update', 'Update recipe visibility and discoverability policies.'),

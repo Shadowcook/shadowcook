@@ -1415,7 +1415,8 @@ paths:
       responses:
         '200':
           description: Tenant recipe policy.
-          content: { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
+          content:
+            { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
     patch:
@@ -1425,7 +1426,8 @@ paths:
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
+        content:
+          { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
       responses:
         '204': { description: Tenant recipe policy updated. }
         '400': { description: Invalid recipe policy. }
@@ -1653,6 +1655,57 @@ paths:
             content:
               { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } },
           }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/revisions:
+    get:
+      operationId: listRecipeRevisions
+      summary: Lists immutable published and archived recipe revisions.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '200':
+          description: Recipe revision history.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [revisions]
+                properties:
+                  revisions:
+                    type: array
+                    items: { $ref: '#/components/schemas/RecipeRevision' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/revisions/{revisionPublicId}:
+    get:
+      operationId: getRecipeRevisionSnapshot
+      summary: Returns a read-only immutable recipe revision snapshot.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+          {
+            name: revisionPublicId,
+            in: path,
+            required: true,
+            schema: { type: string, format: uuid },
+          },
+        ]
+      responses:
+        '200':
+          description: Immutable recipe revision snapshot.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecipeRevisionSnapshot' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe revision does not exist. }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/steps:
     get:
       operationId: getRecipeDraftSteps
@@ -2069,7 +2122,8 @@ paths:
                 additionalProperties: false
                 required: [shareLinks]
                 properties:
-                  shareLinks: { type: array, items: { $ref: '#/components/schemas/RecipeShareLinkListItem' } }
+                  shareLinks:
+                    { type: array, items: { $ref: '#/components/schemas/RecipeShareLinkListItem' } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
     post:
@@ -2182,7 +2236,8 @@ components:
     RecipeDraftInput:
       type: object
       additionalProperties: false
-      required: [title, summary, slug, categoryPublicIds, visibilityOverride, discoverabilityOverride]
+      required:
+        [title, summary, slug, categoryPublicIds, visibilityOverride, discoverabilityOverride]
       properties:
         title: { type: string, minLength: 1, maxLength: 240 }
         summary: { type: string, maxLength: 2000 }
@@ -2225,6 +2280,89 @@ components:
         publishedVersion: { type: [integer, 'null'], minimum: 1 }
         hasPublishedRevision: { type: boolean }
         isDraft: { type: boolean }
+    RecipeRevision:
+      type: object
+      additionalProperties: false
+      required: [publicId, version, status, publishedAt, title]
+      properties:
+        publicId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        status: { type: string, enum: [PUBLISHED, ARCHIVED] }
+        publishedAt: { type: string, format: date-time }
+        title: { type: string }
+    RecipeRevisionSnapshot:
+      allOf:
+        - $ref: '#/components/schemas/RecipeRevision'
+        - type: object
+          additionalProperties: false
+          required: [summary, categories, steps, variants]
+          properties:
+            summary: { type: [string, 'null'] }
+            categories:
+              type: array
+              items: { $ref: '#/components/schemas/RecipeRevisionCategory' }
+            steps:
+              type: array
+              items: { $ref: '#/components/schemas/RecipeRevisionStep' }
+            variants:
+              type: array
+              items: { $ref: '#/components/schemas/RecipeRevisionVariant' }
+    RecipeRevisionCategory:
+      type: object
+      additionalProperties: false
+      required: [publicId, name]
+      properties:
+        publicId: { type: string, format: uuid }
+        name: { type: string }
+    RecipeRevisionStep:
+      type: object
+      additionalProperties: false
+      required: [stepKey, sortOrder, instruction, ingredients]
+      properties:
+        stepKey: { type: string, format: uuid }
+        sortOrder: { type: integer, minimum: 0 }
+        instruction: { type: string }
+        ingredients:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeRevisionUsage' }
+    RecipeRevisionUsage:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          usageKey,
+          ingredientName,
+          textOverride,
+          specialKind,
+          amount,
+          unitSymbol,
+          note,
+          isOptional,
+          sortOrder,
+        ]
+      properties:
+        usageKey: { type: string, format: uuid }
+        ingredientName: { type: [string, 'null'] }
+        textOverride: { type: [string, 'null'] }
+        specialKind: { type: [string, 'null'] }
+        amount: { type: [string, 'null'] }
+        unitSymbol: { type: [string, 'null'] }
+        note: { type: [string, 'null'] }
+        isOptional: { type: boolean }
+        sortOrder: { type: integer, minimum: 0 }
+    RecipeRevisionVariant:
+      type: object
+      additionalProperties: false
+      required: [variantKey, name, slug, isDefault, isVisible, includedStepKeys]
+      properties:
+        variantKey: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        isDefault: { type: boolean }
+        isVisible: { type: boolean }
+        includedStepKeys:
+          type: array
+          items: { type: string, format: uuid }
     RecipeShareLink:
       type: object
       additionalProperties: false

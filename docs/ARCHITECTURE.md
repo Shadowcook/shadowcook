@@ -877,6 +877,16 @@ historical revision
 
 History therefore remains linear and auditable.
 
+### 13.7 History inspection
+
+Tenant principals with `recipe:revision:read` can list published and archived revisions and read a complete immutable snapshot for each revision.
+
+Revision snapshots expose recipe metadata, category membership, ordered steps, ingredient usages, variants, and variant step membership. The editor presents a selected revision alongside its immediately preceding published revision and identifies changes by stable step, usage, and variant keys.
+
+Published revisions retain their UTC publication timestamp after archival. Draft revisions do not have a publication timestamp.
+
+Revision inspection does not restore, mutate, or create a draft from a historical revision.
+
 ---
 
 ## 14. Audit events

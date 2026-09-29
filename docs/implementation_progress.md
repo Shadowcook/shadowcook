@@ -29,6 +29,7 @@
 ### Recipe authoring, revisions, and variants
 
 - Recipes use mutable drafts and immutable published revisions, with category assignment, publication, incrementing versions, and draft lists on deep-linkable tenant management routes.
+- Recipe editors provide a revision history tab for published and archived snapshots, including metadata, categories, steps, ingredient usages, variants, and changes against the preceding published revision. Historical revisions are read-only and cannot yet be restored.
 - Recipe steps contain normalized ingredient usages, free-text overrides, optional values, notes, and semantic special-entry kinds.
 - Ingredient search is delayed and server-backed, searches aliases, and supports creating tenant ingredients during editing.
 - Published recipe details render step-oriented ingredients and preparation, special-entry icons, normalized ingredient notes, and aggregated shopping lists.

@@ -478,7 +478,7 @@ export function registerTenantRoutes(
         [tenant.id],
       );
       await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'recipe:create', 'recipe:update', 'variant:read', 'variant:create', 'variant:update', 'ingredient:read', 'ingredient:create', 'ingredient:update', 'category:read', 'category:update')",
+        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'recipe:revision:read', 'recipe:create', 'recipe:update', 'variant:read', 'variant:create', 'variant:update', 'ingredient:read', 'ingredient:create', 'ingredient:update', 'category:read', 'category:update')",
         [editorRole.rows[0]!.id],
       );
       const viewerRole = await client.query<{ id: string }>(

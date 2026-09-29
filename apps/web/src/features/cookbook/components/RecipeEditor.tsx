@@ -11,6 +11,7 @@ import type { RecipeStepsEditorHandle } from './RecipeStepsEditor';
 import RecipeVariantsEditor from './RecipeVariantsEditor';
 import RecipeShareDialog from './RecipeShareDialog';
 import type { RecipeShareLink } from './RecipeShareDialog';
+import RecipeRevisionHistory from './RecipeRevisionHistory';
 
 interface RecipeEditorProperties {
   locale: Locale;
@@ -45,7 +46,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [message, setMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(properties.recipePublicId !== null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [tab, setTab] = useState<'recipe' | 'steps' | 'variants'>('recipe');
+  const [tab, setTab] = useState<'recipe' | 'steps' | 'variants' | 'revisions'>('recipe');
   const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
   const stepsEditor = useRef<RecipeStepsEditorHandle | null>(null);
@@ -64,7 +65,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       );
       setRecipe(loaded);
       setForm(formFromRecipe(loaded));
-      if (loaded.hasPublishedRevision && loaded.canChangeVisibility) await loadShareLinks(loaded.publicId);
+      if (loaded.hasPublishedRevision && loaded.canChangeVisibility)
+        await loadShareLinks(loaded.publicId);
     } catch (_error: unknown) {
       setMessage(text.errors.requestFailed);
     } finally {
@@ -73,7 +75,9 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   }
 
   async function loadShareLinks(recipePublicId: string): Promise<void> {
-    const response: { shareLinks: RecipeShareLink[] } = await request<{ shareLinks: RecipeShareLink[] }>(
+    const response: { shareLinks: RecipeShareLink[] } = await request<{
+      shareLinks: RecipeShareLink[];
+    }>(
       `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${recipePublicId}/share-links`,
     );
     setShareLinks(response.shareLinks);
@@ -163,7 +167,10 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       setIsSaving(false);
     }
   }
-  async function createShareLink(name: string | null, expiresAt: string | null): Promise<string | null> {
+  async function createShareLink(
+    name: string | null,
+    expiresAt: string | null,
+  ): Promise<string | null> {
     if (recipe === null || !recipe.hasPublishedRevision) return null;
     setIsSaving(true);
     try {
@@ -242,6 +249,15 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           >
             {text.recipeEditor.variants}
           </button>
+          {recipe.hasPublishedRevision ? (
+            <button
+              type="button"
+              className={tab === 'revisions' ? '' : 'button--secondary'}
+              onClick={(): void => setTab('revisions')}
+            >
+              {text.recipeEditor.revisions}
+            </button>
+          ) : null}
         </nav>
       )}
       {tab === 'recipe' ? (
@@ -348,6 +364,13 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           recipePublicId={recipe.publicId}
           text={text}
           onDraftChanged={markDraftChanged}
+        />
+      )}
+      {recipe === null || tab !== 'revisions' ? null : (
+        <RecipeRevisionHistory
+          tenantSlug={properties.tenantSlug}
+          recipePublicId={recipe.publicId}
+          text={text}
         />
       )}
       {recipe === null ? null : (

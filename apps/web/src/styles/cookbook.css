@@ -352,6 +352,25 @@
   flex-wrap: wrap;
   gap: 0.6rem;
 }
+.recipe-revision-history,
+.recipe-revision-history__snapshot,
+.recipe-revision-history__changes {
+  display: grid;
+  gap: 0.8rem;
+}
+.recipe-revision-history__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.recipe-revision-history__step {
+  padding: 0.8rem;
+  border: 1px solid #eadfd2;
+  background: #fffdf9;
+}
+.recipe-revision-history__step h4 {
+  margin: 0;
+}
 .recipe-variants-editor {
   display: grid;
   gap: 1rem;
