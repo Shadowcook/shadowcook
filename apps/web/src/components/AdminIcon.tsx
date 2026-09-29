@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 type IconName =
   | 'add'
   | 'aliases'
+  | 'copy'
   | 'delete'
   | 'default'
   | 'disable'
@@ -17,6 +18,13 @@ type IconName =
 export default function AdminIcon({ name }: { name: IconName }): JSX.Element {
   let content: JSX.Element;
   if (name === 'add') content = <path d="M12 5v14M5 12h14" />;
+  else if (name === 'copy')
+    content = (
+      <>
+        <rect x="8" y="8" width="11" height="12" rx="1" />
+        <path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />
+      </>
+    );
   else if (name === 'default')
     content = (
       <path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4-4.8-2.5-4.8 2.5.9-5.4-3.9-3.8 5.4-.8L12 4Z" />

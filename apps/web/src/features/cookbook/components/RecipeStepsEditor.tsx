@@ -54,37 +54,56 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
     const [variants, setVariants] = useState<DraftVariant[]>([]);
     const base: string = `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${properties.recipePublicId}/draft`;
     async function loadEditor(): Promise<void> {
-      await Promise.all([
-        request<{ steps: Array<{ id: string; instruction: string; ingredients: Usage[] }> }>(
-          `${base}/steps`,
-        ),
-        request<{ units: Unit[] }>(
-          `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue`,
-        ),
-        request<{ variants: DraftVariant[] }>(`${base}/variants`),
-      ])
-        .then(([stepResponse, catalogue, variantResponse]): void => {
-          setSteps(
-            stepResponse.steps.map((step): Step => ({
-              id: step.id,
-              instruction: step.instruction,
-              ingredients: step.ingredients.map((usage): Usage => ({
-                ...emptyUsage,
-                ...usage,
-                ingredientName: usage.ingredientName ?? '',
-                textOverride: usage.textOverride ?? '',
-                specialKind: usage.specialKind ?? '',
-                amount: normalizeAmount(usage.amount ?? ''),
-                unitPublicId: usage.unitPublicId ?? '',
-                note: usage.note ?? '',
-              })),
-            })),
-          );
-          setUnits(catalogue.units);
-          setVariants(variantResponse.variants);
-        })
-        .catch((): void => setMessage(properties.text.errors.requestFailed))
-        .finally((): void => setIsLoading(false));
+      setIsLoading(true);
+      setMessage('');
+      try {
+        const [stepResponse, catalogue] = await Promise.all([
+          request<{ steps: Array<{ id: string; instruction: string; ingredients: Usage[] }> }>(
+            `${base}/steps`,
+          ),
+          request<{ units: Unit[] }>(
+            `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue`,
+          ),
+        ]);
+        const loadedSteps: unknown = stepResponse.steps;
+        const loadedUnits: unknown = catalogue.units;
+        if (!Array.isArray(loadedSteps) || !Array.isArray(loadedUnits)) {
+          setMessage(properties.text.errors.requestFailed);
+          return;
+        }
+        setSteps(
+          loadedSteps.map((step): Step => ({
+            id: step.id,
+            instruction: step.instruction,
+            ingredients: Array.isArray(step.ingredients)
+              ? step.ingredients.map((usage: Usage): Usage => ({
+                  ...emptyUsage,
+                  ...usage,
+                  ingredientPublicId: usage.ingredientPublicId ?? '',
+                  ingredientName: usage.ingredientName ?? '',
+                  textOverride: usage.textOverride ?? '',
+                  specialKind: usage.specialKind ?? '',
+                  amount: normalizeAmount(usage.amount ?? ''),
+                  unitPublicId: usage.unitPublicId ?? '',
+                  note: usage.note ?? '',
+                }))
+              : [],
+          })),
+        );
+        setUnits(loadedUnits);
+        try {
+          const variantResponse: { variants: DraftVariant[] } = await request<{
+            variants: DraftVariant[];
+          }>(`${base}/variants`);
+          setVariants(Array.isArray(variantResponse.variants) ? variantResponse.variants : []);
+        } catch (_error: unknown) {
+          setVariants([]);
+        }
+      } catch (_error: unknown) {
+        setMessage(properties.text.errors.requestFailed);
+      } finally {
+        setIsLoading(false);
+      }
     }
     useEffect((): void => {
       void loadEditor();
@@ -123,27 +142,13 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
       );
     }
     function effectiveState(variant: DraftVariant, stepId: string): boolean {
-      const local = variant.overrides.find((override) => override.stepId === stepId);
+      const local = (variant.overrides ?? []).find((override) => override.stepId === stepId);
       return local?.state === 'INCLUDE';
     }
     async function toggleVariant(variant: DraftVariant, stepId: string): Promise<void> {
       const next = !effectiveState(variant, stepId);
-      const overrides = variant.overrides.filter((override) => override.stepId !== stepId);
+      const overrides = (variant.overrides ?? []).filter((override) => override.stepId !== stepId);
       if (next) overrides.push({ stepId, state: 'INCLUDE' });
-      try {
-        await request<void>(`${base}/variants/${variant.variantKey}/step-overrides`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ overrides }),
-        });
-        await loadEditor();
-        await properties.onDraftChanged();
-      } catch {
-        setMessage(properties.text.errors.requestFailed);
-      }
-    }
-    async function resetVariantOverride(variant: DraftVariant, stepId: string): Promise<void> {
-      const overrides = variant.overrides.filter((override) => override.stepId !== stepId);
       try {
         await request<void>(`${base}/variants/${variant.variantKey}/step-overrides`, {
           method: 'PUT',

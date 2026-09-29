@@ -2,7 +2,10 @@
 import Brand from '../../../components/Brand.astro';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
+import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import { categoryPath } from '../model/routing';
+import { aggregateShoppingList, formatShoppingListAmount } from '../model/shopping-list';
+import type { AggregatedAmount, ShoppingListItem } from '../model/shopping-list';
 import type {
   Category,
   CookbookResponse,
@@ -27,6 +30,8 @@ const text: Translation = translations[locale];
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
 const canonicalUrl: string = `${Astro.url.origin}${Astro.url.pathname}`;
 const categoryIds: string[] = recipeCategories(cookbook, recipe.public_id);
+const shoppingListItems: ShoppingListItem[] = aggregateShoppingList(recipe);
+const breadcrumbCategories: Category[] = categoryTrail(categoryId);
 const structuredData = recipeJsonLd(
   recipe,
   cookbook.categories,
@@ -63,6 +68,25 @@ function variantUrl(slug: string, isDefault: boolean): string {
   const base: string = variantUrl(defaultVariant?.slug ?? recipe.slug, true);
   return `${base}/${encodeURIComponent(slug)}`;
 }
+
+function categoryTrail(selectedCategoryId: string | null): Category[] {
+  if (selectedCategoryId === null) return [];
+
+  const trail: Category[] = [];
+  let category: Category | undefined = cookbook.categories.find(
+    (candidate: Category): boolean => candidate.public_id === selectedCategoryId,
+  );
+  while (category !== undefined) {
+    trail.unshift(category);
+    category =
+      category.parent_public_id === null
+        ? undefined
+        : cookbook.categories.find(
+            (candidate: Category): boolean => candidate.public_id === category?.parent_public_id,
+          );
+  }
+  return trail;
+}
 ---
 
 <!doctype html>
@@ -82,26 +106,49 @@ function variantUrl(slug: string, isDefault: boolean): string {
         <a class="button--secondary recipe-detail__back" href={overviewPath}>
           {text.dashboard.backToRecipes}
         </a>
+        <nav class="breadcrumb" aria-label={text.dashboard.breadcrumb}>
+          <ol>
+            <li><a href={`/${tenantSlug()}`}>{cookbookName}</a></li>
+            {breadcrumbCategories.map((category: Category) => (
+              <li><a href={categoryUrl(category.public_id)}>{category.name}</a></li>
+            ))}
+            <li><span aria-current="page">{recipe.title}</span></li>
+          </ol>
+        </nav>
         <header>
           <p class="eyebrow">{cookbookName}</p>
           <h1>{recipe.title}</h1>
           {recipe.summary === null ? null : <p class="recipe-detail__summary">{recipe.summary}</p>}
-          {
-            categoryIds.length === 0 ? null : (
-              <ul class="recipe-page__categories">
-                {categoryIds.map((id: string) => {
-                  const category: Category | undefined = cookbook.categories.find(
-                    (candidate: Category): boolean => candidate.public_id === id,
-                  );
-                  return category === undefined ? null : <li><a href={categoryUrl(id)}>{category.name}</a></li>;
-                })}
-              </ul>
-            )
-          }
         </header>
+        <div class="recipe-detail__overview">
+          <aside class="recipe-shopping-list" aria-label={text.dashboard.shoppingList}>
+            <p class="eyebrow">{text.dashboard.shoppingList}</p>
+            <ul>
+              {shoppingListItems.map((item: ShoppingListItem) => {
+                const ingredientName: string = localizedIngredientName(
+                  text,
+                  item.ingredient.ingredient_localization_key,
+                  item.ingredient.ingredient_name,
+                );
+                const quantities: string[] = Array.from(item.amountsByUnit.values())
+                  .map((amount: AggregatedAmount): string => formatShoppingListAmount(amount, text))
+                  .filter((amount: string): boolean => amount.length > 0);
+                return (
+                  <li>
+                    <span>
+                      {ingredientName}
+                      {item.ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
+                    </span>
+                    {quantities.length > 0 ? <strong>{quantities.join(', ')}</strong> : null}
+                  </li>
+                );
+              })}
+            </ul>
+          </aside>
+        </div>
         {
           recipe.variants.length > 1 ? (
-            <nav class="recipe-page__variants">
+            <nav class="recipe-page__variants" data-variant-selector data-variant-label={text.recipeEditor.variant}>
               <ul>
                 {recipe.variants.filter(
                   (variant: RecipeVariant): boolean => variant.is_default || variant.is_visible,
@@ -118,8 +165,8 @@ function variantUrl(slug: string, isDefault: boolean): string {
           ) : null
         }
         <div class="recipe-detail__heading">
-          <h2 class="eyebrow">{text.dashboard.ingredients}</h2>
-          <h2 class="eyebrow">{text.dashboard.preparation}</h2>
+          <p class="eyebrow">{text.dashboard.ingredients}</p>
+          <p class="eyebrow">{text.dashboard.preparation}</p>
         </div>
         <ol class="recipe-steps">
           {
@@ -145,3 +192,28 @@ function variantUrl(slug: string, isDefault: boolean): string {
     </main>
   </body>
 </html>
+
+<script>
+  const variantNavigations: NodeListOf<HTMLElement> = document.querySelectorAll('[data-variant-selector]');
+
+  for (const navigation of variantNavigations) {
+    const links: HTMLAnchorElement[] = Array.from(navigation.querySelectorAll('a'));
+    if (links.length === 0) continue;
+
+    const select: HTMLSelectElement = document.createElement('select');
+    select.setAttribute('aria-label', navigation.dataset.variantLabel ?? '');
+    for (const link of links) {
+      const option: HTMLOptionElement = document.createElement('option');
+      option.value = link.href;
+      option.textContent = link.textContent;
+      option.selected = link.getAttribute('aria-current') === 'page';
+      select.append(option);
+    }
+    select.addEventListener('change', (event: Event): void => {
+      const control: HTMLSelectElement = event.currentTarget as HTMLSelectElement;
+      window.location.assign(control.value);
+    });
+    navigation.append(select);
+    navigation.classList.add('recipe-page__variants--enhanced');
+  }
+</script>

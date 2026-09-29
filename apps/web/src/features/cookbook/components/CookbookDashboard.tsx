@@ -18,7 +18,7 @@ interface CookbookDashboardProperties {
   onSelectRecipe: (publicId: string) => Promise<void>;
   onCloseRecipe: () => void;
   onEditRecipe: () => void;
-  onShareRecipe: () => Promise<string>;
+  onShareRecipe: () => void;
   onSelectVariant: (slug: string) => void;
   onLogin: () => void;
   onLogout: () => Promise<void>;

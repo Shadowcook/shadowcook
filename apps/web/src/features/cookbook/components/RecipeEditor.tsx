@@ -9,6 +9,8 @@ import RecipeCategorySelector from './RecipeCategorySelector';
 import RecipeStepsEditor from './RecipeStepsEditor';
 import type { RecipeStepsEditorHandle } from './RecipeStepsEditor';
 import RecipeVariantsEditor from './RecipeVariantsEditor';
+import RecipeShareDialog from './RecipeShareDialog';
+import type { RecipeShareLink } from './RecipeShareDialog';
 
 interface RecipeEditorProperties {
   locale: Locale;
@@ -24,15 +26,16 @@ interface RecipeForm {
   summary: string;
   slug: string;
   categoryPublicIds: string[];
-  visibility: 'PRIVATE' | 'PUBLIC';
+  visibilityOverride: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
+  discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
 }
-
 const emptyForm: RecipeForm = {
   title: '',
   summary: '',
   slug: '',
   categoryPublicIds: [],
-  visibility: 'PRIVATE',
+  visibilityOverride: null,
+  discoverabilityOverride: null,
 };
 
 export default function RecipeEditor(properties: RecipeEditorProperties): JSX.Element {
@@ -43,6 +46,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [isLoading, setIsLoading] = useState<boolean>(properties.recipePublicId !== null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants'>('recipe');
+  const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
+  const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
   const stepsEditor = useRef<RecipeStepsEditorHandle | null>(null);
 
   useEffect((): void => {
@@ -59,11 +64,19 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       );
       setRecipe(loaded);
       setForm(formFromRecipe(loaded));
+      if (loaded.hasPublishedRevision && loaded.canChangeVisibility) await loadShareLinks(loaded.publicId);
     } catch (_error: unknown) {
       setMessage(text.errors.requestFailed);
     } finally {
       setIsLoading(false);
     }
+  }
+
+  async function loadShareLinks(recipePublicId: string): Promise<void> {
+    const response: { shareLinks: RecipeShareLink[] } = await request<{ shareLinks: RecipeShareLink[] }>(
+      `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${recipePublicId}/share-links`,
+    );
+    setShareLinks(response.shareLinks);
   }
 
   function changeTitle(event: ChangeEvent<HTMLInputElement>): void {
@@ -141,6 +154,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       );
       setRecipe(published);
       setForm(formFromRecipe(published));
+      if (published.canChangeVisibility) await loadShareLinks(published.publicId);
       setMessage(text.recipeEditor.published);
       await properties.onChanged();
     } catch (error: unknown) {
@@ -149,16 +163,39 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       setIsSaving(false);
     }
   }
-  async function createShareLink(): Promise<void> {
-    if (recipe === null || !recipe.hasPublishedRevision) return;
+  async function createShareLink(name: string | null, expiresAt: string | null): Promise<string | null> {
+    if (recipe === null || !recipe.hasPublishedRevision) return null;
     setIsSaving(true);
     try {
       const link: { path: string } = await request<{ path: string }>(
         `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${recipe.publicId}/share-links`,
-        { method: 'POST' },
+        jsonRequest({ name, expiresAt }),
       );
-      await navigator.clipboard.writeText(`${window.location.origin}${link.path}`);
-      setMessage(text.recipeEditor.shareCreated);
+      await loadShareLinks(recipe.publicId);
+      return link.path;
+    } catch (_error: unknown) {
+      setMessage(text.errors.requestFailed);
+      return null;
+    } finally {
+      setIsSaving(false);
+    }
+  }
+  async function copyShareLink(path: string): Promise<void> {
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+    setMessage(text.recipeEditor.shareCreated);
+  }
+  async function revokeShareLink(link: RecipeShareLink): Promise<void> {
+    if (recipe === null) return;
+    setIsSaving(true);
+    try {
+      await request<void>(
+        `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${recipe.publicId}/share-links/${link.id}`,
+        { method: 'DELETE' },
+      );
+      setShareLinks((current: RecipeShareLink[]): RecipeShareLink[] =>
+        current.filter((candidate: RecipeShareLink): boolean => candidate.id !== link.id),
+      );
+      setMessage(text.recipeEditor.shareRevoked);
     } catch (_error: unknown) {
       setMessage(text.errors.requestFailed);
     } finally {
@@ -251,13 +288,42 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           <label>
             {text.recipeEditor.visibility}
             <select
-              value={form.visibility}
+              value={form.visibilityOverride ?? 'INHERIT'}
+              disabled={recipe !== null && !recipe.canChangeVisibility}
               onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                setForm({ ...form, visibility: event.currentTarget.value as 'PRIVATE' | 'PUBLIC' })
+                setForm({
+                  ...form,
+                  visibilityOverride:
+                    event.currentTarget.value === 'INHERIT'
+                      ? null
+                      : (event.currentTarget.value as 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC'),
+                })
               }
             >
+              <option value="INHERIT">{text.recipeEditor.inheritVisibility}</option>
               <option value="PRIVATE">{text.recipeEditor.private}</option>
+              <option value="MEMBERS_ONLY">{text.recipeEditor.membersOnly}</option>
               <option value="PUBLIC">{text.recipeEditor.public}</option>
+            </select>
+          </label>
+          <label>
+            {text.recipeEditor.discoverability}
+            <select
+              value={form.discoverabilityOverride ?? 'INHERIT'}
+              disabled={recipe !== null && !recipe.canChangeVisibility}
+              onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                setForm({
+                  ...form,
+                  discoverabilityOverride:
+                    event.currentTarget.value === 'INHERIT'
+                      ? null
+                      : (event.currentTarget.value as 'DISCOVERABLE' | 'UNLISTED'),
+                })
+              }
+            >
+              <option value="INHERIT">{text.recipeEditor.inheritDiscoverability}</option>
+              <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
+              <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
             </select>
           </label>
           {message.length > 0 ? (
@@ -297,12 +363,12 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
             >
               {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
             </button>
-            {recipe.hasPublishedRevision ? (
+            {recipe.hasPublishedRevision && recipe.canChangeVisibility ? (
               <button
                 type="button"
                 className="button--secondary"
                 disabled={isSaving}
-                onClick={(): void => void createShareLink()}
+                onClick={(): void => setIsShareDialogOpen(true)}
                 aria-label={text.recipeEditor.share}
                 title={text.recipeEditor.share}
               >
@@ -312,6 +378,17 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           </div>
           {recipe.isDraft && form.categoryPublicIds.length === 0 ? (
             <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
+          ) : null}
+          {isShareDialogOpen ? (
+            <RecipeShareDialog
+              text={text}
+              links={shareLinks}
+              isSaving={isSaving}
+              onClose={(): void => setIsShareDialogOpen(false)}
+              onCreate={createShareLink}
+              onCopy={copyShareLink}
+              onRevoke={revokeShareLink}
+            />
           ) : null}
         </>
       )}
@@ -324,7 +401,8 @@ function formFromRecipe(recipe: EditableRecipe): RecipeForm {
     summary: recipe.summary ?? '',
     slug: recipe.slug,
     categoryPublicIds: recipe.categoryPublicIds,
-    visibility: recipe.visibility,
+    visibilityOverride: recipe.visibilityOverride,
+    discoverabilityOverride: recipe.discoverabilityOverride,
   };
 }
 function slugFromTitle(title: string): string {

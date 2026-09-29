@@ -22,6 +22,9 @@
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.
 - Cookbook code is organized under `apps/web/src/features/cookbook`; shared browser-session and API infrastructure is under `apps/web/src/lib`.
 - Direct recipe URLs render semantic recipe content on the Astro server without requiring JavaScript and include canonical Schema.org Recipe JSON-LD with author, categories, ingredients, and ordered steps.
+- Public cookbook overview and category URLs render accessible category and recipe links on the Astro server without waiting for a browser session check.
+- Public cookbook overview and category pages progressively transition to the hydrated client cookbook after it has loaded its session and cookbook state.
+- Server-rendered recipe pages include the aggregated shopping list and progressively enhance variant links to a browser selection control.
 
 ### Recipe authoring, revisions, and variants
 
@@ -31,7 +34,7 @@
 - Published recipe details render step-oriented ingredients and preparation, special-entry icons, normalized ingredient notes, and aggregated shopping lists.
 - Recipe variants have stable keys, direct step membership, one visible default variant, draft APIs, and reader resolution by optional variant slug.
 - Recipe creation, draft creation, and the development seed create and preserve default variants, stable step keys, variant keys, and direct step memberships.
-- Recipe visibility supports private and public published recipes and opaque, tokenized share links.
+- Recipe visibility and discoverability use tenant defaults with inheritable recipe overrides. `PRIVATE`, `MEMBERS_ONLY`, and `PUBLIC` visibility are enforced for recipe reads; `DISCOVERABLE` and `UNLISTED` control cookbook lists while direct links remain access-controlled. Opaque share links grant access to the full published default variant, can have an optional name and UTC expiry, and are listed, copied, and individually revoked from the recipe editor; those actions require the `recipe:visibility-update` permission.
 
 ### Catalogues and units
 

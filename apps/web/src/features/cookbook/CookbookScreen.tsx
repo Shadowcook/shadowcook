@@ -27,10 +27,14 @@ import ManagementPlaceholder from './components/ManagementPlaceholder';
 import TenantUserManagement from './components/TenantUserManagement';
 import TenantIngredientManagement from './components/TenantIngredientManagement';
 import TenantUnitManagement from './components/TenantUnitManagement';
+import RecipePolicySettings from './components/RecipePolicySettings';
+import RecipeShareDialog from './components/RecipeShareDialog';
+import type { RecipeShareLink } from './components/RecipeShareDialog';
 import '../../styles/cookbook.css';
 
 interface CookbookScreenProperties {
   locale: Locale;
+  notifyWhenReady?: boolean;
 }
 interface SessionResponse {
   email: string;
@@ -53,7 +57,7 @@ const emptyCookbook: CookbookResponse = {
   canManageUnits: false,
 };
 
-export default function CookbookScreen({ locale }: CookbookScreenProperties): JSX.Element {
+export default function CookbookScreen({ locale, notifyWhenReady = false }: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
   const [screen, setScreen] = useState<Screen>('loading');
   const [email, setEmail] = useState<string>('');
@@ -76,6 +80,8 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
   const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(false);
   const [editorPath, setEditorPath] = useState<'manage' | 'new' | 'drafts' | string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(sharedRecipeToken());
+  const [isDetailShareDialogOpen, setIsDetailShareDialogOpen] = useState<boolean>(false);
+  const [detailShareLinks, setDetailShareLinks] = useState<RecipeShareLink[]>([]);
 
   useEffect((): void => {
     setIsCategoryEditor(categoryEditorPath());
@@ -100,6 +106,10 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     const shell: HTMLElement | null = document.querySelector('.application-shell');
     shell?.classList.toggle('application-shell--admin', isCategoryEditor || editorPath !== null);
   }, [editorPath, isCategoryEditor]);
+  useEffect((): void => {
+    if (!notifyWhenReady || screen === 'loading') return;
+    window.dispatchEvent(new CustomEvent('shadowcook:cookbook-ready'));
+  }, [notifyWhenReady, screen]);
 
   async function restoreSession(): Promise<void> {
     try {
@@ -321,20 +331,51 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     if (selectedRecipe === null) return;
     openRecipeEditor(selectedRecipe.public_id);
   }
-  async function shareSelectedRecipe(): Promise<string> {
-    if (selectedRecipe === null) return text.errors.requestFailed;
+  async function loadSelectedRecipeShareLinks(): Promise<void> {
+    if (selectedRecipe === null) return;
     const tenantSlug: string | null = tenantSlugFromPath();
-    if (tenantSlug === null) return text.errors.requestFailed;
+    if (tenantSlug === null) return;
+    const response: { shareLinks: RecipeShareLink[] } = await request<{ shareLinks: RecipeShareLink[] }>(
+      `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links`,
+    );
+    setDetailShareLinks(response.shareLinks);
+  }
+  function openSelectedRecipeShareDialog(): void {
+    void loadSelectedRecipeShareLinks()
+      .then((): void => setIsDetailShareDialogOpen(true))
+      .catch((): void => setRecipeError(text.errors.requestFailed));
+  }
+  async function createSelectedRecipeShareLink(
+    name: string | null,
+    expiresAt: string | null,
+  ): Promise<string | null> {
+    if (selectedRecipe === null) return null;
+    const tenantSlug: string | null = tenantSlugFromPath();
+    if (tenantSlug === null) return null;
     try {
       const link: { path: string } = await request<{ path: string }>(
         `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links`,
-        { method: 'POST' },
+        jsonRequest({ name, expiresAt }),
       );
-      await navigator.clipboard.writeText(`${window.location.origin}${link.path}`);
-      return text.recipeEditor.shareCreated;
+      await loadSelectedRecipeShareLinks();
+      return link.path;
     } catch (_error: unknown) {
-      return text.errors.requestFailed;
+      setRecipeError(text.errors.requestFailed);
+      return null;
     }
+  }
+  async function copySelectedRecipeShareLink(path: string): Promise<void> {
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+  }
+  async function revokeSelectedRecipeShareLink(link: RecipeShareLink): Promise<void> {
+    if (selectedRecipe === null) return;
+    const tenantSlug: string | null = tenantSlugFromPath();
+    if (tenantSlug === null) return;
+    await request<void>(
+      `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links/${link.id}`,
+      { method: 'DELETE' },
+    );
+    await loadSelectedRecipeShareLinks();
   }
   function openLogin(): void {
     setMessage('');
@@ -396,6 +437,14 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
     if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/units`);
     setIsCategoryEditor(false);
     setEditorPath('manage-units');
+    setSelectedCategoryId(null);
+    setSelectedRecipe(null);
+  }
+  function openRecipePolicy(): void {
+    const slug: string | null = tenantSlugFromPath();
+    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/recipe-policy`);
+    setIsCategoryEditor(false);
+    setEditorPath('manage-recipe-policy');
     setSelectedCategoryId(null);
     setSelectedRecipe(null);
   }
@@ -479,11 +528,14 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
       <AccessDeniedScreen text={text} />
     ) : editorPath === 'manage-units' && !cookbook.canManageUnits ? (
       <AccessDeniedScreen text={text} />
+    ) : editorPath === 'manage-recipe-policy' && !cookbook.canManageUsers ? (
+      <AccessDeniedScreen text={text} />
     ) : isCategoryEditor && !cookbook.canManageCategories ? (
       <AccessDeniedScreen text={text} />
     ) : editorPath !== null &&
       editorPath !== 'manage' &&
       editorPath !== 'manage-users' &&
+      editorPath !== 'manage-recipe-policy' &&
       !cookbook.canManageRecipes ? (
       <AccessDeniedScreen text={text} />
     ) : (
@@ -519,6 +571,8 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
                             ? 'ingredients'
                             : editorPath === 'manage-units'
                               ? 'units'
+                              : editorPath === 'manage-recipe-policy'
+                                ? 'settings'
                               : editorPath !== null
                                 ? 'editor'
                                 : 'recipes'
@@ -529,6 +583,7 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
               onOpenUsers={openUsers}
               onOpenIngredients={openIngredients}
               onOpenUnits={openUnits}
+              onOpenSettings={openRecipePolicy}
               onCreateRecipe={(): void => openRecipeEditor(null)}
             />
           ) : null}
@@ -541,6 +596,8 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
               <TenantIngredientManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
             ) : editorPath === 'manage-units' && tenantSlugFromPath() !== null ? (
               <TenantUnitManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
+            ) : editorPath === 'manage-recipe-policy' && tenantSlugFromPath() !== null ? (
+              <RecipePolicySettings tenantSlug={tenantSlugFromPath()!} text={text} />
             ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
               <CategoryEditor
                 locale={locale}
@@ -573,25 +630,38 @@ export default function CookbookScreen({ locale }: CookbookScreenProperties): JS
                 onCreated={(publicId: string): void => openRecipeEditor(publicId)}
               />
             ) : (
-              <CookbookDashboard
-                text={text}
-                email={email}
-                cookbook={cookbook}
-                isAuthenticated={isAuthenticated}
-                selectedCategoryId={selectedCategoryId}
-                selectedRecipe={selectedRecipe}
-                isRecipeLoading={isRecipeLoading}
-                recipeError={recipeError}
-                onSelectCategory={selectCategory}
-                onSelectRecipe={openRecipe}
-                onCloseRecipe={closeRecipe}
-                onEditRecipe={editSelectedRecipe}
-                onShareRecipe={shareSelectedRecipe}
-                onSelectVariant={selectRecipeVariant}
-                onLogin={openLogin}
-                onLogout={logout}
-                onManageCookbook={openDrafts}
-              />
+              <>
+                <CookbookDashboard
+                  text={text}
+                  email={email}
+                  cookbook={cookbook}
+                  isAuthenticated={isAuthenticated}
+                  selectedCategoryId={selectedCategoryId}
+                  selectedRecipe={selectedRecipe}
+                  isRecipeLoading={isRecipeLoading}
+                  recipeError={recipeError}
+                  onSelectCategory={selectCategory}
+                  onSelectRecipe={openRecipe}
+                  onCloseRecipe={closeRecipe}
+                  onEditRecipe={editSelectedRecipe}
+                  onShareRecipe={openSelectedRecipeShareDialog}
+                  onSelectVariant={selectRecipeVariant}
+                  onLogin={openLogin}
+                  onLogout={logout}
+                  onManageCookbook={openDrafts}
+                />
+                {isDetailShareDialogOpen ? (
+                  <RecipeShareDialog
+                    text={text}
+                    links={detailShareLinks}
+                    isSaving={false}
+                    onClose={(): void => setIsDetailShareDialogOpen(false)}
+                    onCreate={createSelectedRecipeShareLink}
+                    onCopy={copySelectedRecipeShareLink}
+                    onRevoke={revokeSelectedRecipeShareLink}
+                  />
+                ) : null}
+              </>
             )}
           </div>
         </div>
@@ -683,6 +753,8 @@ function recipeEditorPath(): 'manage' | 'new' | 'drafts' | string | null {
     return 'manage-ingredients';
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'units')
     return 'manage-units';
+  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'recipe-policy')
+    return 'manage-recipe-policy';
   if (segments.length === 2 && segments[1] === 'manage') return 'manage';
   return null;
 }

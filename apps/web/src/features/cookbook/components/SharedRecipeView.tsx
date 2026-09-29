@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
+import type { RecipeDetail } from '../model/types';
+import RecipeDetailView from './RecipeDetailView';
 
-interface SharedRecipe {
-  title: string;
-  summary: string | null;
+interface SharedRecipe extends RecipeDetail {
+  tenant_slug: string;
 }
+
 interface SharedRecipeViewProperties {
   token: string;
   text: Translation;
@@ -34,10 +36,13 @@ export default function SharedRecipeView({ token, text }: SharedRecipeViewProper
       </section>
     );
   return (
-    <article className="recipe-editor">
-      <p className="eyebrow">{text.recipeEditor.share}</p>
-      <h1>{recipe.title}</h1>
-      {recipe.summary === null ? null : <p className="lede">{recipe.summary}</p>}
-    </article>
+    <RecipeDetailView
+      text={text}
+      recipe={recipe}
+      onClose={(): void => window.location.assign(`/${recipe.tenant_slug}`)}
+      onEdit={(): void => undefined}
+      onShare={(): void => undefined}
+      onSelectVariant={(): void => undefined}
+    />
   );
 }

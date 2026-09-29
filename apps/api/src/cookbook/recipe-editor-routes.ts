@@ -9,8 +9,12 @@ interface RecipeInput {
   summary: string | null;
   slug: string;
   categoryPublicIds: string[];
-  visibility: 'PRIVATE' | 'PUBLIC';
+  visibilityOverride: RecipeVisibility | null;
+  discoverabilityOverride: RecipeDiscoverability | null;
 }
+
+type RecipeVisibility = 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
+type RecipeDiscoverability = 'DISCOVERABLE' | 'UNLISTED';
 
 interface RecipeIdentifierRow {
   id: string;
@@ -39,10 +43,42 @@ interface DraftRow {
   title: string;
   summary: string | null;
   category_public_ids: string[];
-  visibility: 'PRIVATE' | 'PUBLIC';
+  visibility_override: RecipeVisibility | null;
+  discoverability_override: RecipeDiscoverability | null;
+  default_recipe_visibility: RecipeVisibility;
+  default_recipe_discoverability: RecipeDiscoverability;
+  can_change_visibility: boolean;
   published_version: number | null;
   has_published_revision: boolean;
   has_draft_revision: boolean;
+}
+interface SharedRecipeRow {
+  public_id: string;
+  tenant_slug: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  revision_id: string;
+}
+interface SharedRecipeStepRow {
+  public_id: string;
+  sort_order: number;
+  instruction: string;
+}
+interface SharedIngredientUsageRow {
+  step_public_id: string;
+  sort_order: number;
+  amount: string | null;
+  unit_public_id: string | null;
+  unit_symbol: string | null;
+  unit_localization_key: string | null;
+  ingredient_public_id: string | null;
+  ingredient_name: string;
+  ingredient_localization_key: string | null;
+  is_catalog_ingredient: boolean;
+  special_kind: string | null;
+  note: string | null;
+  is_optional: boolean;
 }
 
 const slugPattern: RegExp = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
@@ -253,15 +289,11 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
   });
   api.get('/cookbook/share-links/:token', async (request, reply) => {
     const token: string = (request.params as { token: string }).token;
-    const result = await pool.query<{
-      public_id: string;
-      slug: string;
-      title: string;
-      summary: string | null;
-    }>(
-      `SELECT recipe.public_id, recipe.slug, revision.title, revision.summary
+    const result = await pool.query<SharedRecipeRow>(
+      `SELECT recipe.public_id, tenant.slug AS tenant_slug, recipe.slug, revision.title, revision.summary, revision.id AS revision_id
        FROM recipe_share_link
        INNER JOIN recipe ON recipe.id = recipe_share_link.recipe_id
+       INNER JOIN tenant ON tenant.id = recipe.tenant_id
        INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
        WHERE recipe_share_link.token_hash = $1 AND recipe_share_link.revoked_at IS NULL
          AND (recipe_share_link.expires_at IS NULL OR recipe_share_link.expires_at > now())`,
@@ -269,7 +301,110 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     );
     const recipe = result.rows[0];
     if (recipe === undefined) return recipeNotFound(reply);
-    return reply.send(recipe);
+    const variants = await pool.query<VariantRow>(
+      'SELECT id, variant_key, name, slug, is_default, is_visible FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name',
+      [recipe.revision_id],
+    );
+    const selectedVariant: VariantRow | undefined = variants.rows.find(
+      (variant: VariantRow): boolean => variant.is_default,
+    );
+    if (selectedVariant === undefined) return recipeNotFound(reply);
+    const steps = await pool.query<SharedRecipeStepRow>(
+      `SELECT recipe_step.id AS public_id, recipe_step.sort_order, recipe_step.instruction
+       FROM recipe_step
+       INNER JOIN recipe_variant_step_override AS membership ON membership.step_id = recipe_step.id
+       INNER JOIN recipe_variant AS variant ON variant.id = membership.variant_id
+       WHERE recipe_step.recipe_revision_id = $1 AND variant.variant_key = $2 AND membership.state = 'INCLUDE'
+       ORDER BY recipe_step.sort_order ASC`,
+      [recipe.revision_id, selectedVariant.variant_key],
+    );
+    const ingredientUsages = await pool.query<SharedIngredientUsageRow>(
+      `SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text,
+        unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
+        unit.localization_key AS unit_localization_key, ingredient.public_id AS ingredient_public_id,
+        COALESCE(ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
+        ingredient.localization_key AS ingredient_localization_key,
+        (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
+        ingredient_usage.special_kind, ingredient_usage.note, ingredient_usage.is_optional
+       FROM ingredient_usage
+       INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
+       LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
+       LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
+       WHERE recipe_step.id = ANY($1::uuid[])
+       ORDER BY recipe_step.sort_order ASC, ingredient_usage.sort_order ASC`,
+      [steps.rows.map((step: SharedRecipeStepRow): string => step.public_id)],
+    );
+    return reply.send({
+      public_id: recipe.public_id,
+      tenant_slug: recipe.tenant_slug,
+      slug: recipe.slug,
+      title: recipe.title,
+      summary: recipe.summary,
+      can_edit: false,
+      can_share: false,
+      selectedVariant: selectedVariant.slug,
+      variants: [{
+        variant_key: selectedVariant.variant_key,
+        name: selectedVariant.name,
+        slug: selectedVariant.slug,
+        is_default: selectedVariant.is_default,
+        is_visible: selectedVariant.is_visible,
+      }],
+      steps: steps.rows.map((step: SharedRecipeStepRow) => ({
+        ...step,
+        ingredients: ingredientUsages.rows
+          .filter((usage: SharedIngredientUsageRow): boolean => usage.step_public_id === step.public_id)
+          .map(({ step_public_id: _stepPublicId, ...usage }: SharedIngredientUsageRow) => usage),
+      })),
+    });
+  });
+
+  api.get('/cookbook/tenants/:tenantSlug/recipe-policy', async (request, reply) => {
+    const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+    const tenantId: string | null = await requireTenantPermission(
+      pool,
+      request,
+      reply,
+      tenantSlug,
+      'tenant:manage',
+    );
+    if (tenantId === null) return;
+    const policy = await pool.query<{
+      default_recipe_visibility: RecipeVisibility;
+      default_recipe_discoverability: RecipeDiscoverability;
+    }>(
+      'SELECT default_recipe_visibility, default_recipe_discoverability FROM tenant WHERE id = $1',
+      [tenantId],
+    );
+    return reply.send({
+      defaultVisibility: policy.rows[0]!.default_recipe_visibility,
+      defaultDiscoverability: policy.rows[0]!.default_recipe_discoverability,
+    });
+  });
+
+  api.patch('/cookbook/tenants/:tenantSlug/recipe-policy', async (request, reply) => {
+    const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+    const tenantId: string | null = await requireTenantPermission(
+      pool,
+      request,
+      reply,
+      tenantSlug,
+      'tenant:manage',
+    );
+    if (tenantId === null) return;
+    const body = request.body as Record<string, unknown>;
+    const visibility = body.defaultVisibility;
+    const discoverability = body.defaultDiscoverability;
+    if (
+      (visibility !== 'PRIVATE' && visibility !== 'MEMBERS_ONLY' && visibility !== 'PUBLIC') ||
+      (discoverability !== 'DISCOVERABLE' && discoverability !== 'UNLISTED')
+    )
+      return reply.code(400).send({ code: 'INVALID_RECIPE_POLICY', error: 'The recipe policy is invalid.' });
+    await pool.query(
+      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, updated_at = now() WHERE id = $3',
+      [visibility, discoverability, tenantId],
+    );
+    return reply.code(204).send();
   });
 
   api.get('/cookbook/tenants/:tenantSlug/drafts', async (request, reply) => {
@@ -282,9 +417,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       'recipe:read',
     );
     if (tenantId === null) return;
+    const user = await currentSessionUser(pool, request);
     const drafts = await pool.query<DraftRow>(
       draftSelectSql('recipe.draft_revision_id IS NOT NULL'),
-      [tenantId],
+      [tenantId, user?.principal_id ?? null],
     );
     return reply.send({ recipes: drafts.rows.map(draftResponse) });
   });
@@ -301,14 +437,24 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     if (tenantId === null) return;
     const input: RecipeInput | null = parseRecipeInput(request.body);
     if (input === null) return invalidRecipe(reply);
+    if (input.visibilityOverride !== null || input.discoverabilityOverride !== null) {
+      const visibilityTenantId: string | null = await requireTenantPermission(
+        pool,
+        request,
+        reply,
+        tenantSlug,
+        'recipe:visibility-update',
+      );
+      if (visibilityTenantId === null) return;
+    }
     const user = await currentSessionUser(pool, request);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
       const recipe = await client.query<RecipeIdentifierRow>(
-        `INSERT INTO recipe (tenant_id, lineage_public_id, slug, visibility_override)
-         VALUES ($1, gen_random_uuid(), $2, $3) RETURNING id, public_id`,
-        [tenantId, input.slug, input.visibility],
+        `INSERT INTO recipe (tenant_id, lineage_public_id, slug, visibility_override, discoverability_override)
+         VALUES ($1, gen_random_uuid(), $2, $3, $4) RETURNING id, public_id`,
+        [tenantId, input.slug, input.visibilityOverride, input.discoverabilityOverride],
       );
       const created: RecipeIdentifierRow = recipe.rows[0]!;
       const revision = await client.query<{ id: string }>(
@@ -325,7 +471,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       await client.query('COMMIT');
       return reply
         .code(201)
-        .send(draftResponse((await draftForRecipe(pool, tenantId, created.public_id))!));
+        .send(draftResponse((await draftForRecipe(pool, tenantId, user?.principal_id ?? null, created.public_id))!));
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       if (isUniqueViolation(error))
@@ -350,7 +496,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     );
     if (tenantId === null) return;
     const publicId: string = (request.params as { publicId: string }).publicId;
-    const draft: DraftRow | null = await draftForRecipe(pool, tenantId, publicId);
+    const user = await currentSessionUser(pool, request);
+    const draft: DraftRow | null = await draftForRecipe(pool, tenantId, user?.principal_id ?? null, publicId);
     if (draft === null) return recipeNotFound(reply);
     return reply.send(draftResponse(draft));
   });
@@ -376,14 +523,32 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         id: string;
         draft_revision_id: string | null;
         published_revision_id: string | null;
+        visibility_override: RecipeVisibility | null;
+        discoverability_override: RecipeDiscoverability | null;
       }>(
-        'SELECT id, draft_revision_id, published_revision_id FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, draft_revision_id, published_revision_id, visibility_override, discoverability_override FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
       if (current === undefined) {
         await client.query('ROLLBACK');
         return recipeNotFound(reply);
+      }
+      if (
+        current.visibility_override !== input.visibilityOverride ||
+        current.discoverability_override !== input.discoverabilityOverride
+      ) {
+        const visibilityTenantId: string | null = await requireTenantPermission(
+          pool,
+          request,
+          reply,
+          tenantSlug,
+          'recipe:visibility-update',
+        );
+        if (visibilityTenantId === null) {
+          await client.query('ROLLBACK');
+          return;
+        }
       }
       const draftId: string =
         current.draft_revision_id ??
@@ -400,11 +565,11 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       ]);
       await replaceCategories(client, draftId, tenantId, input.categoryPublicIds);
       await client.query(
-        'UPDATE recipe SET slug = $1, visibility_override = $2, draft_revision_id = $3, updated_at = now() WHERE id = $4',
-        [input.slug, input.visibility, draftId, current.id],
+        'UPDATE recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, draft_revision_id = $4, updated_at = now() WHERE id = $5',
+        [input.slug, input.visibilityOverride, input.discoverabilityOverride, draftId, current.id],
       );
       await client.query('COMMIT');
-      return reply.send(draftResponse((await draftForRecipe(pool, tenantId, publicId))!));
+      return reply.send(draftResponse((await draftForRecipe(pool, tenantId, user?.principal_id ?? null, publicId))!));
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       if (isUniqueViolation(error))
@@ -764,7 +929,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         [current.draft_revision_id, current.id],
       );
       await client.query('COMMIT');
-      return reply.send(draftResponse((await draftForRecipe(pool, tenantId, publicId))!));
+      const user = await currentSessionUser(pool, request);
+      return reply.send(draftResponse((await draftForRecipe(pool, tenantId, user?.principal_id ?? null, publicId))!));
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -782,7 +948,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         request,
         reply,
         tenantSlug,
-        'recipe:update',
+        'recipe:visibility-update',
       );
       if (tenantId === null) return;
       const publicId: string = (request.params as { publicId: string }).publicId;
@@ -796,12 +962,82 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           code: 'RECIPE_NOT_PUBLISHED',
           error: 'Only published recipes can be shared.',
         });
+      const shareLinkInput: ShareLinkInput | null = parseShareLinkInput(request.body);
+      if (shareLinkInput === null)
+        return reply.code(400).send({
+          code: 'INVALID_SHARE_LINK',
+          error: 'The share link is invalid.',
+        });
       const token: string = randomBytes(32).toString('base64url');
       await pool.query(
-        'INSERT INTO recipe_share_link (recipe_id, token_hash, created_by_principal_id) VALUES ($1, $2, $3)',
-        [recipe.rows[0].id, tokenHash(token), user?.principal_id ?? null],
+        'INSERT INTO recipe_share_link (recipe_id, name, token, token_hash, created_by_principal_id, expires_at) VALUES ($1, $2, $3, $4, $5, $6)',
+        [recipe.rows[0].id, shareLinkInput.name, token, tokenHash(token), user?.principal_id ?? null, shareLinkInput.expiresAt],
       );
       return reply.code(201).send({ token, path: `/shared/recipes/${token}` });
+    },
+  );
+
+  api.get('/cookbook/tenants/:tenantSlug/recipes/:publicId/share-links', async (request, reply) => {
+    const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+    const tenantId: string | null = await requireTenantPermission(
+      pool,
+      request,
+      reply,
+      tenantSlug,
+      'recipe:visibility-update',
+    );
+    if (tenantId === null) return;
+    const publicId: string = (request.params as { publicId: string }).publicId;
+    const links = await pool.query<{
+      id: string;
+      name: string | null;
+      token: string;
+      created_at: Date;
+      expires_at: Date | null;
+    }>(
+      `SELECT recipe_share_link.id, recipe_share_link.name, recipe_share_link.token, recipe_share_link.created_at, recipe_share_link.expires_at
+       FROM recipe_share_link
+       INNER JOIN recipe ON recipe.id = recipe_share_link.recipe_id
+       WHERE recipe.tenant_id = $1 AND recipe.public_id = $2
+         AND recipe_share_link.revoked_at IS NULL
+         AND (recipe_share_link.expires_at IS NULL OR recipe_share_link.expires_at > now())
+       ORDER BY recipe_share_link.created_at DESC`,
+      [tenantId, publicId],
+    );
+    return reply.send({
+      shareLinks: links.rows.map((link) => ({
+        id: link.id,
+        name: link.name,
+        path: `/shared/recipes/${link.token}`,
+        createdAt: link.created_at.toISOString(),
+        expiresAt: link.expires_at?.toISOString() ?? null,
+      })),
+    });
+  });
+
+  api.delete(
+    '/cookbook/tenants/:tenantSlug/recipes/:publicId/share-links/:shareLinkId',
+    async (request, reply) => {
+      const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+      const tenantId: string | null = await requireTenantPermission(
+        pool,
+        request,
+        reply,
+        tenantSlug,
+        'recipe:visibility-update',
+      );
+      if (tenantId === null) return;
+      const parameters = request.params as { publicId: string; shareLinkId: string };
+      const result = await pool.query(
+        `UPDATE recipe_share_link SET revoked_at = now()
+         FROM recipe
+         WHERE recipe_share_link.recipe_id = recipe.id
+           AND recipe.tenant_id = $1 AND recipe.public_id = $2
+           AND recipe_share_link.id = $3 AND recipe_share_link.revoked_at IS NULL`,
+        [tenantId, parameters.publicId, parameters.shareLinkId],
+      );
+      if (result.rowCount === 0) return reply.code(404).send({ code: 'SHARE_LINK_NOT_FOUND', error: 'The share link was not found.' });
+      return reply.code(204).send();
     },
   );
 }
@@ -928,17 +1164,24 @@ function parseRecipeInput(value: unknown): RecipeInput | null {
     body.categoryPublicIds.every((id: unknown): boolean => typeof id === 'string')
       ? [...new Set(body.categoryPublicIds)]
       : null;
-  const visibility = body.visibility;
+  const visibilityOverride = body.visibilityOverride;
+  const discoverabilityOverride = body.discoverabilityOverride;
   if (
     title.length === 0 ||
     title.length > 240 ||
     (summary !== null && summary.length > 2000) ||
     !slugPattern.test(slug) ||
     categoryPublicIds === null ||
-    (visibility !== 'PRIVATE' && visibility !== 'PUBLIC')
+    (visibilityOverride !== null &&
+      visibilityOverride !== 'PRIVATE' &&
+      visibilityOverride !== 'MEMBERS_ONLY' &&
+      visibilityOverride !== 'PUBLIC') ||
+    (discoverabilityOverride !== null &&
+      discoverabilityOverride !== 'DISCOVERABLE' &&
+      discoverabilityOverride !== 'UNLISTED')
   )
     return null;
-  return { title, summary, slug, categoryPublicIds, visibility };
+  return { title, summary, slug, categoryPublicIds, visibilityOverride, discoverabilityOverride };
 }
 function parseVariantInput(value: unknown): VariantInput | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -1126,10 +1369,12 @@ async function replaceCategories(
 async function draftForRecipe(
   pool: Pool,
   tenantId: string,
+  principalId: string | null,
   publicId: string,
 ): Promise<DraftRow | null> {
-  const result = await pool.query<DraftRow>(draftSelectSql('recipe.public_id = $2'), [
+  const result = await pool.query<DraftRow>(draftSelectSql('recipe.public_id = $3'), [
     tenantId,
+    principalId,
     publicId,
   ]);
   return result.rows[0] ?? null;
@@ -1138,16 +1383,25 @@ async function draftForRecipe(
 function draftSelectSql(condition: string): string {
   return `SELECT recipe.public_id, recipe.slug, revision.title, revision.summary,
     COALESCE(array_agg(category.public_id) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids,
-    COALESCE(recipe.visibility_override, 'PUBLIC') AS visibility,
+    recipe.visibility_override, recipe.discoverability_override,
+    tenant.default_recipe_visibility, tenant.default_recipe_discoverability,
+    EXISTS (
+      SELECT 1 FROM tenant_membership_role
+      INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+      WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+        AND tenant_membership_role.principal_id = $2
+        AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+    ) AS can_change_visibility,
     published.version AS published_version, recipe.published_revision_id IS NOT NULL AS has_published_revision,
     recipe.draft_revision_id IS NOT NULL AS has_draft_revision
     FROM recipe
+    INNER JOIN tenant ON tenant.id = recipe.tenant_id
     LEFT JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
     LEFT JOIN recipe_revision AS published ON published.id = recipe.published_revision_id
     LEFT JOIN recipe_revision_category AS assignment ON assignment.recipe_revision_id = revision.id
     LEFT JOIN category ON category.id = assignment.category_id
     WHERE recipe.tenant_id = $1 AND ${condition}
-    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, published.version
+    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.version
     ORDER BY revision.title ASC`;
 }
 
@@ -1158,7 +1412,11 @@ function draftResponse(row: DraftRow): object {
     title: row.title,
     summary: row.summary,
     categoryPublicIds: row.category_public_ids,
-    visibility: row.visibility,
+    visibilityOverride: row.visibility_override,
+    discoverabilityOverride: row.discoverability_override,
+    effectiveVisibility: row.visibility_override ?? row.default_recipe_visibility,
+    effectiveDiscoverability: row.discoverability_override ?? row.default_recipe_discoverability,
+    canChangeVisibility: row.can_change_visibility,
     publishedVersion: row.published_version,
     hasPublishedRevision: row.has_published_revision,
     isDraft: row.has_draft_revision,
@@ -1166,6 +1424,23 @@ function draftResponse(row: DraftRow): object {
 }
 function tokenHash(token: string): Buffer {
   return createHash('sha256').update(token).digest();
+}
+interface ShareLinkInput {
+  name: string | null;
+  expiresAt: Date | null;
+}
+function parseShareLinkInput(value: unknown): ShareLinkInput | null {
+  if (typeof value !== 'object' || value === null) return { name: null, expiresAt: null };
+  const body = value as Record<string, unknown>;
+  const rawName: unknown = body.name;
+  const name: string | null = typeof rawName === 'string' && rawName.trim().length > 0 ? rawName.trim() : null;
+  if ((rawName !== undefined && rawName !== null && typeof rawName !== 'string') || (name !== null && name.length > 160)) return null;
+  const expiresAt: unknown = body.expiresAt;
+  if (expiresAt === undefined || expiresAt === null) return { name, expiresAt: null };
+  if (typeof expiresAt !== 'string') return null;
+  const parsed: Date = new Date(expiresAt);
+  if (Number.isNaN(parsed.getTime()) || parsed.getTime() <= Date.now()) return null;
+  return { name, expiresAt: parsed };
 }
 function invalidRecipe(reply: FastifyReply): FastifyReply {
   return reply.code(400).send({ code: 'INVALID_RECIPE', error: 'The recipe is invalid.' });

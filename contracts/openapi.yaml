@@ -1406,6 +1406,31 @@ paths:
       operationId: listAccessibleCookbookTenants
       summary: Returns accessible enabled tenants.
       responses: { '200': { description: Enabled accessible tenants. } }
+  /cookbook/tenants/{tenantSlug}/recipe-policy:
+    get:
+      operationId: getTenantRecipePolicy
+      summary: Returns the tenant's default recipe visibility and discoverability policy.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      responses:
+        '200':
+          description: Tenant recipe policy.
+          content: { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+    patch:
+      operationId: updateTenantRecipePolicy
+      summary: Updates the tenant's default recipe visibility and discoverability policy.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
+      responses:
+        '204': { description: Tenant recipe policy updated. }
+        '400': { description: Invalid recipe policy. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
   /cookbook/tenants/{tenantSlug}/categories:
     get:
       operationId: listEditableCategories
@@ -2025,6 +2050,28 @@ paths:
         ]
       responses: { '204': { description: Unit deleted. }, '409': { description: Unit is in use. } }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/share-links:
+    get:
+      operationId: listRecipeShareLinks
+      summary: Lists active share links for a published recipe.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      responses:
+        '200':
+          description: Active share links.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [shareLinks]
+                properties:
+                  shareLinks: { type: array, items: { $ref: '#/components/schemas/RecipeShareLinkListItem' } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
     post:
       operationId: createRecipeShareLink
       summary: Creates a tokenized share link for the published recipe.
@@ -2034,6 +2081,16 @@ paths:
           { $ref: '#/components/parameters/TenantSlug' },
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                name: { type: [string, 'null'], minLength: 1, maxLength: 160 }
+                expiresAt: { type: [string, 'null'], format: date-time }
       responses:
         '201':
           {
@@ -2041,10 +2098,28 @@ paths:
             content:
               { application/json: { schema: { $ref: '#/components/schemas/RecipeShareLink' } } },
           }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/share-links/{shareLinkId}:
+    delete:
+      operationId: revokeRecipeShareLink
+      summary: Revokes an active recipe share link.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+          { name: shareLinkId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses:
+        '204': { description: Share link revoked. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: Share link not found. }
   /cookbook/share-links/{token}:
     get:
       operationId: getSharedRecipe
-      summary: Resolves an active share link to its published recipe metadata.
+      summary: Resolves an active share link to its published recipe.
       parameters:
         - name: token
           in: path
@@ -2055,7 +2130,7 @@ paths:
           {
             description: Shared recipe,
             content:
-              { application/json: { schema: { $ref: '#/components/schemas/SharedRecipe' } } },
+              { application/json: { schema: { $ref: '#/components/schemas/SharedRecipeDetail' } } },
           }
 components:
   parameters:
@@ -2097,10 +2172,17 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    TenantRecipePolicy:
+      type: object
+      additionalProperties: false
+      required: [defaultVisibility, defaultDiscoverability]
+      properties:
+        defaultVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
+        defaultDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
     RecipeDraftInput:
       type: object
       additionalProperties: false
-      required: [title, summary, slug, categoryPublicIds, visibility]
+      required: [title, summary, slug, categoryPublicIds, visibilityOverride, discoverabilityOverride]
       properties:
         title: { type: string, minLength: 1, maxLength: 240 }
         summary: { type: string, maxLength: 2000 }
@@ -2108,7 +2190,8 @@ components:
         categoryPublicIds:
           type: array
           items: { type: string, format: uuid }
-        visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+        visibilityOverride: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
+        discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
     EditableRecipe:
       type: object
       additionalProperties: false
@@ -2119,7 +2202,11 @@ components:
           title,
           summary,
           categoryPublicIds,
-          visibility,
+          visibilityOverride,
+          discoverabilityOverride,
+          effectiveVisibility,
+          effectiveDiscoverability,
+          canChangeVisibility,
           publishedVersion,
           hasPublishedRevision,
           isDraft,
@@ -2130,7 +2217,11 @@ components:
         title: { type: string }
         summary: { type: [string, 'null'] }
         categoryPublicIds: { type: array, items: { type: string, format: uuid } }
-        visibility: { type: string, enum: [PRIVATE, PUBLIC] }
+        visibilityOverride: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
+        discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
+        effectiveVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
+        effectiveDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
+        canChangeVisibility: { type: boolean }
         publishedVersion: { type: [integer, 'null'], minimum: 1 }
         hasPublishedRevision: { type: boolean }
         isDraft: { type: boolean }
@@ -2141,15 +2232,24 @@ components:
       properties:
         token: { type: string }
         path: { type: string }
-    SharedRecipe:
+    RecipeShareLinkListItem:
       type: object
       additionalProperties: false
-      required: [public_id, slug, title, summary]
+      required: [id, name, path, createdAt, expiresAt]
       properties:
-        public_id: { type: string, format: uuid }
-        slug: { type: string }
-        title: { type: string }
-        summary: { type: [string, 'null'] }
+        id: { type: string, format: uuid }
+        name: { type: [string, 'null'] }
+        path: { type: string }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: [string, 'null'], format: date-time }
+    SharedRecipeDetail:
+      allOf:
+        - $ref: '#/components/schemas/CookbookRecipeDetail'
+        - type: object
+          additionalProperties: false
+          required: [tenant_slug]
+          properties:
+            tenant_slug: { type: string }
     CategoryInput:
       type: object
       additionalProperties: false

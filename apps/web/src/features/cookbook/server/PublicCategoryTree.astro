@@ -1,0 +1,94 @@
+---
+import { categoryPath } from '../model/routing';
+import type { Category } from '../model/types';
+
+interface Properties {
+  categories: readonly Category[];
+  collapseLabel: string;
+  expandLabel: string;
+  parentId: string | null;
+  selectedCategoryId: string | null;
+  tenantSlug: string;
+}
+
+const { categories, collapseLabel, expandLabel, parentId, selectedCategoryId, tenantSlug } = Astro.props;
+const children: Category[] = categories
+  .filter((category: Category): boolean => category.parent_public_id === parentId)
+  .sort(
+    (left: Category, right: Category): number =>
+      left.sort_order - right.sort_order || left.name.localeCompare(right.name),
+  );
+
+function categoryUrl(category: Category): string {
+  const segments: string[] | null = categoryPath(categories, category.public_id);
+  return segments === null
+    ? `/${encodeURIComponent(tenantSlug)}`
+    : `/${encodeURIComponent(tenantSlug)}/${segments.map(encodeURIComponent).join('/')}`;
+}
+
+function isExpandedInitially(category: Category): boolean {
+  let current: Category | undefined = categories.find(
+    (candidate: Category): boolean => candidate.public_id === selectedCategoryId,
+  );
+  while (current !== undefined) {
+    if (current.parent_public_id === category.public_id) return true;
+    current =
+      current.parent_public_id === null
+        ? undefined
+        : categories.find(
+            (candidate: Category): boolean => candidate.public_id === current?.parent_public_id,
+          );
+  }
+  return false;
+}
+---
+
+<div class="category-tree">
+  {children.map((category: Category) => {
+    const hasChildren: boolean = categories.some(
+      (candidate: Category): boolean => candidate.parent_public_id === category.public_id,
+    );
+    return (
+      <div class="category-tree__item">
+        <div class="category-tree__row">
+          {
+            hasChildren ? (
+              <button
+                aria-expanded="true"
+                aria-label={`${collapseLabel}: ${category.name}`}
+                class="category-disclosure"
+                data-category-tree-disclosure
+                data-collapse-label={collapseLabel}
+                data-expand-label={expandLabel}
+                data-initial-expanded={isExpandedInitially(category) ? 'true' : 'false'}
+                type="button"
+              >−</button>
+            ) : <span class="category-disclosure category-disclosure--placeholder" aria-hidden="true" />
+          }
+          <a
+            class={
+              category.public_id === selectedCategoryId
+                ? 'category-button category-button--active'
+                : 'category-button'
+            }
+            href={categoryUrl(category)}
+          >{category.name}</a>
+        </div>
+        {
+          hasChildren ? (
+            <div class="category-tree__children">
+              <Astro.self
+                categories={categories}
+                collapseLabel={collapseLabel}
+                expandLabel={expandLabel}
+                parentId={category.public_id}
+                selectedCategoryId={selectedCategoryId}
+                tenantSlug={tenantSlug}
+              />
+            </div>
+          ) : null
+        }
+      </div>
+    );
+  })}
+</div>

@@ -61,7 +61,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     const principalId: string | null =
       user === null || user.disabled_at !== null ? null : user.principal_id;
     const tenants = await pool.query(
-      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, count(recipe.id)::integer AS recipe_count FROM tenant LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.published_revision_id IS NOT NULL WHERE tenant.disabled_at IS NULL AND (EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1) OR EXISTS (SELECT 1 FROM recipe AS public_recipe WHERE public_recipe.tenant_id = tenant.id AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC' AND public_recipe.published_revision_id IS NOT NULL)) GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug ORDER BY tenant.display_name`,
+      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, count(recipe.id) FILTER (WHERE recipe.published_revision_id IS NOT NULL AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE')::integer AS recipe_count FROM tenant LEFT JOIN recipe ON recipe.tenant_id = tenant.id WHERE tenant.disabled_at IS NULL AND (EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1) OR EXISTS (SELECT 1 FROM recipe AS public_recipe WHERE public_recipe.tenant_id = tenant.id AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC' AND COALESCE(public_recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE' AND public_recipe.published_revision_id IS NOT NULL)) GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug ORDER BY tenant.display_name`,
       [principalId],
     );
     return reply.send({ tenants: tenants.rows });
@@ -99,17 +99,24 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       WITH RECURSIVE accessible_categories AS (
         SELECT category.id, category.parent_id, category.tenant_id
         FROM category
-        WHERE (EXISTS (
-          SELECT 1 FROM tenant_membership
-        WHERE tenant_membership.tenant_id = category.tenant_id AND tenant_membership.principal_id = $1
-        ) OR EXISTS (
+        WHERE EXISTS (
           SELECT 1 FROM recipe_revision_category
           INNER JOIN recipe_revision ON recipe_revision.id = recipe_revision_category.recipe_revision_id
           INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
           INNER JOIN tenant ON tenant.id = recipe.tenant_id
+          LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
           WHERE recipe_revision_category.category_id = category.id
-            AND COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
-        )) AND category.tenant_id = (SELECT id FROM tenant WHERE slug = $2)
+            AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+            AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+              OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
+              OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+                SELECT 1 FROM tenant_membership_role
+                INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+                WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+                  AND tenant_membership_role.principal_id = $1
+                  AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+              )))
+        ) AND category.tenant_id = (SELECT id FROM tenant WHERE slug = $2)
         UNION
         SELECT parent_category.id, parent_category.parent_id, parent_category.tenant_id
         FROM category AS parent_category
@@ -133,7 +140,24 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
       LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
       LEFT JOIN category ON category.id = recipe_revision_category.category_id
-      WHERE tenant.slug = $2 AND (tenant_membership.principal_id IS NOT NULL OR COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC')
+      WHERE tenant.slug = $2
+        AND (COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+          OR EXISTS (
+            SELECT 1 FROM tenant_membership_role
+            INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+            WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+              AND tenant_membership_role.principal_id = $1
+              AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+          ))
+        AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+            SELECT 1 FROM tenant_membership_role
+            INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+            WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+              AND tenant_membership_role.principal_id = $1
+              AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+          )))
       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
       ORDER BY recipe_revision.title ASC
     `,
@@ -241,14 +265,22 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
           INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
           WHERE tenant_membership_role.tenant_id = recipe.tenant_id
             AND tenant_membership_role.principal_id = $1
-            AND tenant_role_permission.permission_code = 'recipe:update'
+            AND tenant_role_permission.permission_code = 'recipe:visibility-update'
         ) AS can_share
       FROM recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id
       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
       WHERE recipe.public_id = $2 AND tenant.disabled_at IS NULL
-        AND (tenant_membership.principal_id IS NOT NULL OR COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC')
+        AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+            SELECT 1 FROM tenant_membership_role
+            INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+            WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+              AND tenant_membership_role.principal_id = $1
+              AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+          )))
     `,
         [principalId, request.params.publicId],
       );

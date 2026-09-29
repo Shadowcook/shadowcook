@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
 import { localizedUnitSymbol } from '../../../i18n/unit-localization';
@@ -12,7 +11,7 @@ interface RecipeDetailViewProperties {
   recipe: RecipeDetail;
   onClose: () => void;
   onEdit: () => void;
-  onShare: () => Promise<string>;
+  onShare: () => void;
   onSelectVariant: (slug: string) => void;
 }
 
@@ -24,21 +23,9 @@ export default function RecipeDetailView({
   onShare,
   onSelectVariant,
 }: RecipeDetailViewProperties): JSX.Element {
-  const [shareMessage, setShareMessage] = useState<string>('');
-  const [isSharing, setIsSharing] = useState<boolean>(false);
   const hasVisibleAlternative: boolean = recipe.variants.some(
     (variant: RecipeVariant): boolean => !variant.is_default && variant.is_visible,
   );
-
-  async function shareRecipe(): Promise<void> {
-    setShareMessage('');
-    setIsSharing(true);
-    try {
-      setShareMessage(await onShare());
-    } finally {
-      setIsSharing(false);
-    }
-  }
 
   return (
     <section className="recipe-detail">
@@ -66,8 +53,7 @@ export default function RecipeDetailView({
                 <button
                   type="button"
                   className="button--secondary"
-                  disabled={isSharing}
-                  onClick={(): void => void shareRecipe()}
+                  onClick={onShare}
                   aria-label={text.recipeEditor.share}
                   title={text.recipeEditor.share}
                 >
@@ -75,11 +61,6 @@ export default function RecipeDetailView({
                 </button>
               ) : null}
             </div>
-          ) : null}
-          {shareMessage.length > 0 ? (
-            <p className="message" role="status">
-              {shareMessage}
-            </p>
           ) : null}
           {recipe.summary === null ? null : (
             <p className="recipe-detail__summary">{recipe.summary}</p>

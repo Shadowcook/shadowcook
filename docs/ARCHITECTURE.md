@@ -197,7 +197,7 @@ shadowcook/
 - The development seed defines `user@local` with password `user` and assigns it the `Owner` tenant role for `local-cookbook` without an instance role.
 - The development seed defines `guest@local` with password `guest` as a `Viewer` member of `local-cookbook` without instance role assignments.
 - The API process runs the tracked `initial-deployment-units-v1` seed once for each database after migrations and before bootstrap administration. The seed inserts instance-owned recipe units from `initial-deployment-seed.json` and records its identifier in `application_seed` in the same transaction.
-- Tenant recipe visibility defaults to `PUBLIC`; a recipe visibility override can restrict an individual recipe.
+- Tenant recipe visibility defaults to `PUBLIC`; recipes can inherit or override tenant visibility and discoverability defaults.
 - Categories support parent-child trees with no fixed database depth limit.
 - A category slug is unique within its tenant. A recipe slug is unique within its tenant.
 - Cookbook navigation is deep-linkable: category pages use `/{category-slug}/{sub-category-slug...}` and recipe pages use `/{category-slug}/{sub-category-slug...}/recipes/{recipe-slug}`. A non-default visible variant appends `/{variant-slug}`. A recipe opened from the root cookbook view uses `/recipes/{recipe-slug}`; a recipe opened from a category view uses that category path.
@@ -207,7 +207,10 @@ shadowcook/
 - Successful sign-in and sign-out navigate to `/` as full page transitions so the tenant-selection route, rather than a previously mounted cookbook client, controls the root page.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`.
+- Public cookbook overview and category navigation paths render their accessible category and recipe links as semantic server-rendered HTML without a client-side session check.
+- Public cookbook overview and category pages retain their server-rendered HTML in the response and replace it with the hydrated cookbook client only after the client has loaded its session and cookbook state.
 - A direct recipe navigation renders its title, summary, category links, selected visible variant links, ingredient usages, and preparation steps as semantic server-rendered HTML. The server forwards the request cookie when resolving recipe access.
+- Server-rendered recipe pages render their aggregated shopping list and variant links in HTML; browser JavaScript enhances variant links with a URL-selecting control without removing the HTML navigation from the response.
 - Server-rendered recipe pages include a canonical URL and a Schema.org `Recipe` JSON-LD document with the recipe URL, tenant author, title, optional summary, category names, non-special ingredient usages, and ordered preparation steps.
 - Sibling categories have a non-negative tenant-scoped `sort_order` that is unique within their parent category.
 - Every published recipe revision has at least one category. Draft revisions may be uncategorized.
@@ -446,7 +449,7 @@ Categories remain hierarchical.
 
 A recipe may belong to multiple categories.
 
-Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe visibility is `PRIVATE` or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens. Recipe detail responses provide session-specific edit and share capabilities for the recipe-detail actions.
+Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe visibility is `PRIVATE`, `MEMBERS_ONLY`, or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens. Recipe detail responses provide session-specific edit and share capabilities for the recipe-detail actions.
 
 An ingredient usage contains either a normalized ingredient reference or a non-empty text override. Text overrides support non-ingredient recipe entries such as prepared components and oven settings. A text override can have a special entry kind: no icon, remove, add, information, important, cook, cool, heat, wait, or work step. The editor keeps amount, unit, and optional controls visible for every entry. The API ignores these values for special entry kinds.
 
@@ -1189,18 +1192,18 @@ A private recipe may be published repeatedly and therefore accumulate normal imm
 
 Each tenant defines a default recipe visibility.
 
-V2.0 should support at least:
+V2.0 supports:
 
 ```text
 PRIVATE
-AUTHENTICATED
+MEMBERS_ONLY
 PUBLIC
 ```
 
 Semantics:
 
-- `PRIVATE`: no general audience. Tenant members with suitable permissions may read the recipe. Explicit tenant-to-tenant grants or other explicit recipe grants may still provide access where allowed by the recipe policy.
-- `AUTHENTICATED`: authenticated users accepted by the serving Shadowcook instance may read the published recipe even when they are not members of the owning tenant. Anonymous users may not.
+- `PRIVATE`: no general audience. Only tenant principals with `recipe:visibility-update` may read the published recipe. Explicit share links may grant access.
+- `MEMBERS_ONLY`: all members of the owning tenant may read the published recipe. Anonymous and non-member users may not.
 - `PUBLIC`: unauthenticated users may read the published recipe.
 
 The tenant stores, conceptually:
@@ -1215,7 +1218,7 @@ Each recipe may either inherit that default or override it:
 recipe.visibility_override = NULL
 → inherit tenant default
 
-recipe.visibility_override = PRIVATE | AUTHENTICATED | PUBLIC
+recipe.visibility_override = PRIVATE | MEMBERS_ONLY | PUBLIC
 → explicit recipe policy
 ```
 
@@ -1255,6 +1258,18 @@ UNLISTED
 ```
 
 Visibility is the upper access boundary; discoverability never grants access by itself.
+
+The cookbook overview, category navigation, and recipe lists contain only `DISCOVERABLE` recipes for the caller's audience. An `UNLISTED` recipe remains available at its direct recipe URL when the caller satisfies its visibility policy.
+
+Share links are opaque, revocable explicit grants. Creating a share link requires `recipe:visibility-update`; `recipe:update` alone does not permit it. Share links bypass ordinary viewer visibility but do not alter the recipe or tenant visibility policy.
+
+Each active share link is listed in the recipe editor with its creation timestamp and URL. A principal with `recipe:visibility-update` can copy or revoke any active link for that recipe. Share-link tokens are random, opaque credentials; the public resolver compares their SHA-256 hash, while the stored token is returned only from the permission-gated recipe share-link management API.
+
+A share link may have an optional name, no expiry, or one explicit UTC expiry timestamp. An expired link is not resolved or listed as active.
+
+An active share link grants reader access to the current published default recipe variant, including its ingredient usages and ordered preparation steps.
+
+The shared-recipe view returns to the owning cookbook's root route.
 
 Examples:
 

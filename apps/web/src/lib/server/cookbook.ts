@@ -10,10 +10,35 @@ export interface ServerRecipePage {
   recipe: RecipeDetail;
 }
 
+export interface ServerCookbookPage {
+  cookbook: CookbookResponse;
+  location: CookbookLocation;
+}
+
 export async function loadServerRecipePage(
   pathname: string,
   cookie: string | null,
 ): Promise<ServerRecipePage | null> {
+  const cookbookPage: ServerCookbookPage | null = await loadServerCookbookPage(pathname, cookie);
+  if (cookbookPage === null || cookbookPage.location.recipe === null) return null;
+
+  const variantQuery: string =
+    cookbookPage.location.variantSlug === null
+      ? ''
+      : `?variant=${encodeURIComponent(cookbookPage.location.variantSlug)}`;
+  const recipe: RecipeDetail | null = await getJson<RecipeDetail>(
+    `/cookbook/recipes/${encodeURIComponent(cookbookPage.location.recipe.public_id)}${variantQuery}`,
+    cookie,
+  );
+  if (recipe === null) return null;
+
+  return { cookbook: cookbookPage.cookbook, location: cookbookPage.location, recipe };
+}
+
+export async function loadServerCookbookPage(
+  pathname: string,
+  cookie: string | null,
+): Promise<ServerCookbookPage | null> {
   const tenantSlug: string | null = tenantSlugFromPath(pathname);
   if (tenantSlug === null) return null;
 
@@ -24,17 +49,8 @@ export async function loadServerRecipePage(
   if (cookbook === null) return null;
 
   const location: CookbookLocation = resolveCookbookLocation(cookbook, pathname);
-  if (location.recipe === null) return null;
-
-  const variantQuery: string =
-    location.variantSlug === null ? '' : `?variant=${encodeURIComponent(location.variantSlug)}`;
-  const recipe: RecipeDetail | null = await getJson<RecipeDetail>(
-    `/cookbook/recipes/${encodeURIComponent(location.recipe.public_id)}${variantQuery}`,
-    cookie,
-  );
-  if (recipe === null) return null;
-
-  return { cookbook, location, recipe };
+  if (!isCookbookPath(pathname, location)) return null;
+  return { cookbook, location };
 }
 
 async function getJson<ResponseBody>(path: string, cookie: string | null): Promise<ResponseBody | null> {
@@ -56,4 +72,9 @@ function tenantSlugFromPath(pathname: string): string | null {
     .filter((segment: string): boolean => segment.length > 0);
   if (segments.length === 0) return null;
   return decodeURIComponent(segments[0]);
+}
+
+function isCookbookPath(pathname: string, location: CookbookLocation): boolean {
+  const segments: string[] = pathname.split('/').filter((segment: string): boolean => segment.length > 0);
+  return segments.length === 1 || location.categoryId !== null || location.recipe !== null;
 }

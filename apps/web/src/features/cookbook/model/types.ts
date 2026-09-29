@@ -72,7 +72,11 @@ export interface EditableRecipe {
   title: string;
   summary: string | null;
   categoryPublicIds: string[];
-  visibility: 'PRIVATE' | 'PUBLIC';
+  visibilityOverride: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
+  discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
+  effectiveVisibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
+  effectiveDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
+  canChangeVisibility: boolean;
   publishedVersion: number | null;
   hasPublishedRevision: boolean;
   isDraft: boolean;

@@ -69,6 +69,10 @@
     },
     {
       "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:visibility-update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
       "permission_code": "recipe:delete"
     },
     {

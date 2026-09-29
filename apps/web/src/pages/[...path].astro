@@ -1,7 +1,8 @@
 ---
 import ApplicationPage from '../components/ApplicationPage.astro';
+import CookbookPage from '../features/cookbook/server/CookbookPage.astro';
 import RecipePage from '../features/cookbook/server/RecipePage.astro';
-import { loadServerRecipePage } from '../lib/server/cookbook';
+import { loadServerCookbookPage, loadServerRecipePage } from '../lib/server/cookbook';
 import { resolveLocale } from '../i18n';
 import type { Locale } from '../i18n';
 
@@ -11,18 +12,28 @@ const recipePage = await loadServerRecipePage(
   Astro.url.pathname,
   Astro.request.headers.get('cookie'),
 );
+const cookbookPage =
+  recipePage === null
+    ? await loadServerCookbookPage(Astro.url.pathname, Astro.request.headers.get('cookie'))
+    : null;
 const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
 ---
 
 {
-  recipePage === null ? (
-    <ApplicationPage path={Astro.url.pathname} />
-  ) : (
+  recipePage !== null ? (
     <RecipePage
       cookbook={recipePage.cookbook}
       categoryId={recipePage.location.categoryId}
       locale={locale}
       recipe={recipePage.recipe}
     />
+  ) : cookbookPage !== null ? (
+    <CookbookPage
+      cookbook={cookbookPage.cookbook}
+      categoryId={cookbookPage.location.categoryId}
+      locale={locale}
+    />
+  ) : (
+    <ApplicationPage path={Astro.url.pathname} />
   )
 }

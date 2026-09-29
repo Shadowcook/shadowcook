@@ -9,7 +9,7 @@ export interface TenantTable {
   display_name: string;
   description: string | null;
   slug: string;
-  default_recipe_visibility: 'PRIVATE' | 'AUTHENTICATED' | 'PUBLIC';
+  default_recipe_visibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   default_recipe_discoverability: 'DISCOVERABLE' | 'UNLISTED';
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;
@@ -70,7 +70,7 @@ export interface RecipeTable {
   public_id: Generated<Uuid>;
   lineage_public_id: string;
   slug: string;
-  visibility_override: 'PRIVATE' | 'AUTHENTICATED' | 'PUBLIC' | null;
+  visibility_override: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
   discoverability_override: 'DISCOVERABLE' | 'UNLISTED' | null;
   published_revision_id: string | null;
   draft_revision_id: string | null;
@@ -95,6 +95,8 @@ export interface RecipeRevisionTable {
 export interface RecipeShareLinkTable {
   id: Generated<Uuid>;
   recipe_id: string;
+  name: string | null;
+  token: string;
   token_hash: Buffer;
   created_by_principal_id: string | null;
   expires_at: Timestamp | null;

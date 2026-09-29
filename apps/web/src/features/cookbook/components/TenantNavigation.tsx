@@ -6,13 +6,14 @@ interface TenantNavigationProperties {
   text: Translation;
   cookbook: CookbookResponse;
   activeView:
-    'none' | 'recipes' | 'drafts' | 'categories' | 'users' | 'ingredients' | 'units' | 'editor';
+    'none' | 'recipes' | 'drafts' | 'categories' | 'users' | 'ingredients' | 'units' | 'settings' | 'editor';
   onOpenRecipes: () => void;
   onOpenDrafts: () => void;
   onOpenCategories: () => void;
   onOpenUsers: () => void;
   onOpenIngredients: () => void;
   onOpenUnits: () => void;
+  onOpenSettings: () => void;
   onCreateRecipe: () => void;
 }
 
@@ -27,6 +28,7 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
     onOpenUsers,
     onOpenIngredients,
     onOpenUnits,
+    onOpenSettings,
     onCreateRecipe,
   } = properties;
   return (
@@ -68,6 +70,19 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
             onClick={onOpenCategories}
           >
             {text.tenantNavigation.categories}
+          </button>
+        ) : null}
+        {cookbook.canManageUsers ? (
+          <button
+            type="button"
+            className={
+              activeView === 'settings'
+                ? 'tenant-navigation__link tenant-navigation__link--active'
+                : 'tenant-navigation__link'
+            }
+            onClick={onOpenSettings}
+          >
+            {text.tenantNavigation.settings}
           </button>
         ) : null}
         {cookbook.canManageUsers ? (

@@ -248,7 +248,13 @@ export interface Translation {
     categories: string;
     visibility: string;
     private: string;
+    membersOnly: string;
     public: string;
+    inheritVisibility: string;
+    discoverability: string;
+    discoverable: string;
+    unlisted: string;
+    inheritDiscoverability: string;
     saveDraft: string;
     saving: string;
     publish: string;
@@ -259,6 +265,20 @@ export interface Translation {
     version: string;
     share: string;
     shareCreated: string;
+    shareLinks: string;
+    noShareLinks: string;
+    copyShareLink: string;
+    revokeShareLink: string;
+    shareRevoked: string;
+    shareExpiry: string;
+    shareNeverExpires: string;
+    shareExpires: string;
+    activeShareLinks: string;
+    closeShareDialog: string;
+    shareSetExpiry: string;
+    createShareLink: string;
+    shareLink: string;
+    shareName: string;
     edit: string;
     steps: string;
     variant: string;
@@ -319,6 +339,13 @@ export interface Translation {
     specialWait: string;
     specialWorkStep: string;
   };
+  recipePolicy: {
+    title: string;
+    defaultVisibility: string;
+    defaultDiscoverability: string;
+    save: string;
+    saved: string;
+  };
   tenantNavigation: {
     title: string;
     backToCookbook: string;
@@ -328,6 +355,7 @@ export interface Translation {
     users: string;
     ingredients: string;
     units: string;
+    settings: string;
   };
   tenantUnits: {
     title: string;
