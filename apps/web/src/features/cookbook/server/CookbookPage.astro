@@ -1,5 +1,6 @@
 ---
 import Brand from '../../../components/Brand.astro';
+import HeadBar from '../../../components/HeadBar';
 import PublicCategoryTree from './PublicCategoryTree.astro';
 import CookbookScreen from '../CookbookScreen';
 import { translations } from '../../../i18n';
@@ -71,6 +72,7 @@ function categoryAncestors(category: Category): Category[] {
     <title>{cookbookName} · {text.metadata.title}</title>
   </head>
   <body>
+    <HeadBar client:load locale={locale} />
     <main class="application-shell">
       <Brand name={text.brandName} />
       <section class="dashboard" data-public-cookbook>
@@ -78,11 +80,6 @@ function categoryAncestors(category: Category): Category[] {
           <div>
             <p class="eyebrow">{cookbookName}</p>
             <h1>{selectedCategory?.name ?? text.dashboard.greeting}</h1>
-          </div>
-          <div class="account">
-            <a class="button--secondary" href={`/login?next=${encodeURIComponent(Astro.url.pathname)}`}>
-              {text.dashboard.login}
-            </a>
           </div>
         </header>
         <nav class="breadcrumb" aria-label={text.dashboard.breadcrumb}>

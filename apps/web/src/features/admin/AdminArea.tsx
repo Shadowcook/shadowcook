@@ -65,9 +65,6 @@ export default function AdminArea({ locale, path }: Properties): JSX.Element {
         <p className="message" role="alert">
           {text.adminMail.signInRequired}
         </p>
-        <a className="button-link" href="/login">
-          {text.dashboard.login}
-        </a>
       </section>
     );
   if (access === 'denied') return <AccessDeniedScreen text={text} />;

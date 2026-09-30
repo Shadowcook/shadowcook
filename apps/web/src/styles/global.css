@@ -110,6 +110,69 @@ input,
 select {
   font: inherit;
 }
+.head-bar {
+  position: sticky;
+  z-index: 10;
+  top: 0;
+  display: flex;
+  width: 100%;
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.65rem max(1rem, calc((100% - 1080px) / 2));
+  border-bottom: 1px solid #d7cabb;
+  background: #fffaf0ed;
+  backdrop-filter: blur(0.5rem);
+}
+.head-bar__home {
+  color: #28211d;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  text-decoration: none;
+}
+.head-bar__user-menu {
+  position: relative;
+  color: #4d4037;
+  font: 0.85rem Arial, sans-serif;
+}
+.head-bar__user-menu summary {
+  cursor: pointer;
+  list-style: none;
+}
+.head-bar__user-menu summary::-webkit-details-marker {
+  display: none;
+}
+.head-bar__user-menu summary::after {
+  margin-left: 0.45rem;
+  content: '▾';
+}
+.head-bar__menu {
+  position: absolute;
+  top: calc(100% + 0.65rem);
+  right: 0;
+  display: grid;
+  min-width: 11rem;
+  padding: 0.35rem;
+  border: 1px solid #d7cabb;
+  border-radius: 0.3rem;
+  background: #fffaf0;
+  box-shadow: 0 0.75rem 1.5rem #3c211522;
+}
+.head-bar__menu a,
+.head-bar__menu button {
+  padding: 0.65rem 0.7rem;
+  border: 0;
+  color: #4d4037;
+  background: transparent;
+  font: 0.85rem Arial, sans-serif;
+  text-align: left;
+  text-decoration: none;
+}
+.head-bar__menu a:hover,
+.head-bar__menu button:hover {
+  background: #f3e5d7;
+}
 .application-shell {
   width: min(1080px, calc(100% - 3rem));
   margin: 0 auto;

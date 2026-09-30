@@ -93,6 +93,42 @@ async function invokeTool(
       url: `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/drafts`,
       headers,
     });
+  if (name === 'search_ingredients') {
+    const query: string | null = stringArgument(args, 'query');
+    if (query === null) return { statusCode: 400, payload: '{"error":"query is required."}' };
+    return api.inject({
+      method: 'GET',
+      url: `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/editor-catalogue/ingredients?search=${encodeURIComponent(query)}`,
+      headers,
+    });
+  }
+  if (name === 'create_ingredient') {
+    const ingredient = args.ingredient;
+    if (!isPlainObject(ingredient))
+      return { statusCode: 400, payload: '{"error":"ingredient is required."}' };
+    return api.inject({
+      method: 'POST',
+      url: `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/ingredients`,
+      headers: { ...headers, 'content-type': 'application/json' },
+      payload: JSON.stringify(ingredient),
+    });
+  }
+  if (name === 'list_units')
+    return api.inject({
+      method: 'GET',
+      url: `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/editor-catalogue`,
+      headers,
+    });
+  if (name === 'create_unit') {
+    const unit = args.unit;
+    if (!isPlainObject(unit)) return { statusCode: 400, payload: '{"error":"unit is required."}' };
+    return api.inject({
+      method: 'POST',
+      url: `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/units`,
+      headers: { ...headers, 'content-type': 'application/json' },
+      payload: JSON.stringify(unit),
+    });
+  }
   const publicId: string | null = stringArgument(args, 'publicId');
   if (name === 'create_recipe_draft') {
     const input = args.recipe;
@@ -175,12 +211,53 @@ const recipeSchema: object = {
     categoryPublicIds: { type: 'array', items: uuidSchema },
   },
 };
+const ingredientSchema: object = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['canonicalName'],
+  properties: {
+    canonicalName: stringSchema,
+    aliases: { type: 'array', items: stringSchema },
+  },
+};
+const unitSchema: object = {
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'symbol', 'dimension', 'baseFactor', 'baseOffset'],
+  properties: {
+    name: stringSchema,
+    symbol: stringSchema,
+    dimension: { type: 'string', enum: ['MASS', 'VOLUME', 'COUNT', 'TEMPERATURE'] },
+    baseFactor: stringSchema,
+    baseOffset: stringSchema,
+  },
+};
 
 const tools: object[] = [
   tool('search_recipes', 'Search published recipes in an accessible tenant.', {
     tenantSlug: stringSchema,
   }),
   tool('list_recipe_drafts', 'List the recipe drafts in a tenant.', { tenantSlug: stringSchema }),
+  tool('search_ingredients', 'Search ingredients before creating a new tenant ingredient.', {
+    tenantSlug: stringSchema,
+    query: stringSchema,
+  }),
+  tool('create_ingredient', 'Create an ingredient that belongs only to this tenant.', {
+    tenantSlug: stringSchema,
+    ingredient: ingredientSchema,
+  }),
+  tool(
+    'list_units',
+    'List available instance and tenant units before creating a new tenant unit.',
+    {
+      tenantSlug: stringSchema,
+    },
+  ),
+  tool(
+    'create_unit',
+    'Create a unit that belongs only to this tenant. Use it only when no suitable unit exists.',
+    { tenantSlug: stringSchema, unit: unitSchema },
+  ),
   tool('get_recipe_draft', 'Read a recipe draft or the published revision used to start a draft.', {
     tenantSlug: stringSchema,
     publicId: uuidSchema,

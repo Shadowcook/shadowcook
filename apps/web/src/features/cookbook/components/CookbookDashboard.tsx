@@ -7,9 +7,7 @@ import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/
 
 interface CookbookDashboardProperties {
   text: Translation;
-  email: string;
   cookbook: CookbookResponse;
-  isAuthenticated: boolean;
   selectedCategoryId: string | null;
   selectedRecipe: RecipeDetail | null;
   isRecipeLoading: boolean;
@@ -20,17 +18,13 @@ interface CookbookDashboardProperties {
   onEditRecipe: () => void;
   onShareRecipe: () => void;
   onSelectVariant: (slug: string) => void;
-  onLogin: () => void;
-  onLogout: () => Promise<void>;
   onManageCookbook: () => void;
 }
 
 export default function CookbookDashboard(properties: CookbookDashboardProperties): JSX.Element {
   const {
     text,
-    email,
     cookbook,
-    isAuthenticated,
     selectedCategoryId,
     selectedRecipe,
     isRecipeLoading,
@@ -41,8 +35,6 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onEditRecipe,
     onShareRecipe,
     onSelectVariant,
-    onLogin,
-    onLogout,
     onManageCookbook,
   } = properties;
   const categoryNames: Map<string, string> = new Map(
@@ -65,29 +57,11 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           <p className="eyebrow">{cookbookName}</p>
           <h1>{text.dashboard.greeting}</h1>
         </div>
-        <div className="account">
-          {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
-            <button type="button" className="button--secondary" onClick={onManageCookbook}>
-              {text.tenantNavigation.title}
-            </button>
-          ) : null}
-          {isAuthenticated ? (
-            <>
-              <span>{email}</span>
-              <button
-                className="button--secondary"
-                type="button"
-                onClick={(): void => void onLogout()}
-              >
-                {text.dashboard.logout}
-              </button>
-            </>
-          ) : (
-            <button className="button--secondary" type="button" onClick={onLogin}>
-              {text.dashboard.login}
-            </button>
-          )}
-        </div>
+        {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
+          <button type="button" className="button--secondary" onClick={onManageCookbook}>
+            {text.tenantNavigation.title}
+          </button>
+        ) : null}
       </header>
       <BreadcrumbBar
         categories={cookbook.categories}

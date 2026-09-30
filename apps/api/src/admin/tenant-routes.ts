@@ -470,7 +470,7 @@ export function registerTenantRoutes(
         [tenant.id, 'Owner'],
       );
       await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code LIKE 'tenant:%' OR code LIKE 'recipe:%' OR code LIKE 'variant:%' OR code LIKE 'ingredient:%' OR code LIKE 'category:%' OR code = 'service-account:manage'",
+        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code LIKE 'tenant:%' OR code LIKE 'recipe:%' OR code LIKE 'variant:%' OR code LIKE 'ingredient:%' OR code LIKE 'unit:%' OR code LIKE 'category:%' OR code = 'service-account:manage'",
         [roleResult.rows[0]!.id],
       );
       const editorRole = await client.query<{ id: string }>(
@@ -478,7 +478,7 @@ export function registerTenantRoutes(
         [tenant.id],
       );
       await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'recipe:revision:read', 'recipe:create', 'recipe:update', 'variant:read', 'variant:create', 'variant:update', 'ingredient:read', 'ingredient:create', 'ingredient:update', 'category:read', 'category:update')",
+        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'recipe:revision:read', 'recipe:create', 'recipe:update', 'variant:read', 'variant:create', 'variant:update', 'ingredient:read', 'ingredient:create', 'ingredient:update', 'unit:read', 'unit:create', 'unit:update', 'category:read', 'category:update')",
         [editorRole.rows[0]!.id],
       );
       const viewerRole = await client.query<{ id: string }>(
@@ -486,7 +486,7 @@ export function registerTenantRoutes(
         [tenant.id],
       );
       await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'variant:read', 'ingredient:read', 'category:read')",
+        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'variant:read', 'ingredient:read', 'unit:read', 'category:read')",
         [viewerRole.rows[0]!.id],
       );
       const token = randomBytes(32).toString('base64url');

@@ -9,6 +9,9 @@ export const en: Translation = {
   accessibility: {
     applicationName: 'Shadowcook',
   },
+  headBar: {
+    userMenu: 'User menu',
+  },
   loading: 'Checking session …',
   accessDenied: {
     title: 'Access denied',
@@ -196,7 +199,6 @@ export const en: Translation = {
     unavailable: 'This invitation is unavailable.',
     emailMismatch:
       'You are signed in with a different email address. Sign out before accepting this invitation.',
-    signOut: 'Sign out',
   },
   adminMail: {
     title: 'Mail delivery',

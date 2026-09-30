@@ -218,7 +218,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
-           AND tenant_role_permission.permission_code = 'tenant:manage'
+           AND tenant_role_permission.permission_code IN ('unit:read', 'unit:create', 'unit:update', 'unit:delete')
        ) OR EXISTS (
          SELECT 1 FROM principal_instance_role
          INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id

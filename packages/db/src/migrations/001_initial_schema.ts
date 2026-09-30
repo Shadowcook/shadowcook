@@ -654,6 +654,10 @@ INSERT INTO permission (code, description) VALUES
   ('ingredient:read', 'Read tenant ingredients.'),
   ('ingredient:create', 'Create tenant ingredients.'),
   ('ingredient:update', 'Update tenant ingredients.'),
+  ('unit:read', 'Read tenant units.'),
+  ('unit:create', 'Create tenant units.'),
+  ('unit:update', 'Update tenant units.'),
+  ('unit:delete', 'Delete tenant units.'),
   ('category:read', 'Read tenant categories.'),
   ('category:update', 'Manage tenant categories.'),
   ('service-account:manage', 'Manage tenant service accounts.');

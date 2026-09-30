@@ -25,7 +25,9 @@ listener. Enable Apache's `headers`, `proxy`, `proxy_http`, `rewrite`, and
 
 Copy `.env.example` to `.env`, set a release tag, commit hash, or branch in
 `SHADOWCOOK_SOURCE_REF`, replace the PostgreSQL password, and set the public
-origin. Create the Docker secret before starting the stack:
+origin. Set `DATABASE_URL` to the matching bundled PostgreSQL connection
+string. URL-encode reserved characters in connection-string credentials. Create
+the Docker secret before starting the stack:
 
 ```bash
 cp .env.example .env

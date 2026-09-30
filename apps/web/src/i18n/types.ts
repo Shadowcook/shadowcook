@@ -9,6 +9,9 @@ export interface Translation {
   accessibility: {
     applicationName: string;
   };
+  headBar: {
+    userMenu: string;
+  };
   loading: string;
   accessDenied: {
     title: string;
@@ -69,7 +72,6 @@ export interface Translation {
     accepted: string;
     unavailable: string;
     emailMismatch: string;
-    signOut: string;
   };
   adminMail: {
     title: string;

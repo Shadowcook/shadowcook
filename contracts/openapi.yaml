@@ -2142,7 +2142,7 @@ paths:
     get:
       operationId: listTenantUnits
       summary: Lists units of measure owned by a cookbook.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
         '200':
@@ -2160,7 +2160,7 @@ paths:
     post:
       operationId: createTenantUnit
       summary: Creates a cookbook-owned unit of measure.
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
         required: true
@@ -2172,7 +2172,7 @@ paths:
   /cookbook/tenants/{tenantSlug}/units/{publicId}:
     patch:
       operationId: updateTenantUnit
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },
@@ -2184,7 +2184,7 @@ paths:
       responses: { '204': { description: Unit updated. } }
     delete:
       operationId: deleteTenantUnit
-      security: [{ sessionCookie: [] }]
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
           { $ref: '#/components/parameters/TenantSlug' },

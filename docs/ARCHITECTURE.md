@@ -204,7 +204,8 @@ shadowcook/
 - The category and recipe slug reservation list is `admin`, `api`, `assets`, `auth`, `health`, `login`, `logout`, `recipes`, and `settings`. The database rejects these values for both entity types.
 - `/login` is the public sign-in route. An unauthenticated request to it renders the sign-in form; an authenticated request redirects to `/`.
 - `/` presents the accessible tenant selection. Cookbook content is loaded only after choosing a tenant at `/tenants/{tenant-slug}`; a cookbook response contains records from exactly one tenant.
-- Successful sign-in and sign-out navigate to `/` as full page transitions so the tenant-selection route, rather than a previously mounted cookbook client, controls the root page.
+- Successful sign-in and sign-out navigate to `/` as full page transitions.
+- A sticky global head bar is rendered on application, public cookbook, and public recipe pages. It resolves the current session, provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`.
 - Public cookbook overview and category navigation paths render their accessible category and recipe links as semantic server-rendered HTML without a client-side session check.
@@ -247,6 +248,7 @@ shadowcook/
 - Docker Compose builds the database package, API, and Astro web application from the selected Git ref before creating the API and web runtime containers.
 - The Dockerfile has one build stage and separate API and web runtime targets. The runtime targets contain compiled application output and production dependencies.
 - `deployments/package/compose.yaml` starts API, web, and a persistent bundled PostgreSQL service. `deployments/package/compose.external-postgres.yaml` starts API and web only and requires `DATABASE_URL` for an existing PostgreSQL service.
+- Both Docker Compose configurations pass the explicit `DATABASE_URL` deployment value to the API process. PostgreSQL service credentials and connection-string credentials are configured independently.
 - `pnpm package:deployment` creates a versioned tarball containing the Dockerfile, Apache reverse-proxy example, and operator-facing deployment package files.
 - The API waits for the bundled PostgreSQL health check before startup. The web service waits for the API health check before startup.
 - Secrets required before the API can access PostgreSQL data remain outside the database. `INSTANCE_SECRET_KEY` is supplied as a base64-encoded 32-byte value or as the path named by `INSTANCE_SECRET_KEY_FILE`.
@@ -264,7 +266,7 @@ shadowcook/
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.
-- An active session may accept a tenant-owner invitation only when its email address matches the invited email address; the invitation page provides a sign-out action for a mismatched session.
+- An active session may accept a tenant-owner invitation only when its email address matches the invited email address.
 - One-time email and invitation codes are cleared on session, account, and authentication-step changes and are excluded from browser autocomplete.
 - The six-field login-code control distributes pasted digits from the active field and uses backspace in an empty field to remove and focus the preceding digit.
 - `PUBLIC_WEB_ORIGIN` is the public web origin used to construct invitation URLs.
@@ -978,6 +980,11 @@ ingredient:read
 ingredient:create
 ingredient:update
 
+unit:read
+unit:create
+unit:update
+unit:delete
+
 category:read
 category:update
 
@@ -1053,6 +1060,7 @@ created_at
 - `POST /mcp` is a remote Model Context Protocol endpoint for active service-account bearer tokens.
 - The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
 - MCP tools do not publish or delete recipes.
+- MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.
 - MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE and the `shadowcook:recipes` scope.
 - `/.well-known/oauth-protected-resource` publishes the MCP resource metadata. `/.well-known/oauth-authorization-server` publishes authorization-server metadata.
 - OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.

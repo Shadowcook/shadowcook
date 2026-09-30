@@ -1,5 +1,10 @@
 # Shadowcook 2.0 implementation progress
 
+## Pending setup and administration work
+
+- Tenant creation must be disabled while SMTP is not configured, and the disabled control must explain that SMTP configuration is required.
+- A tenant-creation failure caused by mail delivery must return and display a mail-delivery-specific error instead of a generic request failure.
+
 ## Completed architecture features
 
 ### Platform, persistence, and development data
@@ -53,8 +58,10 @@
 - Tenant-Manager and administrator capabilities cover tenant lifecycle management, invitations, users, and role assignments within their defined scopes.
 - Instance administration provides deep-linkable dashboards and tenant, user, authentication, SMTP, ingredient, and unit management.
 - Middleware protects administration and tenant-management routes, preserves validated post-login navigation, and the web client validates restored sessions with the API.
+- A sticky global head bar provides localized sign-in, authenticated-user, authorized administration, and sign-out actions on every web route, including invitation acceptance routes.
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.
 - Tenant owners can create service accounts, assign existing tenant roles, issue one-time-view opaque bearer tokens, inspect token lifecycle metadata, revoke tokens, and disable service accounts.
 - Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.
 - The authenticated remote MCP endpoint exposes provider-neutral recipe search and draft-editing tools for compatible AI clients. It cannot publish or delete recipes.
 - The MCP endpoint supports OAuth 2.1 authorization-code flow with S256 PKCE, protected-resource metadata, authorization-server metadata, public-client registration, rotating refresh tokens, and human-principal authorization.
+- MCP recipe assistants can search and create tenant-owned ingredients and units when the authenticated tenant role grants the respective permissions. Instance-owned catalogue records remain unavailable to MCP writes.

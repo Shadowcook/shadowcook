@@ -78,7 +78,6 @@ export default function CookbookScreen({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [cookbook, setCookbook] = useState<CookbookResponse>(emptyCookbook);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null);
   const [isRecipeLoading, setIsRecipeLoading] = useState<boolean>(false);
   const [recipeError, setRecipeError] = useState<string>('');
@@ -136,7 +135,6 @@ export default function CookbookScreen({
 
   async function restoreCachedSession(session: BrowserSessionState): Promise<void> {
     if (sharedRecipeToken() !== null) {
-      setIsAuthenticated(session.authenticated);
       setScreen('dashboard');
       return;
     }
@@ -161,7 +159,6 @@ export default function CookbookScreen({
     }
     const loaded: CookbookResponse = await loadCookbook();
     await applyBrowserLocation(loaded);
-    setIsAuthenticated(true);
     setScreen('dashboard');
   }
 
@@ -247,19 +244,6 @@ export default function CookbookScreen({
     } finally {
       setIsSubmitting(false);
     }
-  }
-  async function logout(): Promise<void> {
-    try {
-      await request<void>('/auth/logout', { method: 'POST' });
-    } catch (error: unknown) {
-      setMessage(errorMessage(error, locale));
-      return;
-    }
-    setPassword('');
-    setEmailCode('');
-    setMessage('');
-    clearBrowserSessionCache();
-    window.location.assign('/');
   }
   async function openRecipe(publicId: string): Promise<void> {
     setRecipeError('');
@@ -383,11 +367,6 @@ export default function CookbookScreen({
       { method: 'DELETE' },
     );
     await loadSelectedRecipeShareLinks();
-  }
-  function openLogin(): void {
-    setMessage('');
-    window.history.pushState(null, '', loginPath);
-    setScreen('login');
   }
   function openCategoryEditor(): void {
     const slug: string | null = tenantSlugFromPath();
@@ -655,9 +634,7 @@ export default function CookbookScreen({
               <>
                 <CookbookDashboard
                   text={text}
-                  email={email}
                   cookbook={cookbook}
-                  isAuthenticated={isAuthenticated}
                   selectedCategoryId={selectedCategoryId}
                   selectedRecipe={selectedRecipe}
                   isRecipeLoading={isRecipeLoading}
@@ -668,8 +645,6 @@ export default function CookbookScreen({
                   onEditRecipe={editSelectedRecipe}
                   onShareRecipe={openSelectedRecipeShareDialog}
                   onSelectVariant={selectRecipeVariant}
-                  onLogin={openLogin}
-                  onLogout={logout}
                   onManageCookbook={openDrafts}
                 />
                 {isDetailShareDialogOpen ? (

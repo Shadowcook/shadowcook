@@ -1,5 +1,6 @@
 ---
 import Brand from '../../../components/Brand.astro';
+import HeadBar from '../../../components/HeadBar';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import { localizedIngredientName } from '../../../i18n/ingredient-localization';
@@ -100,6 +101,7 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
     <script type="application/ld+json" set:html={structuredDataJson}></script>
   </head>
   <body>
+    <HeadBar client:load locale={locale} />
     <main class="application-shell">
       <Brand name={text.brandName} />
       <article class="recipe-detail">

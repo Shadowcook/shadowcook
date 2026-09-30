@@ -26,7 +26,7 @@ const decimalPattern: RegExp = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]{1,12})?$/;
 
 export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants/:tenantSlug/units', async (request, reply) => {
-    const tenantId: string | null = await tenantIdFor(pool, request, reply);
+    const tenantId: string | null = await tenantIdFor(pool, request, reply, 'unit:read');
     if (tenantId === null) return;
     const units = await pool.query<UnitRow>(
       `SELECT unit.public_id, unit.name, unit.symbol, unit.dimension, unit.base_factor::text,
@@ -42,7 +42,7 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
   });
 
   api.post('/cookbook/tenants/:tenantSlug/units', async (request, reply) => {
-    const tenantId: string | null = await tenantIdFor(pool, request, reply);
+    const tenantId: string | null = await tenantIdFor(pool, request, reply, 'unit:create');
     if (tenantId === null) return;
     const unit: UnitInput | null = parseUnitInput(request.body);
     if (unit === null) return invalidUnit(reply);
@@ -62,7 +62,7 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
   });
 
   api.patch('/cookbook/tenants/:tenantSlug/units/:publicId', async (request, reply) => {
-    const tenantId: string | null = await tenantIdFor(pool, request, reply);
+    const tenantId: string | null = await tenantIdFor(pool, request, reply, 'unit:update');
     if (tenantId === null) return;
     const unit: UnitInput | null = parseUnitInput(request.body);
     if (unit === null) return invalidUnit(reply);
@@ -88,7 +88,7 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
   });
 
   api.delete('/cookbook/tenants/:tenantSlug/units/:publicId', async (request, reply) => {
-    const tenantId: string | null = await tenantIdFor(pool, request, reply);
+    const tenantId: string | null = await tenantIdFor(pool, request, reply, 'unit:delete');
     if (tenantId === null) return;
     const publicId: string = (request.params as { publicId: string }).publicId;
     const result = await pool.query(
@@ -111,13 +111,14 @@ async function tenantIdFor(
   pool: Pool,
   request: FastifyRequest,
   reply: FastifyReply,
+  permission: string,
 ): Promise<string | null> {
   return requireTenantPermission(
     pool,
     request,
     reply,
     (request.params as { tenantSlug: string }).tenantSlug,
-    'tenant:manage',
+    permission,
   );
 }
 function parseUnitInput(value: unknown): UnitInput | null {

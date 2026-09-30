@@ -22,7 +22,6 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [code, setCode] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const [emailMismatch, setEmailMismatch] = useState<boolean>(false);
 
   useEffect((): void => {
     void fetch(`/api/invitations/${encodeURIComponent(token)}`)
@@ -34,7 +33,6 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
   }, [token, text.invitation.unavailable]);
   async function accept(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    setEmailMismatch(false);
     const submittedCode: string = code;
     setCode('');
     const response: Response = await fetch(`/api/invitations/${encodeURIComponent(token)}/accept`, {
@@ -49,19 +47,11 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
     }
     const body: ApiError | null = await response.json().catch((): null => null);
     if (body?.code === 'INVITATION_EMAIL_MISMATCH') {
-      setEmailMismatch(true);
       setMessage(text.invitation.emailMismatch);
       return;
     }
     setMessage(text.invitation.unavailable);
   }
-  async function signOut(): Promise<void> {
-    await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
-    setCode('');
-    setEmailMismatch(false);
-    setMessage('');
-  }
-
   if (invitation === null)
     return (
       <section className="panel">
@@ -100,11 +90,6 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
         <p className="message" role="status">
           {message}
         </p>
-      )}
-      {!emailMismatch ? null : (
-        <button className="button--secondary" type="button" onClick={(): void => void signOut()}>
-          {text.invitation.signOut}
-        </button>
       )}
     </section>
   );
