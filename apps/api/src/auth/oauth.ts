@@ -270,7 +270,7 @@ function parseAuthorizationRequest(
   const redirectUri = query.redirect_uri;
   const state = query.state;
   const resource = query.resource;
-  const requestedScope = query.scope;
+  const requestedScope: unknown = query.scope ?? scope;
   const codeChallenge = query.code_challenge;
   const codeChallengeMethod = query.code_challenge_method;
   if (
