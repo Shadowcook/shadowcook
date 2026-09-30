@@ -72,3 +72,4 @@ Thumbs.db
 /personal_agents.md
 development-seed.json
 /.run/
+deployments/package/secrets/

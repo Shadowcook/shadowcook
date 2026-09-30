@@ -5,6 +5,7 @@
 ### Platform, persistence, and development data
 
 - The pnpm workspace contains the Fastify API, Astro web application, database package, and OpenAPI contract.
+- The Docker Compose deployment package builds the API and web runtime images from a configured Git ref, supports bundled or existing PostgreSQL through separate Compose configurations, includes an Apache reverse-proxy example, and can be created as a versioned server-copyable tarball.
 - PostgreSQL uses the initial normalized schema for tenants, principals, roles, catalogues, recipes, immutable revisions, media, audit events, cooking sessions, sharing, federation upstreams, and mappings.
 - API startup runs transactional, advisory-lock-protected migrations with recorded checksums and UTC timestamps before binding its HTTP listener.
 - The API exposes the health endpoint and documented API contract.

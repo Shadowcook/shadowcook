@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+!.env.example
+deployments/package/secrets
+node_modules
+**/node_modules
+dist
+**/dist
+.astro
+**/.astro
+old
+coverage
+docs

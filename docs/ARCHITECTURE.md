@@ -243,6 +243,12 @@ shadowcook/
 
 - A deployed Shadowcook instance runs as containers. The API process is configured through container environment variables and Docker Secrets.
 - A repository-root `.env` file is only a local-development convenience and is not required by a container deployment.
+- The operator-facing Docker Compose package is in `deployments/package`. Its `.env` selects the Git repository URL and Git ref used as the Docker build context.
+- Docker Compose builds the database package, API, and Astro web application from the selected Git ref before creating the API and web runtime containers.
+- The Dockerfile has one build stage and separate API and web runtime targets. The runtime targets contain compiled application output and production dependencies.
+- `deployments/package/compose.yaml` starts API, web, and a persistent bundled PostgreSQL service. `deployments/package/compose.external-postgres.yaml` starts API and web only and requires `DATABASE_URL` for an existing PostgreSQL service.
+- `pnpm package:deployment` creates a versioned tarball containing the Dockerfile, Apache reverse-proxy example, and operator-facing deployment package files.
+- The API waits for the bundled PostgreSQL health check before startup. The web service waits for the API health check before startup.
 - Secrets required before the API can access PostgreSQL data remain outside the database. `INSTANCE_SECRET_KEY` is supplied as a base64-encoded 32-byte value or as the path named by `INSTANCE_SECRET_KEY_FILE`.
 - Docker deployments provide `INSTANCE_SECRET_KEY_FILE=/run/secrets/instance_secret_key` and mount the secret at that path.
 - Database connection configuration and operational encryption keys are deployment configuration. SMTP server details, SMTP credentials, sender identity, and other settings an instance administrator can change at runtime are stored in the database and managed through the administration UI.

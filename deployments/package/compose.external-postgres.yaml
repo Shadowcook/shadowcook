@@ -1,0 +1,79 @@
+name: shadowcook
+
+x-shadowcook-source-build: &shadowcook-source-build
+  context: '${SHADOWCOOK_SOURCE_REPOSITORY_URL:-https://github.com/Shadowcook/shadowcook.git}#${SHADOWCOOK_SOURCE_REF:?Set SHADOWCOOK_SOURCE_REF in .env}'
+  dockerfile: deployments/docker/Dockerfile
+
+x-api-environment: &api-environment
+  NODE_ENV: production
+  HOST: 0.0.0.0
+  PORT: 3000
+  DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in .env}
+  PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}
+  PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}/api}
+  BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@localhost}
+  INSTANCE_SECRET_KEY_FILE: /run/secrets/instance_secret_key
+
+x-api-image: &api-image
+  image: shadowcook-api:${SHADOWCOOK_IMAGE_TAG:-local}
+  pull_policy: build
+  build:
+    <<: *shadowcook-source-build
+    target: api-runtime
+
+x-web-image: &web-image
+  image: shadowcook-web:${SHADOWCOOK_IMAGE_TAG:-local}
+  pull_policy: build
+  build:
+    <<: *shadowcook-source-build
+    target: web-runtime
+
+services:
+  api:
+    <<: *api-image
+    environment: *api-environment
+    secrets:
+      - instance_secret_key
+    expose:
+      - '3000'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/health').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+  web:
+    <<: *web-image
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 4321
+      SHADOWCOOK_API_ORIGIN: http://api:3000
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - '${SHADOWCOOK_HTTP_BIND:-127.0.0.1}:${SHADOWCOOK_HTTP_PORT:-4321}:4321'
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:4321/').then((response) => process.exit(response.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 10s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+    restart: unless-stopped
+    stop_grace_period: 30s
+
+secrets:
+  instance_secret_key:
+    file: ${INSTANCE_SECRET_KEY_FILE:?Set INSTANCE_SECRET_KEY_FILE in .env}

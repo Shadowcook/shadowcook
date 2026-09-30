@@ -13,7 +13,8 @@
     "start:api": "npm --prefix apps/api run start",
     "maintenance": "npm --prefix apps/api run maintenance",
     "reset:dev-db": "npm --prefix apps/api run reset:dev-db",
-    "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db"
+    "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
+    "package:deployment": "sh scripts/package-deployment.sh"
   },
   "devDependencies": {
     "prettier": "^3.9.8",
