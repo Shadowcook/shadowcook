@@ -2,6 +2,8 @@ import type { MiddlewareHandler } from 'astro';
 
 const apiPrefix: string = '/api';
 const defaultApiOrigin: string = 'http://localhost:3000';
+const protectedResourceMetadataPath: string = '/.well-known/oauth-protected-resource';
+const authorizationServerMetadataPath: string = '/.well-known/oauth-authorization-server';
 
 export const onRequest: MiddlewareHandler = async (context, next): Promise<Response> => {
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
@@ -18,9 +20,10 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
     }
     if (!sessionIsValid) return Response.redirect(loginUrl(context.url), 302);
   }
-  if (!context.url.pathname.startsWith(`${apiPrefix}/`)) return next();
-  const apiPath: string = context.url.pathname.slice(apiPrefix.length);
-  const apiUrl: URL = new URL(`${apiPath}${context.url.search}`, apiOrigin);
+  const apiPath: string | null = oauthDiscoveryApiPath(context.url.pathname);
+  if (apiPath === null && !context.url.pathname.startsWith(`${apiPrefix}/`)) return next();
+  const resolvedApiPath: string = apiPath ?? context.url.pathname.slice(apiPrefix.length);
+  const apiUrl: URL = new URL(`${resolvedApiPath}${context.url.search}`, apiOrigin);
   const requestBody: ArrayBuffer | undefined =
     context.request.method === 'GET' || context.request.method === 'HEAD'
       ? undefined
@@ -31,6 +34,17 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
     body: requestBody,
   });
 };
+
+function oauthDiscoveryApiPath(pathname: string): string | null {
+  if (
+    pathname === protectedResourceMetadataPath ||
+    pathname === `${protectedResourceMetadataPath}${apiPrefix}/mcp`
+  )
+    return protectedResourceMetadataPath;
+  if (pathname === `${authorizationServerMetadataPath}${apiPrefix}`)
+    return authorizationServerMetadataPath;
+  return null;
+}
 
 function requiresAuthentication(pathname: string): boolean {
   return isAdministrationPath(pathname) || isTenantManagementPath(pathname);

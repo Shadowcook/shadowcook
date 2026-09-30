@@ -1266,10 +1266,22 @@ paths:
       summary: Returns OAuth protected-resource metadata for the MCP endpoint.
       responses:
         '200': { description: Protected-resource metadata. }
+  /.well-known/oauth-protected-resource/api/mcp:
+    get:
+      operationId: getPathSpecificMcpProtectedResourceMetadata
+      summary: Returns OAuth protected-resource metadata for the public /api/mcp endpoint.
+      responses:
+        '200': { description: Protected-resource metadata. }
   /.well-known/oauth-authorization-server:
     get:
       operationId: getOAuthAuthorizationServerMetadata
       summary: Returns OAuth authorization-server metadata.
+      responses:
+        '200': { description: Authorization-server metadata. }
+  /.well-known/oauth-authorization-server/api:
+    get:
+      operationId: getPathSpecificOAuthAuthorizationServerMetadata
+      summary: Returns OAuth authorization-server metadata for the public /api issuer.
       responses:
         '200': { description: Authorization-server metadata. }
   /oauth/register:

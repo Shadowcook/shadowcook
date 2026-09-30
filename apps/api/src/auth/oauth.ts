@@ -134,6 +134,7 @@ function authorizationServerMetadata(publicApiOrigin: string): object {
     authorization_endpoint: `${publicApiOrigin}/oauth/authorize`,
     token_endpoint: `${publicApiOrigin}/oauth/token`,
     registration_endpoint: `${publicApiOrigin}/oauth/register`,
+    authorization_response_iss_parameter_supported: true,
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     token_endpoint_auth_methods_supported: ['none'],

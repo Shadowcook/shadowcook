@@ -65,3 +65,4 @@
 - The authenticated remote MCP endpoint exposes provider-neutral recipe search and draft-editing tools for compatible AI clients. It cannot publish or delete recipes.
 - The MCP endpoint supports OAuth 2.1 authorization-code flow with S256 PKCE, protected-resource metadata, authorization-server metadata, public-client registration, rotating refresh tokens, and human-principal authorization.
 - MCP recipe assistants can search and create tenant-owned ingredients and units when the authenticated tenant role grants the respective permissions. Instance-owned catalogue records remain unavailable to MCP writes.
+- The public web proxy exposes both root and path-specific OAuth discovery URLs for the `/api/mcp` resource, allowing ChatGPT to discover dynamic client registration.
