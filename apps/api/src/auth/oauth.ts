@@ -86,6 +86,7 @@ export function registerOAuthRoutes(
     }
   });
   api.get('/oauth/authorize', async (request, reply) => {
+    request.log.info({ query: request.query }, 'OAuth authorization request received');
     const authorization: AuthorizationRequest | null = parseAuthorizationRequest(
       request,
       publicApiOrigin,
@@ -128,6 +129,10 @@ export function registerOAuthRoutes(
   });
   api.post('/oauth/token', async (request, reply) => {
     const parameters: URLSearchParams = new URLSearchParams(String(request.body ?? ''));
+    request.log.info(
+      { parameters: Object.fromEntries(parameters.entries()) },
+      'OAuth token request received',
+    );
     const grantType: string | null = parameters.get('grant_type');
     if (grantType === 'authorization_code')
       return exchangeAuthorizationCode(pool, request, reply, parameters);
@@ -178,15 +183,16 @@ async function exchangeAuthorizationCode(
       [hashToken(code)],
     );
     const authorization: AuthorizationCodeRow | undefined = result.rows[0];
-    if (
-      authorization === undefined ||
-      authorization.client_id !== clientId ||
-      authorization.redirect_uri !== redirectUri ||
-      (resource !== null && authorization.resource !== resource) ||
-      !safeEqual(pkceChallenge(verifier), authorization.code_challenge)
-    ) {
+    const validation = authorizationCodeValidation(
+      authorization,
+      clientId,
+      redirectUri,
+      resource,
+      verifier,
+    );
+    if (!validation.isValid) {
       await client.query('ROLLBACK');
-      logOAuthRequest(request, 'token', 'authorization_code_invalid');
+      logOAuthRequest(request, 'token', 'authorization_code_invalid', validation);
       return oauthError(reply, 400, 'invalid_grant');
     }
     await client.query('UPDATE oauth_authorization_code SET consumed_at = now() WHERE id = $1', [
@@ -353,8 +359,44 @@ function logOAuthRequest(
   request: FastifyRequest,
   flow: 'authorize' | 'token',
   outcome: string,
+  details?: AuthorizationCodeValidation,
 ): void {
-  request.log.info({ flow, outcome }, 'OAuth request processed');
+  request.log.info({ flow, outcome, ...details }, 'OAuth request processed');
+}
+
+interface AuthorizationCodeValidation {
+  isValid: boolean;
+  codeFound: boolean;
+  clientIdMatches: boolean;
+  redirectUriMatches: boolean;
+  resourceProvided: boolean;
+  resourceMatches: boolean;
+  pkceMatches: boolean;
+}
+
+function authorizationCodeValidation(
+  authorization: AuthorizationCodeRow | undefined,
+  clientId: string,
+  redirectUri: string,
+  resource: string | null,
+  verifier: string,
+): AuthorizationCodeValidation {
+  const codeFound: boolean = authorization !== undefined;
+  const clientIdMatches: boolean = authorization?.client_id === clientId;
+  const redirectUriMatches: boolean = authorization?.redirect_uri === redirectUri;
+  const resourceProvided: boolean = resource !== null;
+  const resourceMatches: boolean = resource === null || authorization?.resource === resource;
+  const pkceMatches: boolean =
+    authorization !== undefined && safeEqual(pkceChallenge(verifier), authorization.code_challenge);
+  return {
+    isValid: codeFound && clientIdMatches && redirectUriMatches && resourceMatches && pkceMatches,
+    codeFound,
+    clientIdMatches,
+    redirectUriMatches,
+    resourceProvided,
+    resourceMatches,
+    pkceMatches,
+  };
 }
 
 function parseRegistration(value: unknown): { redirectUris: string[]; clientName: string } | null {
