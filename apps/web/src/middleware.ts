@@ -53,7 +53,11 @@ function logAuthenticationProxyRequest(pathname: string, method: string): void {
   );
 }
 
-function logAuthenticationProxyResponse(pathname: string, method: string, response: Response): void {
+function logAuthenticationProxyResponse(
+  pathname: string,
+  method: string,
+  response: Response,
+): void {
   if (!isLoggedAuthenticationPath(pathname)) return;
   const location: string | null = response.headers.get('location');
   let redirectPath: string | null = null;
@@ -72,6 +76,7 @@ function logAuthenticationProxyResponse(pathname: string, method: string, respon
       path: pathname,
       status: response.status,
       redirectPath,
+      redirectUrl: location,
       contentEncoding: response.headers.get('content-encoding'),
       hasSetCookie: response.headers.has('set-cookie'),
     }),
