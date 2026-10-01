@@ -14,6 +14,7 @@ export interface Translation {
   };
   buildFooter: {
     commit: string;
+    unavailable: string;
   };
   loading: string;
   accessDenied: {

@@ -104,6 +104,8 @@ body {
   min-height: 100vh;
   margin: 0;
   background: radial-gradient(circle at 84% 4%, #f3ce94 0, transparent 25rem), #f6f1e7;
+  display: flex;
+  flex-direction: column;
 }
 button,
 input,
@@ -176,15 +178,20 @@ select {
 .application-shell {
   width: min(1080px, calc(100% - 3rem));
   margin: 0 auto;
-  padding: 3rem 0 5rem;
+  flex: 1;
+  padding: 3rem 0;
 }
 .build-footer {
-  width: min(1080px, calc(100% - 3rem));
-  margin: -3rem auto 0;
-  padding: 0 0 1.5rem;
+  width: 100%;
+  padding: 0.85rem max(1rem, calc((100% - 1080px) / 2));
+  border-top: 1px solid #d7cabb;
+  background: #fffaf0ed;
   color: #75675d;
   font: 0.75rem Arial, sans-serif;
   text-align: center;
+}
+.build-footer__content {
+  overflow-wrap: anywhere;
 }
 .build-footer code {
   color: inherit;
@@ -194,9 +201,6 @@ select {
   .application-shell--admin {
     width: calc(100% - 4rem);
     max-width: none;
-  }
-  .application-shell--admin + .build-footer {
-    width: calc(100% - 4rem);
   }
 }
 .brand {

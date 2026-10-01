@@ -7,12 +7,12 @@ interface Properties {
 }
 
 const { buildCommit, text } = Astro.props;
+const displayedCommit: string =
+  buildCommit === undefined || buildCommit.length === 0 ? text.buildFooter.unavailable : buildCommit;
 ---
 
-{
-  buildCommit === undefined || buildCommit.length === 0 ? null : (
-    <footer class="build-footer">
-      <span>{text.buildFooter.commit}:</span> <code>{buildCommit}</code>
-    </footer>
-  )
-}
+<footer class="build-footer">
+  <div class="build-footer__content">
+    <span>{text.buildFooter.commit}:</span> <code>{displayedCommit}</code>
+  </div>
+</footer>

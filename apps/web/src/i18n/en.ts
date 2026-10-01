@@ -14,6 +14,7 @@ export const en: Translation = {
   },
   buildFooter: {
     commit: 'Build commit',
+    unavailable: 'not available',
   },
   loading: 'Checking session …',
   accessDenied: {
