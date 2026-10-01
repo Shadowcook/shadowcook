@@ -1,4 +1,6 @@
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
+import { isIP } from 'node:net';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentSessionUser } from './session.js';
@@ -7,6 +9,7 @@ const scope: string = 'shadowcook:recipes';
 const authorizationCodeLifetimeMilliseconds: number = 5 * 60 * 1000;
 const accessTokenLifetimeMilliseconds: number = 60 * 60 * 1000;
 const refreshTokenLifetimeMilliseconds: number = 30 * 24 * 60 * 60 * 1000;
+const clientMetadataRequestTimeoutMilliseconds: number = 5 * 1000;
 
 interface AuthorizationRequest {
   responseType: string;
@@ -158,6 +161,7 @@ function authorizationServerMetadata(publicApiOrigin: string): object {
     token_endpoint: `${publicApiOrigin}/oauth/token`,
     registration_endpoint: `${publicApiOrigin}/oauth/register`,
     authorization_response_iss_parameter_supported: true,
+    client_id_metadata_document_supported: true,
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
     token_endpoint_auth_methods_supported: ['none'],
@@ -354,6 +358,8 @@ async function isKnownRedirectUri(
   clientId: string,
   redirectUri: string,
 ): Promise<boolean> {
+  const metadataRedirectUris: string[] | null = await clientMetadataRedirectUris(clientId);
+  if (metadataRedirectUris !== null) return metadataRedirectUris.includes(redirectUri);
   const result = await pool.query(
     `SELECT 1 FROM oauth_client
      INNER JOIN oauth_client_redirect_uri ON oauth_client_redirect_uri.oauth_client_id = oauth_client.id
@@ -361,6 +367,32 @@ async function isKnownRedirectUri(
     [clientId, redirectUri],
   );
   return result.rowCount === 1;
+}
+
+async function clientMetadataRedirectUris(clientId: string): Promise<string[] | null> {
+  if (!(await isPublicHttpsUrl(clientId))) return null;
+  try {
+    const response: Response = await fetch(clientId, {
+      headers: { accept: 'application/json' },
+      redirect: 'error',
+      signal: AbortSignal.timeout(clientMetadataRequestTimeoutMilliseconds),
+    });
+    if (!response.ok) return null;
+    const document: unknown = await response.json();
+    if (typeof document !== 'object' || document === null) return null;
+    const redirectUris: unknown = (document as Record<string, unknown>).redirect_uris;
+    if (
+      !Array.isArray(redirectUris) ||
+      redirectUris.length === 0 ||
+      !redirectUris.every((uri: unknown): uri is string =>
+        typeof uri === 'string' ? isHttpsUrl(uri) : false,
+      )
+    )
+      return null;
+    return [...new Set(redirectUris)];
+  } catch (_error: unknown) {
+    return null;
+  }
 }
 
 function logOAuthRequest(
@@ -436,6 +468,65 @@ function isHttpsUrl(value: string): boolean {
   } catch (_error: unknown) {
     return false;
   }
+}
+async function isPublicHttpsUrl(value: string): Promise<boolean> {
+  let url: URL;
+  try {
+    url = new URL(value);
+  } catch (_error: unknown) {
+    return false;
+  }
+  if (
+    url.protocol !== 'https:' ||
+    url.username.length > 0 ||
+    url.password.length > 0 ||
+    url.hostname === 'localhost'
+  )
+    return false;
+  try {
+    const addresses = await lookup(url.hostname, { all: true, verbatim: true });
+    return (
+      addresses.length > 0 &&
+      addresses.every(({ address }: { address: string }): boolean => isPublicIp(address))
+    );
+  } catch (_error: unknown) {
+    return false;
+  }
+}
+function isPublicIp(address: string): boolean {
+  if (isIP(address) === 4) return isPublicIpv4(address);
+  if (isIP(address) === 6) return isPublicIpv6(address);
+  return false;
+}
+function isPublicIpv4(address: string): boolean {
+  const octets: number[] = address.split('.').map((part: string): number => Number(part));
+  const first: number = octets[0]!;
+  const second: number = octets[1]!;
+  return !(
+    first === 0 ||
+    first === 10 ||
+    first === 127 ||
+    (first === 100 && second >= 64 && second <= 127) ||
+    (first === 169 && second === 254) ||
+    (first === 172 && second >= 16 && second <= 31) ||
+    (first === 192 && second === 168) ||
+    (first === 198 && (second === 18 || second === 19)) ||
+    first >= 224
+  );
+}
+function isPublicIpv6(address: string): boolean {
+  const normalized: string = address.toLowerCase();
+  const ipv4MappedAddress: RegExpMatchArray | null = normalized.match(
+    /::ffff:(\d+\.\d+\.\d+\.\d+)$/,
+  );
+  if (ipv4MappedAddress !== null) return isPublicIpv4(ipv4MappedAddress[1]!);
+  return !(
+    normalized === '::' ||
+    normalized === '::1' ||
+    normalized.startsWith('fc') ||
+    normalized.startsWith('fd') ||
+    normalized.startsWith('fe80:')
+  );
 }
 function strings(values: unknown[]): values is string[] {
   return values.every((value: unknown): boolean => typeof value === 'string' && value.length > 0);

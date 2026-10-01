@@ -2450,6 +2450,7 @@ components:
           token_endpoint,
           registration_endpoint,
           authorization_response_iss_parameter_supported,
+          client_id_metadata_document_supported,
           response_types_supported,
           grant_types_supported,
           token_endpoint_auth_methods_supported,
@@ -2462,6 +2463,7 @@ components:
         token_endpoint: { type: string, format: uri }
         registration_endpoint: { type: string, format: uri }
         authorization_response_iss_parameter_supported: { type: boolean, const: true }
+        client_id_metadata_document_supported: { type: boolean, const: true }
         response_types_supported:
           type: array
           items: { type: string, const: code }

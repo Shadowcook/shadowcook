@@ -1062,7 +1062,7 @@ created_at
 - The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
 - MCP tools do not publish or delete recipes.
 - MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.
-- MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, dynamic client registration, and the `shadowcook:recipes` scope.
+- MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, dynamic client registration, and the `shadowcook:recipes` scope.
 - OAuth authorization requests that omit `scope` receive `shadowcook:recipes` as their default scope.
 - `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp` publish the MCP resource metadata. `/.well-known/oauth-authorization-server/api` publishes authorization-server metadata for the `/api` issuer.
 - OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.
