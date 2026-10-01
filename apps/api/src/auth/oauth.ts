@@ -124,6 +124,14 @@ export function registerOAuthRoutes(
     target.searchParams.set('code', code);
     target.searchParams.set('state', authorization.state);
     target.searchParams.set('iss', publicApiOrigin);
+    request.log.info(
+      {
+        authorization,
+        callbackUrl: target.toString(),
+        issuer: publicApiOrigin,
+      },
+      'OAuth authorization callback issued',
+    );
     logOAuthRequest(request, 'authorize', 'authorization_code_issued');
     return reply.redirect(target.toString());
   });
