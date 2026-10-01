@@ -33,11 +33,13 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
   async function signOut(): Promise<void> {
     setSigningOut(true);
     setSignOutError('');
+    const abortController: AbortController = new AbortController();
+    const timeoutId: number = window.setTimeout((): void => abortController.abort(), 10000);
     try {
       const response: Response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
-        signal: AbortSignal.timeout(10000),
+        signal: abortController.signal,
       });
       if (!response.ok) {
         console.error('Sign-out request returned an unsuccessful response.', { status: response.status });
@@ -51,6 +53,7 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
       setSignOutError(text.headBar.signOutFailed);
       return;
     } finally {
+      window.clearTimeout(timeoutId);
       setSigningOut(false);
     }
     clearBrowserSessionCache();
