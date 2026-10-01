@@ -28,18 +28,31 @@ if [ ! -f "${environment_file}" ]; then
   exit 66
 fi
 
-source_repository_url=$(awk -F= '
-  $1 == "SHADOWCOOK_SOURCE_REPOSITORY_URL" {
+read_environment_value() {
+  key=$1
+
+  awk -v key="${key}" '
+  index($0, key "=") == 1 {
     value = substr($0, index($0, "=") + 1)
   }
   END {
     sub(/\r$/, "", value)
     print value
   }
-' "${environment_file}")
+' "${environment_file}"
+}
+
+source_repository_url=$(read_environment_value SHADOWCOOK_SOURCE_REPOSITORY_URL)
 
 if [ -z "${source_repository_url}" ]; then
   printf '%s\n' 'SHADOWCOOK_SOURCE_REPOSITORY_URL must be set in .env.' >&2
+  exit 65
+fi
+
+public_web_origin=$(read_environment_value PUBLIC_WEB_ORIGIN)
+
+if [ -z "${public_web_origin}" ]; then
+  printf '%s\n' 'PUBLIC_WEB_ORIGIN must be set in .env.' >&2
   exit 65
 fi
 
@@ -99,7 +112,9 @@ update_environment_value SHADOWCOOK_SOURCE_REF "${build_commit}"
 update_environment_value SHADOWCOOK_BUILD_COMMIT "${build_commit}"
 
 cd "${deployment_directory}"
-docker compose build --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}"
+docker compose build \
+  --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}" \
+  --build-arg "PUBLIC_WEB_ORIGIN=${public_web_origin}"
 docker compose up --no-build -d
 
 upgrade_completed=true

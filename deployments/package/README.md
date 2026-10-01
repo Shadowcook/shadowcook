@@ -20,7 +20,8 @@ Extract the archive on the server, then continue in its top-level directory.
 `apache.reverse-proxy-example.conf` proxies HTTPS traffic to the bundled web
 listener. Enable Apache's `headers`, `proxy`, `proxy_http`, `rewrite`, and
 `ssl` modules, replace the example hostname and certificate paths, then set
-`PUBLIC_WEB_ORIGIN` to the same HTTPS origin in `.env`.
+`PUBLIC_WEB_ORIGIN` to the same HTTPS origin in `.env`. The HTTPS virtual host
+must forward `X-Forwarded-Proto`, `X-Forwarded-Port`, and `X-Forwarded-Host`.
 
 ## Bundled PostgreSQL
 
@@ -61,9 +62,9 @@ Upgrade either deployment mode by passing a branch, tag, or commit hash:
 
 The script fetches the requested Git ref, resolves its commit, and stores the
 full commit hash in both `SHADOWCOOK_SOURCE_REF` and `SHADOWCOOK_BUILD_COMMIT`.
-It passes the commit explicitly to the Docker Compose build, rebuilds both
-application images, and recreates changed containers. The web footer displays
-that commit. If the build or container update fails, the script restores the
+It passes the commit and `PUBLIC_WEB_ORIGIN` explicitly to the Docker Compose
+build, rebuilds both application images, and recreates changed containers. The
+web footer displays that commit. If the build or container update fails, the script restores the
 previous `.env` file. Use a full commit hash or immutable release tag for
 repeatable production deployments.
 

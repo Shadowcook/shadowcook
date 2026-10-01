@@ -5,6 +5,7 @@ x-shadowcook-source-build: &shadowcook-source-build
   dockerfile: deployments/docker/Dockerfile
   args:
     SHADOWCOOK_BUILD_COMMIT: ${SHADOWCOOK_BUILD_COMMIT:?Set SHADOWCOOK_BUILD_COMMIT in .env}
+    PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}
 
 x-api-environment: &api-environment
   NODE_ENV: production
