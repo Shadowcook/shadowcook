@@ -61,10 +61,11 @@ Upgrade either deployment mode by passing a branch, tag, or commit hash:
 
 The script fetches the requested Git ref, resolves its commit, and stores the
 full commit hash in both `SHADOWCOOK_SOURCE_REF` and `SHADOWCOOK_BUILD_COMMIT`.
-It then rebuilds both application images and recreates changed containers. The
-web footer displays that commit. If the build or container update fails, the
-script restores the previous `.env` file. Use a full commit hash or immutable
-release tag for repeatable production deployments.
+It passes the commit explicitly to the Docker Compose build, rebuilds both
+application images, and recreates changed containers. The web footer displays
+that commit. If the build or container update fails, the script restores the
+previous `.env` file. Use a full commit hash or immutable release tag for
+repeatable production deployments.
 
 `INSTANCE_SECRET_KEY_FILE` is mounted only as a Docker secret. Keep that file
 outside version control and retain the same key with database backups: it is

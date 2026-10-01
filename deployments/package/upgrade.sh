@@ -99,7 +99,8 @@ update_environment_value SHADOWCOOK_SOURCE_REF "${build_commit}"
 update_environment_value SHADOWCOOK_BUILD_COMMIT "${build_commit}"
 
 cd "${deployment_directory}"
-docker compose up --build -d
+docker compose build --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}"
+docker compose up --no-build -d
 
 upgrade_completed=true
 printf '%s\n' "Upgraded Shadowcook to ${build_commit}"
