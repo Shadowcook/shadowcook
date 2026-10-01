@@ -207,7 +207,7 @@ shadowcook/
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
 - A sticky global head bar is rendered on application, public cookbook, and public recipe pages. It resolves the current session, provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
-- The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`.
+- The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`; it forwards API redirects without following them and requests uncompressed upstream API responses.
 - Public cookbook overview and category navigation paths render their accessible category and recipe links as semantic server-rendered HTML without a client-side session check.
 - Public cookbook overview and category pages retain their server-rendered HTML in the response and replace it with the hydrated cookbook client only after the client has loaded its session and cookbook state.
 - A direct recipe navigation renders its title, summary, category links, selected visible variant links, ingredient usages, and preparation steps as semantic server-rendered HTML. The server forwards the request cookie when resolving recipe access.

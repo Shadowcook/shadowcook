@@ -28,12 +28,41 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
     context.request.method === 'GET' || context.request.method === 'HEAD'
       ? undefined
       : await context.request.arrayBuffer();
-  return fetch(apiUrl, {
+  const headers: Headers = new Headers(context.request.headers);
+  headers.set('accept-encoding', 'identity');
+  const response: Response = await fetch(apiUrl, {
     method: context.request.method,
-    headers: context.request.headers,
+    headers,
     body: requestBody,
+    redirect: 'manual',
   });
+  logOAuthProxyResponse(context.url.pathname, context.request.method, response);
+  return response;
 };
+
+function logOAuthProxyResponse(pathname: string, method: string, response: Response): void {
+  if (pathname !== '/api/oauth/authorize') return;
+  const location: string | null = response.headers.get('location');
+  let redirectPath: string | null = null;
+  if (location !== null) {
+    try {
+      redirectPath = new URL(location).pathname;
+    } catch (_error: unknown) {
+      redirectPath = 'invalid';
+    }
+  }
+  console.info(
+    JSON.stringify({
+      component: 'api-proxy',
+      event: 'oauth-authorize-response',
+      method,
+      path: pathname,
+      status: response.status,
+      redirectPath,
+      contentEncoding: response.headers.get('content-encoding'),
+    }),
+  );
+}
 
 function oauthDiscoveryApiPath(pathname: string): string | null {
   if (
