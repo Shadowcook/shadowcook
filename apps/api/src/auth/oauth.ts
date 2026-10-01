@@ -164,13 +164,7 @@ async function exchangeAuthorizationCode(
   const clientId: string | null = parameters.get('client_id');
   const verifier: string | null = parameters.get('code_verifier');
   const resource: string | null = parameters.get('resource');
-  if (
-    code === null ||
-    redirectUri === null ||
-    clientId === null ||
-    verifier === null ||
-    resource === null
-  ) {
+  if (code === null || redirectUri === null || clientId === null || verifier === null) {
     logOAuthRequest(request, 'token', 'authorization_code_request_invalid');
     return oauthError(reply, 400, 'invalid_request');
   }
@@ -188,7 +182,7 @@ async function exchangeAuthorizationCode(
       authorization === undefined ||
       authorization.client_id !== clientId ||
       authorization.redirect_uri !== redirectUri ||
-      authorization.resource !== resource ||
+      (resource !== null && authorization.resource !== resource) ||
       !safeEqual(pkceChallenge(verifier), authorization.code_challenge)
     ) {
       await client.query('ROLLBACK');

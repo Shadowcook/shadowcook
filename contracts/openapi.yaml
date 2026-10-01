@@ -2481,7 +2481,7 @@ components:
       oneOf:
         - type: object
           additionalProperties: false
-          required: [grant_type, code, redirect_uri, client_id, code_verifier, resource]
+          required: [grant_type, code, redirect_uri, client_id, code_verifier]
           properties:
             grant_type: { type: string, const: authorization_code }
             code: { type: string }
