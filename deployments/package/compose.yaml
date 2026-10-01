@@ -80,6 +80,7 @@ services:
       HOST: 0.0.0.0
       PORT: 4321
       SHADOWCOOK_API_ORIGIN: http://api:3000
+      SHADOWCOOK_BUILD_COMMIT: ${SHADOWCOOK_BUILD_COMMIT:?Set SHADOWCOOK_BUILD_COMMIT in .env}
     depends_on:
       api:
         condition: service_healthy

@@ -4,6 +4,7 @@ import BuildFooter from '../../../components/BuildFooter.astro';
 import HeadBar from '../../../components/HeadBar';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
+import { buildCommit } from '../../../lib/server/build-info';
 import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import { categoryPath } from '../model/routing';
 import { aggregateShoppingList, formatShoppingListAmount } from '../model/shopping-list';
@@ -29,7 +30,7 @@ interface Properties {
 
 const { cookbook, categoryId, locale, recipe } = Astro.props;
 const text: Translation = translations[locale];
-const buildCommit: string | undefined = import.meta.env.PUBLIC_BUILD_COMMIT;
+const deployedBuildCommit: string | undefined = buildCommit();
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
 const canonicalUrl: string = `${Astro.url.origin}${Astro.url.pathname}`;
 const categoryIds: string[] = recipeCategories(cookbook, recipe.public_id);
@@ -194,7 +195,7 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
         </ol>
       </article>
     </main>
-    <BuildFooter buildCommit={buildCommit} text={text} />
+    <BuildFooter buildCommit={deployedBuildCommit} text={text} />
   </body>
 </html>
 

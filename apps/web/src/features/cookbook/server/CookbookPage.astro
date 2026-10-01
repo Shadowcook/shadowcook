@@ -6,6 +6,7 @@ import PublicCategoryTree from './PublicCategoryTree.astro';
 import CookbookScreen from '../CookbookScreen';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
+import { buildCommit } from '../../../lib/server/build-info';
 import { categoryPath, cookbookPath } from '../model/routing';
 import type { Category, CookbookResponse, Recipe } from '../model/types';
 import '../../../styles/global.css';
@@ -19,7 +20,7 @@ interface Properties {
 
 const { cookbook, categoryId, locale } = Astro.props;
 const text: Translation = translations[locale];
-const buildCommit: string | undefined = import.meta.env.PUBLIC_BUILD_COMMIT;
+const deployedBuildCommit: string | undefined = buildCommit();
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
 const tenantSlug: string = requestedTenantSlug();
 const selectedCategory: Category | undefined = cookbook.categories.find(
@@ -141,7 +142,7 @@ function categoryAncestors(category: Category): Category[] {
         <CookbookScreen client:load locale={locale} notifyWhenReady={true} />
       </div>
     </main>
-    <BuildFooter buildCommit={buildCommit} text={text} />
+    <BuildFooter buildCommit={deployedBuildCommit} text={text} />
   </body>
 </html>
 
