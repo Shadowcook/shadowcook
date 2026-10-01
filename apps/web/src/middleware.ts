@@ -36,12 +36,17 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
     body: requestBody,
     redirect: 'manual',
   });
-  logOAuthProxyResponse(context.url.pathname, context.request.method, response);
+  logAuthenticationProxyResponse(context.url.pathname, context.request.method, response);
   return response;
 };
 
-function logOAuthProxyResponse(pathname: string, method: string, response: Response): void {
-  if (pathname !== '/api/oauth/authorize') return;
+function logAuthenticationProxyResponse(pathname: string, method: string, response: Response): void {
+  if (
+    pathname !== '/api/oauth/authorize' &&
+    pathname !== '/api/oauth/token' &&
+    pathname !== '/api/auth/logout'
+  )
+    return;
   const location: string | null = response.headers.get('location');
   let redirectPath: string | null = null;
   if (location !== null) {
@@ -54,12 +59,13 @@ function logOAuthProxyResponse(pathname: string, method: string, response: Respo
   console.info(
     JSON.stringify({
       component: 'api-proxy',
-      event: 'oauth-authorize-response',
+      event: 'authentication-response',
       method,
       path: pathname,
       status: response.status,
       redirectPath,
       contentEncoding: response.headers.get('content-encoding'),
+      hasSetCookie: response.headers.has('set-cookie'),
     }),
   );
 }

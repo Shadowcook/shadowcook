@@ -90,12 +90,19 @@ export function registerOAuthRoutes(
       request,
       publicApiOrigin,
     );
-    if (authorization === null) return oauthError(reply, 400, 'invalid_request');
-    if (!(await isKnownRedirectUri(pool, authorization.clientId, authorization.redirectUri)))
+    if (authorization === null) {
+      logOAuthRequest(request, 'authorize', 'invalid_request');
+      return oauthError(reply, 400, 'invalid_request');
+    }
+    if (!(await isKnownRedirectUri(pool, authorization.clientId, authorization.redirectUri))) {
+      logOAuthRequest(request, 'authorize', 'unknown_client_or_redirect_uri');
       return oauthError(reply, 400, 'invalid_client');
+    }
     const user = await currentSessionUser(pool, request);
-    if (user === null || user.disabled_at !== null)
+    if (user === null || user.disabled_at !== null) {
+      logOAuthRequest(request, 'authorize', 'login_required');
       return reply.redirect(loginUrl(publicWebOrigin, request.url));
+    }
     const code: string = randomBytes(32).toString('base64url');
     await pool.query(
       `INSERT INTO oauth_authorization_code
@@ -116,14 +123,16 @@ export function registerOAuthRoutes(
     target.searchParams.set('code', code);
     target.searchParams.set('state', authorization.state);
     target.searchParams.set('iss', publicApiOrigin);
+    logOAuthRequest(request, 'authorize', 'authorization_code_issued');
     return reply.redirect(target.toString());
   });
   api.post('/oauth/token', async (request, reply) => {
     const parameters: URLSearchParams = new URLSearchParams(String(request.body ?? ''));
     const grantType: string | null = parameters.get('grant_type');
     if (grantType === 'authorization_code')
-      return exchangeAuthorizationCode(pool, reply, parameters);
-    if (grantType === 'refresh_token') return exchangeRefreshToken(pool, reply, parameters);
+      return exchangeAuthorizationCode(pool, request, reply, parameters);
+    if (grantType === 'refresh_token') return exchangeRefreshToken(pool, request, reply, parameters);
+    logOAuthRequest(request, 'token', 'unsupported_grant_type');
     return oauthError(reply, 400, 'unsupported_grant_type');
   });
 }
@@ -145,6 +154,7 @@ function authorizationServerMetadata(publicApiOrigin: string): object {
 
 async function exchangeAuthorizationCode(
   pool: Pool,
+  request: FastifyRequest,
   reply: FastifyReply,
   parameters: URLSearchParams,
 ): Promise<FastifyReply> {
@@ -152,8 +162,10 @@ async function exchangeAuthorizationCode(
   const redirectUri: string | null = parameters.get('redirect_uri');
   const clientId: string | null = parameters.get('client_id');
   const verifier: string | null = parameters.get('code_verifier');
-  if (code === null || redirectUri === null || clientId === null || verifier === null)
+  if (code === null || redirectUri === null || clientId === null || verifier === null) {
+    logOAuthRequest(request, 'token', 'authorization_code_request_invalid');
     return oauthError(reply, 400, 'invalid_request');
+  }
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -171,6 +183,7 @@ async function exchangeAuthorizationCode(
       !safeEqual(pkceChallenge(verifier), authorization.code_challenge)
     ) {
       await client.query('ROLLBACK');
+      logOAuthRequest(request, 'token', 'authorization_code_invalid');
       return oauthError(reply, 400, 'invalid_grant');
     }
     await client.query('UPDATE oauth_authorization_code SET consumed_at = now() WHERE id = $1', [
@@ -178,6 +191,7 @@ async function exchangeAuthorizationCode(
     ]);
     const tokens = await issueTokens(client, authorization);
     await client.query('COMMIT');
+    logOAuthRequest(request, 'token', 'authorization_code_exchanged');
     return reply.send(tokens);
   } catch (error: unknown) {
     await client.query('ROLLBACK');
@@ -189,12 +203,16 @@ async function exchangeAuthorizationCode(
 
 async function exchangeRefreshToken(
   pool: Pool,
+  request: FastifyRequest,
   reply: FastifyReply,
   parameters: URLSearchParams,
 ): Promise<FastifyReply> {
   const refreshToken: string | null = parameters.get('refresh_token');
   const clientId: string | null = parameters.get('client_id');
-  if (refreshToken === null || clientId === null) return oauthError(reply, 400, 'invalid_request');
+  if (refreshToken === null || clientId === null) {
+    logOAuthRequest(request, 'token', 'refresh_token_request_invalid');
+    return oauthError(reply, 400, 'invalid_request');
+  }
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -207,6 +225,7 @@ async function exchangeRefreshToken(
     const stored: RefreshTokenRow | undefined = result.rows[0];
     if (stored === undefined || stored.client_id !== clientId) {
       await client.query('ROLLBACK');
+      logOAuthRequest(request, 'token', 'refresh_token_invalid');
       return oauthError(reply, 400, 'invalid_grant');
     }
     await client.query('UPDATE oauth_refresh_token SET consumed_at = now() WHERE id = $1', [
@@ -214,6 +233,7 @@ async function exchangeRefreshToken(
     ]);
     const tokens = await issueTokens(client, stored);
     await client.query('COMMIT');
+    logOAuthRequest(request, 'token', 'refresh_token_exchanged');
     return reply.send(tokens);
   } catch (error: unknown) {
     await client.query('ROLLBACK');
@@ -333,6 +353,14 @@ async function isKnownRedirectUri(
 
 function isChatGptClient(clientId: string): boolean {
   return /^https:\/\/chatgpt\.com\/oauth(?:\/[A-Za-z0-9_-]+)?\/client\.json$/.test(clientId);
+}
+
+function logOAuthRequest(
+  request: FastifyRequest,
+  flow: 'authorize' | 'token',
+  outcome: string,
+): void {
+  request.log.info({ flow, outcome }, 'OAuth request processed');
 }
 
 function parseRegistration(value: unknown): { redirectUris: string[]; clientName: string } | null {

@@ -260,13 +260,19 @@ export function registerAuthenticationRoutes(
 
   api.post('/auth/logout', async (request: FastifyRequest, reply: FastifyReply) => {
     const token: string | null = sessionTokenFromRequest(request);
+    let revokedSessions: number = 0;
     if (token !== null) {
-      await pool.query(
+      const result = await pool.query(
         'UPDATE user_session SET revoked_at = now() WHERE token_hash = $1 AND revoked_at IS NULL',
         [hashSessionToken(token)],
       );
+      revokedSessions = result.rowCount ?? 0;
     }
-    reply.header('Set-Cookie', `${sessionCookieName}=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0`);
+    request.log.info(
+      { hadSessionToken: token !== null, revokedSessions },
+      'Session logout processed',
+    );
+    clearSessionCookie(reply, secureCookies);
     return reply.code(204).send();
   });
 }
@@ -347,6 +353,13 @@ function setSessionCookie(
   reply.header(
     'Set-Cookie',
     `${sessionCookieName}=${token}; Path=/; HttpOnly${secureAttribute}; SameSite=Lax; Expires=${expiresAt.toUTCString()}`,
+  );
+}
+function clearSessionCookie(reply: FastifyReply, secureCookies: boolean): void {
+  const secureAttribute: string = secureCookies ? '; Secure' : '';
+  reply.header(
+    'Set-Cookie',
+    `${sessionCookieName}=; Path=/; HttpOnly${secureAttribute}; SameSite=Lax; Max-Age=0`,
   );
 }
 async function authenticationSettings(pool: Pool): Promise<AuthenticationSettingsRow> {
