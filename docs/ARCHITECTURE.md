@@ -1065,6 +1065,7 @@ created_at
 - MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, dynamic client registration, and the `shadowcook:recipes` scope.
 - OAuth authorization requests that omit `scope` receive `shadowcook:recipes` as their default scope.
 - `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp` publish the MCP resource metadata. `/.well-known/oauth-authorization-server/api` publishes authorization-server metadata for the `/api` issuer.
+- OAuth authorization responses return the authorization code and state to the registered callback URI without an `iss` parameter.
 - OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.
 - OAuth access tokens represent authenticated human principals and are constrained by their existing tenant memberships and permissions.
 - `PUBLIC_API_ORIGIN` is the canonical public HTTPS API origin used in MCP OAuth discovery and token audience binding. It defaults to `${PUBLIC_WEB_ORIGIN}/api`.

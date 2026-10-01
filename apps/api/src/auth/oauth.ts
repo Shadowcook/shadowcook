@@ -126,12 +126,10 @@ export function registerOAuthRoutes(
     const target: URL = new URL(authorization.redirectUri);
     target.searchParams.set('code', code);
     target.searchParams.set('state', authorization.state);
-    target.searchParams.set('iss', publicApiOrigin);
     request.log.info(
       {
         authorization,
         callbackUrl: target.toString(),
-        issuer: publicApiOrigin,
       },
       'OAuth authorization callback issued',
     );
@@ -160,7 +158,6 @@ function authorizationServerMetadata(publicApiOrigin: string): object {
     authorization_endpoint: `${publicApiOrigin}/oauth/authorize`,
     token_endpoint: `${publicApiOrigin}/oauth/token`,
     registration_endpoint: `${publicApiOrigin}/oauth/register`,
-    authorization_response_iss_parameter_supported: true,
     client_id_metadata_document_supported: true,
     response_types_supported: ['code'],
     grant_types_supported: ['authorization_code', 'refresh_token'],
