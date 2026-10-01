@@ -131,7 +131,8 @@ export function registerOAuthRoutes(
     const grantType: string | null = parameters.get('grant_type');
     if (grantType === 'authorization_code')
       return exchangeAuthorizationCode(pool, request, reply, parameters);
-    if (grantType === 'refresh_token') return exchangeRefreshToken(pool, request, reply, parameters);
+    if (grantType === 'refresh_token')
+      return exchangeRefreshToken(pool, request, reply, parameters);
     logOAuthRequest(request, 'token', 'unsupported_grant_type');
     return oauthError(reply, 400, 'unsupported_grant_type');
   });
@@ -162,7 +163,14 @@ async function exchangeAuthorizationCode(
   const redirectUri: string | null = parameters.get('redirect_uri');
   const clientId: string | null = parameters.get('client_id');
   const verifier: string | null = parameters.get('code_verifier');
-  if (code === null || redirectUri === null || clientId === null || verifier === null) {
+  const resource: string | null = parameters.get('resource');
+  if (
+    code === null ||
+    redirectUri === null ||
+    clientId === null ||
+    verifier === null ||
+    resource === null
+  ) {
     logOAuthRequest(request, 'token', 'authorization_code_request_invalid');
     return oauthError(reply, 400, 'invalid_request');
   }
@@ -180,6 +188,7 @@ async function exchangeAuthorizationCode(
       authorization === undefined ||
       authorization.client_id !== clientId ||
       authorization.redirect_uri !== redirectUri ||
+      authorization.resource !== resource ||
       !safeEqual(pkceChallenge(verifier), authorization.code_challenge)
     ) {
       await client.query('ROLLBACK');
@@ -337,11 +346,6 @@ async function isKnownRedirectUri(
   clientId: string,
   redirectUri: string,
 ): Promise<boolean> {
-  if (isChatGptClient(clientId))
-    return (
-      redirectUri === 'https://chatgpt.com/connector_platform_oauth_redirect' ||
-      /^https:\/\/chatgpt\.com\/connector\/oauth\/[A-Za-z0-9_-]+$/.test(redirectUri)
-    );
   const result = await pool.query(
     `SELECT 1 FROM oauth_client
      INNER JOIN oauth_client_redirect_uri ON oauth_client_redirect_uri.oauth_client_id = oauth_client.id
@@ -349,10 +353,6 @@ async function isKnownRedirectUri(
     [clientId, redirectUri],
   );
   return result.rowCount === 1;
-}
-
-function isChatGptClient(clientId: string): boolean {
-  return /^https:\/\/chatgpt\.com\/oauth(?:\/[A-Za-z0-9_-]+)?\/client\.json$/.test(clientId);
 }
 
 function logOAuthRequest(

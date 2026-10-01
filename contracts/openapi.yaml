@@ -1277,13 +1277,21 @@ paths:
       operationId: getOAuthAuthorizationServerMetadata
       summary: Returns OAuth authorization-server metadata.
       responses:
-        '200': { description: Authorization-server metadata. }
+        '200':
+          description: Authorization-server metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthAuthorizationServerMetadata' }
   /.well-known/oauth-authorization-server/api:
     get:
       operationId: getPathSpecificOAuthAuthorizationServerMetadata
       summary: Returns OAuth authorization-server metadata for the public /api issuer.
       responses:
-        '200': { description: Authorization-server metadata. }
+        '200':
+          description: Authorization-server metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthAuthorizationServerMetadata' }
   /oauth/register:
     post:
       operationId: registerOAuthClient
@@ -1336,9 +1344,13 @@ paths:
         required: true
         content:
           application/x-www-form-urlencoded:
-            schema: { type: object }
+            schema: { $ref: '#/components/schemas/OAuthTokenRequest' }
       responses:
-        '200': { description: OAuth token response. }
+        '200':
+          description: OAuth token response.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthTokenResponse' }
   /admin/mail-settings:
     get:
       operationId: getInstanceMailSettings
@@ -2428,6 +2440,72 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    OAuthAuthorizationServerMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          issuer,
+          authorization_endpoint,
+          token_endpoint,
+          registration_endpoint,
+          authorization_response_iss_parameter_supported,
+          response_types_supported,
+          grant_types_supported,
+          token_endpoint_auth_methods_supported,
+          code_challenge_methods_supported,
+          scopes_supported,
+        ]
+      properties:
+        issuer: { type: string, format: uri }
+        authorization_endpoint: { type: string, format: uri }
+        token_endpoint: { type: string, format: uri }
+        registration_endpoint: { type: string, format: uri }
+        authorization_response_iss_parameter_supported: { type: boolean, const: true }
+        response_types_supported:
+          type: array
+          items: { type: string, const: code }
+        grant_types_supported:
+          type: array
+          items: { type: string, enum: [authorization_code, refresh_token] }
+        token_endpoint_auth_methods_supported:
+          type: array
+          items: { type: string, const: none }
+        code_challenge_methods_supported:
+          type: array
+          items: { type: string, const: S256 }
+        scopes_supported:
+          type: array
+          items: { type: string, const: shadowcook:recipes }
+    OAuthTokenRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [grant_type, code, redirect_uri, client_id, code_verifier, resource]
+          properties:
+            grant_type: { type: string, const: authorization_code }
+            code: { type: string }
+            redirect_uri: { type: string, format: uri }
+            client_id: { type: string }
+            code_verifier: { type: string }
+            resource: { type: string, format: uri }
+        - type: object
+          additionalProperties: false
+          required: [grant_type, refresh_token, client_id]
+          properties:
+            grant_type: { type: string, const: refresh_token }
+            refresh_token: { type: string }
+            client_id: { type: string }
+    OAuthTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, expires_in, refresh_token, scope]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, minimum: 1 }
+        refresh_token: { type: string }
+        scope: { type: string, const: shadowcook:recipes }
     TenantRecipePolicy:
       type: object
       additionalProperties: false
