@@ -6,6 +6,7 @@ import TenantSelection from './TenantSelection';
 import PasswordResetScreen from './PasswordResetScreen';
 import UserInvitationScreen from './UserInvitationScreen';
 import Brand from './Brand.astro';
+import BuildFooter from './BuildFooter.astro';
 import HeadBar from './HeadBar';
 import { resolveLocale, translations } from '../i18n';
 import type { Locale } from '../i18n';
@@ -13,6 +14,7 @@ import '../styles/global.css';
 
 const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
 const text = translations[locale];
+const buildCommit: string | undefined = import.meta.env.PUBLIC_BUILD_COMMIT;
 interface Properties {
   path: string;
 }
@@ -70,5 +72,6 @@ const isTenantManagementPath: boolean =
         )
       }
     </main>
+    <BuildFooter buildCommit={buildCommit} text={text} />
   </body>
 </html>

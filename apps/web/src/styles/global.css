@@ -178,10 +178,25 @@ select {
   margin: 0 auto;
   padding: 3rem 0 5rem;
 }
+.build-footer {
+  width: min(1080px, calc(100% - 3rem));
+  margin: -3rem auto 0;
+  padding: 0 0 1.5rem;
+  color: #75675d;
+  font: 0.75rem Arial, sans-serif;
+  text-align: center;
+}
+.build-footer code {
+  color: inherit;
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
 @media (min-width: 761px) {
   .application-shell--admin {
     width: calc(100% - 4rem);
     max-width: none;
+  }
+  .application-shell--admin + .build-footer {
+    width: calc(100% - 4rem);
   }
 }
 .brand {

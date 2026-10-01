@@ -12,6 +12,9 @@ export const de: Translation = {
   headBar: {
     userMenu: 'Benutzermenü',
   },
+  buildFooter: {
+    commit: 'Build-Commit',
+  },
   loading: 'Sitzung wird geprüft …',
   accessDenied: {
     title: 'Zugriff verweigert',

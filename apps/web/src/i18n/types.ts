@@ -12,6 +12,9 @@ export interface Translation {
   headBar: {
     userMenu: string;
   };
+  buildFooter: {
+    commit: string;
+  };
   loading: string;
   accessDenied: {
     title: string;

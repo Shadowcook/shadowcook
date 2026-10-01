@@ -1,0 +1,18 @@
+---
+import type { Translation } from '../i18n';
+
+interface Properties {
+  buildCommit: string | undefined;
+  text: Translation;
+}
+
+const { buildCommit, text } = Astro.props;
+---
+
+{
+  buildCommit === undefined || buildCommit.length === 0 ? null : (
+    <footer class="build-footer">
+      <span>{text.buildFooter.commit}:</span> <code>{buildCommit}</code>
+    </footer>
+  )
+}

@@ -23,6 +23,8 @@ cp "${repository_root}/deployments/package/apache.reverse-proxy-example.conf" "$
 cp "${repository_root}/deployments/package/compose.yaml" "${temporary_directory}/${package_name}/compose.yaml"
 cp "${repository_root}/deployments/package/compose.external-postgres.yaml" "${temporary_directory}/${package_name}/compose.external-postgres.yaml"
 cp "${repository_root}/deployments/package/README.md" "${temporary_directory}/${package_name}/README.md"
+cp "${repository_root}/deployments/package/upgrade.sh" "${temporary_directory}/${package_name}/upgrade.sh"
+chmod 755 "${temporary_directory}/${package_name}/upgrade.sh"
 
 archive_path="${output_directory}/${package_name}.tar.gz"
 tar -C "${temporary_directory}" -czf "${archive_path}" "${package_name}"

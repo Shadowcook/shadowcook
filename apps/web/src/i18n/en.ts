@@ -12,6 +12,9 @@ export const en: Translation = {
   headBar: {
     userMenu: 'User menu',
   },
+  buildFooter: {
+    commit: 'Build commit',
+  },
   loading: 'Checking session …',
   accessDenied: {
     title: 'Access denied',

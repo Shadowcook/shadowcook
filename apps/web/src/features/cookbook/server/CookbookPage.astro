@@ -1,5 +1,6 @@
 ---
 import Brand from '../../../components/Brand.astro';
+import BuildFooter from '../../../components/BuildFooter.astro';
 import HeadBar from '../../../components/HeadBar';
 import PublicCategoryTree from './PublicCategoryTree.astro';
 import CookbookScreen from '../CookbookScreen';
@@ -18,6 +19,7 @@ interface Properties {
 
 const { cookbook, categoryId, locale } = Astro.props;
 const text: Translation = translations[locale];
+const buildCommit: string | undefined = import.meta.env.PUBLIC_BUILD_COMMIT;
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
 const tenantSlug: string = requestedTenantSlug();
 const selectedCategory: Category | undefined = cookbook.categories.find(
@@ -139,6 +141,7 @@ function categoryAncestors(category: Category): Category[] {
         <CookbookScreen client:load locale={locale} notifyWhenReady={true} />
       </div>
     </main>
+    <BuildFooter buildCommit={buildCommit} text={text} />
   </body>
 </html>
 

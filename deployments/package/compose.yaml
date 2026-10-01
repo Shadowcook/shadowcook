@@ -3,6 +3,8 @@ name: shadowcook
 x-shadowcook-source-build: &shadowcook-source-build
   context: '${SHADOWCOOK_SOURCE_REPOSITORY_URL:-https://github.com/Shadowcook/shadowcook.git}#${SHADOWCOOK_SOURCE_REF:?Set SHADOWCOOK_SOURCE_REF in .env}'
   dockerfile: deployments/docker/Dockerfile
+  args:
+    SHADOWCOOK_BUILD_COMMIT: ${SHADOWCOOK_BUILD_COMMIT:?Set SHADOWCOOK_BUILD_COMMIT in .env}
 
 x-api-environment: &api-environment
   NODE_ENV: production
