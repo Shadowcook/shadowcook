@@ -22,7 +22,8 @@ COPY apps apps
 COPY packages packages
 COPY initial-deployment-seed.json ./
 
-RUN pnpm build \
+RUN printf "export function buildCommit(): string | undefined {\n  return '%s';\n}\n" "${SHADOWCOOK_BUILD_COMMIT}" > apps/web/src/lib/server/build-info.ts \
+    && pnpm build \
     && pnpm --filter @shadowcook/api --prod deploy --legacy /runtime/api \
     && pnpm --filter @shadowcook/web --prod deploy --legacy /runtime/web
 
@@ -46,12 +47,9 @@ CMD ["node", "dist/index.js"]
 
 FROM node:24.13.0-alpine AS web-runtime
 
-ARG SHADOWCOOK_BUILD_COMMIT
-
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=4321
-ENV SHADOWCOOK_BUILD_COMMIT=${SHADOWCOOK_BUILD_COMMIT}
 
 WORKDIR /workspace/apps/web
 

@@ -246,7 +246,7 @@ shadowcook/
 - A repository-root `.env` file is only a local-development convenience and is not required by a container deployment.
 - The operator-facing Docker Compose package is in `deployments/package`. Its `.env` selects the Git repository URL and stores the full build commit used as the Docker build context and displayed in the web footer.
 - `deployments/package/upgrade.sh` accepts a branch, tag, or commit hash, fetches and resolves it to a full commit hash, stores that hash in `SHADOWCOOK_SOURCE_REF` and `SHADOWCOOK_BUILD_COMMIT`, and runs the Docker Compose rebuild.
-- Docker Compose builds the database package, API, and Astro web application from the selected Git ref before creating the API and web runtime containers. `SHADOWCOOK_BUILD_COMMIT` is passed to the web runtime container and rendered in its footer. The web runtime image retains the build-argument value as its default.
+- Docker Compose builds the database package, API, and Astro web application from the selected Git ref before creating the API and web runtime containers. `SHADOWCOOK_BUILD_COMMIT` is passed as a Docker build argument and compiled into the web footer.
 - The Dockerfile has one build stage and separate API and web runtime targets. The runtime targets contain compiled application output and production dependencies.
 - `deployments/package/compose.yaml` starts API, web, and a persistent bundled PostgreSQL service. `deployments/package/compose.external-postgres.yaml` starts API and web only and requires `DATABASE_URL` for an existing PostgreSQL service.
 - Both Docker Compose configurations pass the explicit `DATABASE_URL` deployment value to the API process. PostgreSQL service credentials and connection-string credentials are configured independently.
