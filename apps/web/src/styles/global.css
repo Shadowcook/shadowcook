@@ -175,6 +175,15 @@ select {
 .head-bar__menu button:hover {
   background: #f3e5d7;
 }
+.head-bar__menu button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+.head-bar__menu-message {
+  margin: 0.35rem 0.7rem;
+  color: #a7472e;
+  font: 0.78rem Arial, sans-serif;
+}
 .application-shell {
   width: min(1080px, calc(100% - 3rem));
   margin: 0 auto;

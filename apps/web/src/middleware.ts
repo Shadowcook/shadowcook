@@ -30,6 +30,7 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
       : await context.request.arrayBuffer();
   const headers: Headers = new Headers(context.request.headers);
   headers.set('accept-encoding', 'identity');
+  logAuthenticationProxyRequest(context.url.pathname, context.request.method);
   const response: Response = await fetch(apiUrl, {
     method: context.request.method,
     headers,
@@ -40,13 +41,20 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
   return response;
 };
 
+function logAuthenticationProxyRequest(pathname: string, method: string): void {
+  if (!isLoggedAuthenticationPath(pathname)) return;
+  console.info(
+    JSON.stringify({
+      component: 'api-proxy',
+      event: 'authentication-request',
+      method,
+      path: pathname,
+    }),
+  );
+}
+
 function logAuthenticationProxyResponse(pathname: string, method: string, response: Response): void {
-  if (
-    pathname !== '/api/oauth/authorize' &&
-    pathname !== '/api/oauth/token' &&
-    pathname !== '/api/auth/logout'
-  )
-    return;
+  if (!isLoggedAuthenticationPath(pathname)) return;
   const location: string | null = response.headers.get('location');
   let redirectPath: string | null = null;
   if (location !== null) {
@@ -67,6 +75,14 @@ function logAuthenticationProxyResponse(pathname: string, method: string, respon
       contentEncoding: response.headers.get('content-encoding'),
       hasSetCookie: response.headers.has('set-cookie'),
     }),
+  );
+}
+
+function isLoggedAuthenticationPath(pathname: string): boolean {
+  return (
+    pathname === '/api/oauth/authorize' ||
+    pathname === '/api/oauth/token' ||
+    pathname === '/api/auth/logout'
   );
 }
 

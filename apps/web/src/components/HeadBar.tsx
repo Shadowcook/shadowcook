@@ -22,6 +22,8 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
   const text: Translation = translations[locale];
   const [session, setSession] = useState<SessionState>(signedOut);
   const [signInHref, setSignInHref] = useState<string>('/login');
+  const [signOutError, setSignOutError] = useState<string>('');
+  const [signingOut, setSigningOut] = useState<boolean>(false);
 
   useEffect((): void => {
     void restoreSession(setSession);
@@ -29,14 +31,27 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
   }, []);
 
   async function signOut(): Promise<void> {
+    setSigningOut(true);
+    setSignOutError('');
     try {
       const response: Response = await fetch('/api/auth/logout', {
         method: 'POST',
         credentials: 'same-origin',
+        signal: AbortSignal.timeout(10000),
       });
-      if (!response.ok) return;
-    } catch (_error: unknown) {
+      if (!response.ok) {
+        console.error('Sign-out request returned an unsuccessful response.', { status: response.status });
+        setSignOutError(text.headBar.signOutFailed);
+        return;
+      }
+    } catch (error: unknown) {
+      console.error('Sign-out request failed.', {
+        name: error instanceof Error ? error.name : 'unknown',
+      });
+      setSignOutError(text.headBar.signOutFailed);
       return;
+    } finally {
+      setSigningOut(false);
     }
     clearBrowserSessionCache();
     window.location.assign('/');
@@ -56,9 +71,19 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
                 {text.admin.title}
               </a>
             ) : null}
-            <button type="button" role="menuitem" onClick={(): void => void signOut()}>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={signingOut}
+              onClick={(): void => void signOut()}
+            >
               {text.dashboard.logout}
             </button>
+            {signOutError.length === 0 ? null : (
+              <p className="head-bar__menu-message" role="alert">
+                {signOutError}
+              </p>
+            )}
           </div>
         </details>
       ) : (

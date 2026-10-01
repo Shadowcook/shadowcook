@@ -11,6 +11,7 @@ export const de: Translation = {
   },
   headBar: {
     userMenu: 'Benutzermenü',
+    signOutFailed: 'Abmeldung fehlgeschlagen. Bitte versuche es erneut.',
   },
   buildFooter: {
     commit: 'Build-Commit',

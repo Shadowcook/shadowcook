@@ -11,6 +11,7 @@ export interface Translation {
   };
   headBar: {
     userMenu: string;
+    signOutFailed: string;
   };
   buildFooter: {
     commit: string;

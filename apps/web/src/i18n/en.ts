@@ -11,6 +11,7 @@ export const en: Translation = {
   },
   headBar: {
     userMenu: 'User menu',
+    signOutFailed: 'Sign-out failed. Please try again.',
   },
   buildFooter: {
     commit: 'Build commit',
