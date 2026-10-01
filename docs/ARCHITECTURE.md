@@ -249,7 +249,7 @@ shadowcook/
 - Docker Compose builds the database package, API, and Astro web application from the selected Git ref before creating the API and web runtime containers. `SHADOWCOOK_BUILD_COMMIT` and `PUBLIC_WEB_ORIGIN` are passed as Docker build arguments; the commit is compiled into the web footer and the public origin configures Astro's allowed forwarded domain.
 - The Dockerfile has one build stage and separate API and web runtime targets. The runtime targets contain compiled application output and production dependencies.
 - `deployments/package/compose.yaml` starts API, web, and a persistent bundled PostgreSQL service. `deployments/package/compose.external-postgres.yaml` starts API and web only and requires `DATABASE_URL` for an existing PostgreSQL service.
-- Both Docker Compose configurations pass the explicit `DATABASE_URL` deployment value to the API process. PostgreSQL service credentials and connection-string credentials are configured independently.
+- `deployments/package/compose.yaml` derives the API database connection URL from the bundled PostgreSQL service credentials. `deployments/package/compose.external-postgres.yaml` passes the explicit `DATABASE_URL` deployment value to the API process.
 - `pnpm package:deployment` creates a versioned tarball containing the Dockerfile, Apache reverse-proxy example, and operator-facing deployment package files.
 - The API waits for the bundled PostgreSQL health check before startup. The web service waits for the API health check before startup.
 - Secrets required before the API can access PostgreSQL data remain outside the database. `INSTANCE_SECRET_KEY` is supplied as a base64-encoded 32-byte value or as the path named by `INSTANCE_SECRET_KEY_FILE`.

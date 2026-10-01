@@ -26,9 +26,7 @@ must forward `X-Forwarded-Proto`, `X-Forwarded-Port`, and `X-Forwarded-Host`.
 ## Bundled PostgreSQL
 
 Copy `.env.example` to `.env`, replace the PostgreSQL password, and set the
-public origin. Set `DATABASE_URL` to the matching bundled PostgreSQL connection
-string. URL-encode reserved characters in connection-string credentials. Create
-the Docker secret before starting the stack:
+public origin. Create the Docker secret before starting the stack:
 
 ```bash
 cp .env.example .env
