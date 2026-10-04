@@ -183,6 +183,7 @@ shadowcook/
 
 - The API process executes database migrations before binding its HTTP listener.
 - Database migrations run in the API process and do not require a dedicated migration container.
+- Database migration statements are stored as `NNNN_descriptive_name.sql` files in `packages/db/src/migrations`, where `NNNN` is a four-digit decimal sequence; the database package loads them as runtime assets.
 - Migration execution uses a PostgreSQL advisory lock named `shadowcook-schema-migration`.
 - Each migration is executed in one database transaction.
 - Applied migration identifiers, SHA-256 checksums, and UTC application timestamps are stored in `application_schema_migration`.

@@ -24,10 +24,16 @@
 If `personal_agents.md` exists in the repository root, read it and apply it as local developer preference guidance. Personal preferences must not override the project rules above.
 This file will not be checked in into the repository. Therefore, check the local file system for it, not the repo!
 
-## Delivery mode: INITIAL_DRAFT
+## Delivery mode: BETA-1
 
-- This repository is in INITIAL_DRAFT mode until this section is explicitly removed or replaced.
-- The development database, its data, and its migration history are disposable.
-- Do not implement legacy compatibility, data preservation, upgrade paths, backfills, compatibility layers, or patch scripts.
-- For a changed initial schema, edit the initial schema directly and remove superseded draft migrations instead of adding a transition migration.
-- Do not retain existing recipes, tenants, visibility settings, or development data when they conflict with the current draft requirements.
+- Leave the initial SQL-Script untouched (0001_initial_schema.sql)
+- Create new schemas after the following pattern:
+  - Delivery mode BETA-1:
+    - 0002_beta-1.sql
+    - do not touch 0001_initial_schema.sql
+  - Delivery mode BETA-2:
+    - 0003_beta_2.sql
+    - do not touch 0001_initial_schema.sql
+    - do not touch 0002_beta-1.sql
+  - and so forth in this fashion
+- once, the delivery mode is "Production", we will create update scripts per each change.

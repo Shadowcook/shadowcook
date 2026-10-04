@@ -1,11 +1,4 @@
-import { createHash } from 'node:crypto';
-import type { Migration } from './types.js';
 
-function checksum(sql: string): string {
-  return createHash('sha256').update(sql, 'utf8').digest('hex');
-}
-
-const sql: string = `
 CREATE TABLE tenant (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
@@ -233,7 +226,7 @@ CREATE TABLE ingredient (
   owner_tenant_id uuid REFERENCES tenant(id) ON DELETE CASCADE,
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   canonical_name text NOT NULL CHECK (length(trim(canonical_name)) > 0),
-  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\\.[a-z]+(?:\\.[a-z]+)*$'),
+  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\.[a-z]+(?:\.[a-z]+)*$'),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE NULLS NOT DISTINCT (owner_tenant_id, canonical_name)
 );
@@ -244,7 +237,7 @@ CREATE TABLE ingredient_alias (
   text_override text,
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   alias text NOT NULL CHECK (length(trim(alias)) > 0),
-  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\\.[a-z]+(?:\\.[a-z]+)*$'),
+  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\.[a-z]+(?:\.[a-z]+)*$'),
   UNIQUE (ingredient_id, alias)
 );
 
@@ -254,7 +247,7 @@ CREATE TABLE unit (
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   name text NOT NULL CHECK (length(trim(name)) > 0),
   symbol text NOT NULL CHECK (length(trim(symbol)) > 0),
-  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^unit\\.[a-z]+(?:\\.[a-z]+)*$'),
+  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^unit\.[a-z]+(?:\.[a-z]+)*$'),
   dimension text NOT NULL CHECK (dimension IN ('MASS', 'VOLUME', 'COUNT', 'TEMPERATURE')),
   base_factor numeric(24, 12) NOT NULL CHECK (base_factor > 0),
   base_offset numeric(24, 12) NOT NULL DEFAULT 0,
@@ -623,10 +616,3 @@ WHERE instance_role.code = 'administrator';
 INSERT INTO instance_role_permission (instance_role_id, permission_code)
 SELECT instance_role.id, permission.code FROM instance_role CROSS JOIN permission
 WHERE instance_role.code = 'tenant-manager' AND permission.code = 'tenant:create';
-`;
-
-export const initialSchemaMigration: Migration = {
-  id: '001_initial_schema',
-  checksum: checksum(sql),
-  sql,
-};
