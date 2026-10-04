@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
@@ -13,10 +13,12 @@ interface TenantFormData {
 interface AdminTenantCreateProperties {
   locale: Locale;
   onCreated?: () => void;
+  smtpConfigured?: boolean;
 }
 export default function AdminTenantCreate({
   locale,
   onCreated,
+  smtpConfigured: suppliedSmtpConfigured,
 }: AdminTenantCreateProperties): JSX.Element {
   const text: Translation = translations[locale];
   const [data, setData] = useState<TenantFormData>({
@@ -28,6 +30,14 @@ export default function AdminTenantCreate({
   });
   const [slugChanged, setSlugChanged] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
+  const [smtpConfigured, setSmtpConfigured] = useState<boolean>(suppliedSmtpConfigured ?? false);
+  useEffect((): void => {
+    if (suppliedSmtpConfigured !== undefined) {
+      setSmtpConfigured(suppliedSmtpConfigured);
+      return;
+    }
+    void loadSmtpConfiguration(setSmtpConfigured);
+  }, [suppliedSmtpConfigured]);
   function update(name: keyof TenantFormData): (event: ChangeEvent<HTMLInputElement>) => void {
     return (event: ChangeEvent<HTMLInputElement>): void => {
       const value: string = event.currentTarget.value;
@@ -56,7 +66,7 @@ export default function AdminTenantCreate({
       else onCreated();
       return;
     }
-    setMessage(text.errors.requestFailed);
+    setMessage(await tenantCreationError(response, text));
   }
   return (
     <section className="admin-page">
@@ -92,7 +102,18 @@ export default function AdminTenantCreate({
         <p className="hint" id="tenant-slug-hint">
           {text.admin.tenantSlugHint}
         </p>
-        <button type="submit">{text.admin.createTenant}</button>
+        <button
+          type="submit"
+          disabled={!smtpConfigured}
+          aria-describedby={!smtpConfigured ? 'tenant-creation-smtp-required' : undefined}
+        >
+          {text.admin.createTenant}
+        </button>
+        {!smtpConfigured ? (
+          <p className="hint" id="tenant-creation-smtp-required">
+            {text.admin.tenantCreationSmtpRequired}
+          </p>
+        ) : null}
       </form>
       {message ? (
         <p className="message" role="status">
@@ -102,6 +123,22 @@ export default function AdminTenantCreate({
     </section>
   );
 }
+
+async function loadSmtpConfiguration(setSmtpConfigured: (value: boolean) => void): Promise<void> {
+  const response: Response = await fetch('/api/admin/tenants', { credentials: 'same-origin' });
+  if (!response.ok) return;
+  const body = (await response.json()) as { smtpConfigured?: unknown };
+  setSmtpConfigured(body.smtpConfigured === true);
+}
+
+async function tenantCreationError(response: Response, text: Translation): Promise<string> {
+  const body = (await response.json().catch((): null => null)) as { code?: unknown } | null;
+  if (body?.code === 'SMTP_REQUIRED' || body?.code === 'MAIL_NOT_CONFIGURED')
+    return text.admin.tenantCreationSmtpRequired;
+  if (body?.code === 'MAIL_DELIVERY_FAILED') return text.admin.tenantInvitationDeliveryFailed;
+  return text.errors.requestFailed;
+}
+
 function slugFromCookbookName(value: string): string {
   return value
     .normalize('NFKD')

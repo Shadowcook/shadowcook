@@ -12,6 +12,7 @@ interface RecipeDetailViewProperties {
   onClose: () => void;
   onEdit: () => void;
   onShare: () => void;
+  onShareWithAi: () => void;
   onSelectVariant: (slug: string) => void;
 }
 
@@ -21,6 +22,7 @@ export default function RecipeDetailView({
   onClose,
   onEdit,
   onShare,
+  onShareWithAi,
   onSelectVariant,
 }: RecipeDetailViewProperties): JSX.Element {
   const hasVisibleAlternative: boolean = recipe.variants.some(
@@ -56,6 +58,17 @@ export default function RecipeDetailView({
                   onClick={onShare}
                   aria-label={text.recipeEditor.share}
                   title={text.recipeEditor.share}
+                >
+                  <AdminIcon name="share" />
+                </button>
+              ) : null}
+              {recipe.can_share ? (
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={onShareWithAi}
+                  aria-label={text.recipeEditor.aiContext}
+                  title={text.recipeEditor.aiContext}
                 >
                   <AdminIcon name="share" />
                 </button>

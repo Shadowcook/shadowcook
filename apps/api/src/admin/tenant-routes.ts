@@ -6,6 +6,7 @@ import { consumeEmailCode, normalizeEmail, requestEmailCode } from '../auth/emai
 import { createPasswordResetToken } from '../auth/password-reset.js';
 import { hashPassword } from '../auth/password.js';
 import { sendInstanceMail } from '../mail/service.js';
+import { isSmtpConfigured } from './mail-routes.js';
 import { requireInstancePermission, requireTenantPermission } from './authorization.js';
 
 interface CreateTenantBody {
@@ -60,7 +61,10 @@ export function registerTenantRoutes(
     const result = await pool.query(
       `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, tenant.disabled_at, count(recipe.id)::integer AS recipe_count, string_agg(user_account.display_name, ', ' ORDER BY user_account.display_name) FILTER (WHERE tenant_role.name = 'Owner') AS owner_name FROM tenant LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.published_revision_id IS NOT NULL LEFT JOIN tenant_membership_role ON tenant_membership_role.tenant_id = tenant.id LEFT JOIN tenant_role ON tenant_role.id = tenant_membership_role.tenant_role_id LEFT JOIN user_account ON user_account.principal_id = tenant_membership_role.principal_id GROUP BY tenant.id ORDER BY tenant.display_name`,
     );
-    return reply.send({ tenants: result.rows });
+    return reply.send({
+      tenants: result.rows,
+      smtpConfigured: await isSmtpConfigured(pool, key),
+    });
   });
   api.patch('/admin/tenants/:publicId', async (request: FastifyRequest, reply: FastifyReply) => {
     if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
@@ -441,6 +445,11 @@ export function registerTenantRoutes(
   api.post('/admin/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
     const principal = await requireInstancePermission(pool, request, reply, 'tenant:create');
     if (principal === null) return;
+    if (!(await isSmtpConfigured(pool, key)))
+      return reply.code(503).send({
+        code: 'SMTP_REQUIRED',
+        error: 'SMTP delivery must be configured before a tenant can be created.',
+      });
     const body = parseCreateTenant(request.body);
     if (body === null)
       return reply

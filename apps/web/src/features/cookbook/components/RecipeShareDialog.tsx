@@ -32,13 +32,21 @@ export default function RecipeShareDialog(properties: RecipeShareDialogPropertie
       hasExpiry && expiryDate.length > 0
         ? new Date(`${expiryDate}T23:59:59.999Z`).toISOString()
         : null;
-    const path: string | null = await properties.onCreate(name.trim().length === 0 ? null : name.trim(), expiresAt);
+    const path: string | null = await properties.onCreate(
+      name.trim().length === 0 ? null : name.trim(),
+      expiresAt,
+    );
     if (path !== null) setCreatedPath(path);
   }
 
   return (
     <div className="recipe-share-dialog-backdrop">
-      <section className="recipe-share-dialog" role="dialog" aria-modal="true" aria-labelledby="recipe-share-dialog-title">
+      <section
+        className="recipe-share-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recipe-share-dialog-title"
+      >
         <div className="recipe-share-dialog__heading">
           <div>
             <p className="eyebrow">{properties.text.recipeEditor.share}</p>
@@ -54,14 +62,18 @@ export default function RecipeShareDialog(properties: RecipeShareDialogPropertie
             <input
               value={name}
               maxLength={160}
-              onChange={(event: ChangeEvent<HTMLInputElement>): void => setName(event.currentTarget.value)}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setName(event.currentTarget.value)
+              }
             />
           </label>
           <label className="recipe-share-dialog__expiry-toggle">
             <input
               type="checkbox"
               checked={hasExpiry}
-              onChange={(event: ChangeEvent<HTMLInputElement>): void => setHasExpiry(event.currentTarget.checked)}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setHasExpiry(event.currentTarget.checked)
+              }
             />
             {properties.text.recipeEditor.shareSetExpiry}
           </label>
@@ -73,7 +85,9 @@ export default function RecipeShareDialog(properties: RecipeShareDialogPropertie
                 required
                 value={expiryDate}
                 min={new Date().toISOString().slice(0, 10)}
-                onChange={(event: ChangeEvent<HTMLInputElement>): void => setExpiryDate(event.currentTarget.value)}
+                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                  setExpiryDate(event.currentTarget.value)
+                }
               />
             </label>
           ) : null}
@@ -110,7 +124,9 @@ export default function RecipeShareDialog(properties: RecipeShareDialogPropertie
         )}
         <div className="recipe-share-dialog__list">
           <h3>{properties.text.recipeEditor.activeShareLinks}</h3>
-          {properties.links.length === 0 ? <p className="hint">{properties.text.recipeEditor.noShareLinks}</p> : null}
+          {properties.links.length === 0 ? (
+            <p className="hint">{properties.text.recipeEditor.noShareLinks}</p>
+          ) : null}
           {properties.links.map((link: RecipeShareLink): JSX.Element => (
             <article key={link.id} className="recipe-share-dialog__link">
               {link.name === null ? null : <strong>{link.name}</strong>}

@@ -16,6 +16,7 @@ export default function AdminTenantManagement({
   const text: Translation = translations[locale];
   const [tenants, setTenants] = useState<CookbookTenant[]>([]);
   const [filter, setFilter] = useState<string>('');
+  const [smtpConfigured, setSmtpConfigured] = useState<boolean>(false);
   const [showCreate, setShowCreate] = useState<boolean>(false);
   const [renameTenant, setRenameTenant] = useState<CookbookTenant | null>(null);
   const [deleteTenant, setDeleteTenant] = useState<CookbookTenant | null>(null);
@@ -23,7 +24,7 @@ export default function AdminTenantManagement({
   const [message, setMessage] = useState<string>('');
   const [toast, setToast] = useState<string>('');
   function refresh(): void {
-    void loadTenants(setTenants);
+    void loadTenants(setTenants, setSmtpConfigured);
   }
   function openRename(tenant: CookbookTenant): void {
     setRenameTenant(tenant);
@@ -82,8 +83,19 @@ export default function AdminTenantManagement({
     <section className="admin-page admin-page--wide">
       <div className="dashboard__header">
         <h1>{text.admin.tenantsTitle}</h1>
-        <button onClick={(): void => setShowCreate(true)}>{text.admin.createTenant}</button>
+        <button
+          disabled={!smtpConfigured}
+          aria-describedby={!smtpConfigured ? 'tenant-creation-smtp-required' : undefined}
+          onClick={(): void => setShowCreate(true)}
+        >
+          {text.admin.createTenant}
+        </button>
       </div>
+      {!smtpConfigured ? (
+        <p className="hint" id="tenant-creation-smtp-required">
+          {text.admin.tenantCreationSmtpRequired}
+        </p>
+      ) : null}
       <label>
         {text.dashboard.filterTenants}
         <input
@@ -163,7 +175,11 @@ export default function AdminTenantManagement({
         <div className="modal-backdrop">
           <section className="modal">
             <button onClick={(): void => setShowCreate(false)}>{text.dashboard.close}</button>
-            <AdminTenantCreate locale={locale} onCreated={tenantCreated} />
+            <AdminTenantCreate
+              locale={locale}
+              onCreated={tenantCreated}
+              smtpConfigured={smtpConfigured}
+            />
           </section>
         </div>
       ) : null}
@@ -213,9 +229,15 @@ export default function AdminTenantManagement({
   );
 }
 
-async function loadTenants(setTenants: (tenants: CookbookTenant[]) => void): Promise<void> {
+async function loadTenants(
+  setTenants: (tenants: CookbookTenant[]) => void,
+  setSmtpConfigured: (value: boolean) => void,
+): Promise<void> {
   const response: Response = await fetch('/api/admin/tenants', { credentials: 'same-origin' });
-  if (response.ok) setTenants(((await response.json()) as { tenants: CookbookTenant[] }).tenants);
+  if (!response.ok) return;
+  const body = (await response.json()) as { tenants: CookbookTenant[]; smtpConfigured?: unknown };
+  setTenants(body.tenants);
+  setSmtpConfigured(body.smtpConfigured === true);
 }
 async function updateTenant(
   publicId: string,

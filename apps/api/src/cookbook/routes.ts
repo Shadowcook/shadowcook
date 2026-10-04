@@ -88,6 +88,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         canManageCategories: false,
         canManageRecipes: false,
         canManageUsers: false,
+        canCreateAiContexts: false,
       });
     const tenantResult = await pool.query<TenantRow>(
       'SELECT id, display_name FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
@@ -174,6 +175,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       can_manage_ingredients: boolean;
       can_manage_units: boolean;
       can_manage_service_accounts: boolean;
+      can_create_ai_contexts: boolean;
     }>(
       `SELECT EXISTS (
          SELECT 1 FROM tenant_membership_role
@@ -231,7 +233,14 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
            AND tenant_role_permission.permission_code = 'service-account:manage'
-       ) AS can_manage_service_accounts`,
+       ) AS can_manage_service_accounts,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+       ) AS can_create_ai_contexts`,
       [tenant.id, principalId],
     );
     return reply.send({
@@ -244,6 +253,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       canManageIngredients: permissions.rows[0]?.can_manage_ingredients === true,
       canManageUnits: permissions.rows[0]?.can_manage_units === true,
       canManageServiceAccounts: permissions.rows[0]?.can_manage_service_accounts === true,
+      canCreateAiContexts: permissions.rows[0]?.can_create_ai_contexts === true,
     });
   });
 

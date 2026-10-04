@@ -160,6 +160,8 @@ export interface Translation {
     cookbookName: string;
     tenantSlug: string;
     tenantSlugHint: string;
+    tenantCreationSmtpRequired: string;
+    tenantInvitationDeliveryFailed: string;
     tenantCreated: string;
     renameTenant: string;
     renameTenantDescription: string;
@@ -306,6 +308,16 @@ export interface Translation {
     createShareLink: string;
     shareLink: string;
     shareName: string;
+    aiContext: string;
+    aiContextTitle: string;
+    aiContextDescription: string;
+    aiContextDuration: string;
+    aiContextFourHours: string;
+    aiContextEightHours: string;
+    aiContextTwentyFourHours: string;
+    createAiContext: string;
+    aiContextUrl: string;
+    copyAiContext: string;
     edit: string;
     steps: string;
     variant: string;

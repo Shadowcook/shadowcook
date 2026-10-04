@@ -169,6 +169,14 @@ export async function loadSmtpConfiguration(
   };
 }
 
+export async function isSmtpConfigured(pool: Pool, key: Buffer | null): Promise<boolean> {
+  if (key === null) return false;
+  const result = await pool.query<{ configured: boolean }>(
+    'SELECT EXISTS (SELECT 1 FROM instance_mail_settings WHERE singleton = true) AS configured',
+  );
+  return result.rows[0]?.configured === true;
+}
+
 function parseMailSettingsBody(value: unknown): MailSettingsBody | null {
   if (
     !isRecord(value) ||

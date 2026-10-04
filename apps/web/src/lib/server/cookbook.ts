@@ -53,7 +53,10 @@ export async function loadServerCookbookPage(
   return { cookbook, location };
 }
 
-async function getJson<ResponseBody>(path: string, cookie: string | null): Promise<ResponseBody | null> {
+async function getJson<ResponseBody>(
+  path: string,
+  cookie: string | null,
+): Promise<ResponseBody | null> {
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
   try {
     const response: Response = await fetch(new URL(path, apiOrigin), {
@@ -75,6 +78,8 @@ function tenantSlugFromPath(pathname: string): string | null {
 }
 
 function isCookbookPath(pathname: string, location: CookbookLocation): boolean {
-  const segments: string[] = pathname.split('/').filter((segment: string): boolean => segment.length > 0);
+  const segments: string[] = pathname
+    .split('/')
+    .filter((segment: string): boolean => segment.length > 0);
   return segments.length === 1 || location.categoryId !== null || location.recipe !== null;
 }

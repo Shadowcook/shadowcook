@@ -11,7 +11,8 @@ interface Properties {
   tenantSlug: string;
 }
 
-const { categories, collapseLabel, expandLabel, parentId, selectedCategoryId, tenantSlug } = Astro.props;
+const { categories, collapseLabel, expandLabel, parentId, selectedCategoryId, tenantSlug } =
+  Astro.props;
 const children: Category[] = categories
   .filter((category: Category): boolean => category.parent_public_id === parentId)
   .sort(
@@ -44,15 +45,15 @@ function isExpandedInitially(category: Category): boolean {
 ---
 
 <div class="category-tree">
-  {children.map((category: Category) => {
-    const hasChildren: boolean = categories.some(
-      (candidate: Category): boolean => candidate.parent_public_id === category.public_id,
-    );
-    return (
-      <div class="category-tree__item">
-        <div class="category-tree__row">
-          {
-            hasChildren ? (
+  {
+    children.map((category: Category) => {
+      const hasChildren: boolean = categories.some(
+        (candidate: Category): boolean => candidate.parent_public_id === category.public_id,
+      );
+      return (
+        <div class="category-tree__item">
+          <div class="category-tree__row">
+            {hasChildren ? (
               <button
                 aria-expanded="true"
                 aria-label={`${collapseLabel}: ${category.name}`}
@@ -62,20 +63,27 @@ function isExpandedInitially(category: Category): boolean {
                 data-expand-label={expandLabel}
                 data-initial-expanded={isExpandedInitially(category) ? 'true' : 'false'}
                 type="button"
-              >−</button>
-            ) : <span class="category-disclosure category-disclosure--placeholder" aria-hidden="true" />
-          }
-          <a
-            class={
-              category.public_id === selectedCategoryId
-                ? 'category-button category-button--active'
-                : 'category-button'
-            }
-            href={categoryUrl(category)}
-          >{category.name}</a>
-        </div>
-        {
-          hasChildren ? (
+              >
+                −
+              </button>
+            ) : (
+              <span
+                class="category-disclosure category-disclosure--placeholder"
+                aria-hidden="true"
+              />
+            )}
+            <a
+              class={
+                category.public_id === selectedCategoryId
+                  ? 'category-button category-button--active'
+                  : 'category-button'
+              }
+              href={categoryUrl(category)}
+            >
+              {category.name}
+            </a>
+          </div>
+          {hasChildren ? (
             <div class="category-tree__children">
               <Astro.self
                 categories={categories}
@@ -86,9 +94,9 @@ function isExpandedInitially(category: Category): boolean {
                 tenantSlug={tenantSlug}
               />
             </div>
-          ) : null
-        }
-      </div>
-    );
-  })}
+          ) : null}
+        </div>
+      );
+    })
+  }
 </div>

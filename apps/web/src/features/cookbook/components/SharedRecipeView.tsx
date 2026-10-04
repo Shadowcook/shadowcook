@@ -42,6 +42,7 @@ export default function SharedRecipeView({ token, text }: SharedRecipeViewProper
       onClose={(): void => window.location.assign(`/${recipe.tenant_slug}`)}
       onEdit={(): void => undefined}
       onShare={(): void => undefined}
+      onShareWithAi={(): void => undefined}
       onSelectVariant={(): void => undefined}
     />
   );

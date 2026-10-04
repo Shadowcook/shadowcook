@@ -671,7 +671,12 @@ paths:
     get:
       operationId: listTenants
       security: [{ sessionCookie: [] }]
-      responses: { '200': { description: Tenant list. } }
+      responses:
+        '200':
+          description: Tenant list and tenant-creation mail availability.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TenantListResponse' }
     post:
       operationId: createTenant
       security: [{ sessionCookie: [] }]
@@ -721,7 +726,7 @@ paths:
             },
           '503':
             {
-              description: SMTP is not configured; no tenant was created,
+              description: 'SMTP is not configured; no tenant was created. Returns SMTP_REQUIRED.',
               content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
             },
         }
@@ -1238,119 +1243,105 @@ paths:
                   status:
                     type: string
                     const: ok
-  /mcp:
+  /cookbook/tenants/{tenantSlug}/ai-contexts:
     post:
-      operationId: modelContextProtocol
-      summary: Serves authenticated Shadowcook Model Context Protocol tools for service accounts.
-      description: Only active service-account bearer tokens are accepted. Tools can search recipes and create or modify drafts; none publish or delete recipes.
-      security: [{ bearerAuth: [] }]
+      operationId: createAiContext
+      summary: Creates a one-time AI context link for a private recipe or category subtree.
+      security: [{ sessionCookie: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required: [jsonrpc, method]
+              additionalProperties: false
+              required: [scopeType, scopePublicId, durationHours]
               properties:
-                jsonrpc: { type: string, const: '2.0' }
-                id: {}
-                method: { type: string }
-                params: {}
+                scopeType: { type: string, enum: [TENANT, RECIPE, CATEGORY] }
+                scopePublicId: { type: string, minLength: 1 }
+                durationHours: { type: integer, enum: [4, 8, 24] }
       responses:
-        '200': { description: JSON-RPC response. }
-        '202': { description: JSON-RPC notification accepted. }
-        '401': { description: OAuth authentication is required. }
-  /.well-known/oauth-protected-resource:
-    get:
-      operationId: getMcpProtectedResourceMetadata
-      summary: Returns OAuth protected-resource metadata for the MCP endpoint.
-      responses:
-        '200': { description: Protected-resource metadata. }
-  /.well-known/oauth-protected-resource/api/mcp:
-    get:
-      operationId: getPathSpecificMcpProtectedResourceMetadata
-      summary: Returns OAuth protected-resource metadata for the public /api/mcp endpoint.
-      responses:
-        '200': { description: Protected-resource metadata. }
-  /.well-known/oauth-authorization-server:
-    get:
-      operationId: getOAuthAuthorizationServerMetadata
-      summary: Returns OAuth authorization-server metadata.
-      responses:
-        '200':
-          description: Authorization-server metadata.
+        '201':
+          description: The one-time access URL. It expires in thirty minutes.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/OAuthAuthorizationServerMetadata' }
-  /.well-known/oauth-authorization-server/api:
+              schema:
+                type: object
+                required: [url, expiresAt]
+                properties:
+                  url: { type: string, format: uri }
+                  expiresAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+  /ai-context/{bootstrapToken}:
     get:
-      operationId: getPathSpecificOAuthAuthorizationServerMetadata
-      summary: Returns OAuth authorization-server metadata for the public /api issuer.
-      responses:
-        '200':
-          description: Authorization-server metadata.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/OAuthAuthorizationServerMetadata' }
-  /oauth/register:
-    post:
-      operationId: registerOAuthClient
-      summary: Registers a public OAuth client for the Shadowcook MCP authorization server.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required: [redirect_uris, client_name]
-              properties:
-                redirect_uris:
-                  type: array
-                  minItems: 1
-                  items: { type: string, format: uri }
-                client_name: { type: string }
-      responses:
-        '201': { description: OAuth client registered. }
-  /oauth/authorize:
-    get:
-      operationId: authorizeMcpOAuthClient
-      summary: Authenticates a Shadowcook user and issues an OAuth authorization code.
+      operationId: exchangeAiContextLink
+      summary: Exchanges a one-time AI context URL for a scoped read-only bearer token, tenant identity, web route templates, and endpoint manifest.
       parameters:
-        - { name: response_type, in: query, required: true, schema: { type: string, const: code } }
-        - { name: client_id, in: query, required: true, schema: { type: string } }
-        - { name: redirect_uri, in: query, required: true, schema: { type: string, format: uri } }
-        - { name: state, in: query, required: true, schema: { type: string } }
-        - { name: resource, in: query, required: true, schema: { type: string, format: uri } }
+        - { name: bootstrapToken, in: path, required: true, schema: { type: string } }
+      responses:
+        '200': { description: AI context manifest and bearer token. }
+        '404': { description: The context link is expired, consumed, or revoked. }
+  /ai-context/reader:
+    get:
+      operationId: getAiContextOverview
+      summary: Returns the categories and published recipes inside an AI context scope.
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: Scoped reader overview. }
+        '401': { description: AI context authentication is required. }
+  /ai-context/reader/recipes/{publicId}:
+    get:
+      operationId: getAiContextRecipe
+      summary: Returns a published recipe inside an AI context scope.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Scoped published recipe. }
+        '401': { description: AI context authentication is required. }
+        '404': { description: Recipe outside the context scope or unavailable. }
+  /ai-context/reader/recipes/{publicId}/revisions:
+    get:
+      operationId: listAiContextRecipeRevisions
+      summary: Lists published and archived revisions for a recipe inside an AI context scope.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200': { description: Scoped immutable recipe revisions. }
+        '401': { description: AI context authentication is required. }
+        '404': { description: Recipe outside the context scope or unavailable. }
+  /ai-context/reader/recipes/{publicId}/revisions/{revisionPublicId}:
+    get:
+      operationId: getAiContextRecipeRevision
+      summary: Returns an immutable published or archived recipe revision inside an AI context scope.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
         - {
-            name: scope,
-            in: query,
+            name: revisionPublicId,
+            in: path,
             required: true,
-            schema: { type: string, const: shadowcook:recipes },
-          }
-        - { name: code_challenge, in: query, required: true, schema: { type: string } }
-        - {
-            name: code_challenge_method,
-            in: query,
-            required: true,
-            schema: { type: string, const: S256 },
+            schema: { type: string, format: uuid },
           }
       responses:
-        '302': { description: Redirects to Shadowcook sign-in or the client's redirect URI. }
-  /oauth/token:
-    post:
-      operationId: exchangeMcpOAuthToken
-      summary: Exchanges an OAuth authorization code or refresh token for an MCP access token.
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema: { $ref: '#/components/schemas/OAuthTokenRequest' }
+        '200': { description: Scoped immutable recipe revision. }
+        '401': { description: AI context authentication is required. }
+        '404': { description: Recipe or revision outside the context scope or unavailable. }
+  /ai-context/reader/recipes/{publicId}/draft:
+    get:
+      operationId: getAiContextRecipeDraft
+      summary: Returns the current draft for a recipe inside an AI context scope.
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
-        '200':
-          description: OAuth token response.
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/OAuthTokenResponse' }
+        '200': { description: Scoped current recipe draft. }
+        '401': { description: AI context authentication is required. }
+        '404':
+          { description: Recipe outside the context scope has no current draft or is unavailable. }
   /admin/mail-settings:
     get:
       operationId: getInstanceMailSettings
@@ -2440,72 +2431,28 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
-    OAuthAuthorizationServerMetadata:
+    TenantListResponse:
       type: object
       additionalProperties: false
-      required:
-        [
-          issuer,
-          authorization_endpoint,
-          token_endpoint,
-          registration_endpoint,
-          client_id_metadata_document_supported,
-          response_types_supported,
-          grant_types_supported,
-          token_endpoint_auth_methods_supported,
-          code_challenge_methods_supported,
-          scopes_supported,
-        ]
+      required: [tenants, smtpConfigured]
       properties:
-        issuer: { type: string, format: uri }
-        authorization_endpoint: { type: string, format: uri }
-        token_endpoint: { type: string, format: uri }
-        registration_endpoint: { type: string, format: uri }
-        client_id_metadata_document_supported: { type: boolean, const: true }
-        response_types_supported:
+        tenants:
           type: array
-          items: { type: string, const: code }
-        grant_types_supported:
-          type: array
-          items: { type: string, enum: [authorization_code, refresh_token] }
-        token_endpoint_auth_methods_supported:
-          type: array
-          items: { type: string, const: none }
-        code_challenge_methods_supported:
-          type: array
-          items: { type: string, const: S256 }
-        scopes_supported:
-          type: array
-          items: { type: string, const: shadowcook:recipes }
-    OAuthTokenRequest:
-      oneOf:
-        - type: object
-          additionalProperties: false
-          required: [grant_type, code, redirect_uri, client_id, code_verifier]
-          properties:
-            grant_type: { type: string, const: authorization_code }
-            code: { type: string }
-            redirect_uri: { type: string, format: uri }
-            client_id: { type: string }
-            code_verifier: { type: string }
-            resource: { type: string, format: uri }
-        - type: object
-          additionalProperties: false
-          required: [grant_type, refresh_token, client_id]
-          properties:
-            grant_type: { type: string, const: refresh_token }
-            refresh_token: { type: string }
-            client_id: { type: string }
-    OAuthTokenResponse:
+          items: { $ref: '#/components/schemas/TenantSummary' }
+        smtpConfigured:
+          type: boolean
+    TenantSummary:
       type: object
       additionalProperties: false
-      required: [access_token, token_type, expires_in, refresh_token, scope]
+      required: [public_id, display_name, description, slug, disabled_at, recipe_count, owner_name]
       properties:
-        access_token: { type: string }
-        token_type: { type: string, const: Bearer }
-        expires_in: { type: integer, minimum: 1 }
-        refresh_token: { type: string }
-        scope: { type: string, const: shadowcook:recipes }
+        public_id: { type: string, format: uuid }
+        display_name: { type: string }
+        description: { type: [string, 'null'] }
+        slug: { type: string }
+        disabled_at: { type: [string, 'null'], format: date-time }
+        recipe_count: { type: integer, minimum: 0 }
+        owner_name: { type: [string, 'null'] }
     TenantRecipePolicy:
       type: object
       additionalProperties: false
@@ -3133,8 +3080,14 @@ components:
           enum:
             - AUTHENTICATION_FAILED
             - AUTHENTICATION_REQUIRED
+            - AI_CONTEXT_UNAVAILABLE
+            - AI_CONTEXT_SCOPE_NOT_FOUND
+            - INVALID_AI_CONTEXT
             - INVALID_CREDENTIALS
             - INVALID_LOGIN_BODY
+            - SMTP_REQUIRED
+            - MAIL_NOT_CONFIGURED
+            - MAIL_DELIVERY_FAILED
             - INVALID_PASSWORD
             - PASSWORD_CHANGE_REQUIRED
             - RECIPE_NOT_FOUND

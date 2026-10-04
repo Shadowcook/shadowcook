@@ -8,11 +8,14 @@ interface Properties {
 
 const { buildCommit, text } = Astro.props;
 const displayedCommit: string =
-  buildCommit === undefined || buildCommit.length === 0 ? text.buildFooter.unavailable : buildCommit;
+  buildCommit === undefined || buildCommit.length === 0
+    ? text.buildFooter.unavailable
+    : buildCommit;
 ---
 
 <footer class="build-footer">
   <div class="build-footer__content">
-    <span>{text.buildFooter.commit}:</span> <code>{displayedCommit}</code>
+    <span>{text.buildFooter.commit}:</span>
+    <code>{displayedCommit}</code>
   </div>
 </footer>

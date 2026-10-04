@@ -36,8 +36,9 @@ export function recipeJsonLd(
   text: Translation,
 ): RecipeJsonLd {
   const categoryNames: string[] = categoryIds
-    .map((categoryId: string): string | undefined =>
-      categories.find((category: Category): boolean => category.public_id === categoryId)?.name,
+    .map(
+      (categoryId: string): string | undefined =>
+        categories.find((category: Category): boolean => category.public_id === categoryId)?.name,
     )
     .filter((name: string | undefined): name is string => name !== undefined);
   const result: RecipeJsonLd = {
@@ -52,11 +53,13 @@ export function recipeJsonLd(
         .filter((ingredient: IngredientUsage): boolean => ingredient.special_kind === null)
         .map((ingredient: IngredientUsage): string => recipeIngredientText(ingredient, text)),
     ),
-    recipeInstructions: recipe.steps.map((step: { instruction: string }, index: number): JsonLdHowToStep => ({
-      '@type': 'HowToStep',
-      position: index + 1,
-      text: step.instruction,
-    })),
+    recipeInstructions: recipe.steps.map(
+      (step: { instruction: string }, index: number): JsonLdHowToStep => ({
+        '@type': 'HowToStep',
+        position: index + 1,
+        text: step.instruction,
+      }),
+    ),
   };
   if (recipe.summary !== null && recipe.summary.length > 0) result.description = recipe.summary;
   if (categoryNames.length > 0) result.recipeCategory = categoryNames;

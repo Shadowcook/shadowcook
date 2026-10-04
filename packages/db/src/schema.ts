@@ -104,6 +104,22 @@ export interface RecipeShareLinkTable {
   created_at: Generated<Timestamp>;
 }
 
+export interface AiContextGrantTable {
+  id: Generated<Uuid>;
+  tenant_id: string;
+  created_by_principal_id: string;
+  scope_type: 'TENANT' | 'RECIPE' | 'CATEGORY';
+  scope_public_id: string;
+  bootstrap_token_hash: Buffer;
+  bootstrap_expires_at: Timestamp;
+  bootstrap_consumed_at: Timestamp | null;
+  access_token_hash: Buffer | null;
+  expires_at: Timestamp;
+  last_used_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
 export interface UnitTable {
   id: Generated<Uuid>;
   owner_tenant_id: string | null;
@@ -153,6 +169,7 @@ export interface Database {
   recipe: RecipeTable;
   recipe_revision: RecipeRevisionTable;
   recipe_share_link: RecipeShareLinkTable;
+  ai_context_grant: AiContextGrantTable;
   unit: UnitTable;
   ingredient: IngredientTable;
   ingredient_alias: IngredientAliasTable;

@@ -1,10 +1,5 @@
 # Shadowcook 2.0 implementation progress
 
-## Pending setup and administration work
-
-- Tenant creation must be disabled while SMTP is not configured, and the disabled control must explain that SMTP configuration is required.
-- A tenant-creation failure caused by mail delivery must return and display a mail-delivery-specific error instead of a generic request failure.
-
 ## Completed architecture features
 
 ### Platform, persistence, and development data
@@ -54,6 +49,7 @@
 - Human password authentication, email-code authentication, opaque HttpOnly sessions, password-change enforcement, password resets, and bootstrap administration are implemented.
 - One-time email codes are hashed, expiring, rate-limited, and delivered through configured SMTP.
 - SMTP configuration is permission-gated, encrypts stored passwords, and supports test delivery.
+- Tenant creation is disabled until SMTP delivery is configured, with a localized configuration requirement, server-side `SMTP_REQUIRED` enforcement, and a localized mail-delivery failure message for owner invitations.
 - The authorization model includes canonical permissions, instance roles, tenant roles, tenant memberships, tenant-scoped role assignment, and the initial `Owner`, `Editor`, and `Viewer` roles.
 - Tenant-Manager and administrator capabilities cover tenant lifecycle management, invitations, users, and role assignments within their defined scopes.
 - Instance administration provides deep-linkable dashboards and tenant, user, authentication, SMTP, ingredient, and unit management.
@@ -62,8 +58,7 @@
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.
 - Tenant owners can create service accounts, assign existing tenant roles, issue one-time-view opaque bearer tokens, inspect token lifecycle metadata, revoke tokens, and disable service accounts.
 - Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.
-- The authenticated remote MCP endpoint exposes provider-neutral recipe search and draft-editing tools for compatible AI clients. It cannot publish or delete recipes.
-- The MCP endpoint supports OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, protected-resource metadata, authorization-server metadata, dynamic public-client registration, rotating refresh tokens, and human-principal authorization.
-- MCP recipe assistants can search and create tenant-owned ingredients and units when the authenticated tenant role grants the respective permissions. Instance-owned catalogue records remain unavailable to MCP writes.
-- The public web proxy exposes both root and path-specific OAuth discovery URLs for the `/api/mcp` resource, allowing ChatGPT to discover dynamic client registration.
-- OAuth authorization defaults an omitted scope to the MCP recipe scope for compatible ChatGPT clients.
+- Private recipes, category subtrees, and complete cookbooks can be shared with an AI through one-time 30-minute context links. Exchanging a link returns a scoped read-only bearer token valid for 4, 8, or 24 hours and a machine-readable reader endpoint manifest.
+- AI context reader endpoints expose published recipes, immutable published and archived recipe revisions, current drafts, and categories within the selected scope. They do not expose management resources or write operations.
+- The cookbook recipe page and selected-category recipe-grid header provide localized AI-context share actions. The modal duration selector displays and copies the one-time context URL.
+- AI context manifests provide tenant identity, public web origin, and cookbook, category, recipe, and variant URL templates for AI-generated deep links.

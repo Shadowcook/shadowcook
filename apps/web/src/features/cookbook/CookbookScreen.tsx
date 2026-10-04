@@ -31,6 +31,7 @@ import RecipePolicySettings from './components/RecipePolicySettings';
 import RecipeShareDialog from './components/RecipeShareDialog';
 import ServiceAccountManagement from './components/ServiceAccountManagement';
 import type { RecipeShareLink } from './components/RecipeShareDialog';
+import AiContextDialog from './components/AiContextDialog';
 import '../../styles/cookbook.css';
 
 interface CookbookScreenProperties {
@@ -57,6 +58,7 @@ const emptyCookbook: CookbookResponse = {
   canManageIngredients: false,
   canManageUnits: false,
   canManageServiceAccounts: false,
+  canCreateAiContexts: false,
 };
 
 export default function CookbookScreen({
@@ -86,6 +88,11 @@ export default function CookbookScreen({
   const [shareToken, setShareToken] = useState<string | null>(sharedRecipeToken());
   const [isDetailShareDialogOpen, setIsDetailShareDialogOpen] = useState<boolean>(false);
   const [detailShareLinks, setDetailShareLinks] = useState<RecipeShareLink[]>([]);
+  const [aiContextTarget, setAiContextTarget] = useState<{
+    type: 'TENANT' | 'RECIPE' | 'CATEGORY';
+    publicId: string;
+    name: string;
+  } | null>(null);
 
   useEffect((): void => {
     setIsCategoryEditor(categoryEditorPath());
@@ -335,6 +342,25 @@ export default function CookbookScreen({
     void loadSelectedRecipeShareLinks()
       .then((): void => setIsDetailShareDialogOpen(true))
       .catch((): void => setRecipeError(text.errors.requestFailed));
+  }
+  function openSelectedRecipeAiContext(): void {
+    if (selectedRecipe === null) return;
+    setAiContextTarget({
+      type: 'RECIPE',
+      publicId: selectedRecipe.public_id,
+      name: selectedRecipe.title,
+    });
+  }
+  function openCategoryAiContext(publicId: string): void {
+    const category = cookbook.categories.find(
+      (candidate): boolean => candidate.public_id === publicId,
+    );
+    if (category === undefined) return;
+    setAiContextTarget({ type: 'CATEGORY', publicId, name: category.name });
+  }
+  function openCookbookAiContext(): void {
+    const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+    setAiContextTarget({ type: 'TENANT', publicId: 'tenant', name: cookbookName });
   }
   async function createSelectedRecipeShareLink(
     name: string | null,
@@ -644,9 +670,23 @@ export default function CookbookScreen({
                   onCloseRecipe={closeRecipe}
                   onEditRecipe={editSelectedRecipe}
                   onShareRecipe={openSelectedRecipeShareDialog}
+                  onShareRecipeWithAi={openSelectedRecipeAiContext}
+                  onShareCategoryWithAi={openCategoryAiContext}
+                  onShareCookbookWithAi={openCookbookAiContext}
                   onSelectVariant={selectRecipeVariant}
                   onManageCookbook={openDrafts}
                 />
+                {aiContextTarget === null ? null : (
+                  <AiContextDialog
+                    text={text}
+                    targetType={aiContextTarget.type}
+                    targetPublicId={aiContextTarget.publicId}
+                    targetName={aiContextTarget.name}
+                    tenantSlug={tenantSlugFromPath() ?? ''}
+                    onClose={(): void => setAiContextTarget(null)}
+                    onError={(): void => setRecipeError(text.errors.requestFailed)}
+                  />
+                )}
                 {isDetailShareDialogOpen ? (
                   <RecipeShareDialog
                     text={text}

@@ -136,7 +136,9 @@ select {
 .head-bar__user-menu {
   position: relative;
   color: #4d4037;
-  font: 0.85rem Arial, sans-serif;
+  font:
+    0.85rem Arial,
+    sans-serif;
 }
 .head-bar__user-menu summary {
   cursor: pointer;
@@ -167,7 +169,9 @@ select {
   border: 0;
   color: #4d4037;
   background: transparent;
-  font: 0.85rem Arial, sans-serif;
+  font:
+    0.85rem Arial,
+    sans-serif;
   text-align: left;
   text-decoration: none;
 }
@@ -182,7 +186,9 @@ select {
 .head-bar__menu-message {
   margin: 0.35rem 0.7rem;
   color: #a7472e;
-  font: 0.78rem Arial, sans-serif;
+  font:
+    0.78rem Arial,
+    sans-serif;
 }
 .application-shell {
   width: min(1080px, calc(100% - 3rem));
@@ -196,7 +202,9 @@ select {
   border-top: 1px solid #d7cabb;
   background: #fffaf0ed;
   color: #75675d;
-  font: 0.75rem Arial, sans-serif;
+  font:
+    0.75rem Arial,
+    sans-serif;
   text-align: center;
 }
 .build-footer__content {

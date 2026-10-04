@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
+import AdminIcon from '../../../components/AdminIcon';
 import BreadcrumbBar from './BreadcrumbBar';
 import CategoryTree from './CategoryTree';
 import RecipeDetailView from './RecipeDetailView';
@@ -17,6 +18,9 @@ interface CookbookDashboardProperties {
   onCloseRecipe: () => void;
   onEditRecipe: () => void;
   onShareRecipe: () => void;
+  onShareRecipeWithAi: () => void;
+  onShareCategoryWithAi: (categoryId: string) => void;
+  onShareCookbookWithAi: () => void;
   onSelectVariant: (slug: string) => void;
   onManageCookbook: () => void;
 }
@@ -34,6 +38,9 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onCloseRecipe,
     onEditRecipe,
     onShareRecipe,
+    onShareRecipeWithAi,
+    onShareCategoryWithAi,
+    onShareCookbookWithAi,
     onSelectVariant,
     onManageCookbook,
   } = properties;
@@ -78,6 +85,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           onClose={onCloseRecipe}
           onEdit={onEditRecipe}
           onShare={onShareRecipe}
+          onShareWithAi={onShareRecipeWithAi}
           onSelectVariant={onSelectVariant}
         />
       ) : (
@@ -109,6 +117,21 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
               <p className="eyebrow">{text.dashboard.recipes}</p>
               <div className="recipes-panel__actions">
                 <strong>{recipes.length}</strong>
+                {cookbook.canCreateAiContexts ? (
+                  <button
+                    type="button"
+                    className="button--secondary"
+                    onClick={(): void =>
+                      selectedCategoryId === null
+                        ? onShareCookbookWithAi()
+                        : onShareCategoryWithAi(selectedCategoryId)
+                    }
+                    aria-label={text.recipeEditor.aiContext}
+                    title={text.recipeEditor.aiContext}
+                  >
+                    <AdminIcon name="share" />
+                  </button>
+                ) : null}
               </div>
             </div>
             {recipeError.length > 0 ? (

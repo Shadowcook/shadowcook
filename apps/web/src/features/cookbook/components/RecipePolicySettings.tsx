@@ -33,10 +33,10 @@ export default function RecipePolicySettings({
     setIsSaving(true);
     setMessage('');
     try {
-      await request<void>(
-        `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipe-policy`,
-        { ...jsonRequest(policy), method: 'PATCH' },
-      );
+      await request<void>(`/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipe-policy`, {
+        ...jsonRequest(policy),
+        method: 'PATCH',
+      });
       setMessage(text.recipePolicy.saved);
     } catch (_error: unknown) {
       setMessage(text.errors.requestFailed);
@@ -56,7 +56,10 @@ export default function RecipePolicySettings({
           <select
             value={policy.defaultVisibility}
             onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-              setPolicy({ ...policy, defaultVisibility: event.currentTarget.value as RecipePolicy['defaultVisibility'] })
+              setPolicy({
+                ...policy,
+                defaultVisibility: event.currentTarget.value as RecipePolicy['defaultVisibility'],
+              })
             }
           >
             <option value="PRIVATE">{text.recipeEditor.private}</option>
@@ -69,16 +72,26 @@ export default function RecipePolicySettings({
           <select
             value={policy.defaultDiscoverability}
             onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-              setPolicy({ ...policy, defaultDiscoverability: event.currentTarget.value as RecipePolicy['defaultDiscoverability'] })
+              setPolicy({
+                ...policy,
+                defaultDiscoverability: event.currentTarget
+                  .value as RecipePolicy['defaultDiscoverability'],
+              })
             }
           >
             <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
             <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
           </select>
         </label>
-        <button disabled={isSaving}>{isSaving ? text.recipeEditor.saving : text.recipePolicy.save}</button>
+        <button disabled={isSaving}>
+          {isSaving ? text.recipeEditor.saving : text.recipePolicy.save}
+        </button>
       </form>
-      {message.length > 0 ? <p className="message" role="status">{message}</p> : null}
+      {message.length > 0 ? (
+        <p className="message" role="status">
+          {message}
+        </p>
+      ) : null}
     </section>
   );
 }

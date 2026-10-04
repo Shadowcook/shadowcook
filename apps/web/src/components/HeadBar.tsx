@@ -42,7 +42,9 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
         signal: abortController.signal,
       });
       if (!response.ok) {
-        console.error('Sign-out request returned an unsuccessful response.', { status: response.status });
+        console.error('Sign-out request returned an unsuccessful response.', {
+          status: response.status,
+        });
         setSignOutError(text.headBar.signOutFailed);
         return;
       }

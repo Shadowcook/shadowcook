@@ -61,7 +61,9 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
 
 function categoryUrl(id: string): string {
   const segments: string[] | null = categoryPath(cookbook.categories, id);
-  return segments === null ? `/${tenantSlug()}` : `/${tenantSlug()}/${segments.map(encodeURIComponent).join('/')}`;
+  return segments === null
+    ? `/${tenantSlug()}`
+    : `/${tenantSlug()}/${segments.map(encodeURIComponent).join('/')}`;
 }
 
 function variantUrl(slug: string, isDefault: boolean): string {
@@ -101,7 +103,7 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
     <meta name="description" content={recipe.summary ?? text.metadata.description} />
     <link rel="canonical" href={canonicalUrl} />
     <title>{recipe.title} · {text.metadata.title}</title>
-    <script type="application/ld+json" set:html={structuredDataJson}></script>
+    <script type="application/ld+json" set:html={structuredDataJson} />
   </head>
   <body>
     <HeadBar client:load locale={locale} />
@@ -114,9 +116,13 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
         <nav class="breadcrumb" aria-label={text.dashboard.breadcrumb}>
           <ol>
             <li><a href={`/${tenantSlug()}`}>{cookbookName}</a></li>
-            {breadcrumbCategories.map((category: Category) => (
-              <li><a href={categoryUrl(category.public_id)}>{category.name}</a></li>
-            ))}
+            {
+              breadcrumbCategories.map((category: Category) => (
+                <li>
+                  <a href={categoryUrl(category.public_id)}>{category.name}</a>
+                </li>
+              ))
+            }
             <li><span aria-current="page">{recipe.title}</span></li>
           </ol>
         </nav>
@@ -129,42 +135,54 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
           <aside class="recipe-shopping-list" aria-label={text.dashboard.shoppingList}>
             <p class="eyebrow">{text.dashboard.shoppingList}</p>
             <ul>
-              {shoppingListItems.map((item: ShoppingListItem) => {
-                const ingredientName: string = localizedIngredientName(
-                  text,
-                  item.ingredient.ingredient_localization_key,
-                  item.ingredient.ingredient_name,
-                );
-                const quantities: string[] = Array.from(item.amountsByUnit.values())
-                  .map((amount: AggregatedAmount): string => formatShoppingListAmount(amount, text))
-                  .filter((amount: string): boolean => amount.length > 0);
-                return (
-                  <li>
-                    <span>
-                      {ingredientName}
-                      {item.ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
-                    </span>
-                    {quantities.length > 0 ? <strong>{quantities.join(', ')}</strong> : null}
-                  </li>
-                );
-              })}
+              {
+                shoppingListItems.map((item: ShoppingListItem) => {
+                  const ingredientName: string = localizedIngredientName(
+                    text,
+                    item.ingredient.ingredient_localization_key,
+                    item.ingredient.ingredient_name,
+                  );
+                  const quantities: string[] = Array.from(item.amountsByUnit.values())
+                    .map((amount: AggregatedAmount): string =>
+                      formatShoppingListAmount(amount, text),
+                    )
+                    .filter((amount: string): boolean => amount.length > 0);
+                  return (
+                    <li>
+                      <span>
+                        {ingredientName}
+                        {item.ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
+                      </span>
+                      {quantities.length > 0 ? <strong>{quantities.join(', ')}</strong> : null}
+                    </li>
+                  );
+                })
+              }
             </ul>
           </aside>
         </div>
         {
           recipe.variants.length > 1 ? (
-            <nav class="recipe-page__variants" data-variant-selector data-variant-label={text.recipeEditor.variant}>
+            <nav
+              class="recipe-page__variants"
+              data-variant-selector
+              data-variant-label={text.recipeEditor.variant}
+            >
               <ul>
-                {recipe.variants.filter(
-                  (variant: RecipeVariant): boolean => variant.is_default || variant.is_visible,
-                ).map((variant: RecipeVariant) => (
-                  <li>
-                    <a
-                      href={variantUrl(variant.slug, variant.is_default)}
-                      aria-current={variant.slug === recipe.selectedVariant ? 'page' : undefined}
-                    >{variant.name}</a>
-                  </li>
-                ))}
+                {recipe.variants
+                  .filter(
+                    (variant: RecipeVariant): boolean => variant.is_default || variant.is_visible,
+                  )
+                  .map((variant: RecipeVariant) => (
+                    <li>
+                      <a
+                        href={variantUrl(variant.slug, variant.is_default)}
+                        aria-current={variant.slug === recipe.selectedVariant ? 'page' : undefined}
+                      >
+                        {variant.name}
+                      </a>
+                    </li>
+                  ))}
               </ul>
             </nav>
           ) : null
@@ -180,13 +198,17 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
                 <ul>
                   {step.ingredients.map((ingredient: IngredientUsage) => (
                     <li>
-                      <span class="recipe-step-entry">{recipeIngredientText(ingredient, text)}</span>
+                      <span class="recipe-step-entry">
+                        {recipeIngredientText(ingredient, text)}
+                      </span>
                       {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
                     </li>
                   ))}
                 </ul>
                 <section>
-                  <p class="recipe-step__number">{text.dashboard.step} {index + 1}</p>
+                  <p class="recipe-step__number">
+                    {text.dashboard.step} {index + 1}
+                  </p>
                   <p>{step.instruction}</p>
                 </section>
               </li>
@@ -200,7 +222,8 @@ function categoryTrail(selectedCategoryId: string | null): Category[] {
 </html>
 
 <script>
-  const variantNavigations: NodeListOf<HTMLElement> = document.querySelectorAll('[data-variant-selector]');
+  const variantNavigations: NodeListOf<HTMLElement> =
+    document.querySelectorAll('[data-variant-selector]');
 
   for (const navigation of variantNavigations) {
     const links: HTMLAnchorElement[] = Array.from(navigation.querySelectorAll('a'));

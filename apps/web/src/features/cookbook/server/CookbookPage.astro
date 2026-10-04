@@ -26,11 +26,14 @@ const tenantSlug: string = requestedTenantSlug();
 const selectedCategory: Category | undefined = cookbook.categories.find(
   (category: Category): boolean => category.public_id === categoryId,
 );
-const breadcrumbCategories: Category[] = selectedCategory === undefined ? [] : categoryAncestors(selectedCategory);
+const breadcrumbCategories: Category[] =
+  selectedCategory === undefined ? [] : categoryAncestors(selectedCategory);
 const visibleRecipes: Recipe[] =
   categoryId === null
     ? cookbook.recipes
-    : cookbook.recipes.filter((recipe: Recipe): boolean => recipe.category_public_ids.includes(categoryId));
+    : cookbook.recipes.filter((recipe: Recipe): boolean =>
+        recipe.category_public_ids.includes(categoryId),
+      );
 
 function requestedTenantSlug(): string {
   const segment: string | undefined = Astro.url.pathname
@@ -88,21 +91,30 @@ function categoryAncestors(category: Category): Category[] {
         <nav class="breadcrumb" aria-label={text.dashboard.breadcrumb}>
           <ol>
             <li><a href={`/${encodeURIComponent(tenantSlug)}`}>{cookbookName}</a></li>
-            {breadcrumbCategories.map((category: Category, index: number) => (
-              <li>
-                {
-                  index === breadcrumbCategories.length - 1
-                    ? <span aria-current="page">{category.name}</span>
-                    : <a href={categoryUrl(category)}>{category.name}</a>
-                }
-              </li>
-            ))}
+            {
+              breadcrumbCategories.map((category: Category, index: number) => (
+                <li>
+                  {index === breadcrumbCategories.length - 1 ? (
+                    <span aria-current="page">{category.name}</span>
+                  ) : (
+                    <a href={categoryUrl(category)}>{category.name}</a>
+                  )}
+                </li>
+              ))
+            }
           </ol>
         </nav>
         <div class="cookbook-layout">
           <aside class="category-panel">
-            <div class="category-panel__heading"><p class="eyebrow">{text.dashboard.categories}</p></div>
-            <a class={categoryId === null ? 'category-button category-button--active' : 'category-button'} href={`/${encodeURIComponent(tenantSlug)}`}>
+            <div class="category-panel__heading">
+              <p class="eyebrow">{text.dashboard.categories}</p>
+            </div>
+            <a
+              class={categoryId === null
+                ? 'category-button category-button--active'
+                : 'category-button'}
+              href={`/${encodeURIComponent(tenantSlug)}`}
+            >
               {text.dashboard.allCategories}
             </a>
             <nav aria-label={text.dashboard.categories}>
@@ -122,7 +134,9 @@ function categoryAncestors(category: Category): Category[] {
               <div class="recipes-panel__actions"><strong>{visibleRecipes.length}</strong></div>
             </div>
             {
-              visibleRecipes.length === 0 ? <p class="empty-state">{text.dashboard.noRecipes}</p> : (
+              visibleRecipes.length === 0 ? (
+                <p class="empty-state">{text.dashboard.noRecipes}</p>
+              ) : (
                 <div class="recipe-grid">
                   {visibleRecipes.map((recipe: Recipe) => (
                     <article class="recipe-card">
@@ -178,7 +192,8 @@ function categoryAncestors(category: Category): Category[] {
       const label: string | undefined = expanded
         ? disclosure.dataset.collapseLabel
         : disclosure.dataset.expandLabel;
-      const categoryName: string | null = item.querySelector('.category-button')?.textContent ?? null;
+      const categoryName: string | null =
+        item.querySelector('.category-button')?.textContent ?? null;
       if (label !== undefined && categoryName !== null)
         disclosure.setAttribute('aria-label', `${label}: ${categoryName}`);
     }
