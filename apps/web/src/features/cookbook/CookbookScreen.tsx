@@ -36,6 +36,9 @@ import '../../styles/cookbook.css';
 
 interface CookbookScreenProperties {
   locale: Locale;
+  initialCookbook?: CookbookResponse;
+  initialCategoryId?: string | null;
+  initialRecipe?: RecipeDetail | null;
   notifyWhenReady?: boolean;
 }
 interface SessionResponse {
@@ -65,10 +68,14 @@ const emptyCookbook: CookbookResponse = {
 
 export default function CookbookScreen({
   locale,
+  initialCookbook,
+  initialCategoryId = null,
+  initialRecipe = null,
   notifyWhenReady = false,
 }: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
-  const [screen, setScreen] = useState<Screen>('loading');
+  const initialScreen: Screen = initialCookbook === undefined ? 'loading' : 'dashboard';
+  const [screen, setScreen] = useState<Screen>(initialScreen);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [emailCode, setEmailCode] = useState<string>('');
@@ -82,9 +89,9 @@ export default function CookbookScreen({
   const [hasPassword, setHasPassword] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [cookbook, setCookbook] = useState<CookbookResponse>(emptyCookbook);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
-  const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(null);
+  const [cookbook, setCookbook] = useState<CookbookResponse>(initialCookbook ?? emptyCookbook);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId);
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(initialRecipe);
   const [isRecipeLoading, setIsRecipeLoading] = useState<boolean>(false);
   const [recipeError, setRecipeError] = useState<string>('');
   const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(false);

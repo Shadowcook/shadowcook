@@ -695,8 +695,7 @@
   padding: 0;
   list-style: none;
 }
-.ingredient-picker__results button,
-.ingredient-picker__special-entries button {
+.ingredient-picker__results button {
   width: 100%;
   text-align: left;
 }
@@ -723,7 +722,19 @@
   width: 1.25rem;
   min-height: 1.25rem;
   color: #a54916;
-  font-weight: 700;
+}
+.special-ingredient-icon {
+  display: block;
+  width: 1.1rem;
+  height: 1.1rem;
+  object-fit: contain;
+}
+.ingredient-picker__special-entry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.2rem;
 }
 @media (max-width: 900px) {
   .recipe-step-editor {
@@ -979,9 +990,17 @@
     sans-serif;
 }
 .recipe-steps ul li {
-  display: flex;
-  justify-content: space-between;
-  gap: 0.7rem;
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr);
+  align-items: baseline;
+  gap: 0.45rem;
+}
+.recipe-ingredient-amount {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: #75675d;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 .recipe-step-entry {
   display: inline-flex;

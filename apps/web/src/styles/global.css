@@ -581,16 +581,11 @@ code {
   display: block;
   width: 1rem;
   height: 1rem;
-  fill: none;
-  stroke: currentcolor;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  stroke-width: 2.75;
+  object-fit: contain;
 }
 .admin-icon--edit {
   width: 1.2rem;
   height: 1.2rem;
-  stroke-width: 3;
 }
 .unit-form,
 .unit-converter form,

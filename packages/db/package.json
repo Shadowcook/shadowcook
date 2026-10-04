@@ -8,7 +8,7 @@
   },
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsc -p tsconfig.json && cp src/migrations/*.sql dist/migrations/",
+    "build": "tsc -p tsconfig.json && cp src/migrations/*.sql dist/migrations/ && cp src/development-baseline.sql dist/development-baseline.sql",
     "check": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {

@@ -16,7 +16,10 @@
       "public_id": "91000000-0000-4000-8000-000000000011",
       "email": "user@local",
       "display_name": "Local cookbook owner",
-      "password_hash": { "$passwordHash": "user", "minimumLength": 1 }
+      "password_hash": {
+        "$passwordHash": "user",
+        "minimumLength": 1
+      }
     },
     {
       "id": "91000000-0000-4000-8000-000000000002",
@@ -24,7 +27,10 @@
       "public_id": "91000000-0000-4000-8000-000000000012",
       "email": "guest@local",
       "display_name": "Local cookbook guest",
-      "password_hash": { "$passwordHash": "guest", "minimumLength": 1 }
+      "password_hash": {
+        "$passwordHash": "guest",
+        "minimumLength": 1
+      }
     }
   ],
   "tenant": [
@@ -58,7 +64,10 @@
       "tenant_role_id": "92000000-0000-4000-8000-000000000001",
       "permission_code": "tenant:manage"
     },
-    { "tenant_role_id": "92000000-0000-4000-8000-000000000001", "permission_code": "recipe:read" },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:read"
+    },
     {
       "tenant_role_id": "92000000-0000-4000-8000-000000000001",
       "permission_code": "recipe:revision:read"
@@ -83,7 +92,10 @@
       "tenant_role_id": "92000000-0000-4000-8000-000000000001",
       "permission_code": "recipe:publish"
     },
-    { "tenant_role_id": "92000000-0000-4000-8000-000000000001", "permission_code": "variant:read" },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:read"
+    },
     {
       "tenant_role_id": "92000000-0000-4000-8000-000000000001",
       "permission_code": "variant:create"
@@ -153,223 +165,9 @@
       "encrypted_password": null,
       "from_email": "shadowcook@example.invalid",
       "from_name": "Shadowcook development",
-      "updated_by_principal_id": { "$seedRef": "bootstrapAdministratorPrincipalId" }
-    }
-  ],
-  "category": [
-    {
-      "id": "20000000-0000-4000-8000-000000000001",
-      "public_id": "20000000-0000-4000-8000-000000000011",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "name": "Meals",
-      "slug": "meals",
-      "sort_order": 0
-    },
-    {
-      "id": "20000000-0000-4000-8000-000000000002",
-      "public_id": "20000000-0000-4000-8000-000000000012",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "parent_id": "20000000-0000-4000-8000-000000000001",
-      "name": "Pasta",
-      "slug": "pasta",
-      "sort_order": 0
-    },
-    {
-      "id": "20000000-0000-4000-8000-000000000003",
-      "public_id": "20000000-0000-4000-8000-000000000013",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "parent_id": "20000000-0000-4000-8000-000000000001",
-      "name": "Vegetarian",
-      "slug": "vegetarian",
-      "sort_order": 1
-    },
-    {
-      "id": "20000000-0000-4000-8000-000000000004",
-      "public_id": "20000000-0000-4000-8000-000000000014",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "name": "Desserts",
-      "slug": "desserts",
-      "sort_order": 1
-    }
-  ],
-  "ingredient": [
-    {
-      "id": "30000000-0000-4000-8000-000000000001",
-      "public_id": "30000000-0000-4000-8000-000000000011",
-      "canonical_name": "pasta"
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000002",
-      "public_id": "30000000-0000-4000-8000-000000000012",
-      "canonical_name": "tomatoes"
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000003",
-      "public_id": "30000000-0000-4000-8000-000000000013",
-      "canonical_name": "carrots"
-    },
-    {
-      "id": "30000000-0000-4000-8000-000000000004",
-      "public_id": "30000000-0000-4000-8000-000000000014",
-      "canonical_name": "apples"
-    }
-  ],
-  "unit": [
-    {
-      "id": "40000000-0000-4000-8000-000000000001",
-      "public_id": "40000000-0000-4000-8000-000000000011",
-      "name": "gram",
-      "symbol": "g",
-      "dimension": "MASS",
-      "base_factor": 1
-    },
-    {
-      "id": "40000000-0000-4000-8000-000000000002",
-      "public_id": "40000000-0000-4000-8000-000000000012",
-      "name": "millilitre",
-      "symbol": "ml",
-      "dimension": "VOLUME",
-      "base_factor": 1
-    }
-  ],
-  "recipe": [
-    {
-      "id": "50000000-0000-4000-8000-000000000001",
-      "public_id": "50000000-0000-4000-8000-000000000011",
-      "lineage_public_id": "50000000-0000-4000-8000-000000000011",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "slug": "creamy-tomato-pasta",
-      "published_revision_id": "60000000-0000-4000-8000-000000000001"
-    },
-    {
-      "id": "50000000-0000-4000-8000-000000000002",
-      "public_id": "50000000-0000-4000-8000-000000000012",
-      "lineage_public_id": "50000000-0000-4000-8000-000000000012",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "slug": "lemon-roasted-vegetables",
-      "published_revision_id": "60000000-0000-4000-8000-000000000002"
-    },
-    {
-      "id": "50000000-0000-4000-8000-000000000003",
-      "public_id": "50000000-0000-4000-8000-000000000013",
-      "lineage_public_id": "50000000-0000-4000-8000-000000000013",
-      "tenant_id": "10000000-0000-4000-8000-000000000001",
-      "slug": "apple-crumble",
-      "published_revision_id": "60000000-0000-4000-8000-000000000003"
-    }
-  ],
-  "recipe_revision": [
-    {
-      "id": "60000000-0000-4000-8000-000000000001",
-      "public_id": "60000000-0000-4000-8000-000000000011",
-      "recipe_id": "50000000-0000-4000-8000-000000000001",
-      "revision_no": 1,
-      "status": "PUBLISHED",
-      "title": "Creamy tomato pasta",
-      "summary": "A quick weeknight pasta with tomato and cream.",
-      "published_at": "2026-01-01T00:00:00Z"
-    },
-    {
-      "id": "60000000-0000-4000-8000-000000000002",
-      "public_id": "60000000-0000-4000-8000-000000000012",
-      "recipe_id": "50000000-0000-4000-8000-000000000002",
-      "revision_no": 1,
-      "status": "PUBLISHED",
-      "title": "Lemon roasted vegetables",
-      "summary": "Crisp roasted vegetables with lemon.",
-      "published_at": "2026-01-01T00:00:00Z"
-    },
-    {
-      "id": "60000000-0000-4000-8000-000000000003",
-      "public_id": "60000000-0000-4000-8000-000000000013",
-      "recipe_id": "50000000-0000-4000-8000-000000000003",
-      "revision_no": 1,
-      "status": "PUBLISHED",
-      "title": "Apple crumble",
-      "summary": "Warm apples under a crunchy topping.",
-      "published_at": "2026-01-01T00:00:00Z"
-    }
-  ],
-  "recipe_revision_category": [
-    {
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000001",
-      "category_id": "20000000-0000-4000-8000-000000000002"
-    },
-    {
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000002",
-      "category_id": "20000000-0000-4000-8000-000000000003"
-    },
-    {
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000003",
-      "category_id": "20000000-0000-4000-8000-000000000004"
-    }
-  ],
-  "recipe_step": [
-    {
-      "id": "70000000-0000-4000-8000-000000000001",
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000001",
-      "step_key": "70000000-0000-4000-8000-000000000011",
-      "sort_order": 0,
-      "instruction": "Cook the pasta in salted water until al dente."
-    },
-    {
-      "id": "70000000-0000-4000-8000-000000000002",
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000001",
-      "step_key": "70000000-0000-4000-8000-000000000012",
-      "sort_order": 1,
-      "instruction": "Warm the tomato sauce, then toss with the pasta."
-    },
-    {
-      "id": "70000000-0000-4000-8000-000000000003",
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000002",
-      "step_key": "70000000-0000-4000-8000-000000000013",
-      "sort_order": 0,
-      "instruction": "Roast carrots with lemon until browned."
-    },
-    {
-      "id": "70000000-0000-4000-8000-000000000004",
-      "recipe_revision_id": "60000000-0000-4000-8000-000000000003",
-      "step_key": "70000000-0000-4000-8000-000000000014",
-      "sort_order": 0,
-      "instruction": "Bake sliced apples with a crumble topping."
-    }
-  ],
-  "ingredient_usage": [
-    {
-      "id": "80000000-0000-4000-8000-000000000001",
-      "recipe_step_id": "70000000-0000-4000-8000-000000000001",
-      "usage_key": "80000000-0000-4000-8000-000000000011",
-      "ingredient_id": "30000000-0000-4000-8000-000000000001",
-      "unit_id": "40000000-0000-4000-8000-000000000001",
-      "amount": 250,
-      "sort_order": 0
-    },
-    {
-      "id": "80000000-0000-4000-8000-000000000002",
-      "recipe_step_id": "70000000-0000-4000-8000-000000000002",
-      "usage_key": "80000000-0000-4000-8000-000000000012",
-      "ingredient_id": "30000000-0000-4000-8000-000000000002",
-      "unit_id": "40000000-0000-4000-8000-000000000001",
-      "amount": 400,
-      "sort_order": 0
-    },
-    {
-      "id": "80000000-0000-4000-8000-000000000003",
-      "recipe_step_id": "70000000-0000-4000-8000-000000000003",
-      "usage_key": "80000000-0000-4000-8000-000000000013",
-      "ingredient_id": "30000000-0000-4000-8000-000000000003",
-      "unit_id": "40000000-0000-4000-8000-000000000001",
-      "amount": 300,
-      "sort_order": 0
-    },
-    {
-      "id": "80000000-0000-4000-8000-000000000004",
-      "recipe_step_id": "70000000-0000-4000-8000-000000000004",
-      "usage_key": "80000000-0000-4000-8000-000000000014",
-      "ingredient_id": "30000000-0000-4000-8000-000000000004",
-      "unit_id": "40000000-0000-4000-8000-000000000001",
-      "amount": 750,
-      "sort_order": 0
+      "updated_by_principal_id": {
+        "$seedRef": "bootstrapAdministratorPrincipalId"
+      }
     }
   ]
 }

@@ -23,8 +23,7 @@ export async function bootstrapAdministrator(
   }
 
   const password: string = options.password ?? generateBootstrapPassword();
-  const minimumPasswordLength: number = options.passwordChangeRequired ? 12 : 1;
-  const passwordHash: string = await hashPassword(password, minimumPasswordLength);
+  const passwordHash: string = await hashPassword(password);
   const client = await pool.connect();
   try {
     await client.query('BEGIN');

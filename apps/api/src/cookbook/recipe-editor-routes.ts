@@ -271,9 +271,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
               typeof usage.ingredientPublicId === 'string' && usage.ingredientPublicId.length > 0
                 ? usage.ingredientPublicId
                 : null,
-              typeof usage.textOverride === 'string' && usage.textOverride.trim().length > 0
-                ? usage.textOverride.trim()
-                : null,
+              specialEntryTextOverride(usage.textOverride, specialKind),
               isSpecialEntry ? specialKind : null,
               !isSpecialEntry &&
               typeof usage.unitPublicId === 'string' &&
@@ -1239,11 +1237,12 @@ function isValidStep(value: unknown): value is StepInput {
       const hasSpecialKind: boolean = specialKind.length > 0;
       const hasNoSpecialKind: boolean =
         candidate.specialKind === undefined || candidate.specialKind === '';
+      const hasIngredient: boolean =
+        typeof candidate.ingredientPublicId === 'string' && candidate.ingredientPublicId.length > 0;
+      const hasTextOverride: boolean =
+        typeof candidate.textOverride === 'string' && candidate.textOverride.trim().length > 0;
       return (
-        (typeof candidate.ingredientPublicId === 'string' &&
-          candidate.ingredientPublicId.length > 0) !==
-          (typeof candidate.textOverride === 'string' &&
-            candidate.textOverride.trim().length > 0) &&
+        (hasSpecialKind ? !hasIngredient : hasIngredient !== hasTextOverride) &&
         (candidate.amount === undefined ||
           (typeof candidate.amount === 'string' &&
             (candidate.amount.length === 0 || amountPattern.test(candidate.amount)))) &&
@@ -1273,6 +1272,23 @@ const specialKinds: ReadonlySet<string> = new Set([
   'WAIT',
   'WORK_STEP',
 ]);
+
+function specialEntryTextOverride(value: unknown, specialKind: string): string | null {
+  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
+  const captions: Readonly<Record<string, string>> = {
+    NO_ICON: '<no icon>',
+    REMOVE: '<remove>',
+    ADD: '<add>',
+    INFO: '<info>',
+    IMPORTANT: '<important>',
+    COOK: '<cook>',
+    COOL: '<cool>',
+    HEAT: '<heat>',
+    WAIT: '<Wait>',
+    WORK_STEP: '<WORK STEP>',
+  };
+  return captions[specialKind] ?? null;
+}
 async function validateStepInput(
   client: PoolClient,
   tenantId: string,

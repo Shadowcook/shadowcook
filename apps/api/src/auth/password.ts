@@ -7,7 +7,7 @@ const saltLength: number = 16;
 const keyLength: number = 32;
 
 export function generateBootstrapPassword(): string {
-  return randomBytes(24).toString('base64url');
+  return `${randomBytes(24).toString('base64url')}Aa1!`;
 }
 
 export async function hashPassword(password: string, minimumLength: number = 12): Promise<string> {
@@ -34,6 +34,7 @@ export async function verifyPassword(password: string, encodedHash: string): Pro
 }
 
 export function validatePassword(password: string, minimumLength: number = 12): void {
+  if (process.env.NODE_ENV === 'development') return;
   if (!Number.isSafeInteger(minimumLength) || minimumLength < 1) {
     throw new Error('Password minimum length must be a positive integer.');
   }

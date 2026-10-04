@@ -40,6 +40,7 @@ function allowedPublicDomain(originValue: string | undefined): AllowedDomain[] {
 export default defineConfig({
   adapter: node({ mode: 'standalone' }),
   output: 'server',
+  publicDir: './src/assets',
   integrations: [react()],
   security: {
     allowedDomains: allowedPublicDomain(process.env.PUBLIC_WEB_ORIGIN),

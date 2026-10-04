@@ -4,7 +4,9 @@ import { localizedUnitSymbol } from '../../../i18n/unit-localization';
 import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import AdminIcon from '../../../components/AdminIcon';
 import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from '../model/types';
+import { specialIngredientCaption } from '../model/special-entries';
 import RecipeShoppingList from './RecipeShoppingList';
+import SpecialIngredientIcon from './SpecialIngredientIcon';
 
 interface RecipeDetailViewProperties {
   text: Translation;
@@ -104,23 +106,35 @@ export default function RecipeDetailView({
         {recipe.steps.map((step: RecipeStep, index: number): JSX.Element => (
           <li key={step.public_id}>
             <ul>
-              {step.ingredients.map((ingredient: IngredientUsage): JSX.Element => (
-                <li key={`${ingredient.sort_order}-${ingredient.ingredient_name}`}>
-                  <span className="recipe-step-entry">
-                    {ingredient.special_kind === null ? null : (
-                      <span
-                        className="recipe-special-icon"
-                        aria-label={specialKindLabel(ingredient.special_kind, text)}
-                        title={specialKindLabel(ingredient.special_kind, text)}
-                      >
-                        {specialKindIcon(ingredient.special_kind)}
-                      </span>
-                    )}
-                    <IngredientText ingredient={ingredient} text={text} />
-                  </span>
-                  {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
-                </li>
-              ))}
+              {step.ingredients
+                .filter(
+                  (ingredient: IngredientUsage): boolean =>
+                    ingredient.special_kind !== 'NO_ICON' ||
+                    specialIngredientCaption(
+                      ingredient.special_kind,
+                      ingredient.ingredient_name,
+                    ) !== null,
+                )
+                .map((ingredient: IngredientUsage): JSX.Element => (
+                  <li key={`${ingredient.sort_order}-${ingredient.ingredient_name}`}>
+                    <span className="recipe-ingredient-amount">
+                      {ingredientAmountText(ingredient, text)}
+                    </span>
+                    <span className="recipe-step-entry">
+                      {ingredient.special_kind === null ? null : (
+                        <span
+                          className="recipe-special-icon"
+                          aria-label={specialKindLabel(ingredient.special_kind, text)}
+                          title={specialKindLabel(ingredient.special_kind, text)}
+                        >
+                          <SpecialIngredientIcon kind={ingredient.special_kind} />
+                        </span>
+                      )}
+                      <IngredientText ingredient={ingredient} text={text} />
+                      {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
+                    </span>
+                  </li>
+                ))}
             </ul>
             <section>
               <p className="recipe-step__number">
@@ -142,11 +156,6 @@ interface IngredientTextProperties {
 
 function IngredientText(properties: IngredientTextProperties): JSX.Element {
   const { ingredient, text } = properties;
-  const amount: string | null = formatAmount(ingredient.amount);
-  const unit: string | null =
-    ingredient.unit_symbol === null
-      ? null
-      : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol);
   const ingredientName: string = localizedIngredientName(
     text,
     ingredient.ingredient_localization_key,
@@ -154,11 +163,15 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
   );
   return (
     <span>
-      {[amount, unit]
-        .filter((value: string | null): value is string => value !== null && value.length > 0)
-        .join(' ')}
-      {amount === null && unit === null ? null : ' '}
-      {ingredient.is_catalog_ingredient ? <strong>{ingredientName}</strong> : ingredientName}
+      {ingredient.special_kind === null ? (
+        ingredient.is_catalog_ingredient ? (
+          <strong>{ingredientName}</strong>
+        ) : (
+          ingredientName
+        )
+      ) : (
+        specialIngredientCaption(ingredient.special_kind, ingredientName)
+      )}
       {ingredient.is_catalog_ingredient &&
       ingredient.note !== null &&
       ingredient.note.length > 0 ? (
@@ -168,27 +181,24 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
   );
 }
 
+function ingredientAmountText(ingredient: IngredientUsage, text: Translation): string {
+  const amount: string | null = formatAmount(ingredient.amount);
+  const unit: string | null =
+    ingredient.unit_symbol === null
+      ? null
+      : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol);
+  return [amount, unit]
+    .filter((value: string | null): value is string => value !== null && value.length > 0)
+    .join(' ');
+}
+
 function formatAmount(amount: string | null): string | null {
   if (amount === null || !amount.includes('.')) return amount;
   return amount.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
 }
 
-function specialKindIcon(specialKind: string): string {
-  const icons: Record<string, string> = {
-    REMOVE: '−',
-    ADD: '+',
-    INFO: 'ℹ',
-    IMPORTANT: '⚠',
-    COOK: '🍳',
-    COOL: '❄',
-    HEAT: '🔥',
-    WAIT: '⏳',
-    WORK_STEP: '⚒',
-  };
-  return icons[specialKind] ?? '';
-}
-
 function specialKindLabel(specialKind: string, text: Translation): string {
+  const specialKindKey: string = specialKind.toUpperCase();
   const labels: Record<string, string> = {
     NO_ICON: text.recipeEditor.specialNoIcon,
     REMOVE: text.recipeEditor.specialRemove,
@@ -201,5 +211,5 @@ function specialKindLabel(specialKind: string, text: Translation): string {
     WAIT: text.recipeEditor.specialWait,
     WORK_STEP: text.recipeEditor.specialWorkStep,
   };
-  return labels[specialKind] ?? text.recipeEditor.specialEntry;
+  return labels[specialKindKey] ?? text.recipeEditor.specialEntry;
 }

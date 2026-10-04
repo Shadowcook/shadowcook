@@ -3,6 +3,7 @@ import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
 import { recipeSpecialEntries } from '../model/special-entries';
+import SpecialIngredientIcon from './SpecialIngredientIcon';
 
 interface Ingredient {
   publicId: string;
@@ -143,13 +144,22 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
   }
 
   const selectedLabel: string = selectionLabel(properties);
+  const selectedSpecialEntry = recipeSpecialEntries(properties.text).find(
+    (entry): boolean => entry.kind === properties.specialKind,
+  );
   const hasExactMatch: boolean = results.some(
     (ingredient: Ingredient): boolean => ingredient.exactMatch,
   );
 
   return (
     <details className="ingredient-picker" ref={pickerReference}>
-      <summary>{selectedLabel}</summary>
+      <summary aria-label={selectedLabel} title={selectedLabel}>
+        {selectedSpecialEntry === undefined ? (
+          selectedLabel
+        ) : (
+          <SpecialIngredientIcon kind={selectedSpecialEntry.kind} />
+        )}
+      </summary>
       <div className="ingredient-picker__menu">
         <input
           type="search"
@@ -188,16 +198,20 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
           <button type="button" className="button--secondary" onClick={selectFreeText}>
             {properties.text.recipeEditor.freeText}
           </button>
-          {recipeSpecialEntries(properties.text).map((entry): JSX.Element => (
-            <button
-              type="button"
-              className="button--secondary"
-              key={entry.kind}
-              onClick={(): void => selectSpecialEntry(entry.kind)}
-            >
-              {entry.icon} {entry.label}
-            </button>
-          ))}
+          {recipeSpecialEntries(properties.text)
+            .filter((entry): boolean => entry.kind !== 'NO_ICON')
+            .map((entry): JSX.Element => (
+              <button
+                type="button"
+                className="button--secondary ingredient-picker__special-entry"
+                key={entry.kind}
+                onClick={(): void => selectSpecialEntry(entry.kind)}
+                aria-label={entry.label}
+                title={entry.label}
+              >
+                <SpecialIngredientIcon kind={entry.kind} />
+              </button>
+            ))}
         </div>
       </div>
       {!isCreating ? null : (
@@ -286,9 +300,7 @@ function selectionLabel(properties: IngredientPickerProperties): string {
     const entry = recipeSpecialEntries(properties.text).find(
       (candidate): boolean => candidate.kind === properties.specialKind,
     );
-    return entry === undefined
-      ? properties.text.recipeEditor.specialEntry
-      : `${entry.icon} ${entry.label}`.trim();
+    return entry === undefined ? properties.text.recipeEditor.specialEntry : entry.label;
   }
   if (properties.textOverride.length > 0) return properties.text.recipeEditor.freeText;
   return properties.text.recipeEditor.selectIngredient;

@@ -1,4 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
+import { applyDevelopmentBaselineSeed, developmentBaselineSeedId } from './development-baseline.js';
 import { migrations } from './migrations/index.js';
 import type { Migration } from './migrations/types.js';
 
@@ -7,6 +8,12 @@ interface AppliedMigration {
   checksum: string;
 }
 
+export interface MigrateDatabaseOptions {
+  applyDevelopmentBaseline: boolean;
+}
+
+const initialMigrationId: string = '0001_initial_schema';
+
 const migrationTableSql = `
 CREATE TABLE IF NOT EXISTS application_schema_migration (
   id text PRIMARY KEY,
@@ -14,7 +21,10 @@ CREATE TABLE IF NOT EXISTS application_schema_migration (
   applied_at timestamptz NOT NULL DEFAULT now()
 );`;
 
-export async function migrateDatabase(pool: Pool): Promise<void> {
+export async function migrateDatabase(
+  pool: Pool,
+  options: MigrateDatabaseOptions = { applyDevelopmentBaseline: false },
+): Promise<void> {
   const client: PoolClient = await pool.connect();
 
   try {
@@ -31,6 +41,10 @@ export async function migrateDatabase(pool: Pool): Promise<void> {
 
     for (const migration of migrations) {
       await applyMigration(client, migration, appliedById.get(migration.id));
+      if (migration.id === initialMigrationId && options.applyDevelopmentBaseline) {
+        await assertDevelopmentBaselineOrder(client, appliedById);
+        await applyDevelopmentBaselineSeed(client);
+      }
     }
 
     const knownMigrationIds: Set<string> = new Set(migrations.map((migration) => migration.id));
@@ -47,6 +61,27 @@ export async function migrateDatabase(pool: Pool): Promise<void> {
     } finally {
       client.release();
     }
+  }
+}
+
+async function assertDevelopmentBaselineOrder(
+  client: PoolClient,
+  appliedById: ReadonlyMap<string, AppliedMigration>,
+): Promise<void> {
+  const hasLaterMigration: boolean = migrations.some(
+    (migration: Migration): boolean =>
+      migration.id !== initialMigrationId && appliedById.has(migration.id),
+  );
+  if (!hasLaterMigration) return;
+
+  const result = await client.query<{ exists: boolean }>(
+    'SELECT EXISTS (SELECT 1 FROM application_seed WHERE id = $1) AS exists',
+    [developmentBaselineSeedId],
+  );
+  if (result.rows[0]?.exists !== true) {
+    throw new Error(
+      'The development baseline must be applied after 0001_initial_schema and before later migrations.',
+    );
   }
 }
 

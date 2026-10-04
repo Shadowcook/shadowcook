@@ -194,7 +194,7 @@ shadowcook/
 
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
 - The cookbook overview exposes category and recipe public identifiers, slugs, titles, summaries, category assignments, and category parent public identifiers.
-- The API process seeds the `local-cookbook` tenant, four categories, and three published recipes only when `NODE_ENV=development`.
+- In development, the database migrator loads the versioned baseline seed after `0001_initial_schema` and before all later migrations.
 - The development seed defines `user@local` with password `user` and assigns it the `Owner` tenant role for `local-cookbook` without an instance role.
 - The development seed defines `guest@local` with password `guest` as a `Viewer` member of `local-cookbook` without instance role assignments.
 - The API process runs the tracked `initial-deployment-units-v1` seed once for each database after migrations and before bootstrap administration. The seed inserts instance-owned recipe units from `initial-deployment-seed.json` and records its identifier in `application_seed` in the same transaction.
@@ -212,7 +212,7 @@ shadowcook/
 - Public cookbook overview and category navigation paths render their accessible category and recipe links as semantic server-rendered HTML without a client-side session check.
 - Public cookbook overview and category pages retain their server-rendered HTML in the response and replace it with the hydrated cookbook client only after the client has loaded its session and cookbook state.
 - A direct recipe navigation renders its title, summary, category links, selected visible variant links, ingredient usages, and preparation steps as semantic server-rendered HTML. The server forwards the request cookie when resolving recipe access.
-- Server-rendered recipe pages render their aggregated shopping list and variant links in HTML; browser JavaScript enhances variant links with a URL-selecting control without removing the HTML navigation from the response.
+- Server-rendered recipe pages render the `CookbookScreen` with the resolved cookbook, category, and recipe state. JavaScript-capable browsers hydrate that same `CookbookScreen`; clients that do not execute JavaScript retain its server-rendered recipe content.
 - Server-rendered recipe pages include a canonical URL and a Schema.org `Recipe` JSON-LD document with the recipe URL, tenant author, title, optional summary, category names, non-special ingredient usages, and ordered preparation steps.
 - Sibling categories have a non-negative tenant-scoped `sort_order` that is unique within their parent category.
 - Every published recipe revision has at least one category. Draft revisions may be uncategorized.
@@ -231,7 +231,7 @@ shadowcook/
 - `pnpm reset:shadowcook-db` drops and recreates the PostgreSQL `public` schema in the `shadowcook` database only when `NODE_ENV=development`.
 - `pnpm reset:dev-db` remains an alias for the development database reset.
 - The next API startup applies the current initial schema and development seed.
-- The optional repository-root `development-seed.json` stores development database records as table-name keys and row arrays. The loader validates every table and column against the active PostgreSQL schema and inserts rows in JSON property order. Omitted columns use database defaults; relations use explicit stable identifiers. `$seedRef` resolves bootstrap seed values, `$encrypt` encrypts a string for a `bytea` column, and the development-only `$passwordHash` creates an scrypt password verifier. The local file is excluded from version control; `development-seed.example.json` is the template.
+- `packages/db/src/development-baseline.sql` stores the versioned development baseline. It is loaded once with the `development-baseline-v1` application-seed identifier after the initial schema migration. The baseline contains the development database state except migration and seed tracking records; permissions and instance roles are created by the initial schema migration.
 - The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.
 
 ### 4.4 Instance mail delivery
@@ -270,7 +270,7 @@ shadowcook/
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.
 - Accepting a tenant invitation starts a browser session for the invited account and returns the assigned cookbook slug.
 - A newly created tenant-invitation account has no password verifier, requires password completion, and does not require a current-password value.
-- Password completion requires matching entries and a password with at least twelve characters, lowercase and uppercase letters, a number, and a special character.
+- Outside development, password completion requires matching entries and a password with at least twelve characters, lowercase and uppercase letters, a number, and a special character. Development does not enforce password requirements.
 - An active session may accept a tenant-owner invitation only when its email address matches the invited email address.
 - One-time email and invitation codes are cleared on session, account, and authentication-step changes and are excluded from browser autocomplete.
 - The six-field login-code control distributes pasted digits from the active field and uses backspace in an empty field to remove and focus the preceding digit.
