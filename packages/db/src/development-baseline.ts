@@ -1,14 +1,11 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import type { PoolClient } from 'pg';
 
 export const developmentBaselineSeedId: string = 'development-baseline-v1';
 
-const developmentBaselineSql: string = readFileSync(
-  new URL('./development-baseline.sql', import.meta.url),
-  'utf8',
-);
-
 export async function applyDevelopmentBaselineSeed(client: PoolClient): Promise<void> {
+  const developmentBaselineSql: string = loadDevelopmentBaselineSql();
+
   await client.query('BEGIN');
   try {
     const result = await client.query<{ id: string }>(
@@ -29,4 +26,15 @@ export async function applyDevelopmentBaselineSeed(client: PoolClient): Promise<
     await client.query('ROLLBACK');
     throw error;
   }
+}
+
+function loadDevelopmentBaselineSql(): string {
+  const baselineUrl: URL = new URL('./development-baseline.sql', import.meta.url);
+  if (!existsSync(baselineUrl)) {
+    throw new Error(
+      'Development baseline SQL is unavailable. Provide packages/db/src/development-baseline.sql for development database initialization.',
+    );
+  }
+
+  return readFileSync(baselineUrl, 'utf8');
 }

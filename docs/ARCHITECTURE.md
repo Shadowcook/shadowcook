@@ -231,7 +231,7 @@ shadowcook/
 - `pnpm reset:shadowcook-db` drops and recreates the PostgreSQL `public` schema in the `shadowcook` database only when `NODE_ENV=development`.
 - `pnpm reset:dev-db` remains an alias for the development database reset.
 - The next API startup applies the current initial schema and development seed.
-- `packages/db/src/development-baseline.sql` stores the versioned development baseline. It is loaded once with the `development-baseline-v1` application-seed identifier after the initial schema migration. The baseline contains the development database state except migration and seed tracking records; permissions and instance roles are created by the initial schema migration.
+- The local `packages/db/src/development-baseline.sql` file stores the development baseline. It is loaded once with the `development-baseline-v1` application-seed identifier after the initial schema migration. The baseline contains the development database state except migration and seed tracking records; permissions and instance roles are created by the initial schema migration. Production images do not include this development-only file.
 - The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.
 
 ### 4.4 Instance mail delivery
