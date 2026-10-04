@@ -2544,7 +2544,7 @@ The migration targets one existing empty tenant. Its single Owner is the default
 
 The migration writes one published revision and one default variant for each legacy recipe in one PostgreSQL transaction. A dry run executes the complete transaction and rolls it back. Category and recipe URL slugs are deterministic and tenant-unique.
 
-The legacy technical root category is not persisted. Legacy ingredient text remains authored free text. Standard units use the instance catalogue, and missing legacy units become tenant-owned units. Legacy special-unit identifiers map to semantic special-entry kinds.
+The legacy technical root category is not persisted. Legacy usages with real units create tenant-owned ingredients or reuse matching instance- or tenant-owned ingredients. Ingredient text before the first comma and outside parentheses is the ingredient name. Parenthetical text and text after the first comma are authored usage notes. Standard units use the instance catalogue, and missing legacy units become tenant-owned units. Legacy special-unit identifiers map to semantic special-entry kinds.
 
 Legacy thumbnail references are reported and omitted until media ingestion and storage are implemented.
 

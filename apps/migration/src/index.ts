@@ -49,6 +49,7 @@ function printSummary(summary: MigrationSummary, executed: boolean): void {
       `Steps: ${summary.steps}`,
       `Ingredient and special entries: ${summary.ingredientUsages}`,
       `Tenant units created: ${summary.tenantUnitsCreated}`,
+      `Tenant ingredients created: ${summary.tenantIngredientsCreated}`,
       `Empty instructions represented by an em dash: ${summary.substitutedEmptyInstructions}`,
       `Empty special-entry labels represented by their legacy unit label: ${summary.substitutedEmptySpecialEntryLabels}`,
       `Thumbnail references skipped because media storage is not implemented: ${summary.skippedThumbnailReferences}`,
@@ -74,9 +75,12 @@ async function main(): Promise<void> {
 
   const cookbook: LegacyCookbook = await readLegacyCookbook(options.hsqldbJarPath);
   const pool: Pool = new Pool({
-    connectionString: databaseUrl,
-    user: databaseUsername,
-    password: databasePassword,
+    connectionString: targetDatabaseConnectionString(
+      databaseUrl,
+      databaseUsername,
+      databasePassword,
+    ),
+    connectionTimeoutMillis: 15_000,
     max: 1,
   });
   try {
@@ -89,6 +93,16 @@ async function main(): Promise<void> {
   } finally {
     await pool.end();
   }
+}
+
+function targetDatabaseConnectionString(url: string, username: string, password: string): string {
+  const targetUrl: URL = new URL(url);
+  if (targetUrl.protocol !== 'postgres:' && targetUrl.protocol !== 'postgresql:') {
+    throw new Error('TARGET_DB_URL must use the postgres or postgresql protocol.');
+  }
+  targetUrl.username = username;
+  targetUrl.password = password;
+  return targetUrl.toString();
 }
 
 main().catch((error: unknown): void => {

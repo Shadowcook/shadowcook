@@ -50,6 +50,7 @@ export interface MigrationOptions {
 export interface MigrationSummary {
   categories: number;
   tenantUnitsCreated: number;
+  tenantIngredientsCreated: number;
   recipes: number;
   steps: number;
   ingredientUsages: number;

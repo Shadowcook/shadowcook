@@ -12,7 +12,7 @@
 - Development startup creates the local cookbook, local accounts, categories, recipes, revisions, variants, steps, ingredients, units, and ingredient usages from the JSON development seed.
 - The tracked initial-deployment seed creates localized instance-owned units, ingredients, and aliases.
 - `pnpm reset:shadowcook-db` and its `pnpm reset:dev-db` alias recreate only the `public` schema of the development `shadowcook` database.
-- The separate local `apps/migration` workspace application provides `pnpm migrate:production-cookbook`, uses isolated `SOURCE_DB_*` and `TARGET_DB_*` settings from `.env.migration`, and performs a read-only HSQLDB-to-PostgreSQL legacy cookbook migration with required target-tenant selection, Owner author attribution, a transactional dry run, deterministic category and recipe slugs, published revisions, default variants, ordered steps, ingredient usages, semantic special entries, and legacy unit mapping.
+- The separate local `apps/migration` workspace application provides `pnpm migrate:production-cookbook`, uses isolated `SOURCE_DB_*` and `TARGET_DB_*` settings from `.env.migration`, and performs a read-only HSQLDB-to-PostgreSQL legacy cookbook migration with required target-tenant selection, Owner author attribution, a transactional dry run, deterministic category and recipe slugs, published revisions, default variants, ordered steps, tenant ingredients created from real-unit usages, authored usage notes from legacy modifiers, semantic special entries, and legacy unit mapping.
 
 ### Cookbook, public web, and localization
 

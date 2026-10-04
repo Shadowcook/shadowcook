@@ -9,6 +9,7 @@ import type {
   MigrationOptions,
   MigrationSummary,
 } from './model.js';
+import { parseLegacyIngredient } from './ingredient.js';
 
 interface IdentifierRow {
   id: string;
@@ -22,6 +23,8 @@ interface UnitIdentifierRow extends IdentifierRow {
   dimension: string;
   base_factor: string;
 }
+
+interface IngredientIdentifierRow extends IdentifierRow {}
 
 interface LegacyUnitTarget {
   symbol: string;
@@ -271,6 +274,7 @@ async function insertRecipes(
   const summary: MigrationSummary = {
     categories: categoryIds.size,
     tenantUnitsCreated: 0,
+    tenantIngredientsCreated: 0,
     recipes: 0,
     steps: 0,
     ingredientUsages: 0,
@@ -279,6 +283,7 @@ async function insertRecipes(
     skippedThumbnailReferences: 0,
   };
   const usedRecipeSlugs: Set<string> = new Set<string>();
+  const ingredientIds: Map<string, string> = new Map<string, string>();
   for (const recipe of cookbook.recipes) {
     const recipeSlug: string = uniqueSlug(recipe.name, recipe.id, usedRecipeSlugs);
     const insertedRecipe: QueryResult<IdentifierRow> = await client.query<IdentifierRow>(
@@ -328,6 +333,8 @@ async function insertRecipes(
           usageIndex,
           cookbook.units,
           unitIds,
+          tenantId,
+          ingredientIds,
           summary,
         );
       }
@@ -373,6 +380,8 @@ async function insertIngredientUsage(
   sortOrder: number,
   legacyUnits: LegacyUnit[],
   unitIds: Map<number, string>,
+  tenantId: string,
+  ingredientIds: Map<string, string>,
   summary: MigrationSummary,
 ): Promise<void> {
   const specialKind: string | undefined = specialKindByLegacyUnitId.get(usage.unitId);
@@ -384,26 +393,76 @@ async function insertIngredientUsage(
     textOverride = legacyUnit?.name ?? specialKind;
     summary.substitutedEmptySpecialEntryLabels += 1;
   }
-  if (textOverride.length === 0)
-    throw new Error(`Legacy ingredient usage ${usage.id} has no ingredient name.`);
   const targetUnitId: string | null =
     specialKind === undefined ? (unitIds.get(usage.unitId) ?? null) : null;
   if (specialKind === undefined && targetUnitId === null)
     throw new Error(`Legacy ingredient usage ${usage.id} has no mapped target unit.`);
+  let ingredientId: string | null = null;
+  let note: string | null = null;
+  if (specialKind === undefined) {
+    if (textOverride.length === 0)
+      throw new Error(`Legacy ingredient usage ${usage.id} has no ingredient name.`);
+    const ingredient = parseLegacyIngredient(textOverride);
+    ingredientId = await resolveIngredientId(
+      client,
+      tenantId,
+      ingredient.canonicalName,
+      ingredientIds,
+      summary,
+    );
+    textOverride = '';
+    note = ingredient.note;
+  }
   await client.query(
     `INSERT INTO ingredient_usage
-       (recipe_step_id, usage_key, text_override, special_kind, unit_id, amount, is_optional, note, sort_order)
-     VALUES ($1, gen_random_uuid(), $2, $3, $4, $5, false, null, $6)`,
+       (recipe_step_id, usage_key, ingredient_id, text_override, special_kind, unit_id, amount, is_optional, note, sort_order)
+     VALUES ($1, gen_random_uuid(), $2, $3, $4, $5, $6, false, $7, $8)`,
     [
       stepId,
-      textOverride,
+      ingredientId,
+      specialKind === undefined ? null : textOverride,
       specialKind ?? null,
       targetUnitId,
       specialKind === undefined ? usage.amount : null,
+      note,
       sortOrder,
     ],
   );
   summary.ingredientUsages += 1;
+}
+
+async function resolveIngredientId(
+  client: PoolClient,
+  tenantId: string,
+  canonicalName: string,
+  ingredientIds: Map<string, string>,
+  summary: MigrationSummary,
+): Promise<string> {
+  const cacheKey: string = canonicalName.normalize('NFKC').toLowerCase();
+  const cachedId: string | undefined = ingredientIds.get(cacheKey);
+  if (cachedId !== undefined) return cachedId;
+  const existing: QueryResult<IngredientIdentifierRow> =
+    await client.query<IngredientIdentifierRow>(
+      `SELECT id FROM ingredient
+     WHERE (owner_tenant_id IS NULL OR owner_tenant_id = $1) AND lower(canonical_name) = lower($2)
+     ORDER BY owner_tenant_id NULLS FIRST LIMIT 1`,
+      [tenantId, canonicalName],
+    );
+  const existingIngredient: IngredientIdentifierRow | undefined = existing.rows[0];
+  if (existingIngredient !== undefined) {
+    ingredientIds.set(cacheKey, existingIngredient.id);
+    return existingIngredient.id;
+  }
+  const inserted: QueryResult<IngredientIdentifierRow> =
+    await client.query<IngredientIdentifierRow>(
+      `INSERT INTO ingredient (owner_tenant_id, canonical_name)
+       VALUES ($1, $2) RETURNING id`,
+      [tenantId, canonicalName],
+    );
+  const ingredientId: string = inserted.rows[0]!.id;
+  ingredientIds.set(cacheKey, ingredientId);
+  summary.tenantIngredientsCreated += 1;
+  return ingredientId;
 }
 
 function uniqueSlug(name: string, legacyId: number, usedSlugs: Set<string>): string {
