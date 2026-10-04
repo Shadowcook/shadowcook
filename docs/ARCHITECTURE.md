@@ -510,7 +510,7 @@ IngredientUsage
 ├── ingredient = Butter
 ├── amount = 100
 ├── unit = g
-└── modifiers = [soft]
+└── note = "soft"
 ```
 
 Rendering the human-readable string is an output concern.
@@ -548,14 +548,14 @@ RecipeStep
     ├── Amount
     ├── Unit
     ├── Optional
-    └── Modifiers *
+    └── Note
 ```
 
 This supports the side-by-side Shadowcook UI naturally.
 
-### 9.4 Usage modifiers
+### 9.4 Usage notes
 
-Modifiers describe the state/preparation of an ingredient usage, not ingredient identity.
+An IngredientUsage note stores authored preparation and state information as portable free text.
 
 Examples:
 
@@ -566,20 +566,11 @@ Examples:
 - grated,
 - room temperature.
 
-Modifiers should be normalized entities rather than arbitrary free-text values where possible.
-
-A usage may additionally contain a free-form note for cases that cannot be represented cleanly as structured modifiers.
-
-Example:
-
-```text
-modifier = soft
-note = "but not liquid"
-```
+Ingredient usage notes are not catalogue entities and are not translated or mapped during federation.
 
 ### 9.5 Optional ingredients
 
-`optional` is semantic recipe data and must not be represented as a modifier string.
+`optional` is semantic recipe data and must not be represented as a note string.
 
 It should be an explicit property of IngredientUsage.
 
@@ -687,7 +678,7 @@ IngredientConversionProfile
 ├── Source Dimension
 ├── Target Dimension
 ├── Factor / Rule
-├── Modifiers / Conditions
+├── Conditions
 ├── Data Source
 └── Precision / Confidence
 ```
@@ -835,7 +826,7 @@ Revision-owned data includes:
 
 Visibility and access policy are recipe/tenant policy, not recipe-content state. They therefore do not need to be copied into every content revision. Policy changes should be auditable separately, but making a recipe private/public does not by itself create a recipe-content revision.
 
-Global catalogue entities such as Ingredient, Unit, and Modifier are referenced rather than cloned into each recipe revision.
+Global catalogue entities such as Ingredient and Unit are referenced rather than cloned into each recipe revision.
 
 ### 13.4 Stable logical keys
 
@@ -1659,7 +1650,7 @@ Provenance metadata must never bypass visibility or sharing authorization. Priva
 
 Remote database IDs are never meaningful locally.
 
-Ingredients, units, and modifiers must be mapped to local entities.
+Ingredients and units must be mapped to local entities.
 
 ### 21.1 Persistent mapping
 
@@ -1716,11 +1707,7 @@ VOLUME
 
 Ambiguous definitions require user confirmation.
 
-### 21.5 Modifiers
-
-The same persistent mapping model applies to normalized usage modifiers when remote and local catalogues differ.
-
-### 21.6 Local normalization boundary
+### 21.5 Local normalization boundary
 
 After import mapping is resolved, the imported recipe uses only local entity IDs.
 
@@ -2062,7 +2049,6 @@ tenant.json
 catalog/
   ingredients.json
   units.json
-  modifiers.json
   categories.json
 
 recipes/
@@ -2096,7 +2082,7 @@ A full portable backup includes:
 - active draft where appropriate,
 - variants,
 - ingredients used/owned by the tenant,
-- units/modifiers/categories needed for restore,
+- units and categories needed for restore,
 - media,
 - federation mappings,
 - upstream and lineage/fork provenance,
@@ -2159,7 +2145,7 @@ Half-restored cookbooks are unacceptable.
 
 ## 28. Catalogue ownership and scope
 
-Ingredients, units, and modifiers may require both commonly shared/system catalogue records and tenant-owned custom records.
+Ingredients and units may require both commonly shared/system catalogue records and tenant-owned custom records.
 
 A practical model is:
 
@@ -2317,7 +2303,6 @@ The following concepts are considered part of the V2.0 architecture baseline:
 - HTML-first public recipe rendering,
 - normalized ingredients,
 - IngredientUsage,
-- normalized modifiers,
 - normalized units,
 - same-dimension unit conversion,
 - recipe variants with direct step membership,
@@ -2346,7 +2331,7 @@ The following concepts are planned for Version 2.5:
 - cryptographic tenant identity and delegated federation keys,
 - pull-based federation,
 - recipe import/fork with upstream tracking,
-- persistent ingredient/unit/modifier federation mapping,
+- persistent ingredient/unit federation mapping,
 - remote revision checks and three-way merge/conflict handling,
 - tenant subscriptions and sync offers,
 - portable backup/restore and optional backup encryption,
@@ -2367,7 +2352,7 @@ Example:
 1 US cup sugar → grams
 ```
 
-Requires curated density/conversion data and possibly modifier-aware conversion rules.
+Requires curated density/conversion data and possibly condition-aware conversion rules.
 
 Target: approximately V2.5 or later.
 
@@ -2419,7 +2404,7 @@ These invariants should be treated as design/test requirements.
 ### Ingredients
 
 12. Ingredient identity is separate from IngredientUsage.
-13. Preparation state belongs to usage modifiers, not ingredient identity.
+13. Preparation state belongs to an IngredientUsage note, not ingredient identity.
 14. Remote/local ingredient mapping is persistent and identity-based.
 
 ### Tenancy, visibility, and sharing
@@ -2502,7 +2487,7 @@ STEP
   describes preparation
 
 INGREDIENT USAGE
-  attaches a normalized ingredient, quantity, unit, and modifiers to a step
+  attaches a normalized ingredient, quantity, unit, optional flag, and note to a step
 
 GRANT
   answers whether another tenant may access shared content
@@ -2546,7 +2531,17 @@ Existing Shadowcook installations must have a one-way migration path into the Sh
 
 This migration is a deployment/upgrade concern, not a compatibility constraint on the Shadowcook 2.0 architecture. Shadowcook 2.0 does not need to preserve legacy API contracts or legacy persistence structures.
 
-The detailed migration strategy is intentionally deferred until the Shadowcook 2.0 schema and import APIs are stable. The eventual migration tooling should reuse normal domain/import validation wherever practical rather than bypassing the model with direct database copying.
+The legacy cookbook migration is a separate local workspace application. It is not part of the API process or runtime deployment images. It reads only categories, recipes, category assignments, steps, ingredient usages, and units from the HSQLDB source through a read-only connection. Legacy users are not read or migrated.
+
+Migration configuration is isolated in the untracked `.env.migration` file. Source connection settings use the `SOURCE_DB_*` namespace. PostgreSQL target connection and tenant settings use the `TARGET_DB_*` namespace. The migration application does not load runtime API environment files.
+
+The migration targets one existing empty tenant. Its single Owner is the default author of imported recipe revisions; a configured tenant-member principal may override the author.
+
+The migration writes one published revision and one default variant for each legacy recipe in one PostgreSQL transaction. A dry run executes the complete transaction and rolls it back. Category and recipe URL slugs are deterministic and tenant-unique.
+
+The legacy technical root category is not persisted. Legacy ingredient text remains authored free text. Standard units use the instance catalogue, and missing legacy units become tenant-owned units. Legacy special-unit identifiers map to semantic special-entry kinds.
+
+Legacy thumbnail references are reported and omitted until media ingestion and storage are implemented.
 
 ---
 

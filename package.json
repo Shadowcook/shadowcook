@@ -5,13 +5,15 @@
   "packageManager": "pnpm@11.24.0",
   "scripts": {
     "build": "npm --prefix packages/db run build && npm --prefix apps/api run build && npm --prefix apps/web run build",
-    "check": "npm --prefix packages/db run check && npm --prefix apps/api run check && npm --prefix apps/web run check",
+    "build:migration": "npm --prefix apps/migration run build",
+    "check": "npm --prefix packages/db run check && npm --prefix apps/api run check && npm --prefix apps/migration run check && npm --prefix apps/web run check",
     "dev:api": "npm --prefix packages/db run build && npm --prefix apps/api run dev",
     "dev:web": "npm --prefix apps/web run dev",
-    "format": "prettier --write --plugin=prettier-plugin-astro apps/api/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md package.json apps/api/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
-    "format:check": "prettier --check --plugin=prettier-plugin-astro apps/api/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md package.json apps/api/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
+    "format": "prettier --write --plugin=prettier-plugin-astro apps/api/src apps/migration/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md docs/legacy-cookbook-migration.md package.json apps/api/package.json apps/migration/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/migration/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
+    "format:check": "prettier --check --plugin=prettier-plugin-astro apps/api/src apps/migration/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md docs/legacy-cookbook-migration.md package.json apps/api/package.json apps/migration/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/migration/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
     "start:api": "npm --prefix apps/api run start",
     "maintenance": "npm --prefix apps/api run maintenance",
+    "migrate:production-cookbook": "npm --prefix apps/migration run run --",
     "reset:dev-db": "npm --prefix apps/api run reset:dev-db",
     "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
     "package:deployment": "sh scripts/package-deployment.sh"

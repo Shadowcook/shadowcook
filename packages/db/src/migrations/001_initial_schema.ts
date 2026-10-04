@@ -264,15 +264,6 @@ CREATE TABLE unit (
   CHECK (dimension = 'TEMPERATURE' OR base_offset = 0)
 );
 
-CREATE TABLE ingredient_modifier (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_tenant_id uuid REFERENCES tenant(id) ON DELETE CASCADE,
-  public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
-  name text NOT NULL CHECK (length(trim(name)) > 0),
-  created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE NULLS NOT DISTINCT (owner_tenant_id, name)
-);
-
 CREATE TABLE category (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
@@ -427,12 +418,6 @@ CREATE TABLE ingredient_usage (
   CHECK (special_kind IS NULL OR (amount IS NULL AND unit_id IS NULL AND is_optional = false))
 );
 
-CREATE TABLE ingredient_usage_modifier (
-  ingredient_usage_id uuid NOT NULL REFERENCES ingredient_usage(id) ON DELETE CASCADE,
-  modifier_id uuid NOT NULL REFERENCES ingredient_modifier(id) ON DELETE CASCADE,
-  PRIMARY KEY (ingredient_usage_id, modifier_id)
-);
-
 CREATE TABLE recipe_revision_media (
   recipe_revision_id uuid NOT NULL REFERENCES recipe_revision(id) ON DELETE CASCADE,
   media_asset_id uuid NOT NULL REFERENCES media_asset(id) ON DELETE CASCADE,
@@ -548,7 +533,7 @@ CREATE TABLE federation_entity_mapping (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   local_tenant_id uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   remote_tenant_public_id uuid NOT NULL,
-  entity_type text NOT NULL CHECK (entity_type IN ('INGREDIENT', 'UNIT', 'MODIFIER')),
+  entity_type text NOT NULL CHECK (entity_type IN ('INGREDIENT', 'UNIT')),
   remote_entity_public_id uuid NOT NULL,
   local_entity_id uuid NOT NULL,
   mapping_source text NOT NULL CHECK (mapping_source IN ('MANUAL', 'AUTOMATIC')),
