@@ -64,6 +64,9 @@ export interface Translation {
   passwordChange: {
     currentPasswordLabel: string;
     newPasswordLabel: string;
+    repeatPasswordLabel: string;
+    passwordMismatch: string;
+    complexityHint: string;
     submit: string;
     submitting: string;
     subtitle: string;

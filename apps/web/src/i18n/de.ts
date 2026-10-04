@@ -190,9 +190,12 @@ export const de: Translation = {
   passwordChange: {
     currentPasswordLabel: 'Aktuelles Passwort',
     newPasswordLabel: 'Neues Passwort',
+    repeatPasswordLabel: 'Neues Passwort wiederholen',
+    passwordMismatch: 'Die neuen Passwörter stimmen nicht überein.',
+    complexityHint: 'Verwende mindestens 12 Zeichen, darunter Klein- und Großbuchstaben, eine Zahl und ein Sonderzeichen.',
     submit: 'Passwort speichern',
     submitting: 'Wird gespeichert …',
-    subtitle: 'Das initiale Passwort darf nur einmal verwendet werden.',
+    subtitle: 'Lege ein sicheres Passwort fest, um dein Konto abzuschließen oder dein aktuelles Passwort zu ersetzen.',
     title: 'Lege ein neues Passwort fest.',
   },
   invitation: {

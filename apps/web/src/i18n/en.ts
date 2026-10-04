@@ -190,9 +190,12 @@ export const en: Translation = {
   passwordChange: {
     currentPasswordLabel: 'Current password',
     newPasswordLabel: 'New password',
+    repeatPasswordLabel: 'Repeat new password',
+    passwordMismatch: 'The new passwords do not match.',
+    complexityHint: 'Use at least 12 characters, including lowercase and uppercase letters, a number, and a special character.',
     submit: 'Save password',
     submitting: 'Saving password …',
-    subtitle: 'The initial password may only be used once.',
+    subtitle: 'Choose a secure password to finish setting up your account or replace your current password.',
     title: 'Set a new password.',
   },
   invitation: {

@@ -40,7 +40,7 @@ export function createApi(
   registerAiContextRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAdminMailRoutes(api, pool, instanceSecretKey);
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
-  registerTenantRoutes(api, pool, instanceSecretKey, publicWebOrigin);
+  registerTenantRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerUnitRoutes(api, pool);
   registerIngredientRoutes(api, pool);
 

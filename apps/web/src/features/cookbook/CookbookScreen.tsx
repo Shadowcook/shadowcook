@@ -40,9 +40,11 @@ interface CookbookScreenProperties {
 }
 interface SessionResponse {
   email: string;
+  hasPassword: boolean;
   passwordChangeRequired: boolean;
 }
 interface LoginResponse {
+  hasPassword: boolean;
   passwordChangeRequired: boolean;
 }
 type Screen = 'loading' | 'login' | 'change-password' | 'dashboard';
@@ -76,6 +78,8 @@ export default function CookbookScreen({
   });
   const [currentPassword, setCurrentPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
+  const [repeatPassword, setRepeatPassword] = useState<string>('');
+  const [hasPassword, setHasPassword] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [cookbook, setCookbook] = useState<CookbookResponse>(emptyCookbook);
@@ -128,6 +132,7 @@ export default function CookbookScreen({
       const session: BrowserSessionState = {
         authenticated: true,
         email: response.email,
+        hasPassword: response.hasPassword,
         passwordChangeRequired: response.passwordChangeRequired,
       };
       cacheBrowserSession(session);
@@ -156,6 +161,7 @@ export default function CookbookScreen({
       return;
     }
     setEmail(session.email);
+    setHasPassword(session.hasPassword);
     if (session.passwordChangeRequired) {
       setScreen('change-password');
       return;
@@ -174,9 +180,11 @@ export default function CookbookScreen({
     cacheBrowserSession({
       authenticated: true,
       email,
+      hasPassword: response.hasPassword,
       passwordChangeRequired: response.passwordChangeRequired,
     });
     if (response.passwordChangeRequired) {
+      setHasPassword(response.hasPassword);
       setScreen('change-password');
       return;
     }
@@ -239,13 +247,24 @@ export default function CookbookScreen({
   async function changePassword(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setMessage('');
+    if (newPassword !== repeatPassword) {
+      setMessage(text.passwordChange.passwordMismatch);
+      return;
+    }
     setIsSubmitting(true);
     try {
       await request<void>('/auth/change-password', jsonRequest({ currentPassword, newPassword }));
       setCurrentPassword('');
       setNewPassword('');
-      cacheBrowserSession({ authenticated: true, email, passwordChangeRequired: false });
-      await completeLogin({ passwordChangeRequired: false });
+      setRepeatPassword('');
+      setHasPassword(true);
+      cacheBrowserSession({
+        authenticated: true,
+        email,
+        hasPassword: true,
+        passwordChangeRequired: false,
+      });
+      await completeLogin({ hasPassword: true, passwordChangeRequired: false });
     } catch (error: unknown) {
       setMessage(errorMessage(error, locale));
     } finally {
@@ -528,13 +547,16 @@ export default function CookbookScreen({
     return (
       <PasswordChangeScreen
         text={text}
+        hasPassword={hasPassword}
         currentPassword={currentPassword}
         newPassword={newPassword}
+        repeatPassword={repeatPassword}
         isSubmitting={isSubmitting}
         message={message}
         onSubmit={changePassword}
         onCurrentPasswordChange={onValueChange(setCurrentPassword)}
         onNewPasswordChange={onValueChange(setNewPassword)}
+        onRepeatPasswordChange={onValueChange(setRepeatPassword)}
       />
     );
   if (screen === 'dashboard')
@@ -736,6 +758,7 @@ function isLoginPath(): boolean {
   return window.location.pathname === loginPath;
 }
 function postLoginPath(): string {
+  if (!isLoginPath()) return `${window.location.pathname}${window.location.search}`;
   const requestedPath: string | null = new URLSearchParams(window.location.search).get('next');
   return requestedPath !== null &&
     requestedPath.startsWith('/') &&

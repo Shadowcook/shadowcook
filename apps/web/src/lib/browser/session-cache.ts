@@ -4,7 +4,7 @@ const adminAccessCacheKey: string = 'shadowcook.admin-access.v1';
 
 export type BrowserSessionState =
   | { authenticated: false }
-  | { authenticated: true; email: string; passwordChangeRequired: boolean };
+  | { authenticated: true; email: string; hasPassword: boolean; passwordChangeRequired: boolean };
 
 export type AdminAccessState = 'granted' | 'unauthenticated' | 'denied';
 
@@ -97,6 +97,8 @@ function isBrowserSessionState(value: unknown): value is BrowserSessionState {
     value.authenticated === true &&
     'email' in value &&
     typeof value.email === 'string' &&
+    'hasPassword' in value &&
+    typeof value.hasPassword === 'boolean' &&
     'passwordChangeRequired' in value &&
     typeof value.passwordChangeRequired === 'boolean'
   );

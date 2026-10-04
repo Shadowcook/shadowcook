@@ -2,6 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentSessionUser } from '../auth/session.js';
+import { createSession } from '../auth/routes.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from '../auth/email-code.js';
 import { createPasswordResetToken } from '../auth/password-reset.js';
 import { hashPassword } from '../auth/password.js';
@@ -53,6 +54,7 @@ const reservedSlugs: ReadonlySet<string> = new Set([
 export function registerTenantRoutes(
   api: FastifyInstance,
   pool: Pool,
+  secureCookies: boolean,
   key: Buffer | null,
   publicOrigin: string,
 ): void {
@@ -593,25 +595,41 @@ export function registerTenantRoutes(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
-      const existing = await client.query<{ id: string; principal_id: string }>(
-        'SELECT id, principal_id FROM user_account WHERE email = $1 AND deleted_at IS NULL FOR UPDATE',
+      const existing = await client.query<{
+        id: string;
+        principal_id: string;
+        password_hash: string | null;
+        password_change_required: boolean;
+      }>(
+        'SELECT id, principal_id, password_hash, password_change_required FROM user_account WHERE email = $1 AND deleted_at IS NULL FOR UPDATE',
         [invitation.invited_email],
       );
       let principalId: string;
+      let userId: string;
+      let hasPassword: boolean;
+      let passwordChangeRequired: boolean;
       if (existing.rows[0] === undefined) {
         const principal = await client.query<{ id: string }>(
           "INSERT INTO principal (principal_type) VALUES ('USER') RETURNING id",
         );
         principalId = principal.rows[0]!.id;
-        await client.query(
-          'INSERT INTO user_account (principal_id, email, display_name, password_change_required) VALUES ($1, $2, $3, true)',
+        const account = await client.query<{ id: string }>(
+          'INSERT INTO user_account (principal_id, email, display_name, password_change_required) VALUES ($1, $2, $3, true) RETURNING id',
           [
             principalId,
             invitation.invited_email,
             `${invitation.first_name} ${invitation.last_name}`,
           ],
         );
-      } else principalId = existing.rows[0].principal_id;
+        userId = account.rows[0]!.id;
+        hasPassword = false;
+        passwordChangeRequired = true;
+      } else {
+        principalId = existing.rows[0].principal_id;
+        userId = existing.rows[0].id;
+        hasPassword = existing.rows[0].password_hash !== null;
+        passwordChangeRequired = existing.rows[0].password_change_required;
+      }
       const claimed = await client.query(
         'UPDATE tenant_invitation SET accepted_at = now() WHERE id = $1 AND accepted_at IS NULL',
         [invitation.id],
@@ -626,7 +644,12 @@ export function registerTenantRoutes(
         [invitation.tenant_id, principalId, invitation.tenant_role_id],
       );
       await client.query('COMMIT');
-      return reply.code(204).send();
+      await createSession(pool, reply, userId, secureCookies);
+      return reply.send({
+        cookbookSlug: invitation.slug,
+        hasPassword,
+        passwordChangeRequired,
+      });
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -835,7 +858,7 @@ function isUniqueViolation(error: unknown): boolean {
 }
 async function invitationForToken(pool: Pool, token: string): Promise<any | null> {
   const result = await pool.query(
-    `SELECT tenant_invitation.*, tenant.display_name FROM tenant_invitation INNER JOIN tenant ON tenant.id = tenant_invitation.tenant_id WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > now() AND tenant.disabled_at IS NULL`,
+    `SELECT tenant_invitation.*, tenant.display_name, tenant.slug FROM tenant_invitation INNER JOIN tenant ON tenant.id = tenant_invitation.tenant_id WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > now() AND tenant.disabled_at IS NULL`,
     [hashToken(token)],
   );
   return result.rows[0] ?? null;

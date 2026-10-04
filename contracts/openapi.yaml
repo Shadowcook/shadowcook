@@ -34,8 +34,10 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [passwordChangeRequired]
+                required: [hasPassword, passwordChangeRequired]
                 properties:
+                  hasPassword:
+                    type: boolean
                   passwordChangeRequired:
                     type: boolean
         '400':
@@ -63,7 +65,7 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [currentPassword, newPassword]
+              required: [newPassword]
               properties:
                 currentPassword:
                   type: string
@@ -139,11 +141,13 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [email, passwordChangeRequired]
+                required: [email, hasPassword, passwordChangeRequired]
                 properties:
                   email:
                     type: string
                     format: email
+                  hasPassword:
+                    type: boolean
                   passwordChangeRequired:
                     type: boolean
         '401':
@@ -235,8 +239,12 @@ paths:
                     schema:
                       {
                         type: object,
-                        required: [passwordChangeRequired],
-                        properties: { passwordChangeRequired: { type: boolean } },
+                        required: [hasPassword, passwordChangeRequired],
+                        properties:
+                          {
+                            hasPassword: { type: boolean },
+                            passwordChangeRequired: { type: boolean },
+                          },
                       },
                   },
               },
@@ -1207,24 +1215,30 @@ paths:
               },
           }
       responses:
-        {
-          '204': { description: Invitation accepted. },
-          '401':
-            {
-              description: Invalid email code,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
-            },
-          '403':
-            {
-              description: The active session uses a different email address,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
-            },
-          '404':
-            {
-              description: Invitation unavailable,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
-            },
-        }
+        '200':
+          description: Invitation accepted and browser session started.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [cookbookSlug, hasPassword, passwordChangeRequired]
+                properties:
+                  cookbookSlug: { type: string }
+                  hasPassword: { type: boolean }
+                  passwordChangeRequired: { type: boolean }
+        '401':
+          description: Invalid email code.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '403':
+          description: The active session uses a different email address.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '404':
+          description: Invitation unavailable.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   /health:
     get:
       operationId: getHealth

@@ -16,6 +16,11 @@ interface Invitation {
 interface ApiError {
   code?: string;
 }
+interface AcceptanceResponse {
+  cookbookSlug: string;
+  hasPassword: boolean;
+  passwordChangeRequired: boolean;
+}
 
 export default function InvitationScreen({ locale, token }: Properties): JSX.Element {
   const text: Translation = translations[locale];
@@ -42,7 +47,9 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
       body: JSON.stringify({ code: submittedCode }),
     });
     if (response.ok) {
-      setMessage(text.invitation.accepted);
+      const accepted: AcceptanceResponse = (await response.json()) as AcceptanceResponse;
+      const destination: string = `/${encodeURIComponent(accepted.cookbookSlug)}`;
+      window.location.replace(destination);
       return;
     }
     const body: ApiError | null = await response.json().catch((): null => null);

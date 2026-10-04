@@ -63,6 +63,8 @@ async function main(): Promise<void> {
   requiredEnvironment('SOURCE_DB_USERNAME');
   requiredEnvironment('SOURCE_DB_PASSWORD');
   const databaseUrl: string = requiredEnvironment('TARGET_DB_URL');
+  const databaseUsername: string = requiredEnvironment('TARGET_DB_USERNAME');
+  const databasePassword: string = requiredEnvironment('TARGET_DB_PASSWORD');
   const options: MigrationOptions = {
     execute,
     tenantSlug: requiredEnvironment('TARGET_DB_TENANT_SLUG'),
@@ -71,7 +73,12 @@ async function main(): Promise<void> {
   };
 
   const cookbook: LegacyCookbook = await readLegacyCookbook(options.hsqldbJarPath);
-  const pool: Pool = new Pool({ connectionString: databaseUrl, max: 1 });
+  const pool: Pool = new Pool({
+    connectionString: databaseUrl,
+    user: databaseUsername,
+    password: databasePassword,
+    max: 1,
+  });
   try {
     const summary: MigrationSummary = await migrateCookbook(pool, cookbook, options);
     printSummary(summary, execute);

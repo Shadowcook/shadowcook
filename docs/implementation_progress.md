@@ -49,6 +49,7 @@
 ### Authentication, authorization, and administration
 
 - Human password authentication, email-code authentication, opaque HttpOnly sessions, password-change enforcement, password resets, and bootstrap administration are implemented.
+- Tenant invitation acceptance starts an invited account session, directs it to the assigned cookbook, and supports first-password completion without a current-password field and with localized repeated-password validation.
 - One-time email codes are hashed, expiring, rate-limited, and delivered through configured SMTP.
 - SMTP configuration is permission-gated, encrypts stored passwords, and supports test delivery.
 - Tenant creation is disabled until SMTP delivery is configured, with a localized configuration requirement, server-side `SMTP_REQUIRED` enforcement, and a localized mail-delivery failure message for owner invitations.

@@ -11,11 +11,15 @@ SOURCE_DB_URL=jdbc:hsqldb:hsql://legacy-host/database
 SOURCE_DB_USERNAME=read-only-user
 SOURCE_DB_PASSWORD=read-only-password
 
-TARGET_DB_URL=postgresql://shadowcook:shadowcook@localhost:5432/shadowcook
+TARGET_DB_URL=postgresql://localhost:5432/shadowcook
+TARGET_DB_USERNAME=shadowcook
+TARGET_DB_PASSWORD=change-me
 TARGET_DB_TENANT_SLUG=target-tenant
 ```
 
 The target tenant must already exist, have no categories or recipes, and have exactly one principal assigned to its `Owner` role. The Owner becomes the author of every imported revision.
+
+`TARGET_DB_URL` contains the PostgreSQL endpoint and database name. `TARGET_DB_USERNAME` and `TARGET_DB_PASSWORD` provide the target database credentials separately.
 
 Set `TARGET_DB_AUTHOR_PRINCIPAL_ID` to a target-tenant member's principal ID when the author must differ or the tenant has more than one Owner.
 

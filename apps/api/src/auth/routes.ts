@@ -94,7 +94,10 @@ export function registerAuthenticationRoutes(
       return sendError(reply, 401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
     }
     await createSession(pool, reply, user.id, secureCookies);
-    return reply.send({ passwordChangeRequired: user.password_change_required });
+    return reply.send({
+      hasPassword: user.password_hash !== null,
+      passwordChangeRequired: user.password_change_required,
+    });
   });
 
   api.get('/auth/authentication-methods', async (_request: FastifyRequest, reply: FastifyReply) => {
@@ -149,7 +152,10 @@ export function registerAuthenticationRoutes(
     if (consumed === null || user.rows[0] === undefined || user.rows[0].disabled_at !== null)
       return sendError(reply, 401, 'INVALID_EMAIL_CODE', 'The code is invalid or expired.');
     await createSession(pool, reply, user.rows[0].id, secureCookies);
-    return reply.send({ passwordChangeRequired: user.rows[0].password_change_required });
+    return reply.send({
+      hasPassword: user.rows[0].password_hash !== null,
+      passwordChangeRequired: user.rows[0].password_change_required,
+    });
   });
 
   api.post('/auth/change-password', async (request: FastifyRequest, reply: FastifyReply) => {

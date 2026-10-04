@@ -43,4 +43,12 @@ export function validatePassword(password: string, minimumLength: number = 12): 
   if (password.length > 1024) {
     throw new Error('Password must not exceed 1024 characters.');
   }
+  if (
+    !/[a-z]/.test(password) ||
+    !/[A-Z]/.test(password) ||
+    !/[0-9]/.test(password) ||
+    !/[^A-Za-z0-9]/.test(password)
+  ) {
+    throw new Error('Password must contain lowercase, uppercase, numeric, and special characters.');
+  }
 }

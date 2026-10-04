@@ -268,6 +268,9 @@ shadowcook/
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.
+- Accepting a tenant invitation starts a browser session for the invited account and returns the assigned cookbook slug.
+- A newly created tenant-invitation account has no password verifier, requires password completion, and does not require a current-password value.
+- Password completion requires matching entries and a password with at least twelve characters, lowercase and uppercase letters, a number, and a special character.
 - An active session may accept a tenant-owner invitation only when its email address matches the invited email address.
 - One-time email and invitation codes are cleared on session, account, and authentication-step changes and are excluded from browser autocomplete.
 - The six-field login-code control distributes pasted digits from the active field and uses backspace in an empty field to remove and focus the preceding digit.
@@ -999,6 +1002,7 @@ Service accounts should normally receive least-privilege permissions.
 - Display names are not unique.
 - `user_invitation` stores a SHA-256 verifier of an opaque seven-day invitation token, the invited email address, the creator principal, and acceptance state.
 - Instance administrators invite a user by email only. The invitation acceptance page creates the account with the invited email address and the user-selected display name, then redirects to `/login`. It requires a password unless the instance login mode is `EMAIL_CODE_ONLY`.
+- Tenant invitation acceptance routes a new account to its assigned cookbook password-completion screen and routes an account that already has a valid password directly to its assigned cookbook.
 - `instance_role` is an instance-wide role. The seeded `administrator` role has every registered permission.
 - `principal_instance_role` assigns an instance role to a principal.
 - `tenant_role` is tenant-scoped. `tenant_membership` associates a principal with a tenant and `tenant_membership_role` assigns its tenant roles.
