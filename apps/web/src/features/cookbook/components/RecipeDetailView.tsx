@@ -8,6 +8,7 @@ import { specialIngredientCaption } from '../model/special-entries';
 import RecipeShoppingList from './RecipeShoppingList';
 import AiShareIcon from './AiShareIcon';
 import SpecialIngredientIcon from './SpecialIngredientIcon';
+import RecipeInstruction from './RecipeInstruction';
 
 interface RecipeDetailViewProperties {
   text: Translation;
@@ -17,6 +18,7 @@ interface RecipeDetailViewProperties {
   onShare: () => void;
   onShareWithAi: () => void;
   onSelectVariant: (slug: string) => void;
+  tenantSlug?: string;
 }
 
 export default function RecipeDetailView({
@@ -27,6 +29,7 @@ export default function RecipeDetailView({
   onShare,
   onShareWithAi,
   onSelectVariant,
+  tenantSlug,
 }: RecipeDetailViewProperties): JSX.Element {
   const hasVisibleAlternative: boolean = recipe.variants.some(
     (variant: RecipeVariant): boolean => !variant.is_default && variant.is_visible,
@@ -141,7 +144,13 @@ export default function RecipeDetailView({
               <p className="recipe-step__number">
                 {text.dashboard.step} {index + 1}
               </p>
-              <p>{step.instruction}</p>
+              <p>
+                <RecipeInstruction
+                  instruction={step.instruction}
+                  recipeLinks={recipe.recipe_links ?? []}
+                  tenantSlug={tenantSlug}
+                />
+              </p>
             </section>
           </li>
         ))}

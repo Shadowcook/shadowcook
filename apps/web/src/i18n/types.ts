@@ -388,6 +388,9 @@ export interface Translation {
     freeText: string;
     searchIngredients: string;
     noIngredientsFound: string;
+    searchRecipes: string;
+    noRecipesFound: string;
+    recipeLinkPicker: string;
     createIngredient: string;
     createIngredientDescription: string;
     ingredientAliases: string;

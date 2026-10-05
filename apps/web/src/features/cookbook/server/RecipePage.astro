@@ -23,6 +23,9 @@ const text: Translation = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
 const canonicalUrl: string = `${Astro.url.origin}${Astro.url.pathname}`;
+const tenantSlug: string = Astro.url.pathname
+  .split('/')
+  .filter((segment: string): boolean => segment.length > 0)[0] ?? '';
 const categoryIds: string[] = recipeCategories(cookbook, recipe.public_id);
 const structuredData = recipeJsonLd(
   recipe,
@@ -61,6 +64,7 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
         initialCategoryId={categoryId}
         initialCookbook={cookbook}
         initialRecipe={recipe}
+        initialTenantSlug={tenantSlug}
         locale={locale}
       />
     </main>

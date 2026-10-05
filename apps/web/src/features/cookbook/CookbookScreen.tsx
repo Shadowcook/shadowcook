@@ -39,6 +39,7 @@ interface CookbookScreenProperties {
   initialCookbook?: CookbookResponse;
   initialCategoryId?: string | null;
   initialRecipe?: RecipeDetail | null;
+  initialTenantSlug?: string;
   notifyWhenReady?: boolean;
 }
 interface SessionResponse {
@@ -72,9 +73,11 @@ export default function CookbookScreen({
   initialCookbook,
   initialCategoryId = null,
   initialRecipe = null,
+  initialTenantSlug,
   notifyWhenReady = false,
 }: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
+  const tenantSlug: string = initialTenantSlug ?? tenantSlugFromPath() ?? '';
   const initialScreen: Screen = initialCookbook === undefined ? 'loading' : 'dashboard';
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [email, setEmail] = useState<string>('');
@@ -716,6 +719,7 @@ export default function CookbookScreen({
                   onSelectFrontpagePage={loadCookbook}
                   recipeFilter={recipeFilter}
                   onRecipeFilterChange={changeRecipeFilter}
+                  tenantSlug={tenantSlug}
                 />
                 {aiContextTarget === null ? null : (
                   <AiContextDialog
@@ -787,6 +791,7 @@ function postLoginPath(): string {
     : '/';
 }
 function tenantSlugFromPath(): string | null {
+  if (typeof window === 'undefined') return null;
   const segment: string | undefined = window.location.pathname
     .split('/')
     .filter((value: string): boolean => value.length > 0)[0];

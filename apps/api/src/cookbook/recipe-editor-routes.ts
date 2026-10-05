@@ -64,6 +64,10 @@ interface ManagedRecipeRow {
 interface ManagedRecipeCountRow {
   total_recipes: number;
 }
+interface EditorRecipeRow {
+  public_id: string;
+  title: string;
+}
 interface RevisionListRow {
   public_id: string;
   version: number;
@@ -199,6 +203,36 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         aliasPublicId: row.alias_public_id,
         name: row.name,
         exactMatch: row.exact_match,
+      })),
+    });
+  });
+  api.get('/cookbook/tenants/:tenantSlug/editor-catalogue/recipes', async (request, reply) => {
+    const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+    const tenantId: string | null = await requireTenantPermission(
+      pool,
+      request,
+      reply,
+      tenantSlug,
+      'recipe:update',
+    );
+    if (tenantId === null) return;
+    const query = request.query as { search?: unknown };
+    const search: string = typeof query.search === 'string' ? query.search.trim().slice(0, 200) : '';
+    const recipes = await pool.query<EditorRecipeRow>(
+      `SELECT recipe.public_id, recipe_revision.title
+       FROM recipe
+       INNER JOIN recipe_revision ON recipe_revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
+       WHERE recipe.tenant_id = $1
+         AND ($2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%')
+       ORDER BY CASE WHEN lower(recipe_revision.title) = lower($2) THEN 0 ELSE 1 END,
+                recipe_revision.title
+       LIMIT 100`,
+      [tenantId, search],
+    );
+    return reply.send({
+      recipes: recipes.rows.map((recipe: EditorRecipeRow) => ({
+        publicId: recipe.public_id,
+        title: recipe.title,
       })),
     });
   });

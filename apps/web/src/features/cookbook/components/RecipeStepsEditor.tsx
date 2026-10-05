@@ -1,8 +1,9 @@
 import { forwardRef, useEffect, useImperativeHandle, useState } from 'react';
-import type { ChangeEvent, JSX } from 'react';
+import type { ChangeEvent, JSX, MouseEvent } from 'react';
 import type { Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
 import IngredientPicker from './IngredientPicker';
+import RecipeLinkPicker from './RecipeLinkPicker';
 import type { DraftVariant } from './RecipeVariantsEditor';
 
 interface Unit {
@@ -24,6 +25,16 @@ interface Step {
   id: string;
   instruction: string;
   ingredients: Usage[];
+}
+interface RecipeLinkSelection {
+  stepIndex: number;
+  start: number;
+  end: number;
+  search: string;
+}
+interface LinkedRecipe {
+  publicId: string;
+  title: string;
 }
 interface RecipeStepsEditorProperties {
   tenantSlug: string;
@@ -54,6 +65,7 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
     const [isSaving, setIsSaving] = useState<boolean>(false);
     const [message, setMessage] = useState<string>('');
     const [variants, setVariants] = useState<DraftVariant[]>([]);
+    const [recipeLinkSelection, setRecipeLinkSelection] = useState<RecipeLinkSelection | null>(null);
     const base: string = `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${properties.recipePublicId}/draft`;
     async function loadEditor(): Promise<void> {
       setIsLoading(true);
@@ -143,6 +155,23 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
             : { ...step, ingredients: move(step.ingredients, usageIndex, direction) },
         ),
       );
+    }
+    function updateInstruction(stepIndex: number, value: string, cursor: number): void {
+      updateStep(stepIndex, { instruction: value });
+      const match: RecipeLinkSelection | null = recipeLinkSelectionAt(value, cursor, stepIndex);
+      setRecipeLinkSelection(match);
+    }
+    function insertRecipeLink(recipe: LinkedRecipe): void {
+      if (recipeLinkSelection === null) return;
+      const step: Step | undefined = steps[recipeLinkSelection.stepIndex];
+      if (step === undefined) return;
+      const syntax: string = `{recipe:${recipe.publicId}}`;
+      const instruction: string =
+        step.instruction.slice(0, recipeLinkSelection.start) +
+        syntax +
+        step.instruction.slice(recipeLinkSelection.end);
+      updateStep(recipeLinkSelection.stepIndex, { instruction });
+      setRecipeLinkSelection(null);
     }
     function effectiveState(variant: DraftVariant, stepId: string): boolean {
       const local = (variant.overrides ?? []).find((override) => override.stepId === stepId);
@@ -374,13 +403,36 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
                 {properties.text.recipeEditor.addIngredient}
               </button>
             </div>
-            <textarea
-              value={step.instruction}
-              onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
-                updateStep(stepIndex, { instruction: event.currentTarget.value })
-              }
-              aria-label={properties.text.recipeEditor.stepInstruction}
-            />
+            <div className="recipe-step-editor__instruction">
+              <textarea
+                value={step.instruction}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
+                  updateInstruction(
+                    stepIndex,
+                    event.currentTarget.value,
+                    event.currentTarget.selectionStart,
+                  )
+                }
+                onClick={(event: MouseEvent<HTMLTextAreaElement>): void =>
+                  setRecipeLinkSelection(
+                    recipeLinkSelectionAt(
+                      event.currentTarget.value,
+                      event.currentTarget.selectionStart,
+                      stepIndex,
+                    ),
+                  )
+                }
+                aria-label={properties.text.recipeEditor.stepInstruction}
+              />
+              {recipeLinkSelection?.stepIndex === stepIndex ? (
+                <RecipeLinkPicker
+                  tenantSlug={properties.tenantSlug}
+                  initialSearch={recipeLinkSelection.search}
+                  text={properties.text}
+                  onSelect={insertRecipeLink}
+                />
+              ) : null}
+            </div>
           </article>
         ))}
         {message.length > 0 ? (
@@ -401,6 +453,17 @@ export default RecipeStepsEditor;
 function normalizeAmount(amount: string): string {
   if (!amount.includes('.')) return amount;
   return amount.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
+function recipeLinkSelectionAt(
+  instruction: string,
+  cursor: number,
+  stepIndex: number,
+): RecipeLinkSelection | null {
+  const beforeCursor: string = instruction.slice(0, cursor);
+  const marker: number = beforeCursor.lastIndexOf('@');
+  if (marker === -1 || /\s/.test(beforeCursor.slice(marker + 1))) return null;
+  return { stepIndex, start: marker, end: cursor, search: beforeCursor.slice(marker + 1) };
 }
 
 function move<T>(items: T[], index: number, direction: number): T[] {

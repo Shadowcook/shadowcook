@@ -28,6 +28,7 @@ interface CookbookDashboardProperties {
   onSelectFrontpagePage: (page: number) => Promise<CookbookResponse>;
   recipeFilter: string;
   onRecipeFilterChange: (filter: string) => void;
+  tenantSlug: string;
 }
 
 export default function CookbookDashboard(properties: CookbookDashboardProperties): JSX.Element {
@@ -51,6 +52,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onSelectFrontpagePage,
     recipeFilter,
     onRecipeFilterChange,
+    tenantSlug,
   } = properties;
   const [categoryPage, setCategoryPage] = useState<number>(1);
   const categoryNames: Map<string, string> = new Map(
@@ -106,6 +108,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           onShare={onShareRecipe}
           onShareWithAi={onShareRecipeWithAi}
           onSelectVariant={onSelectVariant}
+          tenantSlug={tenantSlug}
         />
       ) : (
         <div className="cookbook-layout">

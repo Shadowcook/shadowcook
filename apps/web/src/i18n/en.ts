@@ -512,6 +512,9 @@ export const en: Translation = {
     freeText: 'Free text',
     searchIngredients: 'Search ingredients',
     noIngredientsFound: 'No ingredients found.',
+    searchRecipes: 'Search recipes',
+    noRecipesFound: 'No recipes found.',
+    recipeLinkPicker: 'Insert recipe link',
     createIngredient: 'Add ingredient',
     createIngredientDescription:
       'Add this ingredient to this cookbook and optionally enter alternative names.',

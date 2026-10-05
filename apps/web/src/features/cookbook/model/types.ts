@@ -30,6 +30,12 @@ export interface RecipeDetail {
   selectedVariant: string;
   variants: RecipeVariant[];
   steps: RecipeStep[];
+  recipe_links?: RecipeLink[];
+}
+export interface RecipeLink {
+  public_id: string;
+  slug: string;
+  title: string;
 }
 export interface RecipeVariant {
   variant_key: string;

@@ -229,6 +229,7 @@ shadowcook/
 - Editable category responses expose whether a category tree can be deleted, based on recipe-revision assignments in that category and all descendants.
 - A future draft view will list recipes with an active draft revision separately from published cookbook navigation.
 - `GET /cookbook/recipes/{publicId}` returns one accessible published recipe with ordered preparation steps and the ingredient usages assigned to each step.
+- Recipe-step instructions support `{recipe:<recipe-public-UUID>}` references. Recipe details resolve accessible referenced recipes to root cookbook URLs. The recipe editor inserts this syntax through an `@` recipe search that returns at most one hundred current-tenant recipes.
 - The web client separates cookbook orchestration, cookbook dashboard rendering, category tree rendering, public tenant selection, tenant management, sign-in, password change, status messages, and browser API requests into dedicated components or modules.
 - `apps/web/src/features/cookbook` contains cookbook orchestration, cookbook UI components, routing, and cookbook model types. `apps/web/src/features/admin` contains instance-administration orchestration and UI components. `apps/web/src/lib` contains shared browser-session and API-request infrastructure.
 

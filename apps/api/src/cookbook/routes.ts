@@ -25,6 +25,7 @@ interface RecipeRow {
 }
 
 interface RecipeDetailRow {
+  tenant_id: string;
   public_id: string;
   slug: string;
   title: string;
@@ -32,6 +33,11 @@ interface RecipeDetailRow {
   revision_id: string;
   can_edit: boolean;
   can_share: boolean;
+}
+interface RecipeLinkRow {
+  public_id: string;
+  slug: string;
+  title: string;
 }
 
 interface RecipeStepRow {
@@ -389,7 +395,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         user === null || user.disabled_at !== null ? null : user.principal_id;
       const recipeResult = await pool.query<RecipeDetailRow>(
         `
-      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+      SELECT recipe.tenant_id, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
         recipe_revision.id AS revision_id,
         EXISTS (
           SELECT 1
@@ -491,6 +497,12 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
           .filter((usage: IngredientUsageRow) => usage.step_public_id === step.public_id)
           .map(({ step_public_id: _stepPublicId, ...usage }: IngredientUsageRow) => usage),
       }));
+      const recipeLinks: RecipeLinkRow[] = await loadRecipeLinks(
+        pool,
+        recipe.tenant_id,
+        principalId,
+        detailSteps.map((step: RecipeStepRow): string => step.instruction),
+      );
       return reply.send({
         public_id: recipe.public_id,
         slug: recipe.slug,
@@ -501,9 +513,47 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         selectedVariant: selectedVariant.slug,
         variants: variants.rows,
         steps: detailSteps,
+        recipe_links: recipeLinks,
       });
     },
   );
+}
+
+async function loadRecipeLinks(
+  pool: Pool,
+  tenantId: string,
+  principalId: string | null,
+  instructions: string[],
+): Promise<RecipeLinkRow[]> {
+  const referencePattern: RegExp = /\{recipe:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\}/gi;
+  const publicIds: string[] = [];
+  for (const instruction of instructions) {
+    let match: RegExpExecArray | null;
+    while ((match = referencePattern.exec(instruction)) !== null) publicIds.push(match[1]!);
+  }
+  if (publicIds.length === 0) return [];
+  const links = await pool.query<RecipeLinkRow>(
+    `SELECT recipe.public_id, recipe.slug, recipe_revision.title
+     FROM recipe
+     INNER JOIN tenant ON tenant.id = recipe.tenant_id
+     INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+     LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
+       AND tenant_membership.principal_id = $2
+     WHERE recipe.tenant_id = $1
+       AND recipe.public_id = ANY($3::uuid[])
+       AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+         OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY'
+           AND tenant_membership.principal_id IS NOT NULL)
+         OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+           SELECT 1 FROM tenant_membership_role
+           INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+           WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+             AND tenant_membership_role.principal_id = $2
+             AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+         )))`,
+    [tenantId, principalId, [...new Set(publicIds)]],
+  );
+  return links.rows;
 }
 
 function emptyFrontpage(): {

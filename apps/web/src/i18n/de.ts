@@ -520,6 +520,9 @@ export const de: Translation = {
     freeText: 'Freitext',
     searchIngredients: 'Zutaten suchen',
     noIngredientsFound: 'Keine Zutaten gefunden.',
+    searchRecipes: 'Rezepte suchen',
+    noRecipesFound: 'Keine Rezepte gefunden.',
+    recipeLinkPicker: 'Rezeptlink einfügen',
     createIngredient: 'Zutat anlegen',
     createIngredientDescription:
       'Füge diese Zutat diesem Kochbuch hinzu und hinterlege bei Bedarf alternative Namen.',
