@@ -96,7 +96,7 @@ export default function CookbookScreen({
   const [cookbook, setCookbook] = useState<CookbookResponse>(initialCookbook ?? emptyCookbook);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(initialRecipe);
-  const [isRecipeLoading, setIsRecipeLoading] = useState<boolean>(false);
+  const isRecipeLoading: boolean = false;
   const [recipeError, setRecipeError] = useState<string>('');
   const [recipeFilter, setRecipeFilter] = useState<string>('');
   const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(false);
@@ -283,36 +283,6 @@ export default function CookbookScreen({
       setIsSubmitting(false);
     }
   }
-  async function openRecipe(publicId: string): Promise<void> {
-    setRecipeError('');
-    setIsRecipeLoading(true);
-    try {
-      const recipe: RecipeDetail = await request<RecipeDetail>(`/cookbook/recipes/${publicId}`);
-      setSelectedRecipe(recipe);
-      const overviewRecipe: Recipe | undefined = cookbook.recipes.find(
-        (candidate: Recipe): boolean => candidate.public_id === publicId,
-      );
-      const slug: string | null = tenantSlugFromPath();
-      if (overviewRecipe !== undefined && slug !== null)
-        window.history.pushState(
-          null,
-          '',
-          cookbookPath(
-            slug,
-            cookbook.categories,
-            selectedCategoryId,
-            overviewRecipe,
-            recipe.selectedVariant === recipe.variants.find((variant) => variant.is_default)?.slug
-              ? null
-              : recipe.selectedVariant,
-          ),
-        );
-    } catch (_error: unknown) {
-      setRecipeError(text.dashboard.recipeLoadFailed);
-    } finally {
-      setIsRecipeLoading(false);
-    }
-  }
   async function selectRecipeVariant(slug: string): Promise<void> {
     if (selectedRecipe === null) return;
     try {
@@ -341,18 +311,6 @@ export default function CookbookScreen({
     } catch (_error: unknown) {
       setRecipeError(text.dashboard.recipeLoadFailed);
     }
-  }
-  function selectCategory(categoryId: string | null): void {
-    setIsCategoryEditor(false);
-    setSelectedRecipe(null);
-    setSelectedCategoryId(categoryId);
-    setRecipeError('');
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null)
-      window.history.pushState(null, '', cookbookPath(slug, cookbook.categories, categoryId, null));
-  }
-  function closeRecipe(): void {
-    selectCategory(selectedCategoryId);
   }
   function editSelectedRecipe(): void {
     if (selectedRecipe === null) return;
@@ -425,14 +383,6 @@ export default function CookbookScreen({
     );
     await loadSelectedRecipeShareLinks();
   }
-  function openCategoryEditor(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug === null) return;
-    window.history.pushState(null, '', `/${slug}/categories`);
-    setSelectedRecipe(null);
-    setEditorPath(null);
-    setIsCategoryEditor(true);
-  }
   function openRecipeEditor(recipePublicId: string | null): void {
     const slug: string | null = tenantSlugFromPath();
     if (slug === null) return;
@@ -443,70 +393,6 @@ export default function CookbookScreen({
     );
     setIsCategoryEditor(false);
     setEditorPath(recipePublicId === null ? 'new' : recipePublicId);
-  }
-  function openDrafts(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug === null) return;
-    window.history.pushState(null, '', `/${slug}/drafts`);
-    setIsCategoryEditor(false);
-    setEditorPath('drafts');
-  }
-  function openRecipes(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/recipes`);
-    setIsCategoryEditor(false);
-    setEditorPath('manage-recipes');
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-  }
-  function openUsers(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/users`);
-    setIsCategoryEditor(false);
-    setEditorPath('manage-users');
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-  }
-  function openIngredients(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/ingredients`);
-    setIsCategoryEditor(false);
-    setEditorPath('manage-ingredients');
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-  }
-  function openUnits(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/units`);
-    setIsCategoryEditor(false);
-    setEditorPath('manage-units');
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-  }
-  function openRecipePolicy(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/settings`);
-    setIsCategoryEditor(false);
-    setEditorPath('manage-recipe-policy');
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-  }
-  function openServiceAccounts(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/service-accounts`);
-    setIsCategoryEditor(false);
-    setEditorPath('manage-service-accounts');
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-  }
-  function closeTenantManagement(): void {
-    const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}`);
-    setIsCategoryEditor(false);
-    setEditorPath(null);
-    setSelectedCategoryId(null);
-    setSelectedRecipe(null);
-    void loadCookbook();
   }
   async function loadCookbook(
     frontpagePage: number = 1,
@@ -606,19 +492,19 @@ export default function CookbookScreen({
         className={isCategoryEditor || editorPath !== null ? 'tenant-management' : 'tenant-content'}
       >
         {isCategoryEditor || editorPath !== null ? (
-          <button
-            type="button"
+          <a
             className="button--secondary tenant-management__back"
-            onClick={closeTenantManagement}
+            href={`/${encodeURIComponent(tenantSlug)}`}
           >
             {text.tenantNavigation.backToCookbook}
-          </button>
+          </a>
         ) : null}
         <div className={isCategoryEditor || editorPath !== null ? 'tenant-area' : undefined}>
           {isCategoryEditor || editorPath !== null ? (
             <TenantNavigation
               text={text}
               cookbook={cookbook}
+              tenantSlug={tenantSlug}
               activeView={
                 isCategoryEditor
                   ? 'categories'
@@ -642,15 +528,6 @@ export default function CookbookScreen({
                                     ? 'editor'
                                     : 'recipes'
               }
-              onOpenRecipes={openRecipes}
-              onOpenDrafts={openDrafts}
-              onOpenCategories={openCategoryEditor}
-              onOpenUsers={openUsers}
-              onOpenIngredients={openIngredients}
-              onOpenUnits={openUnits}
-              onOpenSettings={openRecipePolicy}
-              onOpenServiceAccounts={openServiceAccounts}
-              onCreateRecipe={(): void => openRecipeEditor(null)}
             />
           ) : null}
           <div className="tenant-content">
@@ -706,16 +583,12 @@ export default function CookbookScreen({
                   selectedRecipe={selectedRecipe}
                   isRecipeLoading={isRecipeLoading}
                   recipeError={recipeError}
-                  onSelectCategory={selectCategory}
-                  onSelectRecipe={openRecipe}
-                  onCloseRecipe={closeRecipe}
                   onEditRecipe={editSelectedRecipe}
                   onShareRecipe={openSelectedRecipeShareDialog}
                   onShareRecipeWithAi={openSelectedRecipeAiContext}
                   onShareCategoryWithAi={openCategoryAiContext}
                   onShareCookbookWithAi={openCookbookAiContext}
                   onSelectVariant={selectRecipeVariant}
-                  onManageCookbook={openDrafts}
                   onSelectFrontpagePage={loadCookbook}
                   recipeFilter={recipeFilter}
                   onRecipeFilterChange={changeRecipeFilter}

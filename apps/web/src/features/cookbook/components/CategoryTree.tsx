@@ -1,17 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
+import { cookbookPath } from '../model/routing';
 import type { Category } from '../model/types';
 
 interface CategoryTreeProperties {
   categories: readonly Category[];
   selectedCategoryId: string | null;
   text: Translation;
-  onSelectCategory: (categoryId: string) => void;
+  tenantSlug: string;
 }
 
 export default function CategoryTree(properties: CategoryTreeProperties): JSX.Element {
-  const { categories, selectedCategoryId, text, onSelectCategory } = properties;
+  const { categories, selectedCategoryId, text, tenantSlug } = properties;
   const byParentId: Map<string | null, Category[]> = new Map();
   for (const category of categories) {
     const siblings: Category[] = byParentId.get(category.parent_public_id) ?? [];
@@ -42,11 +43,12 @@ export default function CategoryTree(properties: CategoryTreeProperties): JSX.El
     <div className="category-tree">
       {categoryTreeItems(
         null,
+        categories,
         byParentId,
         expandedCategoryIds,
         selectedCategoryId,
         text,
-        onSelectCategory,
+        tenantSlug,
         toggleCategory,
       )}
     </div>
@@ -55,11 +57,12 @@ export default function CategoryTree(properties: CategoryTreeProperties): JSX.El
 
 function categoryTreeItems(
   parentId: string | null,
+  categories: readonly Category[],
   byParentId: Map<string | null, Category[]>,
   expandedCategoryIds: ReadonlySet<string>,
   selectedCategoryId: string | null,
   text: Translation,
-  onSelectCategory: (categoryId: string) => void,
+  tenantSlug: string,
   onToggleCategory: (categoryId: string) => void,
 ): JSX.Element[] {
   const children: Category[] = byParentId.get(parentId) ?? [];
@@ -91,27 +94,27 @@ function categoryTreeItems(
               aria-hidden="true"
             />
           )}
-          <button
+          <a
             className={
               selectedCategoryId === category.public_id
                 ? 'category-button category-button--active'
                 : 'category-button'
             }
-            type="button"
-            onClick={(): void => onSelectCategory(category.public_id)}
+            href={cookbookPath(tenantSlug, categories, category.public_id, null)}
           >
             {category.name}
-          </button>
+          </a>
         </div>
         {hasDescendants && isExpanded ? (
           <div className="category-tree__children">
             {categoryTreeItems(
               category.public_id,
+              categories,
               byParentId,
               expandedCategoryIds,
               selectedCategoryId,
               text,
-              onSelectCategory,
+              tenantSlug,
               onToggleCategory,
             )}
           </div>

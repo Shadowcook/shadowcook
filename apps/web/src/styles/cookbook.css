@@ -33,12 +33,14 @@
   gap: 0.25rem;
 }
 .tenant-navigation__link {
+  display: block;
   width: 100%;
   padding: 0.65rem 0.7rem;
   border-radius: 0.2rem;
   color: #4d4037;
   background: transparent;
   text-align: left;
+  text-decoration: none;
 }
 .tenant-navigation__link:hover,
 .tenant-navigation__link--active {
@@ -198,11 +200,13 @@
   line-height: 1.4;
 }
 .category-button {
+  display: block;
   width: 100%;
   padding: 0.6rem 0.7rem;
   color: #4d4037;
   background: transparent;
   text-align: left;
+  text-decoration: none;
 }
 .category-button:hover,
 .category-button--active {

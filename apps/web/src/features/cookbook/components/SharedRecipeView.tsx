@@ -39,7 +39,7 @@ export default function SharedRecipeView({ token, text }: SharedRecipeViewProper
     <RecipeDetailView
       text={text}
       recipe={recipe}
-      onClose={(): void => window.location.assign(`/${recipe.tenant_slug}`)}
+      backHref={`/${encodeURIComponent(recipe.tenant_slug)}`}
       onEdit={(): void => undefined}
       onShare={(): void => undefined}
       onShareWithAi={(): void => undefined}

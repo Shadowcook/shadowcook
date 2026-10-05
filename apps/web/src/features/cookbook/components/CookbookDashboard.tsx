@@ -6,6 +6,7 @@ import BreadcrumbBar from './BreadcrumbBar';
 import CategoryTree from './CategoryTree';
 import RecipeDetailView from './RecipeDetailView';
 import RecipePagination from './RecipePagination';
+import { cookbookPath } from '../model/routing';
 import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/types';
 
 interface CookbookDashboardProperties {
@@ -15,16 +16,12 @@ interface CookbookDashboardProperties {
   selectedRecipe: RecipeDetail | null;
   isRecipeLoading: boolean;
   recipeError: string;
-  onSelectCategory: (categoryId: string | null) => void;
-  onSelectRecipe: (publicId: string) => Promise<void>;
-  onCloseRecipe: () => void;
   onEditRecipe: () => void;
   onShareRecipe: () => void;
   onShareRecipeWithAi: () => void;
   onShareCategoryWithAi: (categoryId: string) => void;
   onShareCookbookWithAi: () => void;
   onSelectVariant: (slug: string) => void;
-  onManageCookbook: () => void;
   onSelectFrontpagePage: (page: number) => Promise<CookbookResponse>;
   recipeFilter: string;
   onRecipeFilterChange: (filter: string) => void;
@@ -39,16 +36,12 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     selectedRecipe,
     isRecipeLoading,
     recipeError,
-    onSelectCategory,
-    onSelectRecipe,
-    onCloseRecipe,
     onEditRecipe,
     onShareRecipe,
     onShareRecipeWithAi,
     onShareCategoryWithAi,
     onShareCookbookWithAi,
     onSelectVariant,
-    onManageCookbook,
     onSelectFrontpagePage,
     recipeFilter,
     onRecipeFilterChange,
@@ -86,9 +79,9 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           <h1>{frontpageHeading}</h1>
         </div>
         {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
-          <button type="button" className="button--secondary" onClick={onManageCookbook}>
+          <a className="button--secondary" href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}>
             {text.tenantNavigation.title}
-          </button>
+          </a>
         ) : null}
       </header>
       <BreadcrumbBar
@@ -97,13 +90,13 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
         selectedRecipe={selectedRecipe}
         cookbookName={cookbookName}
         text={text}
-        onSelectCategory={onSelectCategory}
+        tenantSlug={tenantSlug}
       />
       {selectedRecipe !== null ? (
         <RecipeDetailView
           text={text}
           recipe={selectedRecipe}
-          onClose={onCloseRecipe}
+          backHref={cookbookPath(tenantSlug, cookbook.categories, selectedCategoryId, null)}
           onEdit={onEditRecipe}
           onShare={onShareRecipe}
           onShareWithAi={onShareRecipeWithAi}
@@ -116,22 +109,21 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
             <div className="category-panel__heading">
               <p className="eyebrow">{text.dashboard.categories}</p>
             </div>
-            <button
+            <a
               className={
                 selectedCategoryId === null
                   ? 'category-button category-button--active'
                   : 'category-button'
               }
-              type="button"
-              onClick={(): void => onSelectCategory(null)}
+              href={cookbookPath(tenantSlug, cookbook.categories, null, null)}
             >
               {text.dashboard.allCategories}
-            </button>
+            </a>
             <CategoryTree
               categories={cookbook.categories}
               selectedCategoryId={selectedCategoryId}
               text={text}
-              onSelectCategory={onSelectCategory}
+              tenantSlug={tenantSlug}
             />
           </aside>
           <section className="recipes-panel">
@@ -184,10 +176,14 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
               <div className="recipe-grid">
                 {visibleRecipes.map((recipe: Recipe): JSX.Element => (
                   <article className="recipe-card" key={recipe.public_id}>
-                    <button
+                    <a
                       className="recipe-card__button"
-                      type="button"
-                      onClick={(): void => void onSelectRecipe(recipe.public_id)}
+                      href={cookbookPath(
+                        tenantSlug,
+                        cookbook.categories,
+                        selectedCategoryId,
+                        recipe,
+                      )}
                     >
                       <h2>{recipe.title}</h2>
                       {recipe.summary === null ? null : <p>{recipe.summary}</p>}
@@ -202,7 +198,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                           ))
                         )}
                       </div>
-                    </button>
+                    </a>
                   </article>
                 ))}
               </div>

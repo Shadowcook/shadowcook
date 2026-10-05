@@ -16,15 +16,7 @@ interface TenantNavigationProperties {
     | 'settings'
     | 'service-accounts'
     | 'editor';
-  onOpenRecipes: () => void;
-  onOpenDrafts: () => void;
-  onOpenCategories: () => void;
-  onOpenUsers: () => void;
-  onOpenIngredients: () => void;
-  onOpenUnits: () => void;
-  onOpenSettings: () => void;
-  onOpenServiceAccounts: () => void;
-  onCreateRecipe: () => void;
+  tenantSlug: string;
 }
 
 export default function TenantNavigation(properties: TenantNavigationProperties): JSX.Element {
@@ -32,127 +24,111 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
     text,
     cookbook,
     activeView,
-    onOpenRecipes,
-    onOpenDrafts,
-    onOpenCategories,
-    onOpenUsers,
-    onOpenIngredients,
-    onOpenUnits,
-    onOpenSettings,
-    onOpenServiceAccounts,
-    onCreateRecipe,
+    tenantSlug,
   } = properties;
   return (
     <aside className="tenant-navigation">
       <p className="eyebrow">{text.tenantNavigation.title}</p>
       <nav aria-label={text.tenantNavigation.title}>
-        <button
-          type="button"
+        <a
           className={
             activeView === 'recipes'
               ? 'tenant-navigation__link tenant-navigation__link--active'
               : 'tenant-navigation__link'
           }
-          onClick={onOpenRecipes}
+          href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}
         >
           {text.tenantNavigation.recipes}
-        </button>
+        </a>
         {cookbook.canManageRecipes ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'drafts' || activeView === 'editor'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenDrafts}
+            href={`/${encodeURIComponent(tenantSlug)}/drafts`}
           >
             {text.recipeEditor.drafts}
-          </button>
+          </a>
         ) : null}
         {cookbook.canManageCategories ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'categories'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenCategories}
+            href={`/${encodeURIComponent(tenantSlug)}/categories`}
           >
             {text.tenantNavigation.categories}
-          </button>
+          </a>
         ) : null}
         {cookbook.canManageUsers ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'settings'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenSettings}
+            href={`/${encodeURIComponent(tenantSlug)}/manage/settings`}
           >
             {text.tenantNavigation.settings}
-          </button>
+          </a>
         ) : null}
         {cookbook.canManageServiceAccounts ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'service-accounts'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenServiceAccounts}
+            href={`/${encodeURIComponent(tenantSlug)}/manage/service-accounts`}
           >
             {text.tenantNavigation.serviceAccounts}
-          </button>
+          </a>
         ) : null}
         {cookbook.canManageUsers ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'users'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenUsers}
+            href={`/${encodeURIComponent(tenantSlug)}/manage/users`}
           >
             {text.tenantNavigation.users}
-          </button>
+          </a>
         ) : null}
         {cookbook.canManageIngredients ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'ingredients'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenIngredients}
+            href={`/${encodeURIComponent(tenantSlug)}/manage/ingredients`}
           >
             {text.tenantNavigation.ingredients}
-          </button>
+          </a>
         ) : null}
         {cookbook.canManageUnits ? (
-          <button
-            type="button"
+          <a
             className={
               activeView === 'units'
                 ? 'tenant-navigation__link tenant-navigation__link--active'
                 : 'tenant-navigation__link'
             }
-            onClick={onOpenUnits}
+            href={`/${encodeURIComponent(tenantSlug)}/manage/units`}
           >
             {text.tenantNavigation.units}
-          </button>
+          </a>
         ) : null}
       </nav>
       {cookbook.canManageRecipes ? (
-        <button type="button" onClick={onCreateRecipe}>
+        <a className="button-link" href={`/${encodeURIComponent(tenantSlug)}/recipes/new`}>
           {text.recipeEditor.create}
-        </button>
+        </a>
       ) : null}
     </aside>
   );

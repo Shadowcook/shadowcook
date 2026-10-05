@@ -13,7 +13,7 @@ import RecipeInstruction from './RecipeInstruction';
 interface RecipeDetailViewProperties {
   text: Translation;
   recipe: RecipeDetail;
-  onClose: () => void;
+  backHref: string;
   onEdit: () => void;
   onShare: () => void;
   onShareWithAi: () => void;
@@ -24,7 +24,7 @@ interface RecipeDetailViewProperties {
 export default function RecipeDetailView({
   text,
   recipe,
-  onClose,
+  backHref,
   onEdit,
   onShare,
   onShareWithAi,
@@ -37,9 +37,9 @@ export default function RecipeDetailView({
 
   return (
     <section className="recipe-detail">
-      <button className="button--secondary recipe-detail__back" type="button" onClick={onClose}>
+      <a className="button--secondary recipe-detail__back" href={backHref}>
         {text.dashboard.backToRecipes}
-      </button>
+      </a>
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <h2>{recipe.title}</h2>
       <div className="recipe-detail__overview">

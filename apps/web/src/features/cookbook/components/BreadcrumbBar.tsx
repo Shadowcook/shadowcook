@@ -1,5 +1,6 @@
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
+import { cookbookPath } from '../model/routing';
 import type { Category, RecipeDetail } from '../model/types';
 
 interface BreadcrumbBarProperties {
@@ -8,12 +9,11 @@ interface BreadcrumbBarProperties {
   selectedRecipe: RecipeDetail | null;
   cookbookName: string;
   text: Translation;
-  onSelectCategory: (categoryId: string | null) => void;
+  tenantSlug: string;
 }
 
 export default function BreadcrumbBar(properties: BreadcrumbBarProperties): JSX.Element {
-  const { categories, selectedCategoryId, selectedRecipe, cookbookName, text, onSelectCategory } =
-    properties;
+  const { categories, selectedCategoryId, selectedRecipe, cookbookName, text, tenantSlug } = properties;
   const categoryTrail: Category[] = categoryTrailFor(categories, selectedCategoryId);
   const currentLabel: string | null = selectedRecipe === null ? null : selectedRecipe.title;
   return (
@@ -23,9 +23,9 @@ export default function BreadcrumbBar(properties: BreadcrumbBarProperties): JSX.
           {categoryTrail.length === 0 && currentLabel === null ? (
             <span aria-current="page">{cookbookName}</span>
           ) : (
-            <button type="button" onClick={(): void => onSelectCategory(null)}>
+            <a href={cookbookPath(tenantSlug, categories, null, null)}>
               {cookbookName}
-            </button>
+            </a>
           )}
         </li>
         {categoryTrail.map((category: Category, index: number): JSX.Element => {
@@ -36,9 +36,9 @@ export default function BreadcrumbBar(properties: BreadcrumbBarProperties): JSX.
               {isCurrentCategory ? (
                 <span aria-current="page">{category.name}</span>
               ) : (
-                <button type="button" onClick={(): void => onSelectCategory(category.public_id)}>
+                <a href={cookbookPath(tenantSlug, categories, category.public_id, null)}>
                   {category.name}
-                </button>
+                </a>
               )}
             </li>
           );
