@@ -495,6 +495,16 @@ paths:
         '204': { description: Ingredient merged. }
         '400': { description: Invalid ingredient consolidation. }
         '404': { description: Source or target ingredient not found. }
+  /admin/ingredients/{publicId}/convert-to-note:
+    post:
+      operationId: convertIngredientToNote
+      summary: Converts recipe uses into free-text entries and removes the source ingredient from the catalogue.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      responses:
+        '204': { description: Ingredient converted to free-text recipe entries. }
+        '404': { description: Source ingredient not found. }
   /admin/ingredients/{publicId}/aliases/{aliasPublicId}:
     patch:
       operationId: updateIngredientAlias
@@ -531,6 +541,7 @@ paths:
         }
     delete:
       operationId: deleteIngredientAlias
+      summary: Separates the alias into an independent ingredient and reassigns only uses that selected the alias.
       security: [{ sessionCookie: [] }]
       parameters:
         [
@@ -539,10 +550,15 @@ paths:
         ]
       responses:
         {
-          '204': { description: Alias deleted. },
+          '204': { description: Alias separated into an independent ingredient. },
           '404':
             {
               description: Alias not found,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: An ingredient with the alias name already exists,
               content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
             },
         }
@@ -2234,9 +2250,23 @@ paths:
         '204': { description: Ingredient merged. }
         '400': { description: Invalid ingredient consolidation. }
         '404': { description: Source or target ingredient not found. }
+  /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/convert-to-note:
+    post:
+      operationId: convertTenantIngredientToNote
+      summary: Converts recipe uses into free-text entries and removes the cookbook-owned source ingredient.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      responses:
+        '204': { description: Ingredient converted to free-text recipe entries. }
+        '404': { description: Source ingredient not found. }
   /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/aliases/{aliasPublicId}:
     delete:
       operationId: deleteTenantIngredientAlias
+      summary: Separates the alias into an independent cookbook ingredient and reassigns only uses that selected the alias.
       security: [{ sessionCookie: [] }]
       parameters:
         [
@@ -2244,7 +2274,12 @@ paths:
           { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
           { name: aliasPublicId, in: path, required: true, schema: { type: string, format: uuid } },
         ]
-      responses: { '204': { description: Alias deleted. } }
+      responses:
+        {
+          '204': { description: Alias separated into an independent ingredient. },
+          '404': { description: Alias not found. },
+          '409': { description: An ingredient with the alias name already exists. },
+        }
   /cookbook/tenants/{tenantSlug}/units:
     get:
       operationId: listTenantUnits

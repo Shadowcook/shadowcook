@@ -1,7 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { requireTenantPermission } from '../admin/authorization.js';
-import { consolidateIngredient } from '../ingredient-consolidation.js';
+import {
+  consolidateIngredient,
+  convertIngredientToTextOverride,
+  separateIngredientAlias,
+} from '../ingredient-consolidation.js';
 
 interface IngredientRow {
   public_id: string;
@@ -169,23 +173,37 @@ export function registerTenantIngredientRoutes(api: FastifyInstance, pool: Pool)
     async (request, reply) => {
       const tenantId: string | null = await tenantIdFor(pool, request, reply, 'ingredient:update');
       if (tenantId === null) return;
-      const result = await pool.query(
-        `DELETE FROM ingredient_alias USING ingredient
-       WHERE ingredient_alias.ingredient_id = ingredient.id AND ingredient.owner_tenant_id = $1
-         AND ingredient.public_id = $2 AND ingredient_alias.public_id = $3`,
-        [
-          tenantId,
-          (request.params as { publicId: string }).publicId,
-          (request.params as { aliasPublicId: string }).aliasPublicId,
-        ],
+      const result = await separateIngredientAlias(
+        pool,
+        (request.params as { publicId: string }).publicId,
+        (request.params as { aliasPublicId: string }).aliasPublicId,
+        tenantId,
       );
-      return result.rowCount === 1
-        ? reply.code(204).send()
-        : reply.code(404).send({ code: 'ALIAS_NOT_FOUND', error: 'The alias was not found.' });
+      if (result === null) return reply.code(204).send();
+      if (result === 'INGREDIENT_CONFLICT')
+        return reply.code(409).send({
+          code: 'INGREDIENT_CONFLICT',
+          error: 'An ingredient with the alias name already exists.',
+        });
+      return reply.code(404).send({ code: 'ALIAS_NOT_FOUND', error: 'The alias was not found.' });
     },
   );
 
   registerTenantIngredientConsolidationRoutes(api, pool);
+
+  api.post(
+    '/cookbook/tenants/:tenantSlug/ingredients/:publicId/convert-to-note',
+    async (request, reply) => {
+      const tenantId: string | null = await tenantIdFor(pool, request, reply, 'ingredient:update');
+      if (tenantId === null) return;
+      const result = await convertIngredientToTextOverride(
+        pool,
+        (request.params as { publicId: string }).publicId,
+        tenantId,
+      );
+      return result === null ? reply.code(204).send() : ingredientNotFound(reply);
+    },
+  );
 }
 
 function registerTenantIngredientConsolidationRoutes(api: FastifyInstance, pool: Pool): void {
@@ -212,12 +230,10 @@ function registerTenantIngredientConsolidationRoutes(api: FastifyInstance, pool:
         if (result === null) return reply.code(204).send();
         if (result === 'SOURCE_NOT_FOUND') return ingredientNotFound(reply);
         if (result === 'TARGET_NOT_FOUND')
-          return reply
-            .code(404)
-            .send({
-              code: 'TARGET_INGREDIENT_NOT_FOUND',
-              error: 'The target ingredient was not found.',
-            });
+          return reply.code(404).send({
+            code: 'TARGET_INGREDIENT_NOT_FOUND',
+            error: 'The target ingredient was not found.',
+          });
         return invalidConsolidation(reply);
       },
     );

@@ -9,6 +9,108 @@ interface LockedIngredient {
   canonical_name: string;
 }
 
+export async function convertIngredientToTextOverride(
+  pool: Pool,
+  sourcePublicId: string,
+  ownerTenantId: string | null,
+): Promise<'SOURCE_NOT_FOUND' | null> {
+  const client: PoolClient = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const sourceResult = await client.query<LockedIngredient>(
+      `SELECT id, public_id, canonical_name
+       FROM ingredient
+       WHERE public_id = $1 AND owner_tenant_id IS NOT DISTINCT FROM $2::uuid
+       FOR UPDATE`,
+      [sourcePublicId, ownerTenantId],
+    );
+    const source: LockedIngredient | undefined = sourceResult.rows[0];
+    if (source === undefined) {
+      await client.query('ROLLBACK');
+      return 'SOURCE_NOT_FOUND';
+    }
+    await client.query(
+      `UPDATE ingredient_usage AS usage
+       SET ingredient_id = NULL,
+           ingredient_alias_id = NULL,
+           text_override = COALESCE(
+             (SELECT alias.alias FROM ingredient_alias AS alias WHERE alias.id = usage.ingredient_alias_id),
+             $1
+           )
+       WHERE usage.ingredient_id = $2`,
+      [source.canonical_name, source.id],
+    );
+    await client.query('DELETE FROM ingredient WHERE id = $1', [source.id]);
+    await client.query('COMMIT');
+    return null;
+  } catch (error: unknown) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+export type SeparateIngredientAliasResult = 'ALIAS_NOT_FOUND' | 'INGREDIENT_CONFLICT' | null;
+
+interface LockedAlias {
+  id: string;
+  alias: string;
+}
+
+export async function separateIngredientAlias(
+  pool: Pool,
+  ingredientPublicId: string,
+  aliasPublicId: string,
+  ownerTenantId: string | null,
+): Promise<SeparateIngredientAliasResult> {
+  const client: PoolClient = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const aliasResult = await client.query<LockedAlias>(
+      `SELECT ingredient_alias.id, ingredient_alias.alias
+       FROM ingredient_alias
+       INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
+       WHERE ingredient.public_id = $1
+         AND ingredient_alias.public_id = $2
+         AND ingredient.owner_tenant_id IS NOT DISTINCT FROM $3::uuid
+       FOR UPDATE OF ingredient_alias, ingredient`,
+      [ingredientPublicId, aliasPublicId, ownerTenantId],
+    );
+    const alias: LockedAlias | undefined = aliasResult.rows[0];
+    if (alias === undefined) {
+      await client.query('ROLLBACK');
+      return 'ALIAS_NOT_FOUND';
+    }
+    const ingredientResult = await client.query<{ id: string }>(
+      `INSERT INTO ingredient (owner_tenant_id, canonical_name)
+       VALUES ($1, $2)
+       ON CONFLICT (owner_tenant_id, canonical_name) DO NOTHING
+       RETURNING id`,
+      [ownerTenantId, alias.alias],
+    );
+    const separatedIngredient = ingredientResult.rows[0];
+    if (separatedIngredient === undefined) {
+      await client.query('ROLLBACK');
+      return 'INGREDIENT_CONFLICT';
+    }
+    await client.query(
+      `UPDATE ingredient_usage
+       SET ingredient_id = $1, ingredient_alias_id = NULL
+       WHERE ingredient_alias_id = $2`,
+      [separatedIngredient.id, alias.id],
+    );
+    await client.query('DELETE FROM ingredient_alias WHERE id = $1', [alias.id]);
+    await client.query('COMMIT');
+    return null;
+  } catch (error: unknown) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
 export async function consolidateIngredient(
   pool: Pool,
   sourcePublicId: string,

@@ -1,7 +1,11 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { requireInstancePermission } from './authorization.js';
-import { consolidateIngredient } from '../ingredient-consolidation.js';
+import {
+  consolidateIngredient,
+  convertIngredientToTextOverride,
+  separateIngredientAlias,
+} from '../ingredient-consolidation.js';
 
 interface IngredientRow {
   public_id: string;
@@ -116,6 +120,17 @@ export function registerIngredientRoutes(api: FastifyInstance, pool: Pool): void
 
   registerIngredientConsolidationRoutes(api, pool);
 
+  api.post('/admin/ingredients/:publicId/convert-to-note', async (request, reply) => {
+    if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
+      return;
+    const result = await convertIngredientToTextOverride(
+      pool,
+      (request.params as { publicId: string }).publicId,
+      null,
+    );
+    return result === null ? reply.code(204).send() : ingredientNotFound(reply);
+  });
+
   api.post(
     '/admin/ingredients/:publicId/aliases',
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -177,19 +192,19 @@ export function registerIngredientRoutes(api: FastifyInstance, pool: Pool): void
     async (request: FastifyRequest, reply: FastifyReply) => {
       if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
         return;
-      const result = await pool.query(
-        `DELETE FROM ingredient_alias USING ingredient
-         WHERE ingredient_alias.ingredient_id = ingredient.id
-           AND ingredient.public_id = $1 AND ingredient.owner_tenant_id IS NULL
-           AND ingredient_alias.public_id = $2`,
-        [
-          (request.params as { publicId: string }).publicId,
-          (request.params as { aliasPublicId: string }).aliasPublicId,
-        ],
+      const result = await separateIngredientAlias(
+        pool,
+        (request.params as { publicId: string }).publicId,
+        (request.params as { aliasPublicId: string }).aliasPublicId,
+        null,
       );
-      return result.rowCount === 1
-        ? reply.code(204).send()
-        : reply.code(404).send({ code: 'ALIAS_NOT_FOUND', error: 'The alias was not found.' });
+      if (result === null) return reply.code(204).send();
+      if (result === 'INGREDIENT_CONFLICT')
+        return reply.code(409).send({
+          code: 'INGREDIENT_CONFLICT',
+          error: 'An ingredient with the alias name already exists.',
+        });
+      return reply.code(404).send({ code: 'ALIAS_NOT_FOUND', error: 'The alias was not found.' });
     },
   );
 }
@@ -216,12 +231,10 @@ function registerIngredientConsolidationRoutes(api: FastifyInstance, pool: Pool)
             .code(404)
             .send({ code: 'INGREDIENT_NOT_FOUND', error: 'The ingredient was not found.' });
         if (result === 'TARGET_NOT_FOUND')
-          return reply
-            .code(404)
-            .send({
-              code: 'TARGET_INGREDIENT_NOT_FOUND',
-              error: 'The target ingredient was not found.',
-            });
+          return reply.code(404).send({
+            code: 'TARGET_INGREDIENT_NOT_FOUND',
+            error: 'The target ingredient was not found.',
+          });
         return invalidConsolidation(reply);
       },
     );
@@ -261,6 +274,12 @@ function aliasResponse(alias: AliasRow): object {
 
 function invalidIngredient(reply: FastifyReply): FastifyReply {
   return reply.code(400).send({ code: 'INVALID_INGREDIENT', error: 'The ingredient is invalid.' });
+}
+
+function ingredientNotFound(reply: FastifyReply): FastifyReply {
+  return reply
+    .code(404)
+    .send({ code: 'INGREDIENT_NOT_FOUND', error: 'The ingredient was not found.' });
 }
 
 function ingredientConflict(reply: FastifyReply): FastifyReply {

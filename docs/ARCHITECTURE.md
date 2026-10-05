@@ -231,7 +231,7 @@ shadowcook/
 - `pnpm reset:shadowcook-db` drops and recreates the PostgreSQL `public` schema in the `shadowcook` database only when `NODE_ENV=development`.
 - `pnpm reset:dev-db` remains an alias for the development database reset.
 - The next API startup applies the current initial schema, bootstrap administration, and development seeds.
-- The local `development-seed.json` stores development accounts, tenant configuration, roles, memberships, SMTP configuration, ingredients, and units. It does not store categories or recipes.
+- The local `development-seed.json` stores development accounts, tenant configuration, roles, memberships, SMTP configuration, and units. It does not store ingredients, categories, or recipes.
 - The optional local `development-content-seed.json` stores tenant categories, recipes, revisions, variants, steps, ingredient usages, and the ingredients, aliases, and units required by those usages. It is loaded after `development-seed.json`.
 - `pnpm export:development-content-seed` reads the tenant selected by `TARGET_DB_TENANT_SLUG` from `.env.migration` and validates the optional content seed. `pnpm export:development-content-seed --execute` writes the file at `DEVELOPMENT_CONTENT_SEED_PATH` or `development-content-seed.json`.
 - `pnpm export:ingredient-cleanup-csv --execute` writes every catalogued ingredient in `development-content-seed.json` to `ingredient-cleanup.csv` with the columns `Zutat`, `Neuer Zutat-Name`, `Zusaetzlicher Modifier`, and `Alias`. `pnpm ingest:ingredient-cleanup-csv --execute` resolves ingredient and alias names case-insensitively, merges a new name that already identifies a catalogued ingredient, resolves subsequent alias targets for merged ingredients, appends non-empty modifiers to matching ingredient-usage notes, creates resulting ingredient aliases, and atomically updates the content seed. The optional `INGREDIENT_CLEANUP_CSV_PATH` and `DEVELOPMENT_CONTENT_SEED_PATH` variables select paths relative to the repository root.
@@ -475,7 +475,11 @@ The recipe editor retrieves at most twenty matching ingredients for a non-empty 
 
 The recipe editor presents one note input for every recipe step entry. A normalized ingredient stores this input as its ingredient note. Free-text and special entries store it as their text override.
 
-Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render normalized ingredient names prominently and render their notes as secondary text.
+Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render normalized ingredient names prominently and render their notes as secondary text. Ingredient management can convert a normalized ingredient into free-text recipe entries, which removes its catalogue identity, search availability, and shopping-list aggregation.
+
+Separating an ingredient alias creates an independent ingredient with the alias name. Only ingredient usages that retain that alias identity are reassigned to the independent ingredient.
+
+Ingredient merging requires a client-side confirmation that identifies the source and target ingredients and states that the operation is irreversible.
 
 Recipe detail responses provide ingredient and unit public identities for shopping-list aggregation. Shopping lists aggregate non-special ingredient usages by ingredient identity, optional status, and unit identity for the selected recipe variant.
 

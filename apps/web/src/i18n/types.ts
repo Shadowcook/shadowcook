@@ -223,6 +223,20 @@ export interface Translation {
     consolidationTarget: string;
     ingredientConvertedToAlias: string;
     ingredientMerged: string;
+    manageIngredient: string;
+    manageIngredientDescription: string;
+    makeAliasOf: string;
+    makeAliasOfDescription: string;
+    convertToNote: string;
+    convertToNoteDescription: string;
+    ingredientConvertedToNote: string;
+    separateAlias: string;
+    aliasSeparated: string;
+    mergeConfirmationTitle: string;
+    mergeIrreversible: string;
+    sourceIngredient: string;
+    targetIngredient: string;
+    confirmMerge: string;
   };
   categoryEditor: {
     manage: string;
@@ -452,6 +466,20 @@ export interface Translation {
     consolidationTarget: string;
     ingredientConvertedToAlias: string;
     ingredientMerged: string;
+    manageIngredient: string;
+    manageIngredientDescription: string;
+    makeAliasOf: string;
+    makeAliasOfDescription: string;
+    convertToNote: string;
+    convertToNoteDescription: string;
+    ingredientConvertedToNote: string;
+    separateAlias: string;
+    aliasSeparated: string;
+    mergeConfirmationTitle: string;
+    mergeIrreversible: string;
+    sourceIngredient: string;
+    targetIngredient: string;
+    confirmMerge: string;
   };
   tenantUsers: {
     title: string;
@@ -521,6 +549,8 @@ export interface Translation {
     confirmDelete: string;
   };
   errors: {
+    title: string;
+    dismiss: string;
     authenticationFailed: string;
     authenticationRequired: string;
     invalidCredentials: string;
@@ -528,6 +558,11 @@ export interface Translation {
     invalidPassword: string;
     passwordChangeRequired: string;
     requestFailed: string;
+    ingredientAlreadyExists: string;
+    ingredientInUse: string;
+    ingredientNotFound: string;
+    aliasNotFound: string;
+    invalidIngredient: string;
     invalidEmailCode: string;
     passwordLoginDisabled: string;
     emailCodeLoginDisabled: string;

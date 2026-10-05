@@ -713,6 +713,9 @@ code {
   padding: 1.5rem;
   background: #18202799;
 }
+.modal-backdrop--error {
+  z-index: 30;
+}
 .modal {
   width: min(100%, 680px);
   max-height: calc(100vh - 3rem);
@@ -720,6 +723,44 @@ code {
   padding: 2rem;
   border-radius: 0.5rem;
   background: #fffaf0;
+}
+.ingredient-consolidation__option {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.ingredient-consolidation__option input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+.ingredient-consolidation__description {
+  margin: 0 0 0.8rem 1.5rem;
+  color: #75675d;
+  font:
+    0.82rem/1.5 Arial,
+    sans-serif;
+}
+.ingredient-consolidation__merge-summary {
+  display: grid;
+  gap: 0.7rem;
+  margin: 1.5rem 0;
+}
+.ingredient-consolidation__merge-summary div {
+  display: grid;
+  gap: 0.2rem;
+}
+.ingredient-consolidation__merge-summary dt {
+  color: #75675d;
+  font:
+    700 0.75rem Arial,
+    sans-serif;
+  text-transform: uppercase;
+}
+.ingredient-consolidation__merge-summary dd {
+  margin: 0;
+  color: #4d4037;
+  font-weight: 700;
 }
 .role-assignment__options {
   display: grid;

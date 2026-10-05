@@ -3,7 +3,10 @@ import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
+import RequestErrorModal from '../../../components/RequestErrorModal';
+import { ingredientRequestError } from '../../../lib/ingredient-request-error';
 import IngredientConsolidationModal from './IngredientConsolidationModal';
+import type { IngredientManagementAction } from './IngredientConsolidationModal';
 
 interface IngredientAlias {
   publicId: string;
@@ -20,11 +23,8 @@ interface IngredientForm {
   aliases: string[];
 }
 
-type ConsolidationAction = 'convert-to-alias' | 'merge';
-
 interface IngredientConsolidation {
   source: Ingredient;
-  action: ConsolidationAction;
 }
 
 const emptyForm: IngredientForm = { canonicalName: '', aliases: [] };
@@ -44,6 +44,7 @@ export default function TenantIngredientManagement({
   const [aliasName, setAliasName] = useState<string>('');
   const [aliasesFor, setAliasesFor] = useState<Ingredient | null>(null);
   const [message, setMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [consolidation, setConsolidation] = useState<IngredientConsolidation | null>(null);
 
   function endpoint(suffix: string = ''): string {
@@ -51,6 +52,9 @@ export default function TenantIngredientManagement({
   }
   function refresh(): void {
     void loadIngredients(endpoint(), setIngredients);
+  }
+  async function showRequestError(response: Response): Promise<void> {
+    setErrorMessage(await ingredientRequestError(response, text));
   }
   useEffect(refresh, [tenantSlug]);
   function closeForm(): void {
@@ -96,7 +100,7 @@ export default function TenantIngredientManagement({
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      setMessage(text.errors.requestFailed);
+      await showRequestError(response);
       return;
     }
     setMessage(editing === null ? text.tenantIngredients.created : text.tenantIngredients.updated);
@@ -108,29 +112,53 @@ export default function TenantIngredientManagement({
       method: 'DELETE',
       credentials: 'same-origin',
     });
-    setMessage(response.ok ? text.tenantIngredients.deleted : text.tenantIngredients.cannotDelete);
-    if (response.ok) refresh();
+    if (!response.ok) {
+      await showRequestError(response);
+      return;
+    }
+    setMessage(text.tenantIngredients.deleted);
+    refresh();
   }
-  async function consolidateIngredient(targetPublicId: string): Promise<void> {
+  async function consolidateIngredient(
+    action: IngredientManagementAction,
+    targetPublicId: string | null,
+  ): Promise<void> {
     if (consolidation === null) return;
+    const pathAction: string = action === 'make-alias' ? 'convert-to-alias' : action;
     const response: Response = await fetch(
-      endpoint(`/${consolidation.source.publicId}/${consolidation.action}`),
+      endpoint(`/${consolidation.source.publicId}/${pathAction}`),
       {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetPublicId }),
+        headers: targetPublicId === null ? undefined : { 'Content-Type': 'application/json' },
+        body: targetPublicId === null ? undefined : JSON.stringify({ targetPublicId }),
       },
     );
     if (!response.ok) {
-      setMessage(text.errors.requestFailed);
+      await showRequestError(response);
       return;
     }
     setMessage(
-      consolidation.action === 'convert-to-alias'
+      action === 'make-alias'
         ? text.tenantIngredients.ingredientConvertedToAlias
-        : text.tenantIngredients.ingredientMerged,
+        : action === 'merge'
+          ? text.tenantIngredients.ingredientMerged
+          : text.tenantIngredients.ingredientConvertedToNote,
     );
+    setConsolidation(null);
+    refresh();
+  }
+  async function separateAliasInConsolidation(aliasPublicId: string): Promise<void> {
+    if (consolidation === null) return;
+    const response: Response = await fetch(
+      endpoint(`/${consolidation.source.publicId}/aliases/${aliasPublicId}`),
+      { method: 'DELETE', credentials: 'same-origin' },
+    );
+    if (!response.ok) {
+      await showRequestError(response);
+      return;
+    }
+    setMessage(text.tenantIngredients.aliasSeparated);
     setConsolidation(null);
     refresh();
   }
@@ -144,7 +172,7 @@ export default function TenantIngredientManagement({
       body: JSON.stringify({ alias: aliasName }),
     });
     if (!response.ok) {
-      setMessage(text.errors.requestFailed);
+      await showRequestError(response);
       return;
     }
     setAliasName('');
@@ -158,10 +186,10 @@ export default function TenantIngredientManagement({
       { method: 'DELETE', credentials: 'same-origin' },
     );
     if (!response.ok) {
-      setMessage(text.errors.requestFailed);
+      await showRequestError(response);
       return;
     }
-    setMessage(text.tenantIngredients.aliasDeleted);
+    setMessage(text.tenantIngredients.aliasSeparated);
     refresh();
   }
   const activeAliases: Ingredient | null =
@@ -186,6 +214,14 @@ export default function TenantIngredientManagement({
         <p className="message" role="status">
           {message}
         </p>
+      ) : null}
+      {errorMessage.length > 0 ? (
+        <RequestErrorModal
+          title={text.errors.title}
+          message={errorMessage}
+          dismiss={text.errors.dismiss}
+          onClose={(): void => setErrorMessage('')}
+        />
       ) : null}
       <div className="unit-table-container">
         <table className="tenant-table ingredient-table">
@@ -230,21 +266,9 @@ export default function TenantIngredientManagement({
                     </button>
                     <button
                       type="button"
-                      aria-label={text.tenantIngredients.convertToAlias}
-                      title={text.tenantIngredients.convertToAlias}
-                      onClick={(): void =>
-                        setConsolidation({ source: ingredient, action: 'convert-to-alias' })
-                      }
-                    >
-                      <AdminIcon name="aliases" />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label={text.tenantIngredients.mergeIngredient}
-                      title={text.tenantIngredients.mergeIngredient}
-                      onClick={(): void =>
-                        setConsolidation({ source: ingredient, action: 'merge' })
-                      }
+                      aria-label={text.tenantIngredients.manageIngredient}
+                      title={text.tenantIngredients.manageIngredient}
+                      onClick={(): void => setConsolidation({ source: ingredient })}
                     >
                       <AdminIcon name="consolidate" />
                     </button>
@@ -332,20 +356,26 @@ export default function TenantIngredientManagement({
         <IngredientConsolidationModal
           source={consolidation.source}
           ingredients={ingredients}
+          aliases={consolidation.source.aliases}
           text={{
-            title:
-              consolidation.action === 'convert-to-alias'
-                ? text.tenantIngredients.convertToAliasTitle
-                : text.tenantIngredients.mergeIngredientTitle,
-            description:
-              consolidation.action === 'convert-to-alias'
-                ? text.tenantIngredients.convertToAliasDescription
-                : text.tenantIngredients.mergeIngredientDescription,
+            title: text.tenantIngredients.manageIngredient,
+            description: text.tenantIngredients.manageIngredientDescription,
+            merge: text.tenantIngredients.mergeIngredient,
+            makeAlias: text.tenantIngredients.makeAliasOf,
+            convertToNote: text.tenantIngredients.convertToNote,
+            mergeDescription: text.tenantIngredients.mergeIngredientDescription,
+            makeAliasDescription: text.tenantIngredients.makeAliasOfDescription,
+            convertToNoteDescription: text.tenantIngredients.convertToNoteDescription,
+            aliases: text.tenantIngredients.aliases,
+            separateAlias: text.tenantIngredients.separateAlias,
+            mergeConfirmationTitle: text.tenantIngredients.mergeConfirmationTitle,
+            mergeIrreversible: text.tenantIngredients.mergeIrreversible,
+            sourceIngredient: text.tenantIngredients.sourceIngredient,
+            targetIngredient: text.tenantIngredients.targetIngredient,
+            confirmMerge: text.tenantIngredients.confirmMerge,
+            back: text.admin.cancel,
             target: text.tenantIngredients.consolidationTarget,
-            submit:
-              consolidation.action === 'convert-to-alias'
-                ? text.tenantIngredients.convertToAlias
-                : text.tenantIngredients.mergeIngredient,
+            submit: text.admin.save,
             cancel: text.admin.cancel,
           }}
           ingredientName={(publicId: string): string => {
@@ -355,6 +385,7 @@ export default function TenantIngredientManagement({
             return ingredient?.canonicalName ?? '';
           }}
           onSubmit={consolidateIngredient}
+          onSeparateAlias={separateAliasInConsolidation}
           onClose={(): void => setConsolidation(null)}
         />
       )}
