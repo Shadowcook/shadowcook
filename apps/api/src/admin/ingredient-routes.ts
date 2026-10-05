@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { requireInstancePermission } from './authorization.js';
+import { consolidateIngredient } from '../ingredient-consolidation.js';
 
 interface IngredientRow {
   public_id: string;
@@ -113,6 +114,8 @@ export function registerIngredientRoutes(api: FastifyInstance, pool: Pool): void
     },
   );
 
+  registerIngredientConsolidationRoutes(api, pool);
+
   api.post(
     '/admin/ingredients/:publicId/aliases',
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -191,12 +194,56 @@ export function registerIngredientRoutes(api: FastifyInstance, pool: Pool): void
   );
 }
 
+function registerIngredientConsolidationRoutes(api: FastifyInstance, pool: Pool): void {
+  for (const action of ['convert-to-alias', 'merge'] as const) {
+    api.post(
+      `/admin/ingredients/:publicId/${action}`,
+      async (request: FastifyRequest, reply: FastifyReply) => {
+        if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
+          return;
+        const targetPublicId: string | null = publicIdFrom(request.body);
+        if (targetPublicId === null) return invalidConsolidation(reply);
+        const result = await consolidateIngredient(
+          pool,
+          (request.params as { publicId: string }).publicId,
+          targetPublicId,
+          null,
+          action === 'convert-to-alias',
+        );
+        if (result === null) return reply.code(204).send();
+        if (result === 'SOURCE_NOT_FOUND')
+          return reply
+            .code(404)
+            .send({ code: 'INGREDIENT_NOT_FOUND', error: 'The ingredient was not found.' });
+        if (result === 'TARGET_NOT_FOUND')
+          return reply
+            .code(404)
+            .send({
+              code: 'TARGET_INGREDIENT_NOT_FOUND',
+              error: 'The target ingredient was not found.',
+            });
+        return invalidConsolidation(reply);
+      },
+    );
+  }
+}
+
 function nameFrom(value: unknown, property: string): string | null {
   if (typeof value !== 'object' || value === null) return null;
   const candidate = (value as Record<string, unknown>)[property];
   if (typeof candidate !== 'string') return null;
   const name = candidate.trim();
   return name.length > 0 && name.length <= 160 ? name : null;
+}
+
+function publicIdFrom(value: unknown): string | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const candidate: unknown = (value as Record<string, unknown>).targetPublicId;
+  return typeof candidate === 'string' && isUuid(candidate) ? candidate : null;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
 function ingredientResponse(ingredient: IngredientRow): object {
@@ -225,6 +272,13 @@ function ingredientConflict(reply: FastifyReply): FastifyReply {
 
 function invalidAlias(reply: FastifyReply): FastifyReply {
   return reply.code(400).send({ code: 'INVALID_ALIAS', error: 'The alias is invalid.' });
+}
+
+function invalidConsolidation(reply: FastifyReply): FastifyReply {
+  return reply.code(400).send({
+    code: 'INVALID_INGREDIENT_CONSOLIDATION',
+    error: 'The source and target ingredients must be different.',
+  });
 }
 
 function aliasConflict(reply: FastifyReply): FastifyReply {

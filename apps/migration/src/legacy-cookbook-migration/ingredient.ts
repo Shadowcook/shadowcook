@@ -4,7 +4,7 @@ export interface ParsedLegacyIngredient {
 }
 
 export function parseLegacyIngredient(value: string): ParsedLegacyIngredient {
-  const commaIndex: number = value.indexOf(',');
+  const commaIndex: number = firstCommaOutsideParentheses(value);
   const ingredientPart: string = (commaIndex < 0 ? value : value.slice(0, commaIndex)).trim();
   const commaModifier: string | null =
     commaIndex < 0 ? null : normalizedText(value.slice(commaIndex + 1));
@@ -18,6 +18,23 @@ export function parseLegacyIngredient(value: string): ParsedLegacyIngredient {
     canonicalName,
     note: modifiers.length === 0 ? null : modifiers.join('; '),
   };
+}
+
+function firstCommaOutsideParentheses(value: string): number {
+  let parenthesesDepth: number = 0;
+  for (let index: number = 0; index < value.length; index += 1) {
+    const character: string = value[index];
+    if (character === '(') {
+      parenthesesDepth += 1;
+      continue;
+    }
+    if (character === ')' && parenthesesDepth > 0) {
+      parenthesesDepth -= 1;
+      continue;
+    }
+    if (character === ',' && parenthesesDepth === 0) return index;
+  }
+  return -1;
 }
 
 function parentheticalText(value: string): string[] {

@@ -214,6 +214,15 @@ export interface Translation {
     aliasCreated: string;
     aliasUpdated: string;
     aliasDeleted: string;
+    convertToAlias: string;
+    mergeIngredient: string;
+    convertToAliasTitle: string;
+    mergeIngredientTitle: string;
+    convertToAliasDescription: string;
+    mergeIngredientDescription: string;
+    consolidationTarget: string;
+    ingredientConvertedToAlias: string;
+    ingredientMerged: string;
   };
   categoryEditor: {
     manage: string;
@@ -434,6 +443,15 @@ export interface Translation {
     cannotDelete: string;
     aliasCreated: string;
     aliasDeleted: string;
+    convertToAlias: string;
+    mergeIngredient: string;
+    convertToAliasTitle: string;
+    mergeIngredientTitle: string;
+    convertToAliasDescription: string;
+    mergeIngredientDescription: string;
+    consolidationTarget: string;
+    ingredientConvertedToAlias: string;
+    ingredientMerged: string;
   };
   tenantUsers: {
     title: string;

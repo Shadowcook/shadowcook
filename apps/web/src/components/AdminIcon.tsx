@@ -4,6 +4,7 @@ type IconName =
   | 'add'
   | 'aliases'
   | 'copy'
+  | 'consolidate'
   | 'delete'
   | 'default'
   | 'disable'
@@ -19,6 +20,7 @@ const iconPathByName: Readonly<Record<IconName, string>> = {
   add: '/font-awesome/solid/plus.svg',
   aliases: '/font-awesome/solid/tags.svg',
   copy: '/font-awesome/solid/copy.svg',
+  consolidate: '/font-awesome/solid/code-merge.svg',
   default: '/font-awesome/solid/star.svg',
   delete: '/font-awesome/solid/trash-can.svg',
   disable: '/font-awesome/solid/pause.svg',

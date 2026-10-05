@@ -18,9 +18,7 @@ async function main(): Promise<void> {
   }
   const connection: DatabaseConnection = createDatabaseConnection(databaseUrl);
   try {
-    await migrateDatabase(connection.pool, {
-      applyDevelopmentBaseline: process.env.NODE_ENV === 'development',
-    });
+    await migrateDatabase(connection.pool);
     const passwordHash: string = await hashPassword(argumentsValue.password);
     const result = await connection.pool.query(
       `UPDATE user_account

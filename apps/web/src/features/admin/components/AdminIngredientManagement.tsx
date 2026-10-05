@@ -4,6 +4,7 @@ import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import AdminIcon from '../../../components/AdminIcon';
+import IngredientConsolidationModal from '../../cookbook/components/IngredientConsolidationModal';
 
 interface IngredientAlias {
   publicId: string;
@@ -19,6 +20,13 @@ interface Ingredient {
   aliases: IngredientAlias[];
 }
 
+type ConsolidationAction = 'convert-to-alias' | 'merge';
+
+interface IngredientConsolidation {
+  source: Ingredient;
+  action: ConsolidationAction;
+}
+
 export default function AdminIngredientManagement({ locale }: { locale: Locale }): JSX.Element {
   const text: Translation = translations[locale];
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
@@ -28,6 +36,7 @@ export default function AdminIngredientManagement({ locale }: { locale: Locale }
   const [aliasesFor, setAliasesFor] = useState<Ingredient | null>(null);
   const [editingAlias, setEditingAlias] = useState<IngredientAlias | null>(null);
   const [aliasName, setAliasName] = useState<string>('');
+  const [consolidation, setConsolidation] = useState<IngredientConsolidation | null>(null);
   const [message, setMessage] = useState<string>('');
 
   function refresh(): void {
@@ -81,6 +90,29 @@ export default function AdminIngredientManagement({ locale }: { locale: Locale }
     });
     setMessage(response.ok ? text.admin.ingredientDeleted : text.admin.ingredientCannotDelete);
     if (response.ok) refresh();
+  }
+  async function consolidateIngredient(targetPublicId: string): Promise<void> {
+    if (consolidation === null) return;
+    const response: Response = await fetch(
+      `/api/admin/ingredients/${consolidation.source.publicId}/${consolidation.action}`,
+      {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetPublicId }),
+      },
+    );
+    if (!response.ok) {
+      setMessage(text.errors.requestFailed);
+      return;
+    }
+    setMessage(
+      consolidation.action === 'convert-to-alias'
+        ? text.admin.ingredientConvertedToAlias
+        : text.admin.ingredientMerged,
+    );
+    setConsolidation(null);
+    refresh();
   }
   function openAliases(ingredient: Ingredient): void {
     setAliasesFor(ingredient);
@@ -211,6 +243,24 @@ export default function AdminIngredientManagement({ locale }: { locale: Locale }
                       <AdminIcon name="edit" />
                     </button>
                     <button
+                      aria-label={text.admin.convertToAlias}
+                      title={text.admin.convertToAlias}
+                      onClick={(): void =>
+                        setConsolidation({ source: ingredient, action: 'convert-to-alias' })
+                      }
+                    >
+                      <AdminIcon name="aliases" />
+                    </button>
+                    <button
+                      aria-label={text.admin.mergeIngredient}
+                      title={text.admin.mergeIngredient}
+                      onClick={(): void =>
+                        setConsolidation({ source: ingredient, action: 'merge' })
+                      }
+                    >
+                      <AdminIcon name="consolidate" />
+                    </button>
+                    <button
                       aria-label={text.dashboard.delete}
                       title={
                         ingredient.usageCount > 0
@@ -326,6 +376,38 @@ export default function AdminIngredientManagement({ locale }: { locale: Locale }
             </button>
           </section>
         </div>
+      )}
+      {consolidation === null ? null : (
+        <IngredientConsolidationModal
+          source={consolidation.source}
+          ingredients={ingredients}
+          text={{
+            title:
+              consolidation.action === 'convert-to-alias'
+                ? text.admin.convertToAliasTitle
+                : text.admin.mergeIngredientTitle,
+            description:
+              consolidation.action === 'convert-to-alias'
+                ? text.admin.convertToAliasDescription
+                : text.admin.mergeIngredientDescription,
+            target: text.admin.consolidationTarget,
+            submit:
+              consolidation.action === 'convert-to-alias'
+                ? text.admin.convertToAlias
+                : text.admin.mergeIngredient,
+            cancel: text.admin.cancel,
+          }}
+          ingredientName={(publicId: string): string => {
+            const ingredient: Ingredient | undefined = ingredients.find(
+              (candidate: Ingredient): boolean => candidate.publicId === publicId,
+            );
+            return ingredient === undefined
+              ? ''
+              : localizedIngredientName(text, ingredient.localizationKey, ingredient.canonicalName);
+          }}
+          onSubmit={consolidateIngredient}
+          onClose={(): void => setConsolidation(null)}
+        />
       )}
     </section>
   );

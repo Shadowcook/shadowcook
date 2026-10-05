@@ -192,10 +192,12 @@ export const de: Translation = {
     newPasswordLabel: 'Neues Passwort',
     repeatPasswordLabel: 'Neues Passwort wiederholen',
     passwordMismatch: 'Die neuen Passwörter stimmen nicht überein.',
-    complexityHint: 'Verwende mindestens 12 Zeichen, darunter Klein- und Großbuchstaben, eine Zahl und ein Sonderzeichen.',
+    complexityHint:
+      'Verwende mindestens 12 Zeichen, darunter Klein- und Großbuchstaben, eine Zahl und ein Sonderzeichen.',
     submit: 'Passwort speichern',
     submitting: 'Wird gespeichert …',
-    subtitle: 'Lege ein sicheres Passwort fest, um dein Konto abzuschließen oder dein aktuelles Passwort zu ersetzen.',
+    subtitle:
+      'Lege ein sicheres Passwort fest, um dein Konto abzuschließen oder dein aktuelles Passwort zu ersetzen.',
     title: 'Lege ein neues Passwort fest.',
   },
   invitation: {
@@ -352,6 +354,17 @@ export const de: Translation = {
     aliasCreated: 'Alias hinzugefügt.',
     aliasUpdated: 'Alias aktualisiert.',
     aliasDeleted: 'Alias gelöscht.',
+    convertToAlias: 'In Alias umwandeln',
+    mergeIngredient: 'Zutat zusammenführen',
+    convertToAliasTitle: 'Zutat in Alias umwandeln',
+    mergeIngredientTitle: 'Zutat zusammenführen',
+    convertToAliasDescription:
+      'Rezeptverwendungen werden übernommen und dieser Zutatenname wird zum Alias der ausgewählten Zutat.',
+    mergeIngredientDescription:
+      'Rezeptverwendungen werden übernommen und diese Zutat wird ohne Alias entfernt.',
+    consolidationTarget: 'Zielzutat',
+    ingredientConvertedToAlias: 'Zutat in Alias umgewandelt.',
+    ingredientMerged: 'Zutat zusammengeführt.',
   },
   categoryEditor: {
     manage: 'Verwalten',
@@ -576,6 +589,17 @@ export const de: Translation = {
     cannotDelete: 'In Rezepten verwendete Zutaten können nicht gelöscht werden.',
     aliasCreated: 'Alias hinzugefügt.',
     aliasDeleted: 'Alias gelöscht.',
+    convertToAlias: 'In Alias umwandeln',
+    mergeIngredient: 'Zutat zusammenführen',
+    convertToAliasTitle: 'Zutat in Alias umwandeln',
+    mergeIngredientTitle: 'Zutat zusammenführen',
+    convertToAliasDescription:
+      'Rezeptverwendungen werden übernommen und dieser Zutatenname wird zum Alias der ausgewählten Zutat.',
+    mergeIngredientDescription:
+      'Rezeptverwendungen werden übernommen und diese Zutat wird ohne Alias entfernt.',
+    consolidationTarget: 'Zielzutat',
+    ingredientConvertedToAlias: 'Zutat in Alias umgewandelt.',
+    ingredientMerged: 'Zutat zusammengeführt.',
   },
   tenantUsers: {
     title: 'Tenant-Benutzer',

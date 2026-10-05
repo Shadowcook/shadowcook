@@ -14,6 +14,9 @@
     "start:api": "npm --prefix apps/api run start",
     "maintenance": "npm --prefix apps/api run maintenance",
     "migrate:production-cookbook": "npm --prefix apps/migration run run --",
+    "export:development-content-seed": "npm --prefix apps/migration run export-development-content-seed --",
+    "export:ingredient-cleanup-csv": "npm --prefix apps/migration run export-ingredient-cleanup-csv --",
+    "ingest:ingredient-cleanup-csv": "npm --prefix apps/migration run ingest-ingredient-cleanup-csv --",
     "reset:dev-db": "npm --prefix apps/api run reset:dev-db",
     "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
     "package:deployment": "sh scripts/package-deployment.sh"

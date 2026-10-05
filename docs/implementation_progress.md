@@ -9,10 +9,12 @@
 - PostgreSQL uses the initial normalized schema for tenants, principals, roles, catalogues, recipes, immutable revisions, media, audit events, cooking sessions, sharing, federation upstreams, and mappings. The initial schema migration is maintained as a four-digit numbered SQL file.
 - API startup runs transactional, advisory-lock-protected migrations with recorded checksums and UTC timestamps before binding its HTTP listener.
 - The API exposes the health endpoint and documented API contract.
-- Development database migration loads local baseline data after the initial schema migration and before later migrations; production images exclude the development-only baseline file.
+- Development startup loads the base JSON seed and then an optional local JSON content seed for categories, recipes, revisions, variants, steps, ingredient usages, and their referenced catalogues.
 - The tracked initial-deployment seed creates localized instance-owned units, ingredients, and aliases.
 - `pnpm reset:shadowcook-db` and its `pnpm reset:dev-db` alias recreate only the `public` schema of the development `shadowcook` database.
-- The separate local `apps/migration` workspace application provides `pnpm migrate:production-cookbook`, uses isolated `SOURCE_DB_*` and `TARGET_DB_*` settings from `.env.migration`, and performs a read-only HSQLDB-to-PostgreSQL legacy cookbook migration with required target-tenant selection, Owner author attribution, a transactional dry run, deterministic category and recipe slugs, published revisions, default variants, ordered steps, tenant ingredients created from real-unit usages, authored usage notes from legacy modifiers, semantic special entries, and legacy unit mapping.
+- The separate local `apps/migration` workspace application provides `pnpm migrate:production-cookbook`, uses isolated `SOURCE_DB_*` and `TARGET_DB_*` settings from `.env.migration`, and performs a read-only HSQLDB-to-PostgreSQL legacy cookbook migration with required target-tenant selection, Owner author attribution, a transactional dry run, deterministic category and recipe slugs, published revisions, default variants, ordered steps, tenant ingredients created from real-unit usages, authored usage notes from parenthetical text and comma-separated modifiers, semantic special entries, and legacy unit mapping.
+- `pnpm export:development-content-seed` validates the selected development tenant for a JSON category and recipe content export; its `--execute` mode writes the optional local development content seed.
+- Development ingredient cleanup exports all catalogued content-seed ingredients to a four-column CSV and ingests validated renames, recipe-note modifiers, and aliases back into the content seed.
 
 ### Cookbook, public web, and localization
 
@@ -45,6 +47,8 @@
 - Instance administration manages instance-owned units with same-dimension conversion validation and usage-aware deletion protection.
 - Standard units, ingredients, and aliases use localization keys; administrator-defined catalogue records retain their stored presentation.
 - Tenant management provides deep-linkable ingredient, alias, and unit CRUD.
+- Instance and tenant ingredient management support transactional ingredient merging and alias conversion with recipe-usage reassignment.
+- Recipe ingredient usages retain the selected alias for recipe output while sharing the normalized ingredient identity for search and aggregation.
 
 ### Authentication, authorization, and administration
 

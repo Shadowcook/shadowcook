@@ -194,7 +194,7 @@ shadowcook/
 
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
 - The cookbook overview exposes category and recipe public identifiers, slugs, titles, summaries, category assignments, and category parent public identifiers.
-- In development, the database migrator loads the versioned baseline seed after `0001_initial_schema` and before all later migrations.
+- In development, API startup loads `development-seed.json` after bootstrap administration and then loads the optional `development-content-seed.json`.
 - The development seed defines `user@local` with password `user` and assigns it the `Owner` tenant role for `local-cookbook` without an instance role.
 - The development seed defines `guest@local` with password `guest` as a `Viewer` member of `local-cookbook` without instance role assignments.
 - The API process runs the tracked `initial-deployment-units-v1` seed once for each database after migrations and before bootstrap administration. The seed inserts instance-owned recipe units from `initial-deployment-seed.json` and records its identifier in `application_seed` in the same transaction.
@@ -230,8 +230,11 @@ shadowcook/
 
 - `pnpm reset:shadowcook-db` drops and recreates the PostgreSQL `public` schema in the `shadowcook` database only when `NODE_ENV=development`.
 - `pnpm reset:dev-db` remains an alias for the development database reset.
-- The next API startup applies the current initial schema and development seed.
-- The local `packages/db/src/development-baseline.sql` file stores the development baseline. It is loaded once with the `development-baseline-v1` application-seed identifier after the initial schema migration. The baseline contains the development database state except migration and seed tracking records; permissions and instance roles are created by the initial schema migration. Production images do not include this development-only file.
+- The next API startup applies the current initial schema, bootstrap administration, and development seeds.
+- The local `development-seed.json` stores development accounts, tenant configuration, roles, memberships, SMTP configuration, ingredients, and units. It does not store categories or recipes.
+- The optional local `development-content-seed.json` stores tenant categories, recipes, revisions, variants, steps, ingredient usages, and the ingredients, aliases, and units required by those usages. It is loaded after `development-seed.json`.
+- `pnpm export:development-content-seed` reads the tenant selected by `TARGET_DB_TENANT_SLUG` from `.env.migration` and validates the optional content seed. `pnpm export:development-content-seed --execute` writes the file at `DEVELOPMENT_CONTENT_SEED_PATH` or `development-content-seed.json`.
+- `pnpm export:ingredient-cleanup-csv --execute` writes every catalogued ingredient in `development-content-seed.json` to `ingredient-cleanup.csv` with the columns `Zutat`, `Neuer Zutat-Name`, `Zusaetzlicher Modifier`, and `Alias`. `pnpm ingest:ingredient-cleanup-csv --execute` resolves ingredient and alias names case-insensitively, merges a new name that already identifies a catalogued ingredient, resolves subsequent alias targets for merged ingredients, appends non-empty modifiers to matching ingredient-usage notes, creates resulting ingredient aliases, and atomically updates the content seed. The optional `INGREDIENT_CLEANUP_CSV_PATH` and `DEVELOPMENT_CONTENT_SEED_PATH` variables select paths relative to the repository root.
 - The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.
 
 ### 4.4 Instance mail delivery
@@ -538,6 +541,8 @@ Aliases support:
 - imports,
 - federation mapping,
 - user-entered pantry lists.
+
+Ingredient usages reference an ingredient identity and optionally the selected ingredient alias. Recipe output uses the selected alias when present and otherwise uses the ingredient canonical name. Ingredient consolidation reassigns every `IngredientUsage` from a source ingredient to a target ingredient and removes the source ingredient. Alias conversion additionally retains the source canonical name as an alias of the target ingredient and transfers non-conflicting source aliases. Instance-owned ingredients can be consolidated only with instance-owned ingredients. Tenant-owned ingredients can be consolidated only with ingredients owned by the same tenant.
 
 ### 9.3 Ingredient usage
 
@@ -2557,6 +2562,8 @@ Tenant-owned ingredients and aliases are stored in the shared normalized ingredi
 Recipe-editor catalogue search returns instance-owned and current-tenant ingredients. It searches canonical names and aliases and returns an exact-match indicator for the submitted search value.
 
 Tenant ingredient administration and on-the-fly ingredient creation use tenant ingredient permissions. Tenant ingredient administration exposes only ingredients owned by the current tenant.
+
+Tenant ingredient consolidation uses the tenant ingredient update permission.
 
 Tenant-owned units of measure use the shared normalized unit catalogue with `owner_tenant_id` set to the owning tenant. Tenant unit administration exposes only units owned by the current tenant. Recipe-editor unit selection includes instance-owned and current-tenant units.
 

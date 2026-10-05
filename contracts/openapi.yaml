@@ -459,6 +459,42 @@ paths:
               content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
             },
         }
+  /admin/ingredients/{publicId}/convert-to-alias:
+    post:
+      operationId: convertIngredientToAlias
+      summary: Reassigns recipe uses and converts the source ingredient name into an alias of the target ingredient.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              { schema: { $ref: '#/components/schemas/IngredientConsolidationInput' } },
+          }
+      responses:
+        '204': { description: Ingredient converted to an alias. }
+        '400': { description: Invalid ingredient consolidation. }
+        '404': { description: Source or target ingredient not found. }
+  /admin/ingredients/{publicId}/merge:
+    post:
+      operationId: mergeIngredient
+      summary: Reassigns recipe uses to the target ingredient and removes the source ingredient.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              { schema: { $ref: '#/components/schemas/IngredientConsolidationInput' } },
+          }
+      responses:
+        '204': { description: Ingredient merged. }
+        '400': { description: Invalid ingredient consolidation. }
+        '404': { description: Source or target ingredient not found. }
   /admin/ingredients/{publicId}/aliases/{aliasPublicId}:
     patch:
       operationId: updateIngredientAlias
@@ -2156,6 +2192,48 @@ paths:
                 },
             },
         }
+  /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/convert-to-alias:
+    post:
+      operationId: convertTenantIngredientToAlias
+      summary: Reassigns recipe uses and converts a cookbook-owned source ingredient name into an alias.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              { schema: { $ref: '#/components/schemas/IngredientConsolidationInput' } },
+          }
+      responses:
+        '204': { description: Ingredient converted to an alias. }
+        '400': { description: Invalid ingredient consolidation. }
+        '404': { description: Source or target ingredient not found. }
+  /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/merge:
+    post:
+      operationId: mergeTenantIngredient
+      summary: Reassigns recipe uses to a cookbook-owned target ingredient and removes the source ingredient.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
+        ]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              { schema: { $ref: '#/components/schemas/IngredientConsolidationInput' } },
+          }
+      responses:
+        '204': { description: Ingredient merged. }
+        '400': { description: Invalid ingredient consolidation. }
+        '404': { description: Source or target ingredient not found. }
   /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/aliases/{aliasPublicId}:
     delete:
       operationId: deleteTenantIngredientAlias
@@ -2704,6 +2782,12 @@ components:
       additionalProperties: false
       required: [alias]
       properties: { alias: { type: string, minLength: 1, maxLength: 160 } }
+    IngredientConsolidationInput:
+      type: object
+      additionalProperties: false
+      required: [targetPublicId]
+      properties:
+        targetPublicId: { type: string, format: uuid }
     IngredientAlias:
       type: object
       additionalProperties: false
@@ -2930,6 +3014,7 @@ components:
         [
           id,
           ingredientPublicId,
+          ingredientAliasPublicId,
           ingredientName,
           textOverride,
           specialKind,
@@ -2942,6 +3027,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         ingredientPublicId: { type: [string, 'null'], format: uuid }
+        ingredientAliasPublicId: { type: [string, 'null'], format: uuid }
         ingredientName: { type: [string, 'null'] }
         textOverride: { type: [string, 'null'] }
         specialKind:
@@ -2957,6 +3043,7 @@ components:
       additionalProperties: false
       properties:
         ingredientPublicId: { type: string, format: uuid }
+        ingredientAliasPublicId: { type: string, format: uuid }
         textOverride: { type: string, minLength: 1 }
         specialKind:
           type: string
@@ -2976,9 +3063,10 @@ components:
     EditorIngredient:
       type: object
       additionalProperties: false
-      required: [publicId, name, exactMatch]
+      required: [publicId, aliasPublicId, name, exactMatch]
       properties:
         publicId: { type: string, format: uuid }
+        aliasPublicId: { type: [string, 'null'], format: uuid }
         name: { type: string }
         exactMatch: { type: boolean }
     PublishedRecipeVariant:
@@ -3120,6 +3208,8 @@ components:
             - INGREDIENT_CONFLICT
             - INGREDIENT_NOT_FOUND
             - INGREDIENT_IN_USE
+            - INVALID_INGREDIENT_CONSOLIDATION
+            - TARGET_INGREDIENT_NOT_FOUND
             - INVALID_ALIAS
             - ALIAS_CONFLICT
             - ALIAS_NOT_FOUND

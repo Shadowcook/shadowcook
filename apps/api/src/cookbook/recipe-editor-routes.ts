@@ -149,28 +149,31 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     if (search.length === 0) return reply.send({ ingredients: [] });
     const ingredients = await pool.query<{
       public_id: string;
-      canonical_name: string;
+      alias_public_id: string | null;
+      name: string;
       exact_match: boolean;
     }>(
-      `SELECT ingredient.public_id, ingredient.canonical_name,
-         (lower(ingredient.canonical_name) = lower($2) OR EXISTS (
-           SELECT 1 FROM ingredient_alias
-           WHERE ingredient_alias.ingredient_id = ingredient.id AND lower(ingredient_alias.alias) = lower($2)
-         )) AS exact_match
+      `SELECT ingredient.public_id, NULL::uuid AS alias_public_id, ingredient.canonical_name AS name,
+         lower(ingredient.canonical_name) = lower($2) AS exact_match
        FROM ingredient
        WHERE (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $1)
-         AND (ingredient.canonical_name ILIKE '%' || $2 || '%' OR EXISTS (
-           SELECT 1 FROM ingredient_alias
-           WHERE ingredient_alias.ingredient_id = ingredient.id AND ingredient_alias.alias ILIKE '%' || $2 || '%'
-         ))
-       ORDER BY exact_match DESC, ingredient.canonical_name
+         AND ingredient.canonical_name ILIKE '%' || $2 || '%'
+       UNION ALL
+       SELECT ingredient.public_id, ingredient_alias.public_id AS alias_public_id, ingredient_alias.alias AS name,
+         lower(ingredient_alias.alias) = lower($2) AS exact_match
+       FROM ingredient_alias
+       INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
+       WHERE (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $1)
+         AND ingredient_alias.alias ILIKE '%' || $2 || '%'
+       ORDER BY exact_match DESC, name
        LIMIT 20`,
       [tenantId, search],
     );
     return reply.send({
       ingredients: ingredients.rows.map((row) => ({
         publicId: row.public_id,
-        name: row.canonical_name,
+        aliasPublicId: row.alias_public_id,
+        name: row.name,
         exactMatch: row.exact_match,
       })),
     });
@@ -187,7 +190,30 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     if (tenantId === null) return;
     const publicId: string = (request.params as { publicId: string }).publicId;
     const result = await pool.query(
-      `SELECT recipe_step.id, recipe_step.instruction, recipe_step.sort_order, COALESCE(json_agg(json_build_object('id', ingredient_usage.id, 'ingredientPublicId', ingredient.public_id, 'ingredientName', ingredient.canonical_name, 'textOverride', ingredient_usage.text_override, 'specialKind', ingredient_usage.special_kind, 'amount', ingredient_usage.amount::text, 'unitPublicId', unit.public_id, 'note', ingredient_usage.note, 'isOptional', ingredient_usage.is_optional, 'sortOrder', ingredient_usage.sort_order) ORDER BY ingredient_usage.sort_order) FILTER (WHERE ingredient_usage.id IS NOT NULL), '[]') AS ingredients FROM recipe INNER JOIN recipe_revision ON recipe_revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id) INNER JOIN recipe_step ON recipe_step.recipe_revision_id = recipe_revision.id LEFT JOIN ingredient_usage ON ingredient_usage.recipe_step_id = recipe_step.id LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id LEFT JOIN unit ON unit.id = ingredient_usage.unit_id WHERE recipe.tenant_id = $1 AND recipe.public_id = $2 GROUP BY recipe_step.id ORDER BY recipe_step.sort_order`,
+      `SELECT recipe_step.id, recipe_step.instruction, recipe_step.sort_order,
+        COALESCE(json_agg(json_build_object(
+          'id', ingredient_usage.id,
+          'ingredientPublicId', ingredient.public_id,
+          'ingredientAliasPublicId', ingredient_alias.public_id,
+          'ingredientName', COALESCE(ingredient_alias.alias, ingredient.canonical_name),
+          'textOverride', ingredient_usage.text_override,
+          'specialKind', ingredient_usage.special_kind,
+          'amount', ingredient_usage.amount::text,
+          'unitPublicId', unit.public_id,
+          'note', ingredient_usage.note,
+          'isOptional', ingredient_usage.is_optional,
+          'sortOrder', ingredient_usage.sort_order
+        ) ORDER BY ingredient_usage.sort_order) FILTER (WHERE ingredient_usage.id IS NOT NULL), '[]') AS ingredients
+       FROM recipe
+       INNER JOIN recipe_revision ON recipe_revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
+       INNER JOIN recipe_step ON recipe_step.recipe_revision_id = recipe_revision.id
+       LEFT JOIN ingredient_usage ON ingredient_usage.recipe_step_id = recipe_step.id
+       LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
+       LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id
+       LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
+       WHERE recipe.tenant_id = $1 AND recipe.public_id = $2
+       GROUP BY recipe_step.id
+       ORDER BY recipe_step.sort_order`,
       [tenantId, publicId],
     );
     return reply.send({
@@ -252,6 +278,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         for (let usageIndex = 0; usageIndex < step.ingredients.length; usageIndex += 1) {
           const usage = step.ingredients[usageIndex] as {
             ingredientPublicId?: unknown;
+            ingredientAliasPublicId?: unknown;
             textOverride?: unknown;
             specialKind?: unknown;
             amount?: unknown;
@@ -263,13 +290,18 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
             typeof usage.specialKind === 'string' ? usage.specialKind : '';
           const isSpecialEntry: boolean = specialKind.length > 0;
           await client.query(
-            `INSERT INTO ingredient_usage (recipe_step_id, usage_key, ingredient_id, text_override, special_kind, unit_id, amount, note, is_optional, sort_order)
-             VALUES ($1, gen_random_uuid(), (SELECT id FROM ingredient WHERE public_id = $2), $3, $4,
-               (SELECT id FROM unit WHERE public_id = $5), $6, $7, $8, $9)`,
+            `INSERT INTO ingredient_usage (recipe_step_id, usage_key, ingredient_id, ingredient_alias_id, text_override, special_kind, unit_id, amount, note, is_optional, sort_order)
+             VALUES ($1, gen_random_uuid(), (SELECT id FROM ingredient WHERE public_id = $2),
+               (SELECT ingredient_alias.id FROM ingredient_alias INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id WHERE ingredient_alias.public_id = $3 AND ingredient.public_id = $2),
+               $4, $5, (SELECT id FROM unit WHERE public_id = $6), $7, $8, $9, $10)`,
             [
               inserted.rows[0]!.id,
               typeof usage.ingredientPublicId === 'string' && usage.ingredientPublicId.length > 0
                 ? usage.ingredientPublicId
+                : null,
+              typeof usage.ingredientAliasPublicId === 'string' &&
+              usage.ingredientAliasPublicId.length > 0
+                ? usage.ingredientAliasPublicId
                 : null,
               specialEntryTextOverride(usage.textOverride, specialKind),
               isSpecialEntry ? specialKind : null,
@@ -349,13 +381,14 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       `SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text,
         unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
         unit.localization_key AS unit_localization_key, ingredient.public_id AS ingredient_public_id,
-        COALESCE(ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
-        ingredient.localization_key AS ingredient_localization_key,
+        COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
+        COALESCE(ingredient_alias.localization_key, ingredient.localization_key) AS ingredient_localization_key,
         (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
         ingredient_usage.special_kind, ingredient_usage.note, ingredient_usage.is_optional
        FROM ingredient_usage
        INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
        LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
+       LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id
        LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
        WHERE recipe_step.id = ANY($1::uuid[])
        ORDER BY recipe_step.sort_order ASC, ingredient_usage.sort_order ASC`,
@@ -599,13 +632,14 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         ),
         pool.query<RevisionStepRow>(
           `SELECT step.step_key, step.sort_order, step.instruction,
-             COALESCE(json_agg(json_build_object('usageKey', usage.usage_key, 'ingredientName', ingredient.canonical_name,
+             COALESCE(json_agg(json_build_object('usageKey', usage.usage_key, 'ingredientName', COALESCE(ingredient_alias.alias, ingredient.canonical_name),
                'textOverride', usage.text_override, 'specialKind', usage.special_kind, 'amount', usage.amount::text,
                'unitSymbol', unit.symbol, 'note', usage.note, 'isOptional', usage.is_optional, 'sortOrder', usage.sort_order)
                ORDER BY usage.sort_order) FILTER (WHERE usage.id IS NOT NULL), '[]') AS ingredients
            FROM recipe_step AS step
            LEFT JOIN ingredient_usage AS usage ON usage.recipe_step_id = step.id
            LEFT JOIN ingredient ON ingredient.id = usage.ingredient_id
+           LEFT JOIN ingredient_alias ON ingredient_alias.id = usage.ingredient_alias_id
            LEFT JOIN unit ON unit.id = usage.unit_id
            INNER JOIN recipe_revision ON recipe_revision.id = step.recipe_revision_id
            WHERE recipe_revision.public_id = $1
@@ -1211,6 +1245,7 @@ interface StepInput {
 }
 interface UsageInput {
   ingredientPublicId?: string;
+  ingredientAliasPublicId?: string;
   textOverride?: string;
   specialKind?: string;
   amount?: string;
@@ -1239,10 +1274,14 @@ function isValidStep(value: unknown): value is StepInput {
         candidate.specialKind === undefined || candidate.specialKind === '';
       const hasIngredient: boolean =
         typeof candidate.ingredientPublicId === 'string' && candidate.ingredientPublicId.length > 0;
+      const hasIngredientAlias: boolean =
+        typeof candidate.ingredientAliasPublicId === 'string' &&
+        candidate.ingredientAliasPublicId.length > 0;
       const hasTextOverride: boolean =
         typeof candidate.textOverride === 'string' && candidate.textOverride.trim().length > 0;
       return (
         (hasSpecialKind ? !hasIngredient : hasIngredient !== hasTextOverride) &&
+        (!hasIngredientAlias || hasIngredient) &&
         (candidate.amount === undefined ||
           (typeof candidate.amount === 'string' &&
             (candidate.amount.length === 0 || amountPattern.test(candidate.amount)))) &&
@@ -1309,6 +1348,10 @@ async function validateStepInput(
         .filter((id: string): boolean => id.length > 0),
     ),
   ];
+  const aliasUsages: UsageInput[] = usages.filter(
+    (usage: UsageInput): boolean =>
+      typeof usage.ingredientAliasPublicId === 'string' && usage.ingredientAliasPublicId.length > 0,
+  );
   const ingredients = await client.query<{ count: string }>(
     'SELECT count(*) FROM ingredient WHERE public_id = ANY($1::uuid[]) AND (owner_tenant_id IS NULL OR owner_tenant_id = $2)',
     [ingredientIds, tenantId],
@@ -1329,6 +1372,16 @@ async function validateStepInput(
     units !== unitIds.length
   )
     throw new InvalidStepInputError();
+  for (const usage of aliasUsages) {
+    const alias = await client.query(
+      `SELECT 1 FROM ingredient_alias
+       INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
+       WHERE ingredient_alias.public_id = $1 AND ingredient.public_id = $2
+         AND (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $3)`,
+      [usage.ingredientAliasPublicId, usage.ingredientPublicId, tenantId],
+    );
+    if (alias.rowCount !== 1) throw new InvalidStepInputError();
+  }
 }
 class InvalidStepInputError extends Error {}
 class InvalidVariantInputError extends Error {}
@@ -1406,8 +1459,8 @@ async function createDraftFromPublished(
     [draftId, publishedId],
   );
   await client.query(
-    `INSERT INTO ingredient_usage (recipe_step_id, usage_key, ingredient_id, text_override, special_kind, unit_id, amount, is_optional, note, sort_order)
-     SELECT new_step.id, usage.usage_key, usage.ingredient_id, usage.text_override, usage.special_kind, usage.unit_id, usage.amount, usage.is_optional, usage.note, usage.sort_order
+    `INSERT INTO ingredient_usage (recipe_step_id, usage_key, ingredient_id, ingredient_alias_id, text_override, special_kind, unit_id, amount, is_optional, note, sort_order)
+     SELECT new_step.id, usage.usage_key, usage.ingredient_id, usage.ingredient_alias_id, usage.text_override, usage.special_kind, usage.unit_id, usage.amount, usage.is_optional, usage.note, usage.sort_order
      FROM ingredient_usage AS usage
      INNER JOIN recipe_step AS old_step ON old_step.id = usage.recipe_step_id
      INNER JOIN recipe_step AS new_step ON new_step.recipe_revision_id = $1 AND new_step.sort_order = old_step.sort_order

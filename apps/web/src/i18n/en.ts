@@ -192,10 +192,12 @@ export const en: Translation = {
     newPasswordLabel: 'New password',
     repeatPasswordLabel: 'Repeat new password',
     passwordMismatch: 'The new passwords do not match.',
-    complexityHint: 'Use at least 12 characters, including lowercase and uppercase letters, a number, and a special character.',
+    complexityHint:
+      'Use at least 12 characters, including lowercase and uppercase letters, a number, and a special character.',
     submit: 'Save password',
     submitting: 'Saving password …',
-    subtitle: 'Choose a secure password to finish setting up your account or replace your current password.',
+    subtitle:
+      'Choose a secure password to finish setting up your account or replace your current password.',
     title: 'Set a new password.',
   },
   invitation: {
@@ -346,6 +348,17 @@ export const en: Translation = {
     aliasCreated: 'Alias added.',
     aliasUpdated: 'Alias updated.',
     aliasDeleted: 'Alias deleted.',
+    convertToAlias: 'Convert to alias',
+    mergeIngredient: 'Merge ingredient',
+    convertToAliasTitle: 'Convert ingredient to alias',
+    mergeIngredientTitle: 'Merge ingredient',
+    convertToAliasDescription:
+      'Recipe uses will be reassigned and this ingredient name will become an alias of the selected ingredient.',
+    mergeIngredientDescription:
+      'Recipe uses will be reassigned and this ingredient will be removed without creating an alias.',
+    consolidationTarget: 'Target ingredient',
+    ingredientConvertedToAlias: 'Ingredient converted to an alias.',
+    ingredientMerged: 'Ingredient merged.',
   },
   categoryEditor: {
     manage: 'Manage',
@@ -568,6 +581,17 @@ export const en: Translation = {
     cannotDelete: 'Ingredients used in recipes cannot be deleted.',
     aliasCreated: 'Alias added.',
     aliasDeleted: 'Alias deleted.',
+    convertToAlias: 'Convert to alias',
+    mergeIngredient: 'Merge ingredient',
+    convertToAliasTitle: 'Convert ingredient to alias',
+    mergeIngredientTitle: 'Merge ingredient',
+    convertToAliasDescription:
+      'Recipe uses will be reassigned and this ingredient name will become an alias of the selected ingredient.',
+    mergeIngredientDescription:
+      'Recipe uses will be reassigned and this ingredient will be removed without creating an alias.',
+    consolidationTarget: 'Target ingredient',
+    ingredientConvertedToAlias: 'Ingredient converted to an alias.',
+    ingredientMerged: 'Ingredient merged.',
   },
   tenantUsers: {
     title: 'Tenant users',

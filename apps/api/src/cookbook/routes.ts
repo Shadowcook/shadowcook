@@ -350,8 +350,8 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
         unit.localization_key AS unit_localization_key,
         ingredient.public_id AS ingredient_public_id,
-        COALESCE(ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
-        ingredient.localization_key AS ingredient_localization_key,
+        COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
+        COALESCE(ingredient_alias.localization_key, ingredient.localization_key) AS ingredient_localization_key,
         (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
         ingredient_usage.special_kind,
         ingredient_usage.note, ingredient_usage.is_optional
@@ -360,6 +360,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
       INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
       LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
+      LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id
       LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
       WHERE recipe.public_id = $1 AND recipe_step.id = ANY($2::uuid[])
       ORDER BY recipe_step.sort_order ASC, ingredient_usage.sort_order ASC

@@ -22,6 +22,14 @@ export async function loadDevelopmentSeed(client: PoolClient, context: SeedConte
   await loadSeed(client, seed, context);
 }
 
+export async function loadDevelopmentContentSeed(
+  client: PoolClient,
+  context: SeedContext,
+): Promise<void> {
+  const seed: JsonObject = readSeedFile('development-content-seed.json', false);
+  await loadSeed(client, seed, context);
+}
+
 export async function loadInitialDeploymentSeed(client: PoolClient): Promise<void> {
   const seed: JsonObject = readSeedFile('initial-deployment-seed.json', true);
   await loadSeed(client, seed, {

@@ -6,7 +6,10 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit -p tsconfig.json",
-    "run": "tsx src/index.ts"
+    "run": "tsx src/index.ts",
+    "export-development-content-seed": "tsx src/export-development-content-seed.ts",
+    "export-ingredient-cleanup-csv": "tsx src/export-ingredient-cleanup-csv.ts",
+    "ingest-ingredient-cleanup-csv": "tsx src/ingest-ingredient-cleanup-csv.ts"
   },
   "dependencies": {
     "pg": "^8.16.3"

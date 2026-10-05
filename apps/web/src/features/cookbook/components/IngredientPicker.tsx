@@ -7,6 +7,7 @@ import SpecialIngredientIcon from './SpecialIngredientIcon';
 
 interface Ingredient {
   publicId: string;
+  aliasPublicId: string | null;
   name: string;
   exactMatch: boolean;
 }
@@ -19,6 +20,7 @@ interface CreatedIngredient {
 interface IngredientPickerProperties {
   tenantSlug: string;
   ingredientPublicId: string;
+  ingredientAliasPublicId: string;
   ingredientName: string;
   textOverride: string;
   specialKind: string;
@@ -28,6 +30,7 @@ interface IngredientPickerProperties {
 
 export interface IngredientPickerPatch {
   ingredientPublicId: string;
+  ingredientAliasPublicId: string;
   ingredientName: string;
   textOverride: string;
   specialKind: string;
@@ -77,6 +80,7 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
   function selectIngredient(ingredient: Ingredient): void {
     properties.onChange({
       ingredientPublicId: ingredient.publicId,
+      ingredientAliasPublicId: ingredient.aliasPublicId ?? '',
       ingredientName: ingredient.name,
       textOverride: '',
       specialKind: '',
@@ -111,6 +115,7 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
     const ingredient: CreatedIngredient = (await response.json()) as CreatedIngredient;
     selectIngredient({
       publicId: ingredient.publicId,
+      aliasPublicId: null,
       name: ingredient.canonicalName,
       exactMatch: true,
     });
@@ -120,6 +125,7 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
   function selectFreeText(): void {
     properties.onChange({
       ingredientPublicId: '',
+      ingredientAliasPublicId: '',
       ingredientName: '',
       textOverride: '',
       specialKind: '',
@@ -131,6 +137,7 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
   function selectSpecialEntry(specialKind: string): void {
     properties.onChange({
       ingredientPublicId: '',
+      ingredientAliasPublicId: '',
       ingredientName: '',
       textOverride: '',
       specialKind,
@@ -171,7 +178,7 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
         {search.trim().length > 0 ? (
           <ul className="ingredient-picker__results">
             {results.map((ingredient: Ingredient): JSX.Element => (
-              <li key={ingredient.publicId}>
+              <li key={`${ingredient.publicId}:${ingredient.aliasPublicId ?? 'canonical'}`}>
                 <button type="button" onClick={(): void => selectIngredient(ingredient)}>
                   {ingredient.name}
                 </button>

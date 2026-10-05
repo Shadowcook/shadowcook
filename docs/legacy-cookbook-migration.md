@@ -50,7 +50,7 @@ The committed migration is one transaction and locks the target tenant. A second
 - The legacy technical `ROOT` category is omitted. Its children become top-level categories.
 - Category and recipe slugs are generated deterministically from authored names. The legacy numeric ID is added for reserved or duplicate slugs.
 - Every legacy recipe becomes one published revision with one visible default variant.
-- Legacy usages with a real unit create tenant-owned ingredients or reuse matching instance- or tenant-owned ingredients. The ingredient name is the authored text before the first comma and outside parentheses. Parenthetical text and text after the first comma become the authored usage note.
+- Legacy usages with a real unit create tenant-owned ingredients or reuse matching instance- or tenant-owned ingredients. The ingredient name is the authored text before the first comma outside parentheses. Parenthetical text and text after that comma become the authored usage note.
 - Standard legacy units map to the instance unit catalogue. Missing legacy units are created as tenant-owned units.
 - Legacy negative unit identifiers and unit identifier `0` map to semantic special-entry kinds.
 - A missing step instruction is represented by an em dash. A missing special-entry label is represented by its legacy special-unit label. Both substitutions are counted.

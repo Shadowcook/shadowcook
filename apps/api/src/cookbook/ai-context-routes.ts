@@ -364,10 +364,10 @@ async function recipeForGrant(
   );
   const ingredients = await pool.query(
     `SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text,
-       unit.symbol AS unit_symbol, COALESCE(ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
+       unit.symbol AS unit_symbol, COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
        ingredient_usage.special_kind, ingredient_usage.note, ingredient_usage.is_optional
      FROM ingredient_usage INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
-     LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
+     LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
      WHERE recipe_step.id = ANY($1::uuid[]) ORDER BY recipe_step.sort_order, ingredient_usage.sort_order`,
     [steps.rows.map((step: { public_id: string }): string => step.public_id)],
   );
@@ -433,12 +433,13 @@ async function revisionContents(pool: Pool, revisionId: string): Promise<unknown
     pool.query(
       `SELECT recipe_step.id AS public_id, recipe_step.step_key, recipe_step.sort_order, recipe_step.instruction,
        COALESCE(json_agg(json_build_object(
-         'usageKey', ingredient_usage.usage_key, 'ingredientName', COALESCE(ingredient.canonical_name, ingredient_usage.text_override),
+         'usageKey', ingredient_usage.usage_key, 'ingredientName', COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override),
          'amount', ingredient_usage.amount::text, 'unitSymbol', unit.symbol, 'specialKind', ingredient_usage.special_kind,
          'note', ingredient_usage.note, 'isOptional', ingredient_usage.is_optional, 'sortOrder', ingredient_usage.sort_order
        ) ORDER BY ingredient_usage.sort_order) FILTER (WHERE ingredient_usage.id IS NOT NULL), '[]') AS ingredients
        FROM recipe_step LEFT JOIN ingredient_usage ON ingredient_usage.recipe_step_id = recipe_step.id
        LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
+       LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id
        LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
        WHERE recipe_step.recipe_revision_id = $1 GROUP BY recipe_step.id ORDER BY recipe_step.sort_order`,
       [revisionId],

@@ -11,6 +11,7 @@ interface Unit {
 }
 interface Usage {
   ingredientPublicId: string;
+  ingredientAliasPublicId: string;
   ingredientName: string;
   textOverride: string;
   specialKind: string;
@@ -35,6 +36,7 @@ export interface RecipeStepsEditorHandle {
 }
 const emptyUsage: Usage = {
   ingredientPublicId: '',
+  ingredientAliasPublicId: '',
   ingredientName: '',
   textOverride: '',
   specialKind: '',
@@ -80,6 +82,7 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
                   ...emptyUsage,
                   ...usage,
                   ingredientPublicId: usage.ingredientPublicId ?? '',
+                  ingredientAliasPublicId: usage.ingredientAliasPublicId ?? '',
                   ingredientName: usage.ingredientName ?? '',
                   textOverride: usage.textOverride ?? '',
                   specialKind: usage.specialKind ?? '',
@@ -289,6 +292,7 @@ const RecipeStepsEditor = forwardRef<RecipeStepsEditorHandle, RecipeStepsEditorP
                   <IngredientPicker
                     tenantSlug={properties.tenantSlug}
                     ingredientPublicId={usage.ingredientPublicId}
+                    ingredientAliasPublicId={usage.ingredientAliasPublicId}
                     ingredientName={usage.ingredientName}
                     textOverride={usage.textOverride}
                     specialKind={usage.specialKind}

@@ -1,5 +1,5 @@
 import type { Pool } from 'pg';
-import { loadDevelopmentSeed } from './development-seed-loader.js';
+import { loadDevelopmentContentSeed, loadDevelopmentSeed } from './development-seed-loader.js';
 
 interface IdentifierRow {
   id: string;
@@ -20,6 +20,11 @@ export async function seedDevelopmentCookbook(
     if (administrator === undefined)
       throw new Error('Development bootstrap administrator does not exist.');
     await loadDevelopmentSeed(client, {
+      bootstrapAdministratorPrincipalId: administrator.id,
+      instanceSecretKey,
+      allowDevelopmentPasswordHashes: true,
+    });
+    await loadDevelopmentContentSeed(client, {
       bootstrapAdministratorPrincipalId: administrator.id,
       instanceSecretKey,
       allowDevelopmentPasswordHashes: true,
