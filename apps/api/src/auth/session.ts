@@ -27,6 +27,39 @@ export function sessionTokenFromRequest(request: FastifyRequest): string | null 
   return null;
 }
 
+export async function refreshFrontpageShuffleSeed(
+  pool: Pool,
+  request: FastifyRequest,
+): Promise<string | null> {
+  const token: string | null = sessionTokenFromRequest(request);
+  if (token === null) return null;
+
+  const result = await pool.query<{ frontpage_shuffle_seed: string }>(
+    `UPDATE user_session
+     SET frontpage_shuffle_seed = gen_random_uuid()
+     WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()
+     RETURNING frontpage_shuffle_seed`,
+    [hashSessionToken(token)],
+  );
+  return result.rows[0]?.frontpage_shuffle_seed ?? null;
+}
+
+export async function frontpageShuffleSeed(
+  pool: Pool,
+  request: FastifyRequest,
+): Promise<string | null> {
+  const token: string | null = sessionTokenFromRequest(request);
+  if (token === null) return null;
+
+  const result = await pool.query<{ frontpage_shuffle_seed: string | null }>(
+    `SELECT frontpage_shuffle_seed
+     FROM user_session
+     WHERE token_hash = $1 AND revoked_at IS NULL AND expires_at > now()`,
+    [hashSessionToken(token)],
+  );
+  return result.rows[0]?.frontpage_shuffle_seed ?? null;
+}
+
 export async function currentSessionUser(
   pool: Pool,
   request: FastifyRequest,

@@ -55,10 +55,19 @@ export interface Recipe {
   category_public_ids: string[];
 }
 
+export interface RecipeManagementResponse {
+  recipes: Recipe[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecipes: number;
+}
+
 export interface CookbookResponse {
-  tenant: { display_name: string } | null;
+  tenant: { display_name: string; frontpage_heading: string | null } | null;
   categories: Category[];
   recipes: Recipe[];
+  frontpage: CookbookFrontpage;
   canManageCategories: boolean;
   canManageRecipes: boolean;
   canManageUsers: boolean;
@@ -66,6 +75,14 @@ export interface CookbookResponse {
   canManageUnits: boolean;
   canManageServiceAccounts: boolean;
   canCreateAiContexts: boolean;
+}
+
+export interface CookbookFrontpage {
+  recipes: Recipe[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecipes: number;
 }
 
 export interface EditableRecipe {
@@ -76,6 +93,7 @@ export interface EditableRecipe {
   categoryPublicIds: string[];
   visibilityOverride: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
   discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
+  isFeatured: boolean;
   effectiveVisibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   effectiveDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
   canChangeVisibility: boolean;

@@ -38,12 +38,13 @@ export async function loadServerRecipePage(
 export async function loadServerCookbookPage(
   pathname: string,
   cookie: string | null,
+  refreshFrontpageShuffle: boolean = false,
 ): Promise<ServerCookbookPage | null> {
   const tenantSlug: string | null = tenantSlugFromPath(pathname);
   if (tenantSlug === null) return null;
 
   const cookbook: CookbookResponse | null = await getJson<CookbookResponse>(
-    `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}`,
+    `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}${refreshFrontpageShuffle ? '&refreshFrontpageShuffle=true' : ''}`,
     cookie,
   );
   if (cookbook === null) return null;

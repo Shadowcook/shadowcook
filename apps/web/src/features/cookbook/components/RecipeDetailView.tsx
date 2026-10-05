@@ -6,6 +6,7 @@ import AdminIcon from '../../../components/AdminIcon';
 import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from '../model/types';
 import { specialIngredientCaption } from '../model/special-entries';
 import RecipeShoppingList from './RecipeShoppingList';
+import AiShareIcon from './AiShareIcon';
 import SpecialIngredientIcon from './SpecialIngredientIcon';
 
 interface RecipeDetailViewProperties {
@@ -72,7 +73,7 @@ export default function RecipeDetailView({
                   aria-label={text.recipeEditor.aiContext}
                   title={text.recipeEditor.aiContext}
                 >
-                  <AdminIcon name="share" />
+                  <AiShareIcon label={text.recipeEditor.aiShareIcon} />
                 </button>
               ) : null}
             </div>

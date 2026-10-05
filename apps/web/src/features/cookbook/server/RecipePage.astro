@@ -1,6 +1,6 @@
 ---
-import Brand from '../../../components/Brand.astro';
 import BuildFooter from '../../../components/BuildFooter.astro';
+import Favicon from '../../../components/Favicon.astro';
 import HeadBar from '../../../components/HeadBar';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
@@ -48,6 +48,7 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={recipe.summary ?? text.metadata.description} />
+    <Favicon />
     <link rel="canonical" href={canonicalUrl} />
     <title>{recipe.title} · {text.metadata.title}</title>
     <script type="application/ld+json" set:html={structuredDataJson} />
@@ -55,7 +56,6 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
   <body>
     <HeadBar client:load locale={locale} />
     <main class="application-shell">
-      <Brand name={text.brandName} />
       <CookbookScreen
         client:load
         initialCategoryId={categoryId}

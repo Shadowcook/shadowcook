@@ -1,6 +1,6 @@
 ---
-import Brand from '../../../components/Brand.astro';
 import BuildFooter from '../../../components/BuildFooter.astro';
+import Favicon from '../../../components/Favicon.astro';
 import HeadBar from '../../../components/HeadBar';
 import PublicCategoryTree from './PublicCategoryTree.astro';
 import CookbookScreen from '../CookbookScreen';
@@ -22,6 +22,7 @@ const { cookbook, categoryId, locale } = Astro.props;
 const text: Translation = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+const frontpageHeading: string = cookbook.tenant?.frontpage_heading ?? text.dashboard.greeting;
 const tenantSlug: string = requestedTenantSlug();
 const selectedCategory: Category | undefined = cookbook.categories.find(
   (category: Category): boolean => category.public_id === categoryId,
@@ -30,7 +31,7 @@ const breadcrumbCategories: Category[] =
   selectedCategory === undefined ? [] : categoryAncestors(selectedCategory);
 const visibleRecipes: Recipe[] =
   categoryId === null
-    ? cookbook.recipes
+    ? cookbook.frontpage.recipes
     : cookbook.recipes.filter((recipe: Recipe): boolean =>
         recipe.category_public_ids.includes(categoryId),
       );
@@ -75,17 +76,17 @@ function categoryAncestors(category: Category): Category[] {
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
     <meta name="description" content={text.metadata.description} />
+    <Favicon />
     <title>{cookbookName} · {text.metadata.title}</title>
   </head>
   <body>
     <HeadBar client:load locale={locale} />
     <main class="application-shell">
-      <Brand name={text.brandName} />
       <section class="dashboard" data-public-cookbook>
         <header class="dashboard__header">
           <div>
-            <p class="eyebrow">{cookbookName}</p>
-            <h1>{selectedCategory?.name ?? text.dashboard.greeting}</h1>
+            <p class="eyebrow dashboard__cookbook-name">{cookbookName}</p>
+            <h1>{selectedCategory?.name ?? frontpageHeading}</h1>
           </div>
         </header>
         <nav class="breadcrumb" aria-label={text.dashboard.breadcrumb}>
@@ -131,7 +132,13 @@ function categoryAncestors(category: Category): Category[] {
           <section class="recipes-panel">
             <div class="recipes-panel__heading">
               <p class="eyebrow">{text.dashboard.recipes}</p>
-              <div class="recipes-panel__actions"><strong>{visibleRecipes.length}</strong></div>
+              <div class="recipes-panel__actions">
+                <strong
+                  >{
+                    categoryId === null ? cookbook.frontpage.totalRecipes : visibleRecipes.length
+                  }</strong
+                >
+              </div>
             </div>
             {
               visibleRecipes.length === 0 ? (

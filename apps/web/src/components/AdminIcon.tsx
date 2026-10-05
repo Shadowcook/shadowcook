@@ -12,6 +12,8 @@ type IconName =
   | 'enable'
   | 'moveDown'
   | 'moveUp'
+  | 'next'
+  | 'previous'
   | 'roles'
   | 'resetPassword'
   | 'share';
@@ -28,6 +30,8 @@ const iconPathByName: Readonly<Record<IconName, string>> = {
   enable: '/font-awesome/solid/play.svg',
   moveDown: '/font-awesome/solid/arrow-down.svg',
   moveUp: '/font-awesome/solid/arrow-up.svg',
+  next: '/font-awesome/solid/chevron-right.svg',
+  previous: '/font-awesome/solid/chevron-left.svg',
   resetPassword: '/font-awesome/solid/key.svg',
   roles: '/font-awesome/solid/users.svg',
   share: '/font-awesome/solid/share-nodes.svg',

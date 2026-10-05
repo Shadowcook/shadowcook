@@ -29,6 +29,7 @@ interface RecipeForm {
   categoryPublicIds: string[];
   visibilityOverride: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
   discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
+  isFeatured: boolean;
 }
 const emptyForm: RecipeForm = {
   title: '',
@@ -37,6 +38,7 @@ const emptyForm: RecipeForm = {
   categoryPublicIds: [],
   visibilityOverride: null,
   discoverabilityOverride: null,
+  isFeatured: false,
 };
 
 export default function RecipeEditor(properties: RecipeEditorProperties): JSX.Element {
@@ -271,6 +273,16 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
             {text.recipeEditor.recipeTitle}
             <input value={form.title} onChange={changeTitle} maxLength={240} required autoFocus />
           </label>
+          <label className="recipe-editor__check" title={text.recipeEditor.featuredHint}>
+            <input
+              type="checkbox"
+              checked={form.isFeatured}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                setForm({ ...form, isFeatured: event.currentTarget.checked })
+              }
+            />
+            {text.recipeEditor.featured}
+          </label>
           <label>
             {text.recipeEditor.summary}
             <textarea
@@ -426,6 +438,7 @@ function formFromRecipe(recipe: EditableRecipe): RecipeForm {
     categoryPublicIds: recipe.categoryPublicIds,
     visibilityOverride: recipe.visibilityOverride,
     discoverabilityOverride: recipe.discoverabilityOverride,
+    isFeatured: recipe.isFeatured,
   };
 }
 function slugFromTitle(title: string): string {

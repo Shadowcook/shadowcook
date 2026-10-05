@@ -57,6 +57,7 @@ const emptyCookbook: CookbookResponse = {
   tenant: null,
   categories: [],
   recipes: [],
+  frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
   canManageUsers: false,
@@ -94,6 +95,7 @@ export default function CookbookScreen({
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(initialRecipe);
   const [isRecipeLoading, setIsRecipeLoading] = useState<boolean>(false);
   const [recipeError, setRecipeError] = useState<string>('');
+  const [recipeFilter, setRecipeFilter] = useState<string>('');
   const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(false);
   const [editorPath, setEditorPath] = useState<'manage' | 'new' | 'drafts' | string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(sharedRecipeToken());
@@ -480,7 +482,7 @@ export default function CookbookScreen({
   }
   function openRecipePolicy(): void {
     const slug: string | null = tenantSlugFromPath();
-    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/recipe-policy`);
+    if (slug !== null) window.history.pushState(null, '', `/${slug}/manage/settings`);
     setIsCategoryEditor(false);
     setEditorPath('manage-recipe-policy');
     setSelectedCategoryId(null);
@@ -503,7 +505,10 @@ export default function CookbookScreen({
     setSelectedRecipe(null);
     void loadCookbook();
   }
-  async function loadCookbook(): Promise<CookbookResponse> {
+  async function loadCookbook(
+    frontpagePage: number = 1,
+    filter: string = recipeFilter,
+  ): Promise<CookbookResponse> {
     const slug: string | null = tenantSlugFromPath();
     if (slug === null) {
       setCookbook(emptyCookbook);
@@ -511,7 +516,7 @@ export default function CookbookScreen({
     }
     try {
       const response: CookbookResponse = await request<CookbookResponse>(
-        `/cookbook?tenantSlug=${encodeURIComponent(slug)}`,
+        `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&recipeFilter=${encodeURIComponent(filter)}`,
       );
       setCookbook(response);
       return response;
@@ -521,6 +526,10 @@ export default function CookbookScreen({
       setCookbook(emptyCookbook);
       return emptyCookbook;
     }
+  }
+  function changeRecipeFilter(filter: string): void {
+    setRecipeFilter(filter);
+    void loadCookbook(1, filter);
   }
   async function applyBrowserLocation(loaded: CookbookResponse): Promise<void> {
     if (categoryEditorPath() || recipeEditorPath() !== null) {
@@ -671,8 +680,8 @@ export default function CookbookScreen({
               />
             ) : editorPath === 'manage-recipes' ? (
               <RecipeManagementList
-                text={text}
-                recipes={cookbook.recipes}
+                locale={locale}
+                tenantSlug={tenantSlugFromPath() ?? ''}
                 onEdit={openRecipeEditor}
                 onCreate={(): void => openRecipeEditor(null)}
               />
@@ -704,6 +713,9 @@ export default function CookbookScreen({
                   onShareCookbookWithAi={openCookbookAiContext}
                   onSelectVariant={selectRecipeVariant}
                   onManageCookbook={openDrafts}
+                  onSelectFrontpagePage={loadCookbook}
+                  recipeFilter={recipeFilter}
+                  onRecipeFilterChange={changeRecipeFilter}
                 />
                 {aiContextTarget === null ? null : (
                   <AiContextDialog
@@ -820,7 +832,7 @@ function recipeEditorPath(): 'manage' | 'new' | 'drafts' | string | null {
     return 'manage-ingredients';
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'units')
     return 'manage-units';
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'recipe-policy')
+  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'settings')
     return 'manage-recipe-policy';
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'service-accounts')
     return 'manage-service-accounts';

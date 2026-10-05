@@ -14,9 +14,17 @@ const recipePage = await loadServerRecipePage(
 );
 const cookbookPage =
   recipePage === null
-    ? await loadServerCookbookPage(Astro.url.pathname, Astro.request.headers.get('cookie'))
+    ? await loadServerCookbookPage(
+        Astro.url.pathname,
+        Astro.request.headers.get('cookie'),
+        isTenantRoot(Astro.url.pathname),
+      )
     : null;
 const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
+
+function isTenantRoot(pathname: string): boolean {
+  return pathname.split('/').filter((segment: string): boolean => segment.length > 0).length === 1;
+}
 ---
 
 {

@@ -11,6 +11,7 @@ interface RecipeInput {
   categoryPublicIds: string[];
   visibilityOverride: RecipeVisibility | null;
   discoverabilityOverride: RecipeDiscoverability | null;
+  isFeatured: boolean;
 }
 
 type RecipeVisibility = 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
@@ -45,12 +46,23 @@ interface DraftRow {
   category_public_ids: string[];
   visibility_override: RecipeVisibility | null;
   discoverability_override: RecipeDiscoverability | null;
+  is_featured: boolean;
   default_recipe_visibility: RecipeVisibility;
   default_recipe_discoverability: RecipeDiscoverability;
   can_change_visibility: boolean;
   published_version: number | null;
   has_published_revision: boolean;
   has_draft_revision: boolean;
+}
+interface ManagedRecipeRow {
+  public_id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  category_public_ids: string[];
+}
+interface ManagedRecipeCountRow {
+  total_recipes: number;
 }
 interface RevisionListRow {
   public_id: string;
@@ -114,6 +126,18 @@ const slugPattern: RegExp = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const amountPattern: RegExp = /^(?:0|[1-9][0-9]*)(?:\.[0-9]{1,12})?$/;
 const uuidPattern: RegExp =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const managedRecipePageSize: number = 100;
+
+function parseManagedRecipePage(value: unknown): number {
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return 1;
+  const page: number = Number(value);
+  return Number.isSafeInteger(page) ? page : 1;
+}
+
+function parseManagedRecipeFilter(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, 200);
+}
 
 export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants/:tenantSlug/editor-catalogue', async (request, reply) => {
@@ -436,13 +460,17 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const policy = await pool.query<{
       default_recipe_visibility: RecipeVisibility;
       default_recipe_discoverability: RecipeDiscoverability;
+      frontpage_recipe_count: number;
+      frontpage_heading: string | null;
     }>(
-      'SELECT default_recipe_visibility, default_recipe_discoverability FROM tenant WHERE id = $1',
+      'SELECT default_recipe_visibility, default_recipe_discoverability, frontpage_recipe_count, frontpage_heading FROM tenant WHERE id = $1',
       [tenantId],
     );
     return reply.send({
       defaultVisibility: policy.rows[0]!.default_recipe_visibility,
       defaultDiscoverability: policy.rows[0]!.default_recipe_discoverability,
+      frontpageRecipeCount: policy.rows[0]!.frontpage_recipe_count,
+      frontpageHeading: policy.rows[0]!.frontpage_heading,
     });
   });
 
@@ -459,16 +487,26 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const body = request.body as Record<string, unknown>;
     const visibility = body.defaultVisibility;
     const discoverability = body.defaultDiscoverability;
+    const frontpageRecipeCount = body.frontpageRecipeCount;
+    const frontpageHeading = body.frontpageHeading;
     if (
       (visibility !== 'PRIVATE' && visibility !== 'MEMBERS_ONLY' && visibility !== 'PUBLIC') ||
-      (discoverability !== 'DISCOVERABLE' && discoverability !== 'UNLISTED')
+      (discoverability !== 'DISCOVERABLE' && discoverability !== 'UNLISTED') ||
+      typeof frontpageRecipeCount !== 'number' ||
+      !Number.isSafeInteger(frontpageRecipeCount) ||
+      frontpageRecipeCount < 1 ||
+      frontpageRecipeCount > 100 ||
+      (frontpageHeading !== null &&
+        (typeof frontpageHeading !== 'string' ||
+          frontpageHeading.trim().length === 0 ||
+          frontpageHeading.length > 80))
     )
       return reply
         .code(400)
         .send({ code: 'INVALID_RECIPE_POLICY', error: 'The recipe policy is invalid.' });
     await pool.query(
-      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, updated_at = now() WHERE id = $3',
-      [visibility, discoverability, tenantId],
+      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, frontpage_recipe_count = $3, frontpage_heading = $4, updated_at = now() WHERE id = $5',
+      [visibility, discoverability, frontpageRecipeCount, frontpageHeading, tenantId],
     );
     return reply.code(204).send();
   });
@@ -489,6 +527,62 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       [tenantId, user?.principal_id ?? null],
     );
     return reply.send({ recipes: drafts.rows.map(draftResponse) });
+  });
+
+  api.get('/cookbook/tenants/:tenantSlug/recipes', async (request, reply) => {
+    const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+    const tenantId: string | null = await requireTenantPermission(
+      pool,
+      request,
+      reply,
+      tenantSlug,
+      'recipe:update',
+    );
+    if (tenantId === null) return;
+    const query = request.query as { page?: unknown; filter?: unknown };
+    const page: number = parseManagedRecipePage(query.page);
+    const filter: string = parseManagedRecipeFilter(query.filter);
+    const recipeCount = await pool.query<ManagedRecipeCountRow>(
+      `SELECT count(*)::integer AS total_recipes
+       FROM recipe
+       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+       WHERE recipe.tenant_id = $1
+         AND ($2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%'
+           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $2 || '%')`,
+      [tenantId, filter],
+    );
+    const totalRecipes: number = recipeCount.rows[0]?.total_recipes ?? 0;
+    const totalPages: number = Math.ceil(totalRecipes / managedRecipePageSize);
+    const resolvedPage: number = Math.min(page, Math.max(totalPages, 1));
+    const recipes = await pool.query<ManagedRecipeRow>(
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
+       FROM recipe
+       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+       LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
+       LEFT JOIN category ON category.id = recipe_revision_category.category_id
+       WHERE recipe.tenant_id = $1
+         AND ($2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%'
+           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $2 || '%')
+       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+       ORDER BY
+         CASE
+           WHEN $2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%' THEN 0
+           ELSE 1
+         END,
+         lower(recipe_revision.title),
+         recipe_revision.title,
+         recipe.public_id
+       LIMIT $3 OFFSET $4`,
+      [tenantId, filter, managedRecipePageSize, (resolvedPage - 1) * managedRecipePageSize],
+    );
+    return reply.send({
+      recipes: recipes.rows,
+      page: resolvedPage,
+      pageSize: managedRecipePageSize,
+      totalPages,
+      totalRecipes,
+    });
   });
 
   api.post('/cookbook/tenants/:tenantSlug/recipes', async (request, reply) => {
@@ -518,9 +612,15 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     try {
       await client.query('BEGIN');
       const recipe = await client.query<RecipeIdentifierRow>(
-        `INSERT INTO recipe (tenant_id, lineage_public_id, slug, visibility_override, discoverability_override)
-         VALUES ($1, gen_random_uuid(), $2, $3, $4) RETURNING id, public_id`,
-        [tenantId, input.slug, input.visibilityOverride, input.discoverabilityOverride],
+        `INSERT INTO recipe (tenant_id, lineage_public_id, slug, visibility_override, discoverability_override, is_featured)
+         VALUES ($1, gen_random_uuid(), $2, $3, $4, $5) RETURNING id, public_id`,
+        [
+          tenantId,
+          input.slug,
+          input.visibilityOverride,
+          input.discoverabilityOverride,
+          input.isFeatured,
+        ],
       );
       const created: RecipeIdentifierRow = recipe.rows[0]!;
       const revision = await client.query<{ id: string }>(
@@ -705,8 +805,9 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         published_revision_id: string | null;
         visibility_override: RecipeVisibility | null;
         discoverability_override: RecipeDiscoverability | null;
+        is_featured: boolean;
       }>(
-        'SELECT id, draft_revision_id, published_revision_id, visibility_override, discoverability_override FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, draft_revision_id, published_revision_id, visibility_override, discoverability_override, is_featured FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
@@ -745,8 +846,15 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       ]);
       await replaceCategories(client, draftId, tenantId, input.categoryPublicIds);
       await client.query(
-        'UPDATE recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, draft_revision_id = $4, updated_at = now() WHERE id = $5',
-        [input.slug, input.visibilityOverride, input.discoverabilityOverride, draftId, current.id],
+        'UPDATE recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, is_featured = $4, draft_revision_id = $5, updated_at = now() WHERE id = $6',
+        [
+          input.slug,
+          input.visibilityOverride,
+          input.discoverabilityOverride,
+          input.isFeatured,
+          draftId,
+          current.id,
+        ],
       );
       await client.query('COMMIT');
       return reply.send(
@@ -1412,10 +1520,19 @@ function parseRecipeInput(value: unknown): RecipeInput | null {
       visibilityOverride !== 'PUBLIC') ||
     (discoverabilityOverride !== null &&
       discoverabilityOverride !== 'DISCOVERABLE' &&
-      discoverabilityOverride !== 'UNLISTED')
+      discoverabilityOverride !== 'UNLISTED') ||
+    typeof body.isFeatured !== 'boolean'
   )
     return null;
-  return { title, summary, slug, categoryPublicIds, visibilityOverride, discoverabilityOverride };
+  return {
+    title,
+    summary,
+    slug,
+    categoryPublicIds,
+    visibilityOverride,
+    discoverabilityOverride,
+    isFeatured: body.isFeatured,
+  };
 }
 function parseVariantInput(value: unknown): VariantInput | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -1617,7 +1734,7 @@ async function draftForRecipe(
 function draftSelectSql(condition: string): string {
   return `SELECT recipe.public_id, recipe.slug, revision.title, revision.summary,
     COALESCE(array_agg(category.public_id) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids,
-    recipe.visibility_override, recipe.discoverability_override,
+    recipe.visibility_override, recipe.discoverability_override, recipe.is_featured,
     tenant.default_recipe_visibility, tenant.default_recipe_discoverability,
     EXISTS (
       SELECT 1 FROM tenant_membership_role
@@ -1635,7 +1752,7 @@ function draftSelectSql(condition: string): string {
     LEFT JOIN recipe_revision_category AS assignment ON assignment.recipe_revision_id = revision.id
     LEFT JOIN category ON category.id = assignment.category_id
     WHERE recipe.tenant_id = $1 AND ${condition}
-    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.version
+    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.version
     ORDER BY revision.title ASC`;
 }
 
@@ -1648,6 +1765,7 @@ function draftResponse(row: DraftRow): object {
     categoryPublicIds: row.category_public_ids,
     visibilityOverride: row.visibility_override,
     discoverabilityOverride: row.discoverability_override,
+    isFeatured: row.is_featured,
     effectiveVisibility: row.visibility_override ?? row.default_recipe_visibility,
     effectiveDiscoverability: row.discoverability_override ?? row.default_recipe_discoverability,
     canChangeVisibility: row.can_change_visibility,

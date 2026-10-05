@@ -21,6 +21,7 @@
 - The Astro application provides server-rendered, deep-linkable tenant selection, category, recipe, variant, sign-in, and administration routes, with same-origin API forwarding.
 - Cookbook overview and recipe-detail APIs provide tenant-scoped published content, category trees, ordered steps, ingredient usages, reader capabilities, and variant resolution.
 - Public cookbook access supports public recipes; authenticated users additionally receive accessible tenant recipes.
+- Tenant General settings configure the front-page featured-recipe count, recipe defaults, and an optional front-page heading with an 80-character limit.
 - Category and recipe slugs are tenant-unique, route segments are reserved in the database, and cookbook navigation supports root recipe URLs, category paths, and breadcrumbs.
 - Category management supports hierarchical creation, renaming, reparenting, guarded deletion, and adjacent sibling ordering.
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.
@@ -41,6 +42,9 @@
 - Recipe variants have stable keys, direct step membership, one visible default variant, draft APIs, and reader resolution by optional variant slug.
 - Recipe creation, draft creation, and the development seed create and preserve default variants, stable step keys, variant keys, and direct step memberships.
 - Recipe visibility and discoverability use tenant defaults with inheritable recipe overrides. `PRIVATE`, `MEMBERS_ONLY`, and `PUBLIC` visibility are enforced for recipe reads; `DISCOVERABLE` and `UNLISTED` control cookbook lists while direct links remain access-controlled. Opaque share links grant access to the full published default variant, can have an optional name and UTC expiry, and are listed, copied, and individually revoked from the recipe editor; those actions require the `recipe:visibility-update` permission.
+- Recipe editors manage a featured flag. Cookbook root pages show only eligible featured recipes in session-seeded pagination, with a tenant-configured front-page recipe count.
+- Cookbook category recipe lists paginate at 100 recipes and provide a case-insensitive contains filter that orders title matches before summary-only matches.
+- Tenant recipe management lists paginate published recipes at 100 results, filter recipe titles and summaries, order title matches before summary-only matches, and use alphabetical title ordering within each group.
 
 ### Catalogues and units
 
@@ -67,5 +71,5 @@
 - Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.
 - Private recipes, category subtrees, and complete cookbooks can be shared with an AI through one-time 30-minute context links. Exchanging a link returns a scoped read-only bearer token valid for 4, 8, or 24 hours and a machine-readable reader endpoint manifest.
 - AI context reader endpoints expose published recipes, immutable published and archived recipe revisions, current drafts, and categories within the selected scope. They do not expose management resources or write operations.
-- The cookbook recipe page and selected-category recipe-grid header provide localized AI-context share actions. The modal duration selector displays and copies the one-time context URL.
+- The cookbook recipe page and selected-category recipe-grid header provide localized, AI-marked context-share actions. The modal duration selector displays and copies the one-time context URL.
 - AI context manifests provide tenant identity, public web origin, and cookbook, category, recipe, and variant URL templates for AI-generated deep links.

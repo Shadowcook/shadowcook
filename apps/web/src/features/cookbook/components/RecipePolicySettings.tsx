@@ -11,6 +11,8 @@ interface RecipePolicySettingsProperties {
 interface RecipePolicy {
   defaultVisibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   defaultDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
+  frontpageRecipeCount: number;
+  frontpageHeading: string | null;
 }
 
 export default function RecipePolicySettings({
@@ -66,6 +68,36 @@ export default function RecipePolicySettings({
             <option value="MEMBERS_ONLY">{text.recipeEditor.membersOnly}</option>
             <option value="PUBLIC">{text.recipeEditor.public}</option>
           </select>
+        </label>
+        <label>
+          {text.recipePolicy.frontpageRecipeCount}
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={policy.frontpageRecipeCount}
+            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+              setPolicy({ ...policy, frontpageRecipeCount: Number(event.currentTarget.value) })
+            }
+            required
+          />
+        </label>
+        <label>
+          {text.recipePolicy.frontpageHeading}
+          <input
+            type="text"
+            maxLength={80}
+            value={policy.frontpageHeading ?? ''}
+            placeholder={text.dashboard.greeting}
+            onChange={(event: ChangeEvent<HTMLInputElement>): void => {
+              const frontpageHeading: string = event.currentTarget.value;
+              setPolicy({
+                ...policy,
+                frontpageHeading: frontpageHeading.length === 0 ? null : frontpageHeading,
+              });
+            }}
+          />
+          <span className="field-hint">{text.recipePolicy.frontpageHeadingHint}</span>
         </label>
         <label>
           {text.recipePolicy.defaultDiscoverability}

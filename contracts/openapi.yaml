@@ -1512,7 +1512,26 @@ paths:
   /cookbook:
     get:
       operationId: getCookbook
-      summary: Returns published public recipes and, for an authenticated user, recipes in the user's tenant memberships.
+      summary: Returns published public recipes, accessible membership recipes, and the paginated featured front page.
+      parameters:
+        - name: tenantSlug
+          in: query
+          required: false
+          schema: { type: string }
+        - name: frontpagePage
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: recipeFilter
+          in: query
+          required: false
+          description: Case-insensitive contains filter for recipe titles and summaries. Title matches are ordered before summary-only matches.
+          schema: { type: string, maxLength: 200 }
+        - name: refreshFrontpageShuffle
+          in: query
+          required: false
+          description: Renews the authenticated session's featured-recipe ordering.
+          schema: { type: boolean, default: false }
       responses:
         '200':
           description: The accessible cookbook overview.
@@ -1526,6 +1545,7 @@ paths:
                     tenant,
                     categories,
                     recipes,
+                    frontpage,
                     canManageCategories,
                     canManageRecipes,
                     canManageUsers,
@@ -1538,9 +1558,10 @@ paths:
                       - type: 'null'
                       - type: object
                         additionalProperties: false
-                        required: [display_name]
+                        required: [display_name, frontpage_heading]
                         properties:
                           display_name: { type: string }
+                          frontpage_heading: { type: [string, 'null'], maxLength: 80 }
                   categories:
                     type: array
                     items:
@@ -1549,6 +1570,8 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/CookbookRecipe'
+                  frontpage:
+                    $ref: '#/components/schemas/CookbookFrontpage'
                   canManageCategories:
                     type: boolean
                   canManageRecipes:
@@ -1579,7 +1602,7 @@ paths:
   /cookbook/tenants/{tenantSlug}/recipe-policy:
     get:
       operationId: getTenantRecipePolicy
-      summary: Returns the tenant's default recipe visibility and discoverability policy.
+      summary: Returns the tenant's general cookbook settings.
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
@@ -1591,7 +1614,7 @@ paths:
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
     patch:
       operationId: updateTenantRecipePolicy
-      summary: Updates the tenant's default recipe visibility and discoverability policy.
+      summary: Updates the tenant's general cookbook settings.
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
@@ -1754,6 +1777,31 @@ paths:
                     type: array
                     items: { $ref: '#/components/schemas/EditableRecipe' }
   /cookbook/tenants/{tenantSlug}/recipes:
+    get:
+      operationId: listManagedRecipes
+      summary: Lists published tenant recipes for management in alphabetical pages.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: page
+          in: query
+          required: false
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: filter
+          in: query
+          required: false
+          description: Case-insensitive contains filter for recipe titles and summaries. Title matches are ordered before summary-only matches.
+          schema: { type: string, maxLength: 200 }
+      responses:
+        '200':
+          description: Published recipes for management, with title matches ordered before summary-only matches and alphabetical ordering within each group.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeManagementPage'
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/TenantNotFound' }
     post:
       operationId: createRecipeDraft
       summary: Creates a recipe with its first draft revision.
@@ -2583,15 +2631,25 @@ components:
     TenantRecipePolicy:
       type: object
       additionalProperties: false
-      required: [defaultVisibility, defaultDiscoverability]
+      required: [defaultVisibility, defaultDiscoverability, frontpageRecipeCount, frontpageHeading]
       properties:
         defaultVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
         defaultDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
+        frontpageRecipeCount: { type: integer, minimum: 1, maximum: 100 }
+        frontpageHeading: { type: [string, 'null'], minLength: 1, maxLength: 80 }
     RecipeDraftInput:
       type: object
       additionalProperties: false
       required:
-        [title, summary, slug, categoryPublicIds, visibilityOverride, discoverabilityOverride]
+        [
+          title,
+          summary,
+          slug,
+          categoryPublicIds,
+          visibilityOverride,
+          discoverabilityOverride,
+          isFeatured,
+        ]
       properties:
         title: { type: string, minLength: 1, maxLength: 240 }
         summary: { type: string, maxLength: 2000 }
@@ -2601,6 +2659,7 @@ components:
           items: { type: string, format: uuid }
         visibilityOverride: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
         discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
+        isFeatured: { type: boolean }
     EditableRecipe:
       type: object
       additionalProperties: false
@@ -2613,6 +2672,7 @@ components:
           categoryPublicIds,
           visibilityOverride,
           discoverabilityOverride,
+          isFeatured,
           effectiveVisibility,
           effectiveDiscoverability,
           canChangeVisibility,
@@ -2628,6 +2688,7 @@ components:
         categoryPublicIds: { type: array, items: { type: string, format: uuid } }
         visibilityOverride: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
         discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
+        isFeatured: { type: boolean }
         effectiveVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
         effectiveDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
         canChangeVisibility: { type: boolean }
@@ -2930,6 +2991,30 @@ components:
           items:
             type: string
             format: uuid
+    CookbookFrontpage:
+      type: object
+      additionalProperties: false
+      required: [recipes, page, pageSize, totalPages, totalRecipes]
+      properties:
+        recipes:
+          type: array
+          items: { $ref: '#/components/schemas/CookbookRecipe' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        totalPages: { type: integer, minimum: 0 }
+        totalRecipes: { type: integer, minimum: 0 }
+    RecipeManagementPage:
+      type: object
+      additionalProperties: false
+      required: [recipes, page, pageSize, totalPages, totalRecipes]
+      properties:
+        recipes:
+          type: array
+          items: { $ref: '#/components/schemas/CookbookRecipe' }
+        page: { type: integer, minimum: 1 }
+        pageSize: { type: integer, minimum: 1, maximum: 100 }
+        totalPages: { type: integer, minimum: 0 }
+        totalRecipes: { type: integer, minimum: 0 }
     CookbookRecipeDetail:
       type: object
       additionalProperties: false

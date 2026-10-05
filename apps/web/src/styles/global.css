@@ -127,11 +127,19 @@ select {
   backdrop-filter: blur(0.5rem);
 }
 .head-bar__home {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
   color: #28211d;
   font-size: 1.1rem;
   font-weight: 700;
   letter-spacing: -0.04em;
   text-decoration: none;
+}
+.head-bar__logo {
+  width: 2.25rem;
+  height: 2.25rem;
+  object-fit: contain;
 }
 .head-bar__user-menu {
   position: relative;
@@ -219,68 +227,6 @@ select {
     width: calc(100% - 4rem);
     max-width: none;
   }
-}
-.brand {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 4rem;
-  font-size: 1.3rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
-}
-.brand__logo {
-  width: 3.25rem;
-  height: 3.25rem;
-  overflow: visible;
-}
-.brand__body,
-.brand__flipper,
-.brand__mask {
-  fill: #182027;
-}
-.brand__belly,
-.brand__face,
-.brand__cheek,
-.brand__chef-hat {
-  fill: #fffaf0;
-}
-.brand__chef-hat {
-  stroke: #182027;
-  stroke-linejoin: round;
-  stroke-width: 4;
-}
-.brand__chef-hat-fold {
-  fill: none;
-  stroke: #c9beb0;
-  stroke-linecap: round;
-  stroke-width: 2;
-}
-.brand__eye {
-  fill: #182027;
-}
-.brand__beak,
-.brand__foot {
-  fill: #d58e4d;
-}
-.brand__spoon,
-.brand__spatula {
-  fill: #d58e4d;
-}
-.brand__spoon-handle,
-.brand__spatula-handle,
-.brand__spatula-slots {
-  fill: none;
-  stroke: #b66d35;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-.brand__spoon-handle,
-.brand__spatula-handle {
-  stroke-width: 5;
-}
-.brand__spatula-slots {
-  stroke-width: 1.5;
 }
 .panel,
 .admin-settings {
@@ -395,7 +341,10 @@ code {
   margin-bottom: 2rem;
 }
 .dashboard__header h1 {
-  font-size: clamp(2.8rem, 8vw, 5rem);
+  font-size: clamp(1.0rem, 3vw, 2.0rem);
+}
+.dashboard__cookbook-name {
+  font-size: 2.5rem;
 }
 .accent {
   color: #c34e2d;
@@ -465,9 +414,6 @@ code {
   .application-shell {
     width: min(100% - 2rem, 1080px);
     padding-top: 1.5rem;
-  }
-  .brand {
-    margin-bottom: 2.5rem;
   }
   .dashboard__header {
     align-items: start;
@@ -586,6 +532,18 @@ code {
 .admin-icon--edit {
   width: 1.2rem;
   height: 1.2rem;
+}
+.ai-share-icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+}
+.ai-share-icon__label {
+  display: grid;
+  gap: 0.02rem;
+  color: currentColor;
+  font: 900 0.68rem/0.56rem 'Arial Black', Arial, sans-serif;
+  text-align: center;
 }
 .unit-form,
 .unit-converter form,

@@ -11,6 +11,8 @@ export interface TenantTable {
   slug: string;
   default_recipe_visibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   default_recipe_discoverability: 'DISCOVERABLE' | 'UNLISTED';
+  frontpage_recipe_count: Generated<number>;
+  frontpage_heading: string | null;
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;
 }
@@ -39,6 +41,7 @@ export interface UserSessionTable {
   expires_at: Timestamp;
   last_seen_at: Timestamp;
   revoked_at: Timestamp | null;
+  frontpage_shuffle_seed: string | null;
 }
 
 export interface PasswordResetTokenTable {
@@ -72,6 +75,7 @@ export interface RecipeTable {
   slug: string;
   visibility_override: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
   discoverability_override: 'DISCOVERABLE' | 'UNLISTED' | null;
+  is_featured: Generated<boolean>;
   published_revision_id: string | null;
   draft_revision_id: string | null;
   created_at: Generated<Timestamp>;

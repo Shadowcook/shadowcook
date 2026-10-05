@@ -65,6 +65,7 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
   return (
     <header className="head-bar">
       <a className="head-bar__home" href="/" aria-label={text.accessibility.applicationName}>
+        <img className="head-bar__logo" src="/shadowcook-logo.png" alt="" aria-hidden="true" />
         {text.brandName}
       </a>
       {session.authenticated ? (

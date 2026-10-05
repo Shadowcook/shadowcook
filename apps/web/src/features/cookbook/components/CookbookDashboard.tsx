@@ -1,9 +1,11 @@
-import type { JSX } from 'react';
+import { useEffect, useState } from 'react';
+import type { ChangeEvent, JSX } from 'react';
 import type { Translation } from '../../../i18n';
-import AdminIcon from '../../../components/AdminIcon';
+import AiShareIcon from './AiShareIcon';
 import BreadcrumbBar from './BreadcrumbBar';
 import CategoryTree from './CategoryTree';
 import RecipeDetailView from './RecipeDetailView';
+import RecipePagination from './RecipePagination';
 import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/types';
 
 interface CookbookDashboardProperties {
@@ -23,6 +25,9 @@ interface CookbookDashboardProperties {
   onShareCookbookWithAi: () => void;
   onSelectVariant: (slug: string) => void;
   onManageCookbook: () => void;
+  onSelectFrontpagePage: (page: number) => Promise<CookbookResponse>;
+  recipeFilter: string;
+  onRecipeFilterChange: (filter: string) => void;
 }
 
 export default function CookbookDashboard(properties: CookbookDashboardProperties): JSX.Element {
@@ -43,7 +48,11 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onShareCookbookWithAi,
     onSelectVariant,
     onManageCookbook,
+    onSelectFrontpagePage,
+    recipeFilter,
+    onRecipeFilterChange,
   } = properties;
+  const [categoryPage, setCategoryPage] = useState<number>(1);
   const categoryNames: Map<string, string> = new Map(
     cookbook.categories.map((category: Category): [string, string] => [
       category.public_id,
@@ -52,17 +61,27 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
   );
   const recipes: Recipe[] =
     selectedCategoryId === null
-      ? cookbook.recipes
+      ? cookbook.frontpage.recipes
       : cookbook.recipes.filter((recipe: Recipe): boolean =>
           recipe.category_public_ids.includes(selectedCategoryId),
         );
+  const categoryPageSize: number = 100;
+  const categoryTotalPages: number = Math.ceil(recipes.length / categoryPageSize);
+  const visibleRecipes: Recipe[] =
+    selectedCategoryId === null
+      ? recipes
+      : recipes.slice((categoryPage - 1) * categoryPageSize, categoryPage * categoryPageSize);
+  useEffect((): void => {
+    setCategoryPage(1);
+  }, [selectedCategoryId, recipeFilter]);
   const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+  const frontpageHeading: string = cookbook.tenant?.frontpage_heading ?? text.dashboard.greeting;
   return (
     <section className="dashboard">
       <header className="dashboard__header">
         <div>
-          <p className="eyebrow">{cookbookName}</p>
-          <h1>{text.dashboard.greeting}</h1>
+          <p className="eyebrow dashboard__cookbook-name">{cookbookName}</p>
+          <h1>{frontpageHeading}</h1>
         </div>
         {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
           <button type="button" className="button--secondary" onClick={onManageCookbook}>
@@ -116,7 +135,9 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
             <div className="recipes-panel__heading">
               <p className="eyebrow">{text.dashboard.recipes}</p>
               <div className="recipes-panel__actions">
-                <strong>{recipes.length}</strong>
+                <strong>
+                  {selectedCategoryId === null ? cookbook.frontpage.totalRecipes : recipes.length}
+                </strong>
                 {cookbook.canCreateAiContexts ? (
                   <button
                     type="button"
@@ -129,7 +150,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                     aria-label={text.recipeEditor.aiContext}
                     title={text.recipeEditor.aiContext}
                   >
-                    <AdminIcon name="share" />
+                    <AiShareIcon label={text.recipeEditor.aiShareIcon} />
                   </button>
                 ) : null}
               </div>
@@ -144,11 +165,21 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                 {text.loading}
               </p>
             ) : null}
-            {recipes.length === 0 ? (
+            <label className="recipe-filter">
+              <span>{text.dashboard.filterRecipes}</span>
+              <input
+                type="search"
+                value={recipeFilter}
+                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                  onRecipeFilterChange(event.target.value)
+                }
+              />
+            </label>
+            {visibleRecipes.length === 0 ? (
               <p className="empty-state">{text.dashboard.noRecipes}</p>
             ) : (
               <div className="recipe-grid">
-                {recipes.map((recipe: Recipe): JSX.Element => (
+                {visibleRecipes.map((recipe: Recipe): JSX.Element => (
                   <article className="recipe-card" key={recipe.public_id}>
                     <button
                       className="recipe-card__button"
@@ -173,6 +204,24 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                 ))}
               </div>
             )}
+            {selectedCategoryId === null && cookbook.frontpage.totalPages > 1 ? (
+              <RecipePagination
+                currentPage={cookbook.frontpage.page}
+                totalPages={cookbook.frontpage.totalPages}
+                text={text}
+                onSelectPage={(page: number): void => {
+                  void onSelectFrontpagePage(page);
+                }}
+              />
+            ) : null}
+            {selectedCategoryId !== null && categoryTotalPages > 1 ? (
+              <RecipePagination
+                currentPage={categoryPage}
+                totalPages={categoryTotalPages}
+                text={text}
+                onSelectPage={setCategoryPage}
+              />
+            ) : null}
           </section>
         </div>
       )}

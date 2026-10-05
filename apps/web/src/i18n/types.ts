@@ -281,6 +281,8 @@ export interface Translation {
     summary: string;
     slug: string;
     categories: string;
+    featured: string;
+    featuredHint: string;
     visibility: string;
     private: string;
     membersOnly: string;
@@ -334,6 +336,7 @@ export interface Translation {
     createShareLink: string;
     shareLink: string;
     shareName: string;
+    aiShareIcon: string;
     aiContext: string;
     aiContextTitle: string;
     aiContextDescription: string;
@@ -406,6 +409,9 @@ export interface Translation {
   };
   recipePolicy: {
     title: string;
+    frontpageRecipeCount: string;
+    frontpageHeading: string;
+    frontpageHeadingHint: string;
     defaultVisibility: string;
     defaultDiscoverability: string;
     save: string;
@@ -524,7 +530,11 @@ export interface Translation {
     collapseCategory: string;
     expandCategory: string;
     recipes: string;
+    filterRecipes: string;
     noRecipes: string;
+    previousPage: string;
+    nextPage: string;
+    page: string;
     uncategorized: string;
     backToRecipes: string;
     ingredients: string;

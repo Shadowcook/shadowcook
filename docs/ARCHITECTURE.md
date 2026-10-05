@@ -193,6 +193,12 @@ shadowcook/
 ### 4.2 Cookbook overview
 
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
+- Every recipe has an `is_featured` flag. Recipes existing when the feature is introduced are featured. New recipes default to not featured. Only published, discoverable, accessible featured recipes are eligible for the tenant cookbook root front page.
+- A tenant stores its front-page featured-recipe count from 1 through 100. The default is 4. Tenant managers configure this count in General settings.
+- A tenant optionally stores a front-page heading with 1 through 80 non-whitespace characters. Tenant managers configure the heading in General settings. An unset heading uses the UI locale's default greeting.
+- The tenant cookbook root front page returns the configured number of featured recipes per page. Its deterministic shuffled order uses a seed stored in the authenticated server session. A root-page refresh renews that seed; subsequent front-page requests use the stored seed. Front-page pagination is client-session state and does not alter the browser URL.
+- Category recipe lists display 100 recipes per page. The cookbook recipe filter uses a case-insensitive contains match against recipe titles and summaries, and orders title matches before summary-only matches.
+- Tenant recipe management lists published recipes in pages of 100. Its filter uses a case-insensitive contains match against recipe titles and summaries, orders title matches before summary-only matches, and uses alphabetical title ordering within each group.
 - The cookbook overview exposes category and recipe public identifiers, slugs, titles, summaries, category assignments, and category parent public identifiers.
 - In development, API startup loads `development-seed.json` after bootstrap administration and then loads the optional `development-content-seed.json`.
 - The development seed defines `user@local` with password `user` and assigns it the `Owner` tenant role for `local-cookbook` without an instance role.

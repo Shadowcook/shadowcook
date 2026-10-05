@@ -1,6 +1,11 @@
+import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
-import { currentSessionUser } from '../auth/session.js';
+import {
+  currentSessionUser,
+  frontpageShuffleSeed,
+  refreshFrontpageShuffleSeed,
+} from '../auth/session.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 
 interface CategoryRow {
@@ -54,7 +59,15 @@ interface IngredientUsageRow {
 interface TenantRow {
   id: string;
   display_name: string;
+  frontpage_recipe_count: number;
+  frontpage_heading: string | null;
 }
+
+interface FrontpageCountRow {
+  total_recipes: number;
+}
+
+const defaultFrontpageRecipeCount: number = 4;
 
 export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -79,19 +92,27 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     }
     const principalId: string | null =
       principal === null || principal.disabled_at !== null ? null : principal.principal_id;
-    const tenantSlug: unknown = (request.query as { tenantSlug?: unknown }).tenantSlug;
+    const query = request.query as {
+      tenantSlug?: unknown;
+      frontpagePage?: unknown;
+      refreshFrontpageShuffle?: unknown;
+      recipeFilter?: unknown;
+    };
+    const tenantSlug: unknown = query.tenantSlug;
+    const recipeFilter: string = parseRecipeFilter(query.recipeFilter);
     if (typeof tenantSlug !== 'string' || tenantSlug.length === 0)
       return reply.send({
         tenant: null,
         categories: [],
         recipes: [],
+        frontpage: emptyFrontpage(),
         canManageCategories: false,
         canManageRecipes: false,
         canManageUsers: false,
         canCreateAiContexts: false,
       });
     const tenantResult = await pool.query<TenantRow>(
-      'SELECT id, display_name FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
+      'SELECT id, display_name, frontpage_recipe_count, frontpage_heading FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
       [tenantSlug],
     );
     const tenant: TenantRow | undefined = tenantResult.rows[0];
@@ -145,6 +166,8 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
       LEFT JOIN category ON category.id = recipe_revision_category.category_id
       WHERE tenant.slug = $2
+        AND ($3 = '' OR recipe_revision.title ILIKE '%' || $3 || '%'
+          OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $3 || '%')
         AND (COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
           OR EXISTS (
             SELECT 1 FROM tenant_membership_role
@@ -163,9 +186,94 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
               AND tenant_role_permission.permission_code = 'recipe:visibility-update'
           )))
       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
-      ORDER BY recipe_revision.title ASC
+      ORDER BY
+        CASE
+          WHEN $3 = '' OR recipe_revision.title ILIKE '%' || $3 || '%' THEN 0
+          ELSE 1
+        END,
+        recipe_revision.title ASC
     `,
-      [principalId, tenantSlug],
+      [principalId, tenantSlug, recipeFilter],
+    );
+
+    const frontpagePage: number = parseFrontpagePage(query.frontpagePage);
+    const frontpageSeed: string = await resolveFrontpageShuffleSeed(
+      pool,
+      request,
+      query.refreshFrontpageShuffle === 'true',
+    );
+    const frontpageCount = await pool.query<FrontpageCountRow>(
+      `SELECT count(*)::integer AS total_recipes
+       FROM recipe
+       INNER JOIN tenant ON tenant.id = recipe.tenant_id
+       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
+         AND tenant_membership.principal_id = $1
+       WHERE tenant.slug = $2
+         AND ($3 = '' OR recipe_revision.title ILIKE '%' || $3 || '%'
+           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $3 || '%')
+         AND recipe.is_featured
+         AND recipe.published_revision_id IS NOT NULL
+         AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+         AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY'
+             AND tenant_membership.principal_id IS NOT NULL)
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+             SELECT 1 FROM tenant_membership_role
+             INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+             WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+               AND tenant_membership_role.principal_id = $1
+               AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+           )))`,
+      [principalId, tenantSlug, recipeFilter],
+    );
+    const totalFrontpageRecipes: number = frontpageCount.rows[0]?.total_recipes ?? 0;
+    const totalFrontpagePages: number = Math.ceil(
+      totalFrontpageRecipes / tenant.frontpage_recipe_count,
+    );
+    const page: number = Math.min(frontpagePage, Math.max(totalFrontpagePages, 1));
+    const frontpageRecipes = await pool.query<RecipeRow>(
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
+       FROM recipe
+       INNER JOIN tenant ON tenant.id = recipe.tenant_id
+       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
+         AND tenant_membership.principal_id = $1
+       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+       LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
+       LEFT JOIN category ON category.id = recipe_revision_category.category_id
+       WHERE tenant.slug = $2
+         AND ($4 = '' OR recipe_revision.title ILIKE '%' || $4 || '%'
+           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $4 || '%')
+         AND recipe.is_featured
+         AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+         AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY'
+             AND tenant_membership.principal_id IS NOT NULL)
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+             SELECT 1 FROM tenant_membership_role
+             INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+             WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+               AND tenant_membership_role.principal_id = $1
+               AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+           )))
+       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+       ORDER BY
+         CASE
+           WHEN $4 = '' OR recipe_revision.title ILIKE '%' || $4 || '%' THEN 0
+           ELSE 1
+         END,
+         md5(recipe.public_id::text || $3),
+         recipe.public_id
+       LIMIT $5 OFFSET $6`,
+      [
+        principalId,
+        tenantSlug,
+        frontpageSeed,
+        recipeFilter,
+        tenant.frontpage_recipe_count,
+        (page - 1) * tenant.frontpage_recipe_count,
+      ],
     );
 
     const permissions = await pool.query<{
@@ -244,9 +352,19 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       [tenant.id, principalId],
     );
     return reply.send({
-      tenant: { display_name: tenant.display_name },
+      tenant: {
+        display_name: tenant.display_name,
+        frontpage_heading: tenant.frontpage_heading,
+      },
       categories: categories.rows,
       recipes: recipes.rows,
+      frontpage: {
+        recipes: frontpageRecipes.rows,
+        page,
+        pageSize: tenant.frontpage_recipe_count,
+        totalPages: totalFrontpagePages,
+        totalRecipes: totalFrontpageRecipes,
+      },
       canManageCategories: permissions.rows[0]?.can_manage_categories === true,
       canManageRecipes: permissions.rows[0]?.can_manage_recipes === true,
       canManageUsers: permissions.rows[0]?.can_manage_users === true,
@@ -385,5 +503,45 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         steps: detailSteps,
       });
     },
+  );
+}
+
+function emptyFrontpage(): {
+  recipes: RecipeRow[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecipes: number;
+} {
+  return {
+    recipes: [],
+    page: 1,
+    pageSize: defaultFrontpageRecipeCount,
+    totalPages: 0,
+    totalRecipes: 0,
+  };
+}
+
+function parseFrontpagePage(value: unknown): number {
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return 1;
+  const page: number = Number(value);
+  return Number.isSafeInteger(page) ? page : 1;
+}
+
+function parseRecipeFilter(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, 200);
+}
+
+async function resolveFrontpageShuffleSeed(
+  pool: Pool,
+  request: FastifyRequest,
+  refresh: boolean,
+): Promise<string> {
+  if (refresh) return (await refreshFrontpageShuffleSeed(pool, request)) ?? randomUUID();
+  return (
+    (await frontpageShuffleSeed(pool, request)) ??
+    (await refreshFrontpageShuffleSeed(pool, request)) ??
+    randomUUID()
   );
 }
