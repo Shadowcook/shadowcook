@@ -75,3 +75,4 @@ development-content-seed.json
 /.run/
 deployments/package/secrets/
 /development-content-seed-empty.json
+assets/fontawesome/

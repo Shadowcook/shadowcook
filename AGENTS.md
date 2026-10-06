@@ -18,6 +18,8 @@
 - All items have to be "deep-linkable". Each category, each recipe should be reflected in the URL
 - Write clean code! Not everything in one line! Readability and Style: Use clear naming rules, consistent spacing, and proper indentation so other humans can read the code like a book.
 - UI pictograms must use simple, stylized, and immediately distinguishable silhouettes. Prefer a few bold geometric strokes over detailed or realistic representations.
+- Use /assets/fontawesome to browse for icon candidates. If there are not matching, you can create a custom SVG.
+- /assets is only a repository. Copy used resources to their place of use (e.g. /apps/web/src/assets/)
 
 ## Personal developer preferences
 
