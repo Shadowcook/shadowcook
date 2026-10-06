@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
+import AdminIcon from '../../../components/AdminIcon';
 import type { Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
 import { recipeSpecialEntries } from '../model/special-entries';
@@ -166,6 +167,9 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
         ) : (
           <SpecialIngredientIcon kind={selectedSpecialEntry.kind} />
         )}
+        <span className="ingredient-picker__disclosure-icon" aria-hidden="true">
+          <AdminIcon name="expand" />
+        </span>
       </summary>
       <div className="ingredient-picker__menu">
         <input

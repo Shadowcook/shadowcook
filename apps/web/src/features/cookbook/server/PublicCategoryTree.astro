@@ -1,6 +1,7 @@
 ---
 import { categoryPath } from '../model/routing';
 import type { Category } from '../model/types';
+import AdminIcon from '../../../components/AdminIcon';
 
 interface Properties {
   categories: readonly Category[];
@@ -50,21 +51,31 @@ function isExpandedInitially(category: Category): boolean {
       const hasChildren: boolean = categories.some(
         (candidate: Category): boolean => candidate.parent_public_id === category.public_id,
       );
+      const isExpanded: boolean = isExpandedInitially(category);
       return (
         <div class="category-tree__item">
           <div class="category-tree__row">
             {hasChildren ? (
               <button
-                aria-expanded="true"
+                aria-expanded={isExpanded ? 'true' : 'false'}
                 aria-label={`${collapseLabel}: ${category.name}`}
-                class="category-disclosure"
+                class={
+                  isExpanded
+                    ? 'category-disclosure category-disclosure--expanded'
+                    : 'category-disclosure'
+                }
                 data-category-tree-disclosure
                 data-collapse-label={collapseLabel}
                 data-expand-label={expandLabel}
-                data-initial-expanded={isExpandedInitially(category) ? 'true' : 'false'}
+                data-initial-expanded={isExpanded ? 'true' : 'false'}
                 type="button"
               >
-                −
+                <span class="category-disclosure__icon category-disclosure__icon--collapse">
+                  <AdminIcon name="categoryExpanded" />
+                </span>
+                <span class="category-disclosure__icon category-disclosure__icon--expand">
+                  <AdminIcon name="categoryCollapsed" />
+                </span>
               </button>
             ) : (
               <span

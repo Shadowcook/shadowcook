@@ -1068,6 +1068,7 @@ paths:
     post:
       operationId: inviteTenantUser
       summary: Invites a new user to a tenant with one selected tenant role.
+      description: Requires the tenant-scoped `tenant:manage` permission; instance-wide roles do not grant access.
       security: [{ sessionCookie: [] }]
       parameters: [{ name: tenantSlug, in: query, required: true, schema: { type: string } }]
       requestBody:
@@ -1093,6 +1094,7 @@ paths:
     put:
       operationId: replaceTenantUserRoles
       summary: Replaces roles for an existing user of the specified tenant.
+      description: Requires the tenant-scoped `tenant:manage` permission; instance-wide roles do not grant access.
       security: [{ sessionCookie: [] }]
       parameters:
         [
@@ -1597,8 +1599,57 @@ paths:
   /cookbook/tenants:
     get:
       operationId: listAccessibleCookbookTenants
-      summary: Returns accessible enabled tenants.
-      responses: { '200': { description: Enabled accessible tenants. } }
+      summary: Returns the paginated, shuffled accessible enabled cookbooks and root-page presentation settings.
+      parameters:
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+        - name: filter
+          in: query
+          description: Case-insensitive contains filter for cookbook names and descriptions.
+          schema: { type: string, maxLength: 200 }
+        - name: shuffleSeed
+          in: query
+          description: Keeps the randomized cookbook order stable while paging and filtering.
+          schema: { type: string, maxLength: 100 }
+      responses:
+        '200':
+          description: Accessible enabled cookbooks.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CookbookTenantSelection'
+  /admin/frontpage-settings:
+    get:
+      operationId: getInstanceFrontpageSettings
+      summary: Returns the instance root-page settings.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Instance root-page settings.
+          content:
+            {
+              application/json:
+                { schema: { $ref: '#/components/schemas/InstanceFrontpageSettings' } },
+            }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
+    put:
+      operationId: updateInstanceFrontpageSettings
+      summary: Updates the instance root-page settings.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          {
+            application/json:
+              { schema: { $ref: '#/components/schemas/InstanceFrontpageSettings' } },
+          }
+      responses:
+        '204': { description: Instance root-page settings updated. }
+        '400': { description: Invalid root-page settings. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
   /cookbook/tenants/{tenantSlug}/recipe-policy:
     get:
       operationId: getTenantRecipePolicy
@@ -1812,11 +1863,35 @@ paths:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/RecipeDraftInput' }
+            schema: { $ref: '#/components/schemas/RecipeCreateInput' }
       responses:
         '201':
           description: Draft created.
           content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}:
+    patch:
+      operationId: updateRecipeMetadata
+      summary: Updates immediate recipe metadata without creating a recipe draft or revision.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        [
+          { $ref: '#/components/parameters/TenantSlug' },
+          { $ref: '#/components/parameters/RecipePublicId' },
+        ]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RecipeMetadataInput' }
+      responses:
+        '200':
+          description: Recipe metadata saved.
+          content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
+        '400': { description: The recipe metadata is invalid. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { description: The recipe does not exist. }
+        '409': { description: The recipe URL name is already in use. }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft:
     get:
       operationId: getRecipeDraft
@@ -2612,6 +2687,9 @@ components:
     AuthenticationRequired:
       description: Authentication is required.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    InstancePermissionRequired:
+      description: The active user lacks the required instance permission.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     TenantPermissionRequired:
       description: The active user lacks the required tenant permission.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
@@ -2656,21 +2734,82 @@ components:
     TenantRecipePolicy:
       type: object
       additionalProperties: false
-      required: [defaultVisibility, defaultDiscoverability, frontpageRecipeCount, frontpageHeading]
+      required:
+        [
+          defaultVisibility,
+          defaultDiscoverability,
+          frontpageRecipeCount,
+          frontpageHeading,
+          description,
+        ]
       properties:
         defaultVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
         defaultDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
         frontpageRecipeCount: { type: integer, minimum: 1, maximum: 100 }
         frontpageHeading: { type: [string, 'null'], minLength: 1, maxLength: 80 }
+        description: { type: [string, 'null'], minLength: 1, maxLength: 280 }
+    InstanceFrontpageSettings:
+      type: object
+      additionalProperties: false
+      required: [siteName, slogan, cookbooksPerPage]
+      properties:
+        siteName: { type: string, minLength: 1, maxLength: 80 }
+        slogan: { type: string, minLength: 1, maxLength: 80 }
+        cookbooksPerPage: { type: integer, minimum: 1, maximum: 100 }
+    CookbookTenantSelection:
+      type: object
+      additionalProperties: false
+      required:
+        [siteName, slogan, cookbooksPerPage, tenants, page, totalPages, totalTenants, shuffleSeed]
+      properties:
+        siteName: { type: string, minLength: 1, maxLength: 80 }
+        slogan: { type: string, minLength: 1, maxLength: 80 }
+        cookbooksPerPage: { type: integer, minimum: 1, maximum: 100 }
+        tenants:
+          type: array
+          items: { $ref: '#/components/schemas/CookbookTenant' }
+        page: { type: integer, minimum: 1 }
+        totalPages: { type: integer, minimum: 0 }
+        totalTenants: { type: integer, minimum: 0 }
+        shuffleSeed: { type: string, maxLength: 100 }
+    CookbookTenant:
+      type: object
+      additionalProperties: false
+      required: [public_id, display_name, description, slug, recipe_count]
+      properties:
+        public_id: { type: string, format: uuid }
+        display_name: { type: string }
+        description: { type: [string, 'null'] }
+        slug: { type: string }
+        recipe_count: { type: integer, minimum: 0 }
     RecipeDraftInput:
+      type: object
+      additionalProperties: false
+      required: [title, summary, categoryPublicIds]
+      properties:
+        title: { type: string, minLength: 1, maxLength: 240 }
+        summary: { type: string, maxLength: 2000 }
+        categoryPublicIds:
+          type: array
+          items: { type: string, format: uuid }
+    RecipeMetadataInput:
+      type: object
+      additionalProperties: false
+      required: [slug, visibilityOverride, discoverabilityOverride, isFeatured]
+      properties:
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        visibilityOverride: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
+        discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
+        isFeatured: { type: boolean }
+    RecipeCreateInput:
       type: object
       additionalProperties: false
       required:
         [
           title,
           summary,
-          slug,
           categoryPublicIds,
+          slug,
           visibilityOverride,
           discoverabilityOverride,
           isFeatured,
@@ -2678,10 +2817,10 @@ components:
       properties:
         title: { type: string, minLength: 1, maxLength: 240 }
         summary: { type: string, maxLength: 2000 }
-        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         categoryPublicIds:
           type: array
           items: { type: string, format: uuid }
+        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         visibilityOverride: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
         discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
         isFeatured: { type: boolean }
@@ -3044,7 +3183,18 @@ components:
       type: object
       additionalProperties: false
       required:
-        [public_id, slug, title, summary, can_edit, can_share, selectedVariant, variants, steps, recipe_links]
+        [
+          public_id,
+          slug,
+          title,
+          summary,
+          can_edit,
+          can_share,
+          selectedVariant,
+          variants,
+          steps,
+          recipe_links,
+        ]
       properties:
         public_id:
           type: string
@@ -3196,7 +3346,7 @@ components:
         specialKind:
           type: string
           enum: [NO_ICON, REMOVE, ADD, INFO, IMPORTANT, COOK, COOL, HEAT, WAIT, WORK_STEP]
-          description: When supplied, amount, unitPublicId, note, and isOptional are ignored.
+          description: When supplied, textOverride, amount, unitPublicId, and isOptional are ignored.
         amount: { type: string, pattern: '^\\d+(?:\\.\\d+)?$' }
         unitPublicId: { type: string, format: uuid }
         note: { type: string }

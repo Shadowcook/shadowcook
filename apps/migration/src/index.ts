@@ -51,7 +51,6 @@ function printSummary(summary: MigrationSummary, executed: boolean): void {
       `Tenant units created: ${summary.tenantUnitsCreated}`,
       `Tenant ingredients created: ${summary.tenantIngredientsCreated}`,
       `Empty instructions represented by an em dash: ${summary.substitutedEmptyInstructions}`,
-      `Empty special-entry labels represented by their legacy unit label: ${summary.substitutedEmptySpecialEntryLabels}`,
       `Thumbnail references skipped because media storage is not implemented: ${summary.skippedThumbnailReferences}`,
     ].join('\n') + '\n',
   );

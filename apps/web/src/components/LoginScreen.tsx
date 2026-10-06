@@ -148,7 +148,6 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
         ) : null}
       </form>
       <StatusMessage message={message} />
-      {step === 'email' ? <p className="hint">{text.login.developmentCredentials}</p> : null}
     </section>
   );
 }

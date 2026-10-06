@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import AdminIcon from '../../../components/AdminIcon';
 import type { Translation } from '../../../i18n';
 import type { Category } from '../model/types';
 
@@ -76,12 +77,16 @@ function categoryItems(
           {hasDescendants ? (
             <button
               type="button"
-              className="category-disclosure"
+              className={
+                isExpanded
+                  ? 'category-disclosure category-disclosure--expanded'
+                  : 'category-disclosure'
+              }
               aria-expanded={isExpanded}
               aria-label={disclosureLabel}
               onClick={(): void => onToggleDisclosure(category.public_id)}
             >
-              {isExpanded ? '−' : '+'}
+              <AdminIcon name={isExpanded ? 'categoryExpanded' : 'categoryCollapsed'} />
             </button>
           ) : (
             <span

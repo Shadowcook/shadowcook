@@ -26,7 +26,6 @@ export interface Translation {
   units: Record<string, { name: string; symbol: string }>;
   ingredients: Record<string, string>;
   login: {
-    developmentCredentials: string;
     emailLabel: string;
     passwordLabel: string;
     submit: string;
@@ -149,6 +148,14 @@ export interface Translation {
     settingsTitle: string;
     settingsDescription: string;
     openSmtp: string;
+    frontpage: string;
+    frontpageTitle: string;
+    frontpageDescription: string;
+    siteName: string;
+    siteSlogan: string;
+    cookbooksPerPage: string;
+    saveFrontpage: string;
+    frontpageSaved: string;
     authentication: string;
     authenticationTitle: string;
     authenticationDescription: string;
@@ -283,6 +290,7 @@ export interface Translation {
     categories: string;
     featured: string;
     featuredHint: string;
+    metadata: string;
     visibility: string;
     private: string;
     membersOnly: string;
@@ -293,11 +301,13 @@ export interface Translation {
     unlisted: string;
     inheritDiscoverability: string;
     saveDraft: string;
+    saveMetadata: string;
     saving: string;
     publish: string;
     publishing: string;
     publishNeedsCategory: string;
     saved: string;
+    metadataSaved: string;
     published: string;
     version: string;
     revisions: string;
@@ -371,6 +381,7 @@ export interface Translation {
     variantBasedOn: string;
     resetVariantAdjustment: string;
     addStep: string;
+    insertStepAfter: string;
     deleteStep: string;
     stepInstruction: string;
     moveStepUp: string;
@@ -415,6 +426,8 @@ export interface Translation {
     frontpageRecipeCount: string;
     frontpageHeading: string;
     frontpageHeadingHint: string;
+    tenantDescription: string;
+    tenantDescriptionHint: string;
     defaultVisibility: string;
     defaultDiscoverability: string;
     save: string;
@@ -550,6 +563,9 @@ export interface Translation {
     step: string;
     chooseTenant: string;
     chooseTenantDescription: string;
+    rootSlogan: string;
+    cookbooks: string;
+    noCookbooks: string;
     recipesCount: string;
     filterTenants: string;
     tenantName: string;

@@ -1,16 +1,40 @@
 import type { JSX } from 'react';
-import { specialIngredientIconPath } from '../model/special-entries';
+import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
+import {
+  faCircleInfo,
+  faClock,
+  faFireBurner,
+  faMinus,
+  faPlus,
+  faScrewdriverWrench,
+  faSnowflake,
+  faSpoon,
+  faTriangleExclamation,
+} from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 
 interface SpecialIngredientIconProperties {
   kind: string;
 }
 
+const iconByKind: Readonly<Record<string, IconDefinition>> = {
+  ADD: faPlus,
+  COOL: faSnowflake,
+  COOK: faSpoon,
+  HEAT: faFireBurner,
+  IMPORTANT: faTriangleExclamation,
+  INFO: faCircleInfo,
+  REMOVE: faMinus,
+  WAIT: faClock,
+  WORK_STEP: faScrewdriverWrench,
+};
+
 export default function SpecialIngredientIcon({
   kind,
 }: SpecialIngredientIconProperties): JSX.Element | null {
-  const iconPath: string | null = specialIngredientIconPath(kind);
+  const icon: IconDefinition | undefined = iconByKind[kind.toUpperCase()];
 
-  if (iconPath === null) return null;
+  if (icon === undefined) return null;
 
-  return <img alt="" aria-hidden="true" className="special-ingredient-icon" src={iconPath} />;
+  return <FontAwesomeIcon aria-hidden="true" className="special-ingredient-icon" icon={icon} />;
 }

@@ -18,24 +18,26 @@
 - All items have to be "deep-linkable". Each category, each recipe should be reflected in the URL
 - Write clean code! Not everything in one line! Readability and Style: Use clear naming rules, consistent spacing, and proper indentation so other humans can read the code like a book.
 - UI pictograms must use simple, stylized, and immediately distinguishable silhouettes. Prefer a few bold geometric strokes over detailed or realistic representations.
-- Use /assets/fontawesome to browse for icon candidates. If there are not matching, you can create a custom SVG.
-- /assets is only a repository. Copy used resources to their place of use (e.g. /apps/web/src/assets/)
+- Use the `@fortawesome/fontawesome-svg-core`, `@fortawesome/free-solid-svg-icons`, and `@fortawesome/react-fontawesome` packages for Font Awesome pictograms in the web application. Do not copy Font Awesome SVG files into application assets.
+- `/assets/fontawesome` is a local reference library for finding icon candidates. If no matching icon exists, create a custom SVG.
 
 ## Personal developer preferences
 
 If `personal_agents.md` exists in the repository root, read it and apply it as local developer preference guidance. Personal preferences must not override the project rules above.
 This file will not be checked in into the repository. Therefore, check the local file system for it, not the repo!
 
-## Delivery mode: BETA-3
+## Delivery mode: INITIAL_DRAFT
 
-- Leave the initial SQL-Script untouched (0001_initial_schema.sql)
 - Create new schemas after the following pattern:
+  - Delivery mode INITIAL_DRAFT:
+    - <timestamp>_initial_schema.sql
+    - do not create new migration files while working in this mode
   - Delivery mode BETA-1:
-    - 0002_beta-1.sql
-    - do not touch 0001_initial_schema.sql
+    - <timestamp>_beta-1.sql
+    - do not touch *_initial_schema.sql
   - Delivery mode BETA-2:
-    - 0003_beta_2.sql
-    - do not touch 0001_initial_schema.sql
-    - do not touch 0002_beta-1.sql
+    - <timestamp>_beta_2.sql
+    - do not touch *_initial_schema.sql
+    - do not touch *_beta-1.sql
   - and so forth in this fashion
 - once, the delivery mode is "Production", we will create update scripts per each change.

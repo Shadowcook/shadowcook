@@ -73,19 +73,85 @@ interface FrontpageCountRow {
   total_recipes: number;
 }
 
+interface TenantSelectionSettingsRow {
+  site_name: string;
+  slogan: string;
+  cookbooks_per_page: number;
+}
+
+interface TenantSelectionCountRow {
+  total_tenants: number;
+}
+
 const defaultFrontpageRecipeCount: number = 4;
+const defaultSiteName: string = 'My Cookbook';
+const defaultSlogan: string = 'Made to be shared';
+const defaultCookbooksPerPage: number = 4;
 
 export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
-    const user = await currentSessionUser(pool, request);
     const principal = await currentAuthenticatedPrincipal(pool, request);
     const principalId: string | null =
       principal === null || principal.disabled_at !== null ? null : principal.principal_id;
-    const tenants = await pool.query(
-      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, count(recipe.id) FILTER (WHERE recipe.published_revision_id IS NOT NULL AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE')::integer AS recipe_count FROM tenant LEFT JOIN recipe ON recipe.tenant_id = tenant.id WHERE tenant.disabled_at IS NULL AND (EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1) OR EXISTS (SELECT 1 FROM recipe AS public_recipe WHERE public_recipe.tenant_id = tenant.id AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC' AND COALESCE(public_recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE' AND public_recipe.published_revision_id IS NOT NULL)) GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug ORDER BY tenant.display_name`,
-      [principalId],
+    const query = request.query as { page?: unknown; filter?: unknown; shuffleSeed?: unknown };
+    const page: number = parseFrontpagePage(query.page);
+    const filter: string = parseRecipeFilter(query.filter);
+    const shuffleSeed: string =
+      typeof query.shuffleSeed === 'string' && query.shuffleSeed.length <= 100
+        ? query.shuffleSeed
+        : randomUUID();
+    const settingsResult = await pool.query<TenantSelectionSettingsRow>(
+      'SELECT site_name, slogan, cookbooks_per_page FROM instance_frontpage_settings WHERE singleton = true',
     );
-    return reply.send({ tenants: tenants.rows });
+    const settings: TenantSelectionSettingsRow | undefined = settingsResult.rows[0];
+    const cookbooksPerPage: number = settings?.cookbooks_per_page ?? defaultCookbooksPerPage;
+    const tenantFilterClause: string = `
+      tenant.disabled_at IS NULL
+        AND ($2 = '' OR tenant.display_name ILIKE '%' || $2 || '%' OR COALESCE(tenant.description, '') ILIKE '%' || $2 || '%')
+        AND (
+          EXISTS (
+            SELECT 1 FROM tenant_membership
+            WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1
+          )
+          OR EXISTS (
+            SELECT 1 FROM recipe AS public_recipe
+            WHERE public_recipe.tenant_id = tenant.id
+              AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+              AND COALESCE(public_recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+              AND public_recipe.published_revision_id IS NOT NULL
+          )
+        )`;
+    const countResult = await pool.query<TenantSelectionCountRow>(
+      `SELECT count(*)::integer AS total_tenants FROM tenant WHERE ${tenantFilterClause}`,
+      [principalId, filter],
+    );
+    const totalTenants: number = countResult.rows[0]?.total_tenants ?? 0;
+    const totalPages: number = Math.ceil(totalTenants / cookbooksPerPage);
+    const selectedPage: number = Math.min(page, Math.max(totalPages, 1));
+    const tenants = await pool.query(
+      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug,
+         count(recipe.id) FILTER (
+           WHERE recipe.published_revision_id IS NOT NULL
+             AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+         )::integer AS recipe_count
+       FROM tenant
+       LEFT JOIN recipe ON recipe.tenant_id = tenant.id
+       WHERE ${tenantFilterClause}
+       GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
+       ORDER BY md5(tenant.public_id::text || $3), tenant.public_id
+       LIMIT $4 OFFSET $5`,
+      [principalId, filter, shuffleSeed, cookbooksPerPage, (selectedPage - 1) * cookbooksPerPage],
+    );
+    return reply.send({
+      siteName: settings?.site_name ?? defaultSiteName,
+      slogan: settings?.slogan ?? defaultSlogan,
+      cookbooksPerPage,
+      tenants: tenants.rows,
+      page: selectedPage,
+      totalPages,
+      totalTenants,
+      shuffleSeed,
+    });
   });
   api.get('/cookbook', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await currentSessionUser(pool, request);
@@ -311,11 +377,6 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
            AND tenant_role_permission.permission_code = 'tenant:manage'
-       ) OR EXISTS (
-         SELECT 1 FROM principal_instance_role
-         INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
-         WHERE principal_instance_role.principal_id = $2
-           AND instance_role_permission.permission_code IN ('tenant:create', 'instance:administer')
        ) AS can_manage_users,
        EXISTS (
          SELECT 1 FROM tenant_membership_role
@@ -323,11 +384,6 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
            AND tenant_role_permission.permission_code IN ('ingredient:read', 'ingredient:create', 'ingredient:update')
-       ) OR EXISTS (
-         SELECT 1 FROM principal_instance_role
-         INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
-         WHERE principal_instance_role.principal_id = $2
-           AND instance_role_permission.permission_code = 'instance:administer'
        ) AS can_manage_ingredients,
        EXISTS (
          SELECT 1 FROM tenant_membership_role
@@ -335,11 +391,6 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
            AND tenant_role_permission.permission_code IN ('unit:read', 'unit:create', 'unit:update', 'unit:delete')
-       ) OR EXISTS (
-         SELECT 1 FROM principal_instance_role
-         INNER JOIN instance_role_permission ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
-         WHERE principal_instance_role.principal_id = $2
-           AND instance_role_permission.permission_code IN ('tenant:create', 'instance:administer')
        ) AS can_manage_units,
        EXISTS (
          SELECT 1 FROM tenant_membership_role
@@ -525,7 +576,8 @@ async function loadRecipeLinks(
   principalId: string | null,
   instructions: string[],
 ): Promise<RecipeLinkRow[]> {
-  const referencePattern: RegExp = /\{recipe:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\}/gi;
+  const referencePattern: RegExp =
+    /\{recipe:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\}/gi;
   const publicIds: string[] = [];
   for (const instruction of instructions) {
     let match: RegExpExecArray | null;

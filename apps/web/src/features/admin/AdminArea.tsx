@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
 import AdminMailSettings from './components/AdminMailSettings';
 import AdminAuthenticationSettings from './components/AdminAuthenticationSettings';
+import AdminFrontpageSettings from './components/AdminFrontpageSettings';
 import AdminTenantManagement from './components/AdminTenantManagement';
 import AdminTenantCreate from './components/AdminTenantCreate';
 import AdminUnitManagement from './components/AdminUnitManagement';
@@ -163,6 +164,19 @@ export default function AdminArea({ locale, path }: Properties): JSX.Element {
             <>
               <a
                 className={
+                  currentPath === '/admin/settings/frontpage'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/frontpage"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/frontpage')
+                }
+              >
+                {text.admin.frontpage}
+              </a>
+              <a
+                className={
                   currentPath === '/admin/settings/smtp'
                     ? 'admin-navigation__sublink admin-navigation__sublink--active'
                     : 'admin-navigation__sublink'
@@ -209,6 +223,7 @@ function page(
   if (path === '/admin/settings/smtp') return <AdminMailSettings locale={locale} />;
   if (path === '/admin/settings/authentication')
     return <AdminAuthenticationSettings locale={locale} />;
+  if (path === '/admin/settings/frontpage') return <AdminFrontpageSettings locale={locale} />;
   if (path === '/admin/tenants/new') return <AdminTenantCreate locale={locale} />;
   if (path === '/admin/tenants') return <AdminTenantManagement locale={locale} />;
   if (path === '/admin/units') return <AdminUnitManagement locale={locale} />;
@@ -220,6 +235,16 @@ function page(
         <p className="eyebrow">{text.admin.settings}</p>
         <h1>{text.admin.settingsTitle}</h1>
         <p className="lede">{text.admin.settingsDescription}</p>
+        <a
+          className="admin-card"
+          href="/admin/settings/frontpage"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/frontpage')
+          }
+        >
+          <span>{text.admin.frontpage}</span>
+          <strong>{text.admin.frontpageTitle}</strong>
+        </a>
         <a
           className="admin-card"
           href="/admin/settings/smtp"

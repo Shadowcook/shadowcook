@@ -10,9 +10,11 @@
     "start": "node ./dist/server/entry.mjs"
   },
   "dependencies": {
-    "@astrojs/node": "^11.1.6",
-    "@astrojs/react": "^4.4.2",
     "@astrojs/node": "^9.5.0",
+    "@astrojs/react": "^4.4.2",
+    "@fortawesome/fontawesome-svg-core": "^7.3.1",
+    "@fortawesome/free-solid-svg-icons": "^7.3.1",
+    "@fortawesome/react-fontawesome": "^3.5.0",
     "astro": "^5.16.6",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"

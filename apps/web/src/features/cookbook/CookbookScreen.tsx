@@ -109,6 +109,29 @@ export default function CookbookScreen({
     publicId: string;
     name: string;
   } | null>(null);
+  const hasCookbookManagementAccess: boolean =
+    cookbook.canManageCategories ||
+    cookbook.canManageRecipes ||
+    cookbook.canManageUsers ||
+    cookbook.canManageIngredients ||
+    cookbook.canManageUnits ||
+    cookbook.canManageServiceAccounts;
+  const isManagementAccessDenied: boolean =
+    (editorPath === 'manage' && !hasCookbookManagementAccess) ||
+    (editorPath === 'manage-users' && !cookbook.canManageUsers) ||
+    (editorPath === 'manage-ingredients' && !cookbook.canManageIngredients) ||
+    (editorPath === 'manage-units' && !cookbook.canManageUnits) ||
+    (editorPath === 'manage-recipe-policy' && !cookbook.canManageUsers) ||
+    (editorPath === 'manage-service-accounts' && !cookbook.canManageServiceAccounts) ||
+    (isCategoryEditor && !cookbook.canManageCategories) ||
+    (editorPath !== null &&
+      editorPath !== 'manage' &&
+      editorPath !== 'manage-users' &&
+      editorPath !== 'manage-ingredients' &&
+      editorPath !== 'manage-units' &&
+      editorPath !== 'manage-recipe-policy' &&
+      editorPath !== 'manage-service-accounts' &&
+      !cookbook.canManageRecipes);
 
   useEffect((): void => {
     setIsCategoryEditor(categoryEditorPath());
@@ -467,26 +490,6 @@ export default function CookbookScreen({
   if (screen === 'dashboard')
     return shareToken !== null ? (
       <SharedRecipeView token={shareToken} text={text} />
-    ) : editorPath === 'manage' && !cookbook.canManageRecipes && !cookbook.canManageCategories ? (
-      <AccessDeniedScreen text={text} />
-    ) : editorPath === 'manage-users' && !cookbook.canManageUsers ? (
-      <AccessDeniedScreen text={text} />
-    ) : editorPath === 'manage-ingredients' && !cookbook.canManageIngredients ? (
-      <AccessDeniedScreen text={text} />
-    ) : editorPath === 'manage-units' && !cookbook.canManageUnits ? (
-      <AccessDeniedScreen text={text} />
-    ) : editorPath === 'manage-recipe-policy' && !cookbook.canManageUsers ? (
-      <AccessDeniedScreen text={text} />
-    ) : editorPath === 'manage-service-accounts' && !cookbook.canManageServiceAccounts ? (
-      <AccessDeniedScreen text={text} />
-    ) : isCategoryEditor && !cookbook.canManageCategories ? (
-      <AccessDeniedScreen text={text} />
-    ) : editorPath !== null &&
-      editorPath !== 'manage' &&
-      editorPath !== 'manage-users' &&
-      editorPath !== 'manage-recipe-policy' &&
-      !cookbook.canManageRecipes ? (
-      <AccessDeniedScreen text={text} />
     ) : (
       <section
         className={isCategoryEditor || editorPath !== null ? 'tenant-management' : 'tenant-content'}
@@ -531,7 +534,9 @@ export default function CookbookScreen({
             />
           ) : null}
           <div className="tenant-content">
-            {editorPath === 'manage' ? (
+            {isManagementAccessDenied ? (
+              <AccessDeniedScreen text={text} />
+            ) : editorPath === 'manage' ? (
               <ManagementPlaceholder text={text} />
             ) : editorPath === 'manage-users' && tenantSlugFromPath() !== null ? (
               <TenantUserManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
@@ -7,7 +7,6 @@ import type { Category, EditableRecipe } from '../model/types';
 import AdminIcon from '../../../components/AdminIcon';
 import RecipeCategorySelector from './RecipeCategorySelector';
 import RecipeStepsEditor from './RecipeStepsEditor';
-import type { RecipeStepsEditorHandle } from './RecipeStepsEditor';
 import RecipeVariantsEditor from './RecipeVariantsEditor';
 import RecipeShareDialog from './RecipeShareDialog';
 import type { RecipeShareLink } from './RecipeShareDialog';
@@ -31,6 +30,19 @@ interface RecipeForm {
   discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
   isFeatured: boolean;
 }
+
+interface RecipeDraftForm {
+  title: string;
+  summary: string;
+  categoryPublicIds: string[];
+}
+
+interface RecipeMetadataForm {
+  slug: string;
+  visibilityOverride: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
+  discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
+  isFeatured: boolean;
+}
 const emptyForm: RecipeForm = {
   title: '',
   summary: '',
@@ -38,7 +50,7 @@ const emptyForm: RecipeForm = {
   categoryPublicIds: [],
   visibilityOverride: null,
   discoverabilityOverride: null,
-  isFeatured: false,
+  isFeatured: true,
 };
 
 export default function RecipeEditor(properties: RecipeEditorProperties): JSX.Element {
@@ -51,7 +63,6 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants' | 'revisions'>('recipe');
   const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
-  const stepsEditor = useRef<RecipeStepsEditorHandle | null>(null);
 
   useEffect((): void => {
     if (properties.recipePublicId === null) return;
@@ -116,7 +127,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
               {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(form),
+                body: JSON.stringify(recipeDraftForm(form)),
               },
             );
       setRecipe(saved);
@@ -131,17 +142,28 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
     }
   }
 
-  async function saveCurrentDraft(): Promise<void> {
-    if (tab === 'steps') {
-      setIsSaving(true);
-      try {
-        await stepsEditor.current?.saveDraft();
-      } finally {
-        setIsSaving(false);
-      }
-      return;
+  async function saveRecipeMetadata(): Promise<void> {
+    if (recipe === null) return;
+    setMessage('');
+    setIsSaving(true);
+    try {
+      const saved: EditableRecipe = await request<EditableRecipe>(
+        `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${recipe.publicId}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(recipeMetadataForm(form)),
+        },
+      );
+      setRecipe(saved);
+      setForm(formFromRecipe(saved));
+      setMessage(text.recipeEditor.metadataSaved);
+      await properties.onChanged();
+    } catch (error: unknown) {
+      setMessage(editorError(error, text));
+    } finally {
+      setIsSaving(false);
     }
-    await saveRecipeDraft();
   }
 
   async function markDraftChanged(): Promise<void> {
@@ -273,16 +295,6 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
             {text.recipeEditor.recipeTitle}
             <input value={form.title} onChange={changeTitle} maxLength={240} required autoFocus />
           </label>
-          <label className="recipe-editor__check" title={text.recipeEditor.featuredHint}>
-            <input
-              type="checkbox"
-              checked={form.isFeatured}
-              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                setForm({ ...form, isFeatured: event.currentTarget.checked })
-              }
-            />
-            {text.recipeEditor.featured}
-          </label>
           <label>
             {text.recipeEditor.summary}
             <textarea
@@ -291,17 +303,6 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
                 setForm({ ...form, summary: event.currentTarget.value })
               }
               maxLength={2000}
-            />
-          </label>
-          <label>
-            {text.recipeEditor.slug}
-            <input
-              value={form.slug}
-              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                setForm({ ...form, slug: event.currentTarget.value.toLowerCase() })
-              }
-              pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-              required
             />
           </label>
           <fieldset>
@@ -313,62 +314,99 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
               onToggleCategory={toggleCategory}
             />
           </fieldset>
-          <label>
-            {text.recipeEditor.visibility}
-            <select
-              value={form.visibilityOverride ?? 'INHERIT'}
-              disabled={recipe !== null && !recipe.canChangeVisibility}
-              onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                setForm({
-                  ...form,
-                  visibilityOverride:
-                    event.currentTarget.value === 'INHERIT'
-                      ? null
-                      : (event.currentTarget.value as 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC'),
-                })
-              }
-            >
-              <option value="INHERIT">{text.recipeEditor.inheritVisibility}</option>
-              <option value="PRIVATE">{text.recipeEditor.private}</option>
-              <option value="MEMBERS_ONLY">{text.recipeEditor.membersOnly}</option>
-              <option value="PUBLIC">{text.recipeEditor.public}</option>
-            </select>
-          </label>
-          <label>
-            {text.recipeEditor.discoverability}
-            <select
-              value={form.discoverabilityOverride ?? 'INHERIT'}
-              disabled={recipe !== null && !recipe.canChangeVisibility}
-              onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                setForm({
-                  ...form,
-                  discoverabilityOverride:
-                    event.currentTarget.value === 'INHERIT'
-                      ? null
-                      : (event.currentTarget.value as 'DISCOVERABLE' | 'UNLISTED'),
-                })
-              }
-            >
-              <option value="INHERIT">{text.recipeEditor.inheritDiscoverability}</option>
-              <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
-              <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
-            </select>
-          </label>
+          <fieldset>
+            <legend>{text.recipeEditor.metadata}</legend>
+            <label>
+              {text.recipeEditor.slug}
+              <input
+                value={form.slug}
+                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                  setForm({ ...form, slug: event.currentTarget.value.toLowerCase() })
+                }
+                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                required
+              />
+            </label>
+            <label className="recipe-editor__check" title={text.recipeEditor.featuredHint}>
+              <input
+                type="checkbox"
+                checked={form.isFeatured}
+                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                  setForm({ ...form, isFeatured: event.currentTarget.checked })
+                }
+              />
+              {text.recipeEditor.featured}
+            </label>
+            <label>
+              {text.recipeEditor.visibility}
+              <select
+                value={form.visibilityOverride ?? 'INHERIT'}
+                disabled={recipe === null || !recipe.canChangeVisibility}
+                onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                  setForm({
+                    ...form,
+                    visibilityOverride:
+                      event.currentTarget.value === 'INHERIT'
+                        ? null
+                        : (event.currentTarget.value as 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC'),
+                  })
+                }
+              >
+                <option value="INHERIT">{text.recipeEditor.inheritVisibility}</option>
+                <option value="PRIVATE">{text.recipeEditor.private}</option>
+                <option value="MEMBERS_ONLY">{text.recipeEditor.membersOnly}</option>
+                <option value="PUBLIC">{text.recipeEditor.public}</option>
+              </select>
+            </label>
+            <label>
+              {text.recipeEditor.discoverability}
+              <select
+                value={form.discoverabilityOverride ?? 'INHERIT'}
+                disabled={recipe === null || !recipe.canChangeVisibility}
+                onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                  setForm({
+                    ...form,
+                    discoverabilityOverride:
+                      event.currentTarget.value === 'INHERIT'
+                        ? null
+                        : (event.currentTarget.value as 'DISCOVERABLE' | 'UNLISTED'),
+                  })
+                }
+              >
+                <option value="INHERIT">{text.recipeEditor.inheritDiscoverability}</option>
+                <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
+                <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
+              </select>
+            </label>
+            {recipe === null ? null : (
+              <button
+                type="button"
+                disabled={isSaving}
+                onClick={(): void => void saveRecipeMetadata()}
+              >
+                {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveMetadata}
+              </button>
+            )}
+          </fieldset>
           {message.length > 0 ? (
             <p className="message" role="status">
               {message}
             </p>
           ) : null}
+          <button type="submit" disabled={isSaving}>
+            {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
+          </button>
         </form>
       ) : null}
-      {recipe === null || tab !== 'steps' ? null : (
-        <RecipeStepsEditor
-          ref={stepsEditor}
-          tenantSlug={properties.tenantSlug}
-          recipePublicId={recipe.publicId}
-          text={text}
-          onDraftChanged={markDraftChanged}
-        />
+      {recipe === null ? null : (
+        <div hidden={tab !== 'steps'}>
+          <RecipeStepsEditor
+            tenantSlug={properties.tenantSlug}
+            recipePublicId={recipe.publicId}
+            text={text}
+            onDraftChanged={markDraftChanged}
+          />
+        </div>
       )}
       {recipe === null || tab !== 'variants' ? null : (
         <RecipeVariantsEditor
@@ -388,9 +426,6 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       {recipe === null ? null : (
         <>
           <div className="recipe-editor__actions">
-            <button type="button" disabled={isSaving} onClick={(): void => void saveCurrentDraft()}>
-              {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
-            </button>
             <button
               type="button"
               disabled={isSaving || !recipe.isDraft || form.categoryPublicIds.length === 0}
@@ -439,6 +474,23 @@ function formFromRecipe(recipe: EditableRecipe): RecipeForm {
     visibilityOverride: recipe.visibilityOverride,
     discoverabilityOverride: recipe.discoverabilityOverride,
     isFeatured: recipe.isFeatured,
+  };
+}
+
+function recipeDraftForm(form: RecipeForm): RecipeDraftForm {
+  return {
+    title: form.title,
+    summary: form.summary,
+    categoryPublicIds: form.categoryPublicIds,
+  };
+}
+
+function recipeMetadataForm(form: RecipeForm): RecipeMetadataForm {
+  return {
+    slug: form.slug,
+    visibilityOverride: form.visibilityOverride,
+    discoverabilityOverride: form.discoverabilityOverride,
+    isFeatured: form.isFeatured,
   };
 }
 function slugFromTitle(title: string): string {

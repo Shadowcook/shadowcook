@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
+import AdminIcon from './AdminIcon';
 
 interface Properties {
   locale: Locale;
@@ -70,7 +71,10 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
       </a>
       {session.authenticated ? (
         <details className="head-bar__user-menu">
-          <summary aria-label={text.headBar.userMenu}>{session.email}</summary>
+          <summary aria-label={text.headBar.userMenu}>
+            {session.email}
+            <AdminIcon name="expand" />
+          </summary>
           <div className="head-bar__menu" role="menu">
             {session.canAccessAdministration ? (
               <a href="/admin" role="menuitem">

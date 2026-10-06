@@ -13,6 +13,7 @@ interface RecipePolicy {
   defaultDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
   frontpageRecipeCount: number;
   frontpageHeading: string | null;
+  description: string | null;
 }
 
 export default function RecipePolicySettings({
@@ -70,6 +71,22 @@ export default function RecipePolicySettings({
           </select>
         </label>
         <label>
+          {text.recipePolicy.defaultDiscoverability}
+          <select
+            value={policy.defaultDiscoverability}
+            onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+              setPolicy({
+                ...policy,
+                defaultDiscoverability: event.currentTarget
+                  .value as RecipePolicy['defaultDiscoverability'],
+              })
+            }
+          >
+            <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
+            <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
+          </select>
+        </label>
+        <label>
           {text.recipePolicy.frontpageRecipeCount}
           <input
             type="number"
@@ -81,6 +98,18 @@ export default function RecipePolicySettings({
             }
             required
           />
+        </label>
+        <label>
+          {text.recipePolicy.tenantDescription}
+          <textarea
+            maxLength={280}
+            value={policy.description ?? ''}
+            onChange={(event: ChangeEvent<HTMLTextAreaElement>): void => {
+              const description: string = event.currentTarget.value;
+              setPolicy({ ...policy, description: description.length === 0 ? null : description });
+            }}
+          />
+          <span className="field-hint">{text.recipePolicy.tenantDescriptionHint}</span>
         </label>
         <label>
           {text.recipePolicy.frontpageHeading}
@@ -98,22 +127,6 @@ export default function RecipePolicySettings({
             }}
           />
           <span className="field-hint">{text.recipePolicy.frontpageHeadingHint}</span>
-        </label>
-        <label>
-          {text.recipePolicy.defaultDiscoverability}
-          <select
-            value={policy.defaultDiscoverability}
-            onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-              setPolicy({
-                ...policy,
-                defaultDiscoverability: event.currentTarget
-                  .value as RecipePolicy['defaultDiscoverability'],
-              })
-            }
-          >
-            <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
-            <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
-          </select>
         </label>
         <button disabled={isSaving}>
           {isSaving ? text.recipeEditor.saving : text.recipePolicy.save}

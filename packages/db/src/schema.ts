@@ -17,6 +17,16 @@ export interface TenantTable {
   updated_at: Generated<Timestamp>;
 }
 
+export interface InstanceFrontpageSettingsTable {
+  singleton: Generated<boolean>;
+  site_name: string;
+  slogan: string;
+  cookbooks_per_page: number;
+  updated_by_principal_id: string;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface UserAccountTable {
   id: Generated<Uuid>;
   principal_id: string;
@@ -165,6 +175,7 @@ export interface ApplicationSeedTable {
  * first persistence boundary used by the API.
  */
 export interface Database {
+  instance_frontpage_settings: InstanceFrontpageSettingsTable;
   tenant: TenantTable;
   user_account: UserAccountTable;
   user_session: UserSessionTable;

@@ -243,11 +243,27 @@
   display: none;
 }
 .category-disclosure {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   width: 2rem;
+  min-height: 2rem;
   padding: 0;
   color: #77402e;
   background: transparent;
-  font-size: 1.15rem;
+}
+.category-disclosure .admin-icon {
+  width: 1rem;
+  height: 1rem;
+}
+.category-disclosure__icon--expand {
+  display: none;
+}
+.category-disclosure:not(.category-disclosure--expanded) .category-disclosure__icon--expand {
+  display: block;
+}
+.category-disclosure:not(.category-disclosure--expanded) .category-disclosure__icon--collapse {
+  display: none;
 }
 .category-disclosure:hover {
   color: #fffaf0;
@@ -617,8 +633,8 @@
 .recipe-step-editor {
   grid-template-columns: minmax(0, 1fr);
   padding: 1rem;
-  border: 1px solid #eadfd2;
-  background: #fffdf9;
+  border: 1px solid #d7c4b4;
+  background: #fff;
 }
 .recipe-step-editor__heading {
   grid-column: 1 / -1;
@@ -648,13 +664,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.9rem;
-  min-width: 1.9rem;
-  height: 1.9rem;
-  min-height: 1.9rem;
+  width: 2.25rem;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  min-height: 2.25rem;
   padding: 0;
-  font-size: 1rem;
   line-height: 1;
+}
+.recipe-step-editor__action .admin-icon,
+.recipe-usage-editor__action .admin-icon {
+  width: 1.15rem;
+  height: 1.15rem;
 }
 .recipe-step-editor textarea {
   width: 100%;
@@ -727,12 +747,17 @@
   cursor: pointer;
   list-style: none;
 }
-.ingredient-picker > summary::after {
-  content: '⌄';
+.ingredient-picker__disclosure-icon {
+  display: inline-flex;
   flex: 0 0 auto;
+  margin-left: auto;
 }
-.ingredient-picker[open] > summary::after {
-  content: '⌃';
+.ingredient-picker__disclosure-icon .admin-icon {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.ingredient-picker[open] .ingredient-picker__disclosure-icon {
+  transform: rotate(180deg);
 }
 .ingredient-picker > summary::-webkit-details-marker {
   display: none;
@@ -785,13 +810,27 @@
 .recipe-step-editor__add-ingredient {
   justify-self: start;
 }
+.recipe-step-editor__add-step {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 0.4rem;
+}
+.recipe-step-editor__add-step .admin-icon {
+  width: 1rem;
+  height: 1rem;
+}
 .recipe-special-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.25rem;
-  min-height: 1.25rem;
+  width: 1.875rem;
+  min-height: 1.875rem;
   color: #a54916;
+}
+.recipe-special-icon .special-ingredient-icon {
+  width: 1.65rem;
+  height: 1.65rem;
 }
 .special-ingredient-icon {
   display: block;

@@ -69,26 +69,11 @@ export async function requireTenantPermission(
         WHERE tenant_membership_role.tenant_id = tenant.id
           AND tenant_membership_role.principal_id = $1
           AND tenant_role_permission.permission_code = $2
-      ) OR ($4 = 'USER' AND EXISTS (
-        SELECT 1
-        FROM principal_instance_role
-        INNER JOIN instance_role_permission
-          ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
-        WHERE principal_instance_role.principal_id = $1
-          AND instance_role_permission.permission_code = 'instance:administer'
-      )) OR ($4 = 'USER' AND EXISTS (
-        SELECT 1
-        FROM principal_instance_role
-        INNER JOIN instance_role_permission
-          ON instance_role_permission.instance_role_id = principal_instance_role.instance_role_id
-        WHERE principal_instance_role.principal_id = $1
-          AND $2 = 'tenant:manage'
-          AND instance_role_permission.permission_code = 'tenant:create'
-      )) AS permitted
+      ) AS permitted
       FROM tenant
       WHERE tenant.slug = $3 AND tenant.disabled_at IS NULL
     `,
-    [principal.principal_id, permissionCode, tenantSlug, principal.principal_type],
+    [principal.principal_id, permissionCode, tenantSlug],
   );
   const tenant: TenantPermissionRow | undefined = result.rows[0];
   if (tenant === undefined) {

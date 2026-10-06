@@ -4,7 +4,6 @@ import { localizedUnitSymbol } from '../../../i18n/unit-localization';
 import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import AdminIcon from '../../../components/AdminIcon';
 import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from '../model/types';
-import { specialIngredientCaption } from '../model/special-entries';
 import RecipeShoppingList from './RecipeShoppingList';
 import AiShareIcon from './AiShareIcon';
 import SpecialIngredientIcon from './SpecialIngredientIcon';
@@ -112,12 +111,7 @@ export default function RecipeDetailView({
             <ul>
               {step.ingredients
                 .filter(
-                  (ingredient: IngredientUsage): boolean =>
-                    ingredient.special_kind !== 'NO_ICON' ||
-                    specialIngredientCaption(
-                      ingredient.special_kind,
-                      ingredient.ingredient_name,
-                    ) !== null,
+                  (ingredient: IngredientUsage): boolean => ingredient.special_kind !== 'NO_ICON',
                 )
                 .map((ingredient: IngredientUsage): JSX.Element => (
                   <li key={`${ingredient.sort_order}-${ingredient.ingredient_name}`}>
@@ -180,11 +174,11 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
           ingredientName
         )
       ) : (
-        specialIngredientCaption(ingredient.special_kind, ingredientName)
+        ingredientName
       )}
-      {ingredient.is_catalog_ingredient &&
-      ingredient.note !== null &&
-      ingredient.note.length > 0 ? (
+      {ingredient.note !== null &&
+      ingredient.note.length > 0 &&
+      (ingredient.is_catalog_ingredient || ingredient.special_kind !== null) ? (
         <em className="recipe-ingredient-note"> {ingredient.note}</em>
       ) : null}
     </span>

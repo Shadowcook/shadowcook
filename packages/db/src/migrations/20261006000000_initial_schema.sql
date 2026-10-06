@@ -3,13 +3,15 @@ CREATE TABLE tenant (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   display_name text NOT NULL CHECK (length(trim(display_name)) > 0),
-  description text,
+  description text CHECK (description IS NULL OR length(trim(description)) BETWEEN 1 AND 280),
   slug text NOT NULL UNIQUE CHECK (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   default_recipe_visibility text NOT NULL DEFAULT 'PUBLIC' CHECK (default_recipe_visibility IN ('PRIVATE', 'MEMBERS_ONLY', 'PUBLIC')),
   default_recipe_discoverability text NOT NULL DEFAULT 'DISCOVERABLE' CHECK (default_recipe_discoverability IN ('DISCOVERABLE', 'UNLISTED')),
+  frontpage_recipe_count integer NOT NULL DEFAULT 4 CHECK (frontpage_recipe_count BETWEEN 1 AND 100),
+  frontpage_heading text CHECK (frontpage_heading IS NULL OR length(trim(frontpage_heading)) BETWEEN 1 AND 80),
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
-  ,disabled_at timestamptz
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  disabled_at timestamptz
 );
 
 CREATE TABLE tenant_identity_key (
@@ -141,6 +143,7 @@ CREATE TABLE user_session (
   expires_at timestamptz NOT NULL,
   last_seen_at timestamptz NOT NULL DEFAULT now(),
   revoked_at timestamptz,
+  frontpage_shuffle_seed uuid,
   CHECK (expires_at > created_at)
 );
 
@@ -194,6 +197,16 @@ CREATE TABLE instance_authentication_settings (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   login_mode text NOT NULL DEFAULT 'PASSWORD_OR_EMAIL_CODE' CHECK (login_mode IN ('PASSWORD_ONLY', 'EMAIL_CODE_ONLY', 'PASSWORD_OR_EMAIL_CODE')),
   updated_by_principal_id uuid REFERENCES principal(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE instance_frontpage_settings (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  site_name text NOT NULL CHECK (length(trim(site_name)) BETWEEN 1 AND 80),
+  slogan text NOT NULL CHECK (length(trim(slogan)) BETWEEN 1 AND 80),
+  cookbooks_per_page integer NOT NULL CHECK (cookbooks_per_page BETWEEN 1 AND 100),
+  updated_by_principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -295,6 +308,7 @@ CREATE TABLE recipe (
   discoverability_override text CHECK (discoverability_override IN ('DISCOVERABLE', 'UNLISTED')),
   published_revision_id uuid,
   draft_revision_id uuid,
+  is_featured boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (tenant_id, slug)
@@ -396,6 +410,7 @@ CREATE TABLE ingredient_usage (
   recipe_step_id uuid NOT NULL REFERENCES recipe_step(id) ON DELETE CASCADE,
   usage_key uuid NOT NULL,
   ingredient_id uuid REFERENCES ingredient(id) ON DELETE CASCADE,
+  ingredient_alias_id uuid REFERENCES ingredient_alias(id) ON DELETE SET NULL,
   text_override text,
   special_kind text CHECK (special_kind IN ('NO_ICON', 'REMOVE', 'ADD', 'INFO', 'IMPORTANT', 'COOK', 'COOL', 'HEAT', 'WAIT', 'WORK_STEP')),
   unit_id uuid REFERENCES unit(id) ON DELETE CASCADE,
@@ -405,9 +420,12 @@ CREATE TABLE ingredient_usage (
   sort_order integer NOT NULL CHECK (sort_order >= 0),
   UNIQUE (recipe_step_id, usage_key),
   UNIQUE (recipe_step_id, sort_order),
-  CHECK ((ingredient_id IS NOT NULL) <> (text_override IS NOT NULL)),
+  CHECK (
+    (special_kind IS NOT NULL AND ingredient_id IS NULL AND ingredient_alias_id IS NULL AND text_override IS NULL)
+    OR (special_kind IS NULL AND ((ingredient_id IS NOT NULL) <> (text_override IS NOT NULL)))
+  ),
+  CHECK (ingredient_alias_id IS NULL OR ingredient_id IS NOT NULL),
   CHECK (text_override IS NULL OR length(trim(text_override)) > 0),
-  CHECK (special_kind IS NULL OR text_override IS NOT NULL),
   CHECK (special_kind IS NULL OR (amount IS NULL AND unit_id IS NULL AND is_optional = false))
 );
 
@@ -540,6 +558,7 @@ CREATE INDEX recipe_revision_recipe_idx ON recipe_revision(recipe_id, revision_n
 CREATE INDEX recipe_share_link_recipe_idx ON recipe_share_link(recipe_id) WHERE revoked_at IS NULL;
 CREATE INDEX recipe_step_revision_idx ON recipe_step(recipe_revision_id, sort_order);
 CREATE INDEX ingredient_usage_step_idx ON ingredient_usage(recipe_step_id, sort_order);
+CREATE INDEX ingredient_usage_ingredient_alias_idx ON ingredient_usage(ingredient_alias_id);
 CREATE INDEX audit_event_tenant_created_idx ON audit_event(tenant_id, created_at DESC);
 CREATE INDEX tenant_access_grant_receiver_idx ON tenant_access_grant(receiving_tenant_public_id);
 CREATE INDEX user_session_user_account_idx ON user_session(user_account_id);

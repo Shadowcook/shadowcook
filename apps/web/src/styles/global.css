@@ -149,15 +149,21 @@ select {
     sans-serif;
 }
 .head-bar__user-menu summary {
+  display: inline-flex;
+  align-items: center;
   cursor: pointer;
   list-style: none;
 }
 .head-bar__user-menu summary::-webkit-details-marker {
   display: none;
 }
-.head-bar__user-menu summary::after {
+.head-bar__user-menu .admin-icon {
   margin-left: 0.45rem;
-  content: '▾';
+  width: 0.75rem;
+  height: 0.75rem;
+}
+.head-bar__user-menu[open] .admin-icon {
+  transform: rotate(180deg);
 }
 .head-bar__menu {
   position: absolute;
@@ -537,7 +543,6 @@ code {
   display: block;
   width: 1rem;
   height: 1rem;
-  object-fit: contain;
 }
 .admin-icon--edit {
   width: 1.2rem;

@@ -279,7 +279,6 @@ async function insertRecipes(
     steps: 0,
     ingredientUsages: 0,
     substitutedEmptyInstructions: 0,
-    substitutedEmptySpecialEntryLabels: 0,
     skippedThumbnailReferences: 0,
   };
   const usedRecipeSlugs: Set<string> = new Set<string>();
@@ -287,8 +286,8 @@ async function insertRecipes(
   for (const recipe of cookbook.recipes) {
     const recipeSlug: string = uniqueSlug(recipe.name, recipe.id, usedRecipeSlugs);
     const insertedRecipe: QueryResult<IdentifierRow> = await client.query<IdentifierRow>(
-      `INSERT INTO recipe (tenant_id, lineage_public_id, slug)
-       VALUES ($1, gen_random_uuid(), $2) RETURNING id`,
+      `INSERT INTO recipe (tenant_id, lineage_public_id, slug, is_featured)
+       VALUES ($1, gen_random_uuid(), $2, true) RETURNING id`,
       [tenantId, recipeSlug],
     );
     const recipeId: string = insertedRecipe.rows[0]!.id;
@@ -331,7 +330,6 @@ async function insertRecipes(
           stepId,
           step.ingredientUsages[usageIndex]!,
           usageIndex,
-          cookbook.units,
           unitIds,
           tenantId,
           ingredientIds,
@@ -378,7 +376,6 @@ async function insertIngredientUsage(
   stepId: string,
   usage: LegacyIngredientUsage,
   sortOrder: number,
-  legacyUnits: LegacyUnit[],
   unitIds: Map<number, string>,
   tenantId: string,
   ingredientIds: Map<string, string>,
@@ -386,19 +383,12 @@ async function insertIngredientUsage(
 ): Promise<void> {
   const specialKind: string | undefined = specialKindByLegacyUnitId.get(usage.unitId);
   let textOverride: string = usage.name?.trim() ?? '';
-  if (specialKind !== undefined && textOverride.length === 0) {
-    const legacyUnit: LegacyUnit | undefined = legacyUnits.find(
-      (unit: LegacyUnit): boolean => unit.id === usage.unitId,
-    );
-    textOverride = legacyUnit?.name ?? specialKind;
-    summary.substitutedEmptySpecialEntryLabels += 1;
-  }
   const targetUnitId: string | null =
     specialKind === undefined ? (unitIds.get(usage.unitId) ?? null) : null;
   if (specialKind === undefined && targetUnitId === null)
     throw new Error(`Legacy ingredient usage ${usage.id} has no mapped target unit.`);
   let ingredientId: string | null = null;
-  let note: string | null = null;
+  let note: string | null = specialKind === undefined ? null : legacySpecialEntryNote(usage.name);
   if (specialKind === undefined) {
     if (textOverride.length === 0)
       throw new Error(`Legacy ingredient usage ${usage.id} has no ingredient name.`);
@@ -420,7 +410,7 @@ async function insertIngredientUsage(
     [
       stepId,
       ingredientId,
-      specialKind === undefined ? null : textOverride,
+      null,
       specialKind ?? null,
       targetUnitId,
       specialKind === undefined ? usage.amount : null,
@@ -488,5 +478,15 @@ function uniqueSlug(name: string, legacyId: number, usedSlugs: Set<string>): str
 function normalizedOptionalText(value: string | null): string | null {
   if (value === null) return null;
   const normalized: string = value.trim();
+  return normalized.length === 0 ? null : normalized;
+}
+
+function legacySpecialEntryNote(value: string | null): string | null {
+  if (value === null) return null;
+  const withoutLegacyCaption: string = value.replace(/<[^>]*>/g, ' ');
+  const normalized: string = withoutLegacyCaption
+    .replace(/^[\s,;:–—-]+|[\s,;:–—-]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   return normalized.length === 0 ? null : normalized;
 }

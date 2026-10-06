@@ -55,6 +55,5 @@ export interface MigrationSummary {
   steps: number;
   ingredientUsages: number;
   substitutedEmptyInstructions: number;
-  substitutedEmptySpecialEntryLabels: number;
   skippedThumbnailReferences: number;
 }

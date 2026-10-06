@@ -4,15 +4,20 @@ import type { Pool, PoolClient } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantPermission } from '../admin/authorization.js';
 
-interface RecipeInput {
+interface RecipeDraftInput {
   title: string;
   summary: string | null;
-  slug: string;
   categoryPublicIds: string[];
+}
+
+interface RecipeMetadataInput {
+  slug: string;
   visibilityOverride: RecipeVisibility | null;
   discoverabilityOverride: RecipeDiscoverability | null;
   isFeatured: boolean;
 }
+
+interface RecipeCreateInput extends RecipeDraftInput, RecipeMetadataInput {}
 
 type RecipeVisibility = 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
 type RecipeDiscoverability = 'DISCOVERABLE' | 'UNLISTED';
@@ -354,14 +359,17 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
                $4, $5, (SELECT id FROM unit WHERE public_id = $6), $7, $8, $9, $10)`,
             [
               inserted.rows[0]!.id,
-              typeof usage.ingredientPublicId === 'string' && usage.ingredientPublicId.length > 0
+              !isSpecialEntry &&
+              typeof usage.ingredientPublicId === 'string' &&
+              usage.ingredientPublicId.length > 0
                 ? usage.ingredientPublicId
                 : null,
+              !isSpecialEntry &&
               typeof usage.ingredientAliasPublicId === 'string' &&
               usage.ingredientAliasPublicId.length > 0
                 ? usage.ingredientAliasPublicId
                 : null,
-              specialEntryTextOverride(usage.textOverride, specialKind),
+              isSpecialEntry ? null : textOverride(usage.textOverride),
               isSpecialEntry ? specialKind : null,
               !isSpecialEntry &&
               typeof usage.unitPublicId === 'string' &&
@@ -371,7 +379,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
               !isSpecialEntry && typeof usage.amount === 'string' && usage.amount.length > 0
                 ? usage.amount
                 : null,
-              !isSpecialEntry && typeof usage.note === 'string' && usage.note.length > 0
+              typeof usage.note === 'string' && usage.note.trim().length > 0
                 ? usage.note
                 : null,
               !isSpecialEntry && usage.isOptional === true,
@@ -496,8 +504,9 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       default_recipe_discoverability: RecipeDiscoverability;
       frontpage_recipe_count: number;
       frontpage_heading: string | null;
+      description: string | null;
     }>(
-      'SELECT default_recipe_visibility, default_recipe_discoverability, frontpage_recipe_count, frontpage_heading FROM tenant WHERE id = $1',
+      'SELECT default_recipe_visibility, default_recipe_discoverability, frontpage_recipe_count, frontpage_heading, description FROM tenant WHERE id = $1',
       [tenantId],
     );
     return reply.send({
@@ -505,6 +514,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       defaultDiscoverability: policy.rows[0]!.default_recipe_discoverability,
       frontpageRecipeCount: policy.rows[0]!.frontpage_recipe_count,
       frontpageHeading: policy.rows[0]!.frontpage_heading,
+      description: policy.rows[0]!.description,
     });
   });
 
@@ -523,6 +533,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const discoverability = body.defaultDiscoverability;
     const frontpageRecipeCount = body.frontpageRecipeCount;
     const frontpageHeading = body.frontpageHeading;
+    const description = body.description;
     if (
       (visibility !== 'PRIVATE' && visibility !== 'MEMBERS_ONLY' && visibility !== 'PUBLIC') ||
       (discoverability !== 'DISCOVERABLE' && discoverability !== 'UNLISTED') ||
@@ -533,14 +544,18 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       (frontpageHeading !== null &&
         (typeof frontpageHeading !== 'string' ||
           frontpageHeading.trim().length === 0 ||
-          frontpageHeading.length > 80))
+          frontpageHeading.length > 80)) ||
+      (description !== null &&
+        (typeof description !== 'string' ||
+          description.trim().length === 0 ||
+          description.length > 280))
     )
       return reply
         .code(400)
         .send({ code: 'INVALID_RECIPE_POLICY', error: 'The recipe policy is invalid.' });
     await pool.query(
-      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, frontpage_recipe_count = $3, frontpage_heading = $4, updated_at = now() WHERE id = $5',
-      [visibility, discoverability, frontpageRecipeCount, frontpageHeading, tenantId],
+      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, frontpage_recipe_count = $3, frontpage_heading = $4, description = $5, updated_at = now() WHERE id = $6',
+      [visibility, discoverability, frontpageRecipeCount, frontpageHeading, description, tenantId],
     );
     return reply.code(204).send();
   });
@@ -629,7 +644,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       'recipe:create',
     );
     if (tenantId === null) return;
-    const input: RecipeInput | null = parseRecipeInput(request.body);
+    const input: RecipeCreateInput | null = parseRecipeCreateInput(request.body);
     if (input === null) return invalidRecipe(reply);
     if (input.visibilityOverride !== null || input.discoverabilityOverride !== null) {
       const visibilityTenantId: string | null = await requireTenantPermission(
@@ -709,6 +724,80 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     );
     if (draft === null) return recipeNotFound(reply);
     return reply.send(draftResponse(draft));
+  });
+
+  api.patch('/cookbook/tenants/:tenantSlug/recipes/:publicId', async (request, reply) => {
+    const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
+    const tenantId: string | null = await requireTenantPermission(
+      pool,
+      request,
+      reply,
+      tenantSlug,
+      'recipe:update',
+    );
+    if (tenantId === null) return;
+    const input: RecipeMetadataInput | null = parseRecipeMetadataInput(request.body);
+    if (input === null) return invalidRecipe(reply);
+    const publicId: string = (request.params as { publicId: string }).publicId;
+    const user = await currentAuthenticatedPrincipal(pool, request);
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const recipe = await client.query<{
+        id: string;
+        visibility_override: RecipeVisibility | null;
+        discoverability_override: RecipeDiscoverability | null;
+      }>(
+        'SELECT id, visibility_override, discoverability_override FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        [tenantId, publicId],
+      );
+      const current = recipe.rows[0];
+      if (current === undefined) {
+        await client.query('ROLLBACK');
+        return recipeNotFound(reply);
+      }
+      if (
+        current.visibility_override !== input.visibilityOverride ||
+        current.discoverability_override !== input.discoverabilityOverride
+      ) {
+        const visibilityTenantId: string | null = await requireTenantPermission(
+          pool,
+          request,
+          reply,
+          tenantSlug,
+          'recipe:visibility-update',
+        );
+        if (visibilityTenantId === null) {
+          await client.query('ROLLBACK');
+          return;
+        }
+      }
+      await client.query(
+        'UPDATE recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, is_featured = $4, updated_at = now() WHERE id = $5',
+        [
+          input.slug,
+          input.visibilityOverride,
+          input.discoverabilityOverride,
+          input.isFeatured,
+          current.id,
+        ],
+      );
+      await client.query('COMMIT');
+      return reply.send(
+        draftResponse(
+          (await draftForRecipe(pool, tenantId, user?.principal_id ?? null, publicId))!,
+        ),
+      );
+    } catch (error: unknown) {
+      await client.query('ROLLBACK');
+      if (isUniqueViolation(error))
+        return reply
+          .code(409)
+          .send({ code: 'RECIPE_CONFLICT', error: 'The recipe URL name is already in use.' });
+      throw error;
+    } finally {
+      client.release();
+    }
   });
 
   api.get('/cookbook/tenants/:tenantSlug/recipes/:publicId/revisions', async (request, reply) => {
@@ -826,7 +915,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       'recipe:update',
     );
     if (tenantId === null) return;
-    const input: RecipeInput | null = parseRecipeInput(request.body);
+    const input: RecipeDraftInput | null = parseRecipeDraftInput(request.body);
     if (input === null) return invalidRecipe(reply);
     const publicId: string = (request.params as { publicId: string }).publicId;
     const user = await currentAuthenticatedPrincipal(pool, request);
@@ -837,33 +926,14 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         id: string;
         draft_revision_id: string | null;
         published_revision_id: string | null;
-        visibility_override: RecipeVisibility | null;
-        discoverability_override: RecipeDiscoverability | null;
-        is_featured: boolean;
       }>(
-        'SELECT id, draft_revision_id, published_revision_id, visibility_override, discoverability_override, is_featured FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, draft_revision_id, published_revision_id FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
       if (current === undefined) {
         await client.query('ROLLBACK');
         return recipeNotFound(reply);
-      }
-      if (
-        current.visibility_override !== input.visibilityOverride ||
-        current.discoverability_override !== input.discoverabilityOverride
-      ) {
-        const visibilityTenantId: string | null = await requireTenantPermission(
-          pool,
-          request,
-          reply,
-          tenantSlug,
-          'recipe:visibility-update',
-        );
-        if (visibilityTenantId === null) {
-          await client.query('ROLLBACK');
-          return;
-        }
       }
       const draftId: string =
         current.draft_revision_id ??
@@ -880,15 +950,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       ]);
       await replaceCategories(client, draftId, tenantId, input.categoryPublicIds);
       await client.query(
-        'UPDATE recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, is_featured = $4, draft_revision_id = $5, updated_at = now() WHERE id = $6',
-        [
-          input.slug,
-          input.visibilityOverride,
-          input.discoverabilityOverride,
-          input.isFeatured,
-          draftId,
-          current.id,
-        ],
+        'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
+        [draftId, current.id],
       );
       await client.query('COMMIT');
       return reply.send(
@@ -1454,21 +1517,9 @@ const specialKinds: ReadonlySet<string> = new Set([
   'WORK_STEP',
 ]);
 
-function specialEntryTextOverride(value: unknown, specialKind: string): string | null {
-  if (typeof value === 'string' && value.trim().length > 0) return value.trim();
-  const captions: Readonly<Record<string, string>> = {
-    NO_ICON: '<no icon>',
-    REMOVE: '<remove>',
-    ADD: '<add>',
-    INFO: '<info>',
-    IMPORTANT: '<important>',
-    COOK: '<cook>',
-    COOL: '<cool>',
-    HEAT: '<heat>',
-    WAIT: '<Wait>',
-    WORK_STEP: '<WORK STEP>',
-  };
-  return captions[specialKind] ?? null;
+function textOverride(value: unknown): string | null {
+  if (typeof value !== 'string' || value.trim().length === 0) return null;
+  return value.trim();
 }
 async function validateStepInput(
   client: PoolClient,
@@ -1528,26 +1579,35 @@ async function validateStepInput(
 class InvalidStepInputError extends Error {}
 class InvalidVariantInputError extends Error {}
 
-function parseRecipeInput(value: unknown): RecipeInput | null {
+function parseRecipeDraftInput(value: unknown): RecipeDraftInput | null {
   if (typeof value !== 'object' || value === null) return null;
   const body = value as Record<string, unknown>;
   const title: string = typeof body.title === 'string' ? body.title.trim() : '';
   const summary =
     typeof body.summary === 'string' && body.summary.trim().length > 0 ? body.summary.trim() : null;
-  const slug: string = typeof body.slug === 'string' ? body.slug.trim() : '';
   const categoryPublicIds: string[] | null =
     Array.isArray(body.categoryPublicIds) &&
     body.categoryPublicIds.every((id: unknown): boolean => typeof id === 'string')
       ? [...new Set(body.categoryPublicIds)]
       : null;
-  const visibilityOverride = body.visibilityOverride;
-  const discoverabilityOverride = body.discoverabilityOverride;
   if (
     title.length === 0 ||
     title.length > 240 ||
     (summary !== null && summary.length > 2000) ||
+    categoryPublicIds === null
+  )
+    return null;
+  return { title, summary, categoryPublicIds };
+}
+
+function parseRecipeMetadataInput(value: unknown): RecipeMetadataInput | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const body = value as Record<string, unknown>;
+  const slug: string = typeof body.slug === 'string' ? body.slug.trim() : '';
+  const visibilityOverride = body.visibilityOverride;
+  const discoverabilityOverride = body.discoverabilityOverride;
+  if (
     !slugPattern.test(slug) ||
-    categoryPublicIds === null ||
     (visibilityOverride !== null &&
       visibilityOverride !== 'PRIVATE' &&
       visibilityOverride !== 'MEMBERS_ONLY' &&
@@ -1558,15 +1618,14 @@ function parseRecipeInput(value: unknown): RecipeInput | null {
     typeof body.isFeatured !== 'boolean'
   )
     return null;
-  return {
-    title,
-    summary,
-    slug,
-    categoryPublicIds,
-    visibilityOverride,
-    discoverabilityOverride,
-    isFeatured: body.isFeatured,
-  };
+  return { slug, visibilityOverride, discoverabilityOverride, isFeatured: body.isFeatured };
+}
+
+function parseRecipeCreateInput(value: unknown): RecipeCreateInput | null {
+  const draft: RecipeDraftInput | null = parseRecipeDraftInput(value);
+  const metadata: RecipeMetadataInput | null = parseRecipeMetadataInput(value);
+  if (draft === null || metadata === null) return null;
+  return { ...draft, ...metadata };
 }
 function parseVariantInput(value: unknown): VariantInput | null {
   if (typeof value !== 'object' || value === null) return null;

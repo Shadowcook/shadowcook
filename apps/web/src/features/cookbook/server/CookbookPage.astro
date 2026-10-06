@@ -195,7 +195,7 @@ function categoryAncestors(category: Category): Category[] {
     function setExpanded(expanded: boolean): void {
       children.hidden = !expanded;
       disclosure.setAttribute('aria-expanded', String(expanded));
-      disclosure.textContent = expanded ? '−' : '+';
+      disclosure.classList.toggle('category-disclosure--expanded', expanded);
       const label: string | undefined = expanded
         ? disclosure.dataset.collapseLabel
         : disclosure.dataset.expandLabel;

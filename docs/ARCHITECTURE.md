@@ -92,7 +92,7 @@ JavaScript enhances the recipe experience but must not be required to read a rec
 - React islands for interactive features
 - Vanilla CSS
 - CSS Modules for components where possible
-- Local/offline Font Awesome icons
+- Bundled Font Awesome icon packages
 
 Astro is responsible for producing crawlable HTML. React is used only where interaction materially benefits from client-side behavior.
 
@@ -183,7 +183,7 @@ shadowcook/
 
 - The API process executes database migrations before binding its HTTP listener.
 - Database migrations run in the API process and do not require a dedicated migration container.
-- Database migration statements are stored as `NNNN_descriptive_name.sql` files in `packages/db/src/migrations`, where `NNNN` is a four-digit decimal sequence; the database package loads them as runtime assets.
+- Database migration statements are stored as `YYYYmmddHHiiss_descriptive_name.sql` files in `packages/db/src/migrations`, where the prefix is a UTC timestamp; the database package loads them as runtime assets.
 - Migration execution uses a PostgreSQL advisory lock named `shadowcook-schema-migration`.
 - Each migration is executed in one database transaction.
 - Applied migration identifiers, SHA-256 checksums, and UTC application timestamps are stored in `application_schema_migration`.
@@ -193,9 +193,10 @@ shadowcook/
 ### 4.2 Cookbook overview
 
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
-- Every recipe has an `is_featured` flag. Recipes existing when the feature is introduced are featured. New recipes default to not featured. Only published, discoverable, accessible featured recipes are eligible for the tenant cookbook root front page.
+- Every recipe has an `is_featured` flag. New recipes default to featured. Only published, discoverable, accessible featured recipes are eligible for the tenant cookbook root front page.
 - A tenant stores its front-page featured-recipe count from 1 through 100. The default is 4. Tenant managers configure this count in General settings.
 - A tenant optionally stores a front-page heading with 1 through 80 non-whitespace characters. Tenant managers configure the heading in General settings. An unset heading uses the UI locale's default greeting.
+- A tenant optionally stores a description with 1 through 280 non-whitespace characters. Tenant managers configure the description in General settings.
 - The tenant cookbook root front page returns the configured number of featured recipes per page. Its deterministic shuffled order uses a seed stored in the authenticated server session. A root-page refresh renews that seed; subsequent front-page requests use the stored seed. Front-page pagination is client-session state and does not alter the browser URL.
 - Category recipe lists display 100 recipes per page. The cookbook recipe filter uses a case-insensitive contains match against recipe titles and summaries, and orders title matches before summary-only matches.
 - Tenant recipe management lists published recipes in pages of 100. Its filter uses a case-insensitive contains match against recipe titles and summaries, orders title matches before summary-only matches, and uses alphabetical title ordering within each group.
@@ -213,6 +214,9 @@ shadowcook/
 - The category and recipe slug reservation list is `admin`, `api`, `assets`, `auth`, `health`, `login`, `logout`, `recipes`, and `settings`. The database rejects these values for both entity types.
 - `/login` is the public sign-in route. An unauthenticated request to it renders the sign-in form; an authenticated request redirects to `/`.
 - `/` presents the accessible tenant selection. Cookbook content is loaded only after choosing a tenant at `/tenants/{tenant-slug}`; a cookbook response contains records from exactly one tenant.
+- The instance root page stores a website name, slogan, and cookbook page size from 1 through 100. Defaults are `My Cookbook`, `Made to be shared`, and 4. Instance administrators configure these values in Front page settings.
+- The root page lists accessible enabled cookbooks with a case-insensitive contains filter over cookbook names and descriptions. Results use a client-provided stable shuffle seed and paginate using the configured cookbook page size.
+- The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
 - A sticky global head bar is rendered on application, public cookbook, and public recipe pages. It resolves the current session, provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
@@ -231,6 +235,7 @@ shadowcook/
 - Editable category responses expose whether a category tree can be deleted, based on recipe-revision assignments in that category and all descendants.
 - A future draft view will list recipes with an active draft revision separately from published cookbook navigation.
 - `GET /cookbook/recipes/{publicId}` returns one accessible published recipe with ordered preparation steps and the ingredient usages assigned to each step.
+- The recipe-step editor can append a step and insert a step directly after every existing step.
 - Recipe-step instructions support `{recipe:<recipe-public-UUID>}` references. Recipe details resolve accessible referenced recipes to root cookbook URLs. The recipe editor inserts this syntax through an `@` recipe search that returns at most one hundred current-tenant recipes.
 - The web client separates cookbook orchestration, cookbook dashboard rendering, category tree rendering, public tenant selection, tenant management, sign-in, password change, status messages, and browser API requests into dedicated components or modules.
 - `apps/web/src/features/cookbook` contains cookbook orchestration, cookbook UI components, routing, and cookbook model types. `apps/web/src/features/admin` contains instance-administration orchestration and UI components. `apps/web/src/lib` contains shared browser-session and API-request infrastructure.
@@ -476,9 +481,9 @@ Categories remain hierarchical.
 
 A recipe may belong to multiple categories.
 
-Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe visibility is `PRIVATE`, `MEMBERS_ONLY`, or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens. Recipe detail responses provide session-specific edit and share capabilities for the recipe-detail actions.
+Recipes are edited through exactly one mutable draft revision. Creating a recipe creates its first draft. Editing a published recipe copies its published title, summary, and category assignments into a new draft; publishing archives the prior published revision, assigns the next version number, and clears the draft pointer. A published revision has at least one category. Recipe slug, featured state, visibility, and discoverability are immediate recipe-level metadata and do not create a draft or content revision. Recipe visibility is `PRIVATE`, `MEMBERS_ONLY`, or `PUBLIC`; private published recipes may additionally be exposed through stored, opaque, revocable share-link tokens. Recipe detail responses provide session-specific edit and share capabilities for the recipe-detail actions.
 
-An ingredient usage contains either a normalized ingredient reference or a non-empty text override. Text overrides support non-ingredient recipe entries such as prepared components and oven settings. A text override can have a special entry kind: no icon, remove, add, information, important, cook, cool, heat, wait, or work step. The editor keeps amount, unit, and optional controls visible for every entry. The API ignores these values for special entry kinds.
+An ingredient usage without a special entry kind contains either a normalized ingredient reference or a non-empty text override. Text overrides support non-ingredient recipe entries such as prepared components and oven settings. A special entry kind has no ingredient reference, text override, amount, unit, or optional state and may have a note. Special entry kinds are no icon, remove, add, information, important, cook, cool, heat, wait, and work step. The editor keeps amount, unit, and optional controls visible for every entry. The API ignores these values for special entry kinds.
 
 The recipe editor retrieves at most twenty matching ingredients for a non-empty ingredient search query. The web client delays each ingredient-search request by 300 milliseconds and does not request or render catalogue ingredient results for an empty query.
 
@@ -839,14 +844,14 @@ version
 
 Revision-owned data includes:
 
-- recipe metadata that forms part of the published state,
+- title and summary,
 - variants,
 - steps,
 - variant overrides,
 - ingredient usages,
 - category membership.
 
-Visibility and access policy are recipe/tenant policy, not recipe-content state. They therefore do not need to be copied into every content revision. Policy changes should be auditable separately, but making a recipe private/public does not by itself create a recipe-content revision.
+Recipe slug, featured state, visibility, and discoverability are recipe/tenant metadata, not recipe-content state. They are not copied into content revisions. Policy changes are auditable separately, and a metadata update does not create a recipe-content revision.
 
 Global catalogue entities such as Ingredient and Unit are referenced rather than cloned into each recipe revision.
 
@@ -971,7 +976,7 @@ Roles are convenience collections of explicit permissions.
 - `administrator` and `tenant-manager` are the only instance-wide roles.
 - Only an `administrator` can assign or remove instance-wide roles.
 - `Tenant-Manager` is the user-facing name of the `tenant-manager` instance-wide role.
-- A Tenant-Manager can create tenants and manage users, tenant-role assignments, and invitations for every tenant.
+- A Tenant-Manager can create tenants.
 - A Tenant-Manager cannot assign or remove `administrator` or `tenant-manager` roles.
 - `Tenant-Owner` is a tenant-scoped role for complete administration of one tenant.
 - A Tenant-Owner can manage users, roles, cookbook content, settings, and service accounts only within the tenant in which the role is assigned.
@@ -1027,7 +1032,7 @@ Service accounts should normally receive least-privilege permissions.
 - `permission` is the canonical permission catalogue. Role-permission relationships are stored in `instance_role_permission` and `tenant_role_permission`.
 - Tenant-role names and their permission assignments are tenant data. The initial tenant-role set will be `Owner`, `Editor`, and `Viewer`.
 - Instance administrators can list assignable instance roles and replace a user's instance-role assignments through `/admin/users/{publicId}/instance-roles`.
-- Tenant members with `tenant:manage` can list only users of their own tenant and replace roles only for existing memberships through `/cookbook/tenant-users`. Instance administrators and Tenant-Managers can use the same endpoints for every tenant.
+- Tenant members with `tenant:manage` can list only users of their own tenant and replace roles only for existing memberships through `/cookbook/tenant-users`. Instance-wide roles do not grant tenant permissions.
 - Tenant-user role assignment verifies every assigned role belongs to the managed tenant.
 - `user_session` stores a SHA-256 verifier of an opaque browser session token. The plaintext token is only held in the `shadowcook_session` HttpOnly cookie.
 - Non-development session cookies include the `Secure` attribute. Development session cookies omit it for local HTTP access.
@@ -1110,7 +1115,7 @@ service-account:manage
 
 Published recipe state must never be directly mutable by agents or humans.
 
-All changes go through a draft.
+All recipe-content changes go through a draft. Recipe-level metadata changes apply directly to the recipe.
 
 ### 15.5 AI-assisted cooking sessions
 
@@ -2562,7 +2567,7 @@ The migration targets one existing empty tenant. Its single Owner is the default
 
 The migration writes one published revision and one default variant for each legacy recipe in one PostgreSQL transaction. A dry run executes the complete transaction and rolls it back. Category and recipe URL slugs are deterministic and tenant-unique.
 
-The legacy technical root category is not persisted. Legacy usages with real units create tenant-owned ingredients or reuse matching instance- or tenant-owned ingredients. Ingredient text before the first comma and outside parentheses is the ingredient name. Parenthetical text and text after the first comma are authored usage notes. Standard units use the instance catalogue, and missing legacy units become tenant-owned units. Legacy special-unit identifiers map to semantic special-entry kinds.
+The legacy technical root category is not persisted. Legacy usages with real units create tenant-owned ingredients or reuse matching instance- or tenant-owned ingredients. Ingredient text before the first comma and outside parentheses is the ingredient name. Parenthetical text and text after the first comma are authored usage notes. Standard units use the instance catalogue, and missing legacy units become tenant-owned units. Legacy special-unit identifiers map to semantic special-entry kinds. The importer removes angle-bracketed legacy captions and preserves any remaining special-entry text as a note.
 
 Legacy thumbnail references are reported and omitted until media ingestion and storage are implemented.
 

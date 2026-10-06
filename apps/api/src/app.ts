@@ -4,6 +4,7 @@ import { registerAuthenticationRoutes } from './auth/routes.js';
 import { registerCookbookRoutes } from './cookbook/routes.js';
 import { registerAdminMailRoutes } from './admin/mail-routes.js';
 import { registerAuthenticationSettingsRoutes } from './admin/authentication-routes.js';
+import { registerFrontpageSettingsRoutes } from './admin/frontpage-routes.js';
 import { registerTenantRoutes } from './admin/tenant-routes.js';
 import { registerUnitRoutes } from './admin/unit-routes.js';
 import { registerIngredientRoutes } from './admin/ingredient-routes.js';
@@ -40,6 +41,7 @@ export function createApi(
   registerAiContextRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAdminMailRoutes(api, pool, instanceSecretKey);
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
+  registerFrontpageSettingsRoutes(api, pool);
   registerTenantRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerUnitRoutes(api, pool);
   registerIngredientRoutes(api, pool);

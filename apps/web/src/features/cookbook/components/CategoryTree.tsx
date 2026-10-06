@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import AdminIcon from '../../../components/AdminIcon';
 import type { Translation } from '../../../i18n';
 import { cookbookPath } from '../model/routing';
 import type { Category } from '../model/types';
@@ -85,11 +86,15 @@ function categoryTreeItems(
             <button
               aria-expanded={isExpanded}
               aria-label={disclosureLabel}
-              className="category-disclosure"
+              className={
+                isExpanded
+                  ? 'category-disclosure category-disclosure--expanded'
+                  : 'category-disclosure'
+              }
               type="button"
               onClick={(): void => onToggleCategory(category.public_id)}
             >
-              {isExpanded ? '−' : '+'}
+              <AdminIcon name={isExpanded ? 'categoryExpanded' : 'categoryCollapsed'} />
             </button>
           ) : (
             <span

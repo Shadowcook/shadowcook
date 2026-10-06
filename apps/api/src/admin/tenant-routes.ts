@@ -61,7 +61,7 @@ export function registerTenantRoutes(
   api.get('/admin/tenants', async (request, reply) => {
     if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
     const result = await pool.query(
-      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, tenant.disabled_at, count(recipe.id)::integer AS recipe_count, string_agg(user_account.display_name, ', ' ORDER BY user_account.display_name) FILTER (WHERE tenant_role.name = 'Owner') AS owner_name FROM tenant LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.published_revision_id IS NOT NULL LEFT JOIN tenant_membership_role ON tenant_membership_role.tenant_id = tenant.id LEFT JOIN tenant_role ON tenant_role.id = tenant_membership_role.tenant_role_id LEFT JOIN user_account ON user_account.principal_id = tenant_membership_role.principal_id GROUP BY tenant.id ORDER BY tenant.display_name`,
+      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, tenant.disabled_at, (SELECT count(*)::integer FROM recipe WHERE recipe.tenant_id = tenant.id AND recipe.published_revision_id IS NOT NULL) AS recipe_count, (SELECT string_agg(user_account.display_name, ', ' ORDER BY user_account.display_name) FROM tenant_membership_role INNER JOIN tenant_role ON tenant_role.id = tenant_membership_role.tenant_role_id INNER JOIN user_account ON user_account.principal_id = tenant_membership_role.principal_id WHERE tenant_membership_role.tenant_id = tenant.id AND tenant_role.name = 'Owner') AS owner_name FROM tenant ORDER BY tenant.display_name`,
     );
     return reply.send({
       tenants: result.rows,

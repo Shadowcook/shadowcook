@@ -72,6 +72,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
   }, [selectedCategoryId, recipeFilter]);
   const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
   const frontpageHeading: string = cookbook.tenant?.frontpage_heading ?? text.dashboard.greeting;
+  const managementHref: string | null = cookbookManagementPath(cookbook, tenantSlug);
   return (
     <section className="dashboard">
       <header className="dashboard__header">
@@ -79,11 +80,8 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           <p className="eyebrow dashboard__cookbook-name">{cookbookName}</p>
           <h1>{frontpageHeading}</h1>
         </div>
-        {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
-          <a
-            className="button--secondary"
-            href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}
-          >
+        {managementHref !== null ? (
+          <a className="button--secondary" href={managementHref}>
             {text.tenantNavigation.title}
           </a>
         ) : null}
@@ -236,4 +234,15 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
       )}
     </section>
   );
+}
+
+function cookbookManagementPath(cookbook: CookbookResponse, tenantSlug: string): string | null {
+  const tenantPath: string = `/${encodeURIComponent(tenantSlug)}`;
+  if (cookbook.canManageRecipes) return `${tenantPath}/manage/recipes`;
+  if (cookbook.canManageCategories) return `${tenantPath}/categories`;
+  if (cookbook.canManageUsers) return `${tenantPath}/manage/settings`;
+  if (cookbook.canManageServiceAccounts) return `${tenantPath}/manage/service-accounts`;
+  if (cookbook.canManageIngredients) return `${tenantPath}/manage/ingredients`;
+  if (cookbook.canManageUnits) return `${tenantPath}/manage/units`;
+  return null;
 }
