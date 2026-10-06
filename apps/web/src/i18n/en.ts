@@ -622,6 +622,7 @@ export const en: Translation = {
     tenantDescriptionHint: 'Optional. Maximum 280 characters.',
     defaultVisibility: 'Default visibility',
     defaultDiscoverability: 'Default discoverability',
+    showOnStartPage: 'Show on start page',
     save: 'Save policy',
     saved: 'General settings saved.',
   },

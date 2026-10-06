@@ -502,16 +502,18 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const policy = await pool.query<{
       default_recipe_visibility: RecipeVisibility;
       default_recipe_discoverability: RecipeDiscoverability;
+      show_on_start_page: boolean;
       frontpage_recipe_count: number;
       frontpage_heading: string | null;
       description: string | null;
     }>(
-      'SELECT default_recipe_visibility, default_recipe_discoverability, frontpage_recipe_count, frontpage_heading, description FROM tenant WHERE id = $1',
+      'SELECT default_recipe_visibility, default_recipe_discoverability, show_on_start_page, frontpage_recipe_count, frontpage_heading, description FROM tenant WHERE id = $1',
       [tenantId],
     );
     return reply.send({
       defaultVisibility: policy.rows[0]!.default_recipe_visibility,
       defaultDiscoverability: policy.rows[0]!.default_recipe_discoverability,
+      showOnStartPage: policy.rows[0]!.show_on_start_page,
       frontpageRecipeCount: policy.rows[0]!.frontpage_recipe_count,
       frontpageHeading: policy.rows[0]!.frontpage_heading,
       description: policy.rows[0]!.description,
@@ -531,12 +533,14 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const body = request.body as Record<string, unknown>;
     const visibility = body.defaultVisibility;
     const discoverability = body.defaultDiscoverability;
+    const showOnStartPage = body.showOnStartPage;
     const frontpageRecipeCount = body.frontpageRecipeCount;
     const frontpageHeading = body.frontpageHeading;
     const description = body.description;
     if (
       (visibility !== 'PRIVATE' && visibility !== 'MEMBERS_ONLY' && visibility !== 'PUBLIC') ||
       (discoverability !== 'DISCOVERABLE' && discoverability !== 'UNLISTED') ||
+      typeof showOnStartPage !== 'boolean' ||
       typeof frontpageRecipeCount !== 'number' ||
       !Number.isSafeInteger(frontpageRecipeCount) ||
       frontpageRecipeCount < 1 ||
@@ -554,8 +558,16 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         .code(400)
         .send({ code: 'INVALID_RECIPE_POLICY', error: 'The recipe policy is invalid.' });
     await pool.query(
-      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, frontpage_recipe_count = $3, frontpage_heading = $4, description = $5, updated_at = now() WHERE id = $6',
-      [visibility, discoverability, frontpageRecipeCount, frontpageHeading, description, tenantId],
+      'UPDATE tenant SET default_recipe_visibility = $1, default_recipe_discoverability = $2, show_on_start_page = $3, frontpage_recipe_count = $4, frontpage_heading = $5, description = $6, updated_at = now() WHERE id = $7',
+      [
+        visibility,
+        discoverability,
+        showOnStartPage,
+        frontpageRecipeCount,
+        frontpageHeading,
+        description,
+        tenantId,
+      ],
     );
     return reply.code(204).send();
   });

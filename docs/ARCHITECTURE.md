@@ -217,7 +217,8 @@ shadowcook/
 - The instance root page stores a website name, slogan, and cookbook page size from 1 through 100. Defaults are `My Cookbook`, `Made to be shared`, and 4. Instance administrators configure these values in Front page settings.
 - The instance stores public privacy-statement and legal-notice Markdown documents. The initial database creates editable English template documents with operator placeholders. Instance administrators edit both documents in Legal documents settings. Public `/privacy-statement` and `/imprint` pages render their Markdown with source HTML disabled.
 - The footer links the license and the displayed application version to the Shadowcook GitHub repository at the build commit.
-- The root page lists accessible enabled cookbooks with a case-insensitive contains filter over cookbook names and descriptions. Results use a client-provided stable shuffle seed and paginate using the configured cookbook page size.
+- A cookbook has a `show_on_start_page` setting that defaults to `true` and is configurable through General settings.
+- The root page lists accessible enabled cookbooks with `show_on_start_page = true`, with a case-insensitive contains filter over cookbook names and descriptions. Results use a client-provided stable shuffle seed and paginate using the configured cookbook page size.
 - The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
 - A sticky global head bar is rendered on application, public cookbook, and public recipe pages. It resolves the current session, provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.

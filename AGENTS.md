@@ -26,18 +26,19 @@
 If `personal_agents.md` exists in the repository root, read it and apply it as local developer preference guidance. Personal preferences must not override the project rules above.
 This file will not be checked in into the repository. Therefore, check the local file system for it, not the repo!
 
-## Delivery mode: INITIAL_DRAFT
+## Delivery mode: BETA-1
 
+- Every migration filename timestamp uses the UTC time at creation in the exact `YYYYmmddHHiiss` format, for example `20261006232324`.
 - Create new schemas after the following pattern:
   - Delivery mode INITIAL_DRAFT:
     - <timestamp>_initial_schema.sql
     - do not create new migration files while working in this mode
   - Delivery mode BETA-1:
-    - <timestamp>_beta-1.sql
+    - <timestamp>_beta-1_<description>.sql
     - do not touch *_initial_schema.sql
   - Delivery mode BETA-2:
-    - <timestamp>_beta_2.sql
+    - <timestamp>_beta_2_<description>.sql
     - do not touch *_initial_schema.sql
-    - do not touch *_beta-1.sql
+    - do not touch *_beta-1_*.sql
   - and so forth in this fashion
 - once, the delivery mode is "Production", we will create update scripts per each change.

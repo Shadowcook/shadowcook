@@ -107,6 +107,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     const cookbooksPerPage: number = settings?.cookbooks_per_page ?? defaultCookbooksPerPage;
     const tenantFilterClause: string = `
       tenant.disabled_at IS NULL
+        AND tenant.show_on_start_page
         AND ($2 = '' OR tenant.display_name ILIKE '%' || $2 || '%' OR COALESCE(tenant.description, '') ILIKE '%' || $2 || '%')
         AND (
           EXISTS (
@@ -117,7 +118,6 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
             SELECT 1 FROM recipe AS public_recipe
             WHERE public_recipe.tenant_id = tenant.id
               AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
-              AND COALESCE(public_recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
               AND public_recipe.published_revision_id IS NOT NULL
           )
         )`;

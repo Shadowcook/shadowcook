@@ -634,6 +634,7 @@ export const de: Translation = {
     tenantDescriptionHint: 'Optional. Maximal 280 Zeichen.',
     defaultVisibility: 'Standard-Sichtbarkeit',
     defaultDiscoverability: 'Standard-Auffindbarkeit',
+    showOnStartPage: 'Auf der Startseite anzeigen',
     save: 'Richtlinie speichern',
     saved: 'Allgemeine Einstellungen gespeichert.',
   },

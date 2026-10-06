@@ -2955,6 +2955,7 @@ components:
         [
           defaultVisibility,
           defaultDiscoverability,
+          showOnStartPage,
           frontpageRecipeCount,
           frontpageHeading,
           description,
@@ -2962,6 +2963,7 @@ components:
       properties:
         defaultVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
         defaultDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
+        showOnStartPage: { type: boolean }
         frontpageRecipeCount: { type: integer, minimum: 1, maximum: 100 }
         frontpageHeading: { type: [string, 'null'], minLength: 1, maxLength: 80 }
         description: { type: [string, 'null'], minLength: 1, maxLength: 280 }

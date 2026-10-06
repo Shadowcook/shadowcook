@@ -11,6 +11,7 @@ export interface TenantTable {
   slug: string;
   default_recipe_visibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   default_recipe_discoverability: 'DISCOVERABLE' | 'UNLISTED';
+  show_on_start_page: Generated<boolean>;
   frontpage_recipe_count: Generated<number>;
   frontpage_heading: string | null;
   created_at: Generated<Timestamp>;

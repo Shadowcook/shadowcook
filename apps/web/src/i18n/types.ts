@@ -477,6 +477,7 @@ export interface Translation {
     tenantDescriptionHint: string;
     defaultVisibility: string;
     defaultDiscoverability: string;
+    showOnStartPage: string;
     save: string;
     saved: string;
   };

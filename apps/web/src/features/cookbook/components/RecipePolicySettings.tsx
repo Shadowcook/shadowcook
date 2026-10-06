@@ -11,6 +11,7 @@ interface RecipePolicySettingsProperties {
 interface RecipePolicy {
   defaultVisibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   defaultDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
+  showOnStartPage: boolean;
   frontpageRecipeCount: number;
   frontpageHeading: string | null;
   description: string | null;
@@ -85,6 +86,16 @@ export default function RecipePolicySettings({
             <option value="DISCOVERABLE">{text.recipeEditor.discoverable}</option>
             <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
           </select>
+        </label>
+        <label>
+          <input
+            type="checkbox"
+            checked={policy.showOnStartPage}
+            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+              setPolicy({ ...policy, showOnStartPage: event.currentTarget.checked })
+            }
+          />
+          {text.recipePolicy.showOnStartPage}
         </label>
         <label>
           {text.recipePolicy.frontpageRecipeCount}

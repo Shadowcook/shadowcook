@@ -6,4 +6,8 @@ export const migrations: readonly Migration[] = [
     '20261006000000_initial_schema',
     new URL('./20261006000000_initial_schema.sql', import.meta.url),
   ),
+  loadSqlMigration(
+    '20261006232324_beta-1',
+    new URL('./20261006232324_beta-1.sql', import.meta.url),
+  ),
 ];
