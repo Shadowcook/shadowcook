@@ -9,6 +9,7 @@ ARG PUBLIC_WEB_ORIGIN
 ENV PNPM_HOME=/pnpm
 ENV PATH=${PNPM_HOME}:${PATH}
 ENV PUBLIC_WEB_ORIGIN=${PUBLIC_WEB_ORIGIN}
+ENV NODE_OPTIONS=--max-old-space-size=512
 
 WORKDIR /workspace
 
@@ -25,10 +26,13 @@ COPY apps apps
 COPY packages packages
 COPY initial-deployment-seed.json ./
 
-RUN printf "import packageManifest from '../../../../../package.json';\n\nexport const applicationVersion: string = packageManifest.version;\n\nexport function buildCommit(): string | undefined {\n  return '%s';\n}\n" "${SHADOWCOOK_BUILD_COMMIT}" > apps/web/src/lib/server/build-info.ts \
-    && pnpm build \
-    && pnpm --filter @shadowcook/api --prod deploy --legacy /runtime/api \
-    && pnpm --filter @shadowcook/web --prod deploy --legacy /runtime/web
+RUN printf "import packageManifest from '../../../../../package.json';\n\nexport const applicationVersion: string = packageManifest.version;\n\nexport function buildCommit(): string | undefined {\n  return '%s';\n}\n" "${SHADOWCOOK_BUILD_COMMIT}" > apps/web/src/lib/server/build-info.ts
+
+RUN pnpm build
+
+RUN pnpm --filter @shadowcook/api --prod deploy --legacy /runtime/api
+
+RUN pnpm --filter @shadowcook/web --prod deploy --legacy /runtime/web
 
 FROM node:24.13.0-alpine AS api-runtime
 
