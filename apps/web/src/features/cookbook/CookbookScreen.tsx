@@ -89,7 +89,6 @@ export default function CookbookScreen({
   });
   const [currentPassword, setCurrentPassword] = useState<string>('');
   const [newPassword, setNewPassword] = useState<string>('');
-  const [repeatPassword, setRepeatPassword] = useState<string>('');
   const [hasPassword, setHasPassword] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -282,16 +281,11 @@ export default function CookbookScreen({
   async function changePassword(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     setMessage('');
-    if (newPassword !== repeatPassword) {
-      setMessage(text.passwordChange.passwordMismatch);
-      return;
-    }
     setIsSubmitting(true);
     try {
       await request<void>('/auth/change-password', jsonRequest({ currentPassword, newPassword }));
       setCurrentPassword('');
       setNewPassword('');
-      setRepeatPassword('');
       setHasPassword(true);
       cacheBrowserSession({
         authenticated: true,
@@ -478,13 +472,11 @@ export default function CookbookScreen({
         hasPassword={hasPassword}
         currentPassword={currentPassword}
         newPassword={newPassword}
-        repeatPassword={repeatPassword}
         isSubmitting={isSubmitting}
         message={message}
         onSubmit={changePassword}
         onCurrentPasswordChange={onValueChange(setCurrentPassword)}
         onNewPasswordChange={onValueChange(setNewPassword)}
-        onRepeatPasswordChange={onValueChange(setRepeatPassword)}
       />
     );
   if (screen === 'dashboard')

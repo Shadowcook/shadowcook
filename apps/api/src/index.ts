@@ -7,6 +7,7 @@ import { loadApiConfig } from './config.js';
 import { seedDevelopmentCookbook } from './development-seed.js';
 import { loadLocalEnvironment } from './environment.js';
 import { seedInitialDeployment } from './initial-deployment-seed.js';
+import { cleanupExpiredPendingRegistrations } from './registration/routes.js';
 
 async function start(): Promise<void> {
   loadLocalEnvironment();
@@ -44,8 +45,18 @@ async function start(): Promise<void> {
     config.instanceSecretKey,
     config.publicWebOrigin,
     config.publicApiOrigin,
+    config.registration,
+  );
+  const cleanupTimer: NodeJS.Timeout = setInterval(
+    (): void => {
+      void cleanupExpiredPendingRegistrations(connection.pool).catch((error: unknown): void => {
+        console.warn('Pending-registration cleanup failed', error);
+      });
+    },
+    3 * 60 * 60 * 1000,
   );
   api.addHook('onClose', async () => {
+    clearInterval(cleanupTimer);
     await closeDatabaseConnection(connection);
   });
 

@@ -6,6 +6,32 @@
 * {
   box-sizing: border-box;
 }
+.registration-honeypot {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.head-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+.admin-registration-settings__option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-top: 0.8rem;
+}
+.admin-registration-settings__option input {
+  width: auto;
+  margin: 0;
+}
+.admin-registration-settings__save {
+  margin-top: 1.4rem;
+}
 .admin-area {
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);
@@ -222,11 +248,34 @@ select {
   text-align: center;
 }
 .build-footer__content {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0 0.45rem;
   overflow-wrap: anywhere;
 }
 .build-footer code {
   color: inherit;
   font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+}
+.build-footer a {
+  color: inherit;
+}
+.legal-document {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: clamp(2rem, 6vw, 4rem);
+  border-radius: 2px 2rem 2px 2rem;
+  background: #fffaf0;
+  box-shadow: 0 18px 40px #3c211515;
+}
+.legal-document h1:first-child {
+  margin-top: 0;
+}
+.legal-document pre {
+  overflow-x: auto;
+  padding: 1rem;
+  background: #f3e5d7;
 }
 @media (min-width: 761px) {
   .application-shell--admin {
@@ -281,6 +330,21 @@ label {
     600 0.82rem Arial,
     sans-serif;
 }
+.password-field {
+  display: grid;
+  gap: 0.45rem;
+}
+.password-field__control {
+  display: flex;
+}
+.password-field__control input {
+  border-radius: 0.2rem 0 0 0.2rem;
+}
+.password-field__toggle {
+  min-width: 3rem;
+  padding: 0.8rem;
+  border-radius: 0 0.2rem 0.2rem 0;
+}
 input,
 select {
   width: 100%;
@@ -334,6 +398,28 @@ button:disabled {
 }
 .admin-settings__test h2 {
   font-size: 1.7rem;
+}
+.password-entropy-meter {
+  position: relative;
+  height: 0.8rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #eadfd2;
+}
+.password-entropy-meter__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #4e7c54;
+  transition: width 150ms ease-out;
+}
+.password-entropy-meter__threshold {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 2px;
+  background: #7c3023;
 }
 code {
   padding: 0.12rem 0.25rem;

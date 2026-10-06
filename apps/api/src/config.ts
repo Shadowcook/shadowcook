@@ -9,6 +9,19 @@ export interface ApiConfig {
   instanceSecretKey: Buffer | null;
   publicWebOrigin: string;
   publicApiOrigin: string;
+  registration: RegistrationConfig;
+}
+
+export interface RegistrationConfig {
+  turnstileSiteKey: string;
+  pendingLifetimeMilliseconds: number;
+  shortWindowMilliseconds: number;
+  shortWindowRequests: number;
+  dailyWindowMilliseconds: number;
+  dailyWindowRequests: number;
+  resendWindowMilliseconds: number;
+  resendRequests: number;
+  turnstileSecret: string;
 }
 
 export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
@@ -44,7 +57,60 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     instanceSecretKey,
     publicWebOrigin,
     publicApiOrigin: (environment.PUBLIC_API_ORIGIN ?? `${publicWebOrigin}/api`).replace(/\/$/, ''),
+    registration: {
+      turnstileSiteKey: environment.TURNSTILE_SITE_KEY ?? '',
+      pendingLifetimeMilliseconds: parseDuration(
+        environment.SHADOWCOOK_REGISTRATION_PENDING_LIFETIME,
+        24 * 60 * 60 * 1000,
+      ),
+      shortWindowMilliseconds: parseDuration(
+        environment.SHADOWCOOK_REGISTRATION_RATE_SHORT_DURATION,
+        15 * 60 * 1000,
+      ),
+      shortWindowRequests: parsePositiveInteger(
+        environment.SHADOWCOOK_REGISTRATION_RATE_SHORT_REQUESTS,
+        5,
+      ),
+      dailyWindowMilliseconds: parseDuration(
+        environment.SHADOWCOOK_REGISTRATION_RATE_DAILY_DURATION,
+        24 * 60 * 60 * 1000,
+      ),
+      dailyWindowRequests: parsePositiveInteger(
+        environment.SHADOWCOOK_REGISTRATION_RATE_DAILY_REQUESTS,
+        20,
+      ),
+      resendWindowMilliseconds: parseDuration(
+        environment.SHADOWCOOK_REGISTRATION_RESEND_DURATION,
+        60 * 60 * 1000,
+      ),
+      resendRequests: parsePositiveInteger(environment.SHADOWCOOK_REGISTRATION_RESEND_REQUESTS, 3),
+      turnstileSecret: readSecretEnvironmentValue(environment, 'TURNSTILE_SECRET') ?? '',
+    },
   };
+}
+
+function parsePositiveInteger(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const parsed: number = Number.parseInt(value, 10);
+  if (!Number.isSafeInteger(parsed) || parsed < 1)
+    throw new Error('Registration request limits must be positive integers.');
+  return parsed;
+}
+function parseDuration(value: string | undefined, fallback: number): number {
+  if (value === undefined) return fallback;
+  const match: RegExpMatchArray | null = value.match(/^(\d+)(ms|s|m|h|d)$/);
+  if (match === null) throw new Error('Registration durations must use ms, s, m, h, or d units.');
+  const factors: Record<string, number> = {
+    ms: 1,
+    s: 1000,
+    m: 60_000,
+    h: 3_600_000,
+    d: 86_400_000,
+  };
+  const milliseconds: number = Number.parseInt(match[1]!, 10) * factors[match[2]!]!;
+  if (!Number.isSafeInteger(milliseconds) || milliseconds < 1)
+    throw new Error('Registration durations must be positive.');
+  return milliseconds;
 }
 
 function readSecretEnvironmentValue(

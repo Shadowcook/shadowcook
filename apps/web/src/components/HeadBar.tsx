@@ -97,9 +97,14 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
           </div>
         </details>
       ) : (
-        <a className="button--secondary" href={signInHref}>
-          {text.dashboard.login}
-        </a>
+        <div className="head-bar__actions">
+          <a className="button--secondary" href="/register">
+            {text.headBar.register}
+          </a>
+          <a className="button--secondary" href={signInHref}>
+            {text.dashboard.login}
+          </a>
+        </div>
       )}
     </header>
   );

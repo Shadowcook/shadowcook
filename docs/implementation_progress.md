@@ -5,7 +5,7 @@
 ### Platform, persistence, and development data
 
 - The pnpm workspace contains the Fastify API, Astro web application, database package, and OpenAPI contract.
-- The Docker Compose deployment package includes an upgrade script that resolves a requested Git ref to a full commit before rebuilding the API and web runtime images, embeds that commit in the localized web footer, supports bundled or existing PostgreSQL through separate Compose configurations, includes an Apache reverse-proxy example, and can be created as a versioned server-copyable tarball.
+- The Docker Compose deployment package includes an upgrade script that resolves a requested Git ref to a full commit before rebuilding the API and web runtime images, embeds the root package version and the commit prefix in the localized web footer, supports bundled or existing PostgreSQL through separate Compose configurations, includes an Apache reverse-proxy example, and can be created as a versioned server-copyable tarball.
 - PostgreSQL uses the initial normalized schema for tenants, principals, roles, catalogues, recipes, immutable revisions, media, audit events, cooking sessions, sharing, federation upstreams, and mappings. The initial schema migration is maintained as a UTC timestamp-prefixed SQL file.
 - API startup runs transactional, advisory-lock-protected migrations with recorded checksums and UTC timestamps before binding its HTTP listener.
 - The API exposes the health endpoint and documented API contract.
@@ -24,6 +24,7 @@
 - Public cookbook access supports public recipes; authenticated users additionally receive accessible tenant recipes.
 - Tenant General settings configure the front-page featured-recipe count, recipe defaults, an optional front-page heading with an 80-character limit, and an optional cookbook description with a 280-character limit.
 - Instance Front page settings configure the root-page website name, slogan, and cookbook page size. The root page filters accessible cookbooks by a contains match and presents stable shuffled pagination.
+- The localized footer links the license and application version to the GitHub build commit, and links to deep-linkable public privacy-statement and legal-notice pages. New initial databases contain editable English Markdown templates with operator placeholders; instance administrators maintain the two public documents in Legal documents settings.
 - Category and recipe slugs are tenant-unique, route segments are reserved in the database, and cookbook navigation supports root recipe URLs, category paths, and breadcrumbs.
 - Hydrated cookbook categories, recipes, breadcrumbs, and tenant-management navigation are native deep-link anchors that support opening in a new browser tab.
 - Mobile cookbook navigation provides the category tree in a header-adjacent left-side drawer with a fixed close control and a scrollable category list.
@@ -63,7 +64,7 @@
 
 ### Authentication, authorization, and administration
 
-- Human password authentication, email-code authentication, opaque HttpOnly sessions, password-change enforcement, password resets, and bootstrap administration are implemented. Password complexity and minimum-length validation apply outside development only.
+- Human password authentication, email-code authentication, opaque HttpOnly sessions, password-change enforcement, password resets, and bootstrap administration are implemented. Instance administrators configure a 1-to-256-bit minimum estimated password entropy, with a local threshold-centred progress test; the default is 60 bits. The zxcvbn-ts estimate recognizes common words, sequences, repetitions, l33t substitutions, and keyboard patterns, while fully random character sequences use character-pool entropy. Browser indicator calculations are debounced by 200 milliseconds and analyze at most the first 64 characters. Registration, password-change, password-reset, and account-invitation forms show the same local threshold-centred progress indicator. All password-entry fields provide a localized show-or-hide control, and password-change completion does not require repeated entry. Entropy validation applies outside development only.
 - Tenant invitation acceptance starts an invited account session, directs it to the assigned cookbook, and supports first-password completion without a current-password field and with localized repeated-password validation.
 - One-time email codes are hashed, expiring, rate-limited, and delivered through configured SMTP.
 - SMTP configuration is permission-gated, encrypts stored passwords, and supports test delivery.
@@ -80,3 +81,4 @@
 - AI context reader endpoints expose published recipes, immutable published and archived recipe revisions, current drafts, and categories within the selected scope. They do not expose management resources or write operations.
 - The cookbook recipe page and selected-category recipe-grid header provide localized, AI-marked context-share actions. The modal duration selector displays and copies the one-time context URL.
 - AI context manifests provide tenant identity, public web origin, and cookbook, category, recipe, and variant URL templates for AI-generated deep links.
+- Public self-service registration creates an expiring pending registration only after backend honeypot and IP rate-limit validation, plus Turnstile validation when enabled by an instance administrator. Email verification atomically creates the user and owner tenant. Verification tokens and pending password hashes are stored only as hashes. Registration, optional Turnstile, and resend controls are configurable, resend responses are generic, and periodic cleanup removes expired pending registrations.

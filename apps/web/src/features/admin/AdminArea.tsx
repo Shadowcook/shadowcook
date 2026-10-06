@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
 import AdminMailSettings from './components/AdminMailSettings';
 import AdminAuthenticationSettings from './components/AdminAuthenticationSettings';
+import AdminRegistrationSettings from './components/AdminRegistrationSettings';
 import AdminFrontpageSettings from './components/AdminFrontpageSettings';
+import AdminLegalDocuments from './components/AdminLegalDocuments';
 import AdminTenantManagement from './components/AdminTenantManagement';
 import AdminTenantCreate from './components/AdminTenantCreate';
 import AdminUnitManagement from './components/AdminUnitManagement';
@@ -201,6 +203,32 @@ export default function AdminArea({ locale, path }: Properties): JSX.Element {
               >
                 {text.admin.authentication}
               </a>
+              <a
+                className={
+                  currentPath === '/admin/settings/registration'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/registration"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/registration')
+                }
+              >
+                {text.admin.registration}
+              </a>
+              <a
+                className={
+                  currentPath === '/admin/settings/legal-documents'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/legal-documents"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/legal-documents')
+                }
+              >
+                {text.admin.legalDocuments}
+              </a>
             </>
           ) : null}
         </nav>
@@ -223,7 +251,9 @@ function page(
   if (path === '/admin/settings/smtp') return <AdminMailSettings locale={locale} />;
   if (path === '/admin/settings/authentication')
     return <AdminAuthenticationSettings locale={locale} />;
+  if (path === '/admin/settings/registration') return <AdminRegistrationSettings locale={locale} />;
   if (path === '/admin/settings/frontpage') return <AdminFrontpageSettings locale={locale} />;
+  if (path === '/admin/settings/legal-documents') return <AdminLegalDocuments locale={locale} />;
   if (path === '/admin/tenants/new') return <AdminTenantCreate locale={locale} />;
   if (path === '/admin/tenants') return <AdminTenantManagement locale={locale} />;
   if (path === '/admin/units') return <AdminUnitManagement locale={locale} />;
@@ -264,6 +294,26 @@ function page(
         >
           <span>{text.admin.authentication}</span>
           <strong>{text.admin.authenticationTitle}</strong>
+        </a>
+        <a
+          className="admin-card"
+          href="/admin/settings/registration"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/registration')
+          }
+        >
+          <span>{text.admin.registration}</span>
+          <strong>{text.admin.registrationTitle}</strong>
+        </a>
+        <a
+          className="admin-card"
+          href="/admin/settings/legal-documents"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/legal-documents')
+          }
+        >
+          <span>{text.admin.legalDocuments}</span>
+          <strong>{text.admin.legalDocumentsTitle}</strong>
         </a>
       </section>
     );

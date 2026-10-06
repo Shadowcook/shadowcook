@@ -1,0 +1,47 @@
+---
+import BuildFooter from './BuildFooter.astro';
+import Favicon from './Favicon.astro';
+import HeadBar from './HeadBar';
+import { translations } from '../i18n';
+import type { Locale } from '../i18n';
+import { buildCommit } from '../lib/server/build-info';
+import { renderMarkdown } from '../lib/server/markdown';
+
+interface Properties {
+  locale: Locale;
+  markdown: string;
+  title: string;
+}
+
+const { locale, markdown, title } = Astro.props;
+const text = translations[locale];
+const deployedBuildCommit: string | undefined = buildCommit();
+const renderedMarkdown: string = renderMarkdown(markdown);
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={title} />
+    <Favicon />
+    <title>{title} · {text.metadata.title}</title>
+  </head>
+  <body>
+    <HeadBar client:load locale={locale} />
+    <main class="application-shell">
+      <article class="legal-document">
+        <h1>{title}</h1>
+        {
+          markdown.length === 0 ? (
+            <p>{text.legalDocument.unavailable}</p>
+          ) : (
+            <div set:html={renderedMarkdown} />
+          )
+        }
+      </article>
+    </main>
+    <BuildFooter buildCommit={deployedBuildCommit} text={text} />
+  </body>
+</html>

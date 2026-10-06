@@ -5,7 +5,7 @@ import { currentSessionUser } from '../auth/session.js';
 import { createSession } from '../auth/routes.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from '../auth/email-code.js';
 import { createPasswordResetToken } from '../auth/password-reset.js';
-import { hashPassword } from '../auth/password.js';
+import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
 import { sendInstanceMail } from '../mail/service.js';
 import { isSmtpConfigured } from './mail-routes.js';
 import { requireInstancePermission, requireTenantPermission } from './authorization.js';
@@ -696,7 +696,8 @@ export function registerTenantRoutes(
           .send({ code: 'INVALID_PASSWORD', error: 'A password is required for this invitation.' });
       let passwordHash: string | null = null;
       try {
-        if (body.password !== undefined) passwordHash = await hashPassword(body.password);
+        if (body.password !== undefined)
+          passwordHash = await hashPassword(body.password, await minimumPasswordEntropy(pool));
       } catch (error: unknown) {
         return reply.code(400).send({
           code: 'INVALID_PASSWORD',

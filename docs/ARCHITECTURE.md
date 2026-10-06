@@ -215,6 +215,8 @@ shadowcook/
 - `/login` is the public sign-in route. An unauthenticated request to it renders the sign-in form; an authenticated request redirects to `/`.
 - `/` presents the accessible tenant selection. Cookbook content is loaded only after choosing a tenant at `/tenants/{tenant-slug}`; a cookbook response contains records from exactly one tenant.
 - The instance root page stores a website name, slogan, and cookbook page size from 1 through 100. Defaults are `My Cookbook`, `Made to be shared`, and 4. Instance administrators configure these values in Front page settings.
+- The instance stores public privacy-statement and legal-notice Markdown documents. The initial database creates editable English template documents with operator placeholders. Instance administrators edit both documents in Legal documents settings. Public `/privacy-statement` and `/imprint` pages render their Markdown with source HTML disabled.
+- The footer links the license and the displayed application version to the Shadowcook GitHub repository at the build commit.
 - The root page lists accessible enabled cookbooks with a case-insensitive contains filter over cookbook names and descriptions. Results use a client-provided stable shuffle seed and paginate using the configured cookbook page size.
 - The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
@@ -256,6 +258,18 @@ shadowcook/
 - SMTP settings are instance-wide and are available only to principals with `instance:mail-manage` or `instance:administer`.
 - SMTP passwords are encrypted using AES-256-GCM with the base64-encoded 32-byte `INSTANCE_SECRET_KEY` supplied to the API process.
 - The API does not return stored SMTP passwords.
+
+### 4.5 Public self-service registration
+
+- Public registration is controlled by the instance-administration registration setting and defaults to enabled.
+- The API creates `pending_registration` records before email verification; these records store a password hash and a SHA-256 verification-token hash, never plaintext credentials or verification tokens.
+- Pending registrations expire after the configured `SHADOWCOOK_REGISTRATION_PENDING_LIFETIME`, defaulting to 24 hours. API-process cleanup runs every three hours.
+- `POST /registration` applies configurable IP limits, validates an empty honeypot and a Cloudflare Turnstile token, and sends the email-verification URL.
+- `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, and `TURNSTILE_SECRET_FILE` are optional deployment environment settings. The API exposes only a configured `TURNSTILE_SITE_KEY` through the public registration configuration endpoint.
+- Instance administrators can require Turnstile only when both the site key and secret are configured. When Turnstile is not required, registration accepts no Turnstile token.
+- `POST /registration/verify` deletes an unexpired matching pending registration and creates the user, tenant, initial Owner, Editor, and Viewer roles, membership, and owner-role membership in one transaction.
+- `POST /registration/resend-verification` has a configurable email-address limit and returns a generic acknowledgement for every input.
+- Registration rate events are retained for 25 hours. Default registration limits are five requests per 15 minutes and twenty requests per 24 hours per IP. The default resend limit is three emails per address per hour.
 - SMTP transport supports STARTTLS and implicit TLS and can send a test message through the stored configuration.
 
 ### 4.5 Docker-first runtime configuration
@@ -280,14 +294,19 @@ shadowcook/
 - `/admin` is a reserved, instance-wide web namespace and is not a tenant slug.
 - Astro middleware redirects an unauthenticated request for a protected administration or tenant-management route to `/login?next=<requested-path>` before the page is served. After successful login, the web client returns to the validated internal `next` path.
 - The instance administration UI has its own navigation and does not use cookbook breadcrumbs.
-- `/admin` is the administration dashboard, `/admin/tenants` is tenant management, `/admin/users` is instance and tenant user management, `/admin/settings` is the instance settings overview, and `/admin/settings/smtp` manages SMTP delivery.
+- `/admin` is the administration dashboard, `/admin/tenants` is tenant management, `/admin/users` is instance and tenant user management, `/admin/settings` is the instance settings overview, `/admin/settings/smtp` manages SMTP delivery, and `/admin/settings/legal-documents` manages public legal-document Markdown.
 - `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.
 - Accepting a tenant invitation starts a browser session for the invited account and returns the assigned cookbook slug.
 - A newly created tenant-invitation account has no password verifier, requires password completion, and does not require a current-password value.
-- Outside development, password completion requires matching entries and a password with at least twelve characters, lowercase and uppercase letters, a number, and a special character. Development does not enforce password requirements.
+- Instance authentication settings store a minimum estimated password entropy from 1 through 256 bits. The default is 60 bits. Instance administrators configure the threshold and can test a password against it locally in Authentication settings.
+- `GET /auth/password-requirements` exposes the current minimum estimated password entropy for browser-local feedback in every password-assignment form.
+- Outside development, password completion requires matching entries and the configured minimum estimated password entropy. The estimate uses zxcvbn-ts with common, English, and German dictionaries and common keyboard graphs. Passwords identified as a wholly random character sequence use their represented character-pool entropy. Specific character types are not required. Development does not enforce password requirements.
+- Browser password-entropy indicators debounce password analysis by 200 milliseconds after the last input event.
+- Password-entropy analysis examines at most the first 64 characters. Passwords may contain up to 1024 characters and are hashed in full.
+- Password-entry fields provide a localized show-or-hide control. Password-change completion does not require a repeated-password field.
 - An active session may accept a tenant-owner invitation only when its email address matches the invited email address.
 - One-time email and invitation codes are cleared on session, account, and authentication-step changes and are excluded from browser autocomplete.
 - The six-field login-code control distributes pasted digits from the active field and uses backspace in an empty field to remove and focus the preceding digit.

@@ -27,6 +27,15 @@ export interface InstanceFrontpageSettingsTable {
   updated_at: Generated<Timestamp>;
 }
 
+export interface InstanceLegalDocumentsTable {
+  singleton: Generated<boolean>;
+  privacy_statement_markdown: string;
+  imprint_markdown: string;
+  updated_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
 export interface UserAccountTable {
   id: Generated<Uuid>;
   principal_id: string;
@@ -62,6 +71,33 @@ export interface PasswordResetTokenTable {
   expires_at: Timestamp;
   consumed_at: Timestamp | null;
   created_at: Generated<Timestamp>;
+}
+
+export interface PendingRegistrationTable {
+  id: Generated<Uuid>;
+  email: string;
+  password_hash: string;
+  tenant_name: string;
+  verification_token_hash: Buffer;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+}
+
+export interface RegistrationRateEventTable {
+  id: Generated<Uuid>;
+  event_type: 'REGISTRATION' | 'VERIFICATION_RESEND';
+  requested_ip: string | null;
+  normalized_email: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface InstanceRegistrationSettingsTable {
+  singleton: Generated<boolean>;
+  enabled: Generated<boolean>;
+  turnstile_enabled: Generated<boolean>;
+  updated_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
 }
 
 export interface UserInvitationTable {
@@ -176,10 +212,14 @@ export interface ApplicationSeedTable {
  */
 export interface Database {
   instance_frontpage_settings: InstanceFrontpageSettingsTable;
+  instance_legal_documents: InstanceLegalDocumentsTable;
   tenant: TenantTable;
   user_account: UserAccountTable;
   user_session: UserSessionTable;
   password_reset_token: PasswordResetTokenTable;
+  pending_registration: PendingRegistrationTable;
+  registration_rate_event: RegistrationRateEventTable;
+  instance_registration_settings: InstanceRegistrationSettingsTable;
   user_invitation: UserInvitationTable;
   recipe: RecipeTable;
   recipe_revision: RecipeRevisionTable;

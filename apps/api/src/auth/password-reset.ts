@@ -32,8 +32,9 @@ export async function completePasswordReset(
   pool: Pool,
   token: string,
   newPassword: string,
+  minimumEntropy: number,
 ): Promise<boolean> {
-  const passwordHash: string = await hashPassword(newPassword);
+  const passwordHash: string = await hashPassword(newPassword, minimumEntropy);
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');

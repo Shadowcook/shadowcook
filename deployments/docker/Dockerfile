@@ -25,7 +25,7 @@ COPY apps apps
 COPY packages packages
 COPY initial-deployment-seed.json ./
 
-RUN printf "export function buildCommit(): string | undefined {\n  return '%s';\n}\n" "${SHADOWCOOK_BUILD_COMMIT}" > apps/web/src/lib/server/build-info.ts \
+RUN printf "import packageManifest from '../../../../../package.json';\n\nexport const applicationVersion: string = packageManifest.version;\n\nexport function buildCommit(): string | undefined {\n  return '%s';\n}\n" "${SHADOWCOOK_BUILD_COMMIT}" > apps/web/src/lib/server/build-info.ts \
     && pnpm build \
     && pnpm --filter @shadowcook/api --prod deploy --legacy /runtime/api \
     && pnpm --filter @shadowcook/web --prod deploy --legacy /runtime/web

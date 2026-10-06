@@ -196,6 +196,7 @@ CREATE TABLE instance_mail_settings (
 CREATE TABLE instance_authentication_settings (
   singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
   login_mode text NOT NULL DEFAULT 'PASSWORD_OR_EMAIL_CODE' CHECK (login_mode IN ('PASSWORD_ONLY', 'EMAIL_CODE_ONLY', 'PASSWORD_OR_EMAIL_CODE')),
+  minimum_password_entropy integer NOT NULL DEFAULT 60 CHECK (minimum_password_entropy BETWEEN 1 AND 256),
   updated_by_principal_id uuid REFERENCES principal(id) ON DELETE RESTRICT,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
@@ -210,6 +211,312 @@ CREATE TABLE instance_frontpage_settings (
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE TABLE instance_legal_documents (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  privacy_statement_markdown text NOT NULL DEFAULT $privacy_policy$
+# Privacy Policy
+
+> **Template notice:**\
+> This is a default privacy policy provided with Shadowcook to help instance operators get started.\
+> Privacy requirements vary by jurisdiction and by how an instance is configured.\
+> Replace all placeholders and review this document before making your instance publicly available.
+
+## 1. Controller
+
+The person or organization responsible for operating this Shadowcook instance and for the processing of personal data is:
+
+**[Operator name / organization]**\
+[Address, if required]\
+[Country]
+
+Email: [contact email]
+
+## 2. About this service
+
+Shadowcook is a self-hosted application for creating, managing and sharing recipes and cookbooks.
+
+This instance does not use advertising, behavioral tracking or analytics services unless explicitly stated otherwise in this privacy policy.
+
+## 3. User accounts
+
+Users may create an account on this Shadowcook instance.
+
+When an account is created, the following information may be stored:
+
+- name or display name
+- email address
+- authentication information required to access the account
+
+Passwords are not intended to be stored in plain text. Authentication credentials are handled by the authentication system configured for this Shadowcook instance.
+
+This information is used to:
+
+- create and maintain the user account
+- authenticate the user
+- provide access to Shadowcook features
+- associate recipes, cookbooks and other content with the user account
+
+Where the GDPR applies, the legal basis for this processing is generally Article 6(1)(b) GDPR, insofar as the processing is necessary to provide the requested service.
+
+## 4. Content created by users
+
+Shadowcook stores content that users choose to create, upload or share.
+
+Depending on how the application is used, this may include:
+
+- recipes
+- cookbooks
+- recipe descriptions
+- notes
+- images
+- sharing settings
+- other user-generated content
+
+This information is processed in order to provide the functionality requested by the user.
+
+Users should be aware that content which they choose to publish or share may become visible to other users.
+
+## 5. Cookies and local storage
+
+Shadowcook only uses cookies or comparable browser storage where they are technically necessary to provide the requested functionality.
+
+These may be used for purposes such as:
+
+- maintaining an authenticated session
+- security
+- protecting against unauthorized requests
+- remembering technically necessary settings
+
+Shadowcook does not use advertising cookies or tracking cookies by default.
+
+Where applicable, technically necessary storage may be used without consent if this is permitted under the laws applicable to the operator.
+
+## 6. Server logs
+
+The web server, reverse proxy, hosting provider or other infrastructure used to operate this Shadowcook instance may process technical connection data.
+
+This may include:
+
+- IP address
+- date and time of the request
+- requested resource
+- HTTP status code
+- user agent
+- technical error information
+
+Such information may be processed for purposes including:
+
+- operating the service
+- detecting technical problems
+- protecting the service against attacks and abuse
+
+Log retention period:
+
+**[Insert retention period, e.g. 7 days]**
+
+If your infrastructure does not store such logs, this section may be adjusted accordingly.
+
+Where the GDPR applies, this processing may be based on Article 6(1)(f) GDPR. The legitimate interest is the secure and reliable operation of the service.
+
+## 7. Hosting and service providers
+
+This Shadowcook instance is hosted by:
+
+**[Hosting provider]**\
+[Country]
+
+Additional service providers used by this instance:
+
+**[None / list providers here]**
+
+Depending on the configuration of the instance, service providers may process personal data on behalf of the operator.
+
+If external services are used, the operator should describe them here and provide any information required under applicable privacy law.
+
+## 8. Email
+
+If this Shadowcook instance sends emails, for example for account verification, password recovery or notifications, the configured email provider may process the recipient's email address and technical delivery information.
+
+Email service provider:
+
+**[Provider / self-hosted / not applicable]**
+
+Further information:
+
+**[Add details if applicable]**
+
+## 9. Tracking and analytics
+
+This Shadowcook instance does not use tracking, advertising or analytics services by default.
+
+If the operator enables additional tracking or analytics services, this section must be updated accordingly.
+
+## 10. Sharing of personal data
+
+Personal data is not sold for advertising or marketing purposes.
+
+Data may be disclosed where this is necessary:
+
+- to operate the service
+- to provide infrastructure or hosting
+- to comply with legal obligations
+- to protect the service or its users against abuse
+
+Any additional data sharing introduced by the operator should be documented in this privacy policy.
+
+## 11. International data transfers
+
+**[Choose and adapt one of the following statements.]**
+
+### Option A – No international transfers
+
+Personal data is not intentionally transferred outside the jurisdiction in which this instance is hosted.
+
+### Option B – International transfers may occur
+
+Some service providers used by this instance may process data in other countries.
+
+The operator should describe the applicable safeguards and legal basis for such transfers here.
+
+## 12. Data retention
+
+Account-related personal data is generally retained for as long as the corresponding user account exists.
+
+When an account is deleted, associated personal data is deleted or anonymized where technically possible, unless continued storage is required for legal, security or operational reasons.
+
+User-generated content may be subject to separate retention rules, particularly where it has been shared with other users or where preserving recipe history or versioning is necessary for the functionality of the service.
+
+Technical logs are retained according to the period stated above.
+
+## 13. Your rights
+
+Depending on your jurisdiction, you may have rights regarding your personal data.
+
+Where the GDPR applies, these may include:
+
+- the right of access
+- the right to rectification
+- the right to erasure
+- the right to restriction of processing
+- the right to data portability
+- the right to object to certain processing activities
+
+Requests concerning personal data can be sent to:
+
+**[contact email]**
+
+## 14. Right to lodge a complaint
+
+Where the GDPR applies, you have the right to lodge a complaint with a competent data protection supervisory authority.
+
+The competent authority will normally depend on the location of the operator.
+
+## 15. Automated decision-making
+
+Shadowcook does not perform automated decision-making or profiling as described in Article 22 GDPR by default.
+
+## 16. Changes to this privacy policy
+
+This privacy policy may be updated when:
+
+- Shadowcook functionality changes
+- the configuration of this instance changes
+- additional service providers are introduced
+- legal requirements change
+
+The version published on this Shadowcook instance is the version currently applicable.
+
+**Last updated:** [date]
+$privacy_policy$,
+  imprint_markdown text NOT NULL DEFAULT $legal_notice$
+# Legal Notice
+
+> **Template notice:**\
+> Legal disclosure requirements depend on the jurisdiction in which this Shadowcook instance is operated.\
+> This template is provided for convenience only and does not determine whether you are legally required to publish a legal notice.
+
+## Operator
+
+This Shadowcook instance is operated by:
+
+**[Name / organization]**\
+[Address, if legally required]\
+[Postal code and city]\
+[Country]
+
+## Contact
+
+Email: [contact email]
+
+[Phone number, if required]
+
+## Additional legal information
+
+Depending on the operator's jurisdiction and legal status, additional information may be required.
+
+Examples may include:
+
+- legal form
+- authorized representative
+- company or association register
+- registration number
+- VAT identification number
+- competent regulatory authority
+- professional licensing information
+- consumer dispute resolution information
+
+Add any information required under the laws applicable to your instance here.
+
+## Germany
+
+Operators established in Germany should determine whether the information requirements of Section 5 of the German Digital Services Act\
+(*Digitale-Dienste-Gesetz – DDG*) apply to their instance.
+
+If applicable, the required information may include the operator's name, postal address and electronic contact information, as well as additional company or register information depending on the operator's legal form.
+
+## User-generated content
+
+Shadowcook allows users to create and share content, including recipes, cookbooks, text and images.
+
+Users are responsible for ensuring that content they upload or publish does not violate applicable law or the rights of third parties.
+
+Reports concerning potentially unlawful content may be sent to:
+
+**[contact email]**
+
+## About Shadowcook
+
+This website is powered by **Shadowcook**, an open-source application for creating and sharing recipes and cookbooks.
+
+Shadowcook is software only.
+
+The operator of this instance is independently responsible for:
+
+- operating this server
+- deciding who may use the instance
+- processing personal data
+- moderating content
+- complying with legal obligations applicable to the instance
+
+The Shadowcook project and its contributors are not the operators of this instance unless explicitly stated otherwise.
+
+## License and source code
+
+Shadowcook is open-source software.
+
+Source code and licensing information:
+
+**[Project URL / repository URL]**
+
+**Last updated:** [date]
+$legal_notice$,
+  updated_by_principal_id uuid REFERENCES principal(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+INSERT INTO instance_legal_documents (singleton) VALUES (true);
 
 CREATE TABLE application_seed (
   id text PRIMARY KEY,
@@ -577,6 +884,39 @@ CREATE TABLE password_reset_token (
   CHECK (expires_at > created_at)
 );
 CREATE INDEX password_reset_token_user_active_idx ON password_reset_token(user_account_id, created_at DESC) WHERE consumed_at IS NULL;
+
+CREATE TABLE pending_registration (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  email text NOT NULL,
+  password_hash text NOT NULL,
+  tenant_name text NOT NULL CHECK (length(trim(tenant_name)) BETWEEN 1 AND 120),
+  verification_token_hash bytea NOT NULL UNIQUE,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL,
+  CHECK (expires_at > created_at),
+  UNIQUE (email)
+);
+
+CREATE TABLE instance_registration_settings (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  enabled boolean NOT NULL DEFAULT true,
+  turnstile_enabled boolean NOT NULL DEFAULT false,
+  updated_by_principal_id uuid REFERENCES principal(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE registration_rate_event (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  event_type text NOT NULL CHECK (event_type IN ('REGISTRATION', 'VERIFICATION_RESEND')),
+  requested_ip inet,
+  normalized_email text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX pending_registration_expiry_idx ON pending_registration(expires_at);
+CREATE INDEX registration_rate_event_ip_idx ON registration_rate_event(event_type, requested_ip, created_at DESC);
+CREATE INDEX registration_rate_event_email_idx ON registration_rate_event(event_type, normalized_email, created_at DESC);
 
 CREATE TABLE user_invitation (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
+import PasswordField from '../../../components/PasswordField';
 
 interface Properties {
   locale: Locale;
@@ -175,16 +176,14 @@ export default function AdminMailSettings({ locale }: Properties): JSX.Element {
           {text.adminMail.username}
           <input value={values.username} onChange={update('username')} autoComplete="username" />
         </label>
-        <label>
-          {text.adminMail.password}
-          <input
-            value={values.password}
-            onChange={update('password')}
-            type="password"
-            autoComplete="new-password"
-          />
-          <span className="field-hint">{text.adminMail.passwordHint}</span>
-        </label>
+        <PasswordField
+          text={text}
+          label={text.adminMail.password}
+          value={values.password}
+          onChange={update('password')}
+          autoComplete="new-password"
+          hint={text.adminMail.passwordHint}
+        />
         <label>
           {text.adminMail.fromEmail}
           <input value={values.fromEmail} onChange={update('fromEmail')} type="email" required />

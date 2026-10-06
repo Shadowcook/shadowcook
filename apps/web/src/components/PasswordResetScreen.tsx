@@ -3,6 +3,8 @@ import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 import StatusMessage from './StatusMessage';
+import PasswordEntropyMeter from './PasswordEntropyMeter';
+import PasswordField from './PasswordField';
 
 export default function PasswordResetScreen({
   text,
@@ -37,20 +39,18 @@ export default function PasswordResetScreen({
       <h1>{text.passwordReset.title}</h1>
       <p className="lede">{text.passwordReset.subtitle}</p>
       <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void complete(event)}>
-        <label>
-          {text.passwordReset.newPassword}
-          <input
-            value={newPassword}
-            type="password"
-            minLength={12}
-            autoComplete="new-password"
-            required
-            autoFocus
-            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-              setNewPassword(event.currentTarget.value)
-            }
-          />
-        </label>
+        <PasswordField
+          text={text}
+          label={text.passwordReset.newPassword}
+          value={newPassword}
+          autoComplete="new-password"
+          required
+          autoFocus
+          onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+            setNewPassword(event.currentTarget.value)
+          }
+        />
+        <PasswordEntropyMeter text={text} password={newPassword} />
         <button type="submit" disabled={isSubmitting}>
           {isSubmitting ? text.passwordReset.submitting : text.passwordReset.submit}
         </button>

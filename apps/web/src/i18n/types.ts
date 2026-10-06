@@ -12,9 +12,16 @@ export interface Translation {
   headBar: {
     userMenu: string;
     signOutFailed: string;
+    register: string;
   };
   buildFooter: {
-    commit: string;
+    imprint: string;
+    license: string;
+    privacyStatement: string;
+    unavailable: string;
+    version: string;
+  };
+  legalDocument: {
     unavailable: string;
   };
   loading: string;
@@ -51,6 +58,21 @@ export interface Translation {
     completed: string;
     invalid: string;
   };
+  registration: {
+    title: string;
+    subtitle: string;
+    email: string;
+    password: string;
+    cookbookName: string;
+    submit: string;
+    submitting: string;
+    checkEmail: string;
+    unavailable: string;
+    verificationInvalid: string;
+    verificationSucceeded: string;
+    resend: string;
+    resendSent: string;
+  };
   userInvitation: {
     title: string;
     subtitle: string;
@@ -63,13 +85,20 @@ export interface Translation {
   passwordChange: {
     currentPasswordLabel: string;
     newPasswordLabel: string;
-    repeatPasswordLabel: string;
-    passwordMismatch: string;
     complexityHint: string;
     submit: string;
     submitting: string;
     subtitle: string;
     title: string;
+  };
+  passwordField: {
+    showPassword: string;
+    hidePassword: string;
+  };
+  passwordEntropy: {
+    progressLabel: string;
+    value: string;
+    analysisLimit: string;
   };
   invitation: {
     title: string;
@@ -156,13 +185,31 @@ export interface Translation {
     cookbooksPerPage: string;
     saveFrontpage: string;
     frontpageSaved: string;
+    legalDocuments: string;
+    legalDocumentsDescription: string;
+    legalDocumentsSaved: string;
+    legalDocumentsTitle: string;
+    saveLegalDocuments: string;
     authentication: string;
+    registration: string;
+    registrationTitle: string;
+    registrationDescription: string;
+    registrationEnabled: string;
+    saveRegistration: string;
+    savingRegistration: string;
+    registrationSaved: string;
+    turnstileEnabled: string;
+    turnstileNotConfigured: string;
     authenticationTitle: string;
     authenticationDescription: string;
     passwordOnly: string;
     emailCodeOnly: string;
     passwordOrEmailCode: string;
     saveAuthentication: string;
+    minimumPasswordEntropy: string;
+    minimumPasswordEntropyHint: string;
+    passwordEntropyTestTitle: string;
+    passwordEntropyTestPassword: string;
     tenantsNew: string;
     createTenant: string;
     firstName: string;

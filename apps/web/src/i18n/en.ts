@@ -12,10 +12,17 @@ export const en: Translation = {
   headBar: {
     userMenu: 'User menu',
     signOutFailed: 'Sign-out failed. Please try again.',
+    register: 'Register',
   },
   buildFooter: {
-    commit: 'Build commit',
+    imprint: 'Legal notice',
+    license: 'License',
+    privacyStatement: 'Privacy Statement',
     unavailable: 'not available',
+    version: 'Version',
+  },
+  legalDocument: {
+    unavailable: 'This document has not been published yet.',
   },
   loading: 'Checking session …',
   accessDenied: {
@@ -177,6 +184,24 @@ export const en: Translation = {
     completed: 'Your password has been reset. You can now sign in.',
     invalid: 'This password-reset link is invalid or has expired.',
   },
+  registration: {
+    title: 'Create your cookbook',
+    subtitle:
+      'Create an account and cookbook. We will create them after you verify your email address.',
+    email: 'Email address',
+    password: 'Password',
+    cookbookName: 'Cookbook name',
+    submit: 'Create account',
+    submitting: 'Creating account …',
+    checkEmail:
+      'Check your email. We sent a verification link to your email address. Your Shadowcook account will be created after you verify it.',
+    unavailable: 'Public registration is currently unavailable.',
+    verificationInvalid: 'This verification link is invalid or expired.',
+    verificationSucceeded: 'Your account and cookbook have been created. You can now sign in.',
+    resend: 'Send another verification email',
+    resendSent:
+      'If a pending registration exists for this email address, a new verification email has been sent.',
+  },
   userInvitation: {
     title: 'Create your account',
     subtitle: 'Choose the display name and sign-in details for your Shadowcook account.',
@@ -189,15 +214,21 @@ export const en: Translation = {
   passwordChange: {
     currentPasswordLabel: 'Current password',
     newPasswordLabel: 'New password',
-    repeatPasswordLabel: 'Repeat new password',
-    passwordMismatch: 'The new passwords do not match.',
-    complexityHint:
-      'Use at least 12 characters, including lowercase and uppercase letters, a number, and a special character.',
+    complexityHint: 'Use a password that meets this instance’s configured entropy threshold.',
     submit: 'Save password',
     submitting: 'Saving password …',
     subtitle:
       'Choose a secure password to finish setting up your account or replace your current password.',
     title: 'Set a new password.',
+  },
+  passwordField: {
+    showPassword: 'Show password',
+    hidePassword: 'Hide password',
+  },
+  passwordEntropy: {
+    progressLabel: 'Estimated password entropy',
+    value: '{entropy} bits estimated entropy; threshold: {threshold} bits.',
+    analysisLimit: 'The estimate considers the first {maximum} characters.',
   },
   invitation: {
     title: 'Cookbook invitation',
@@ -289,13 +320,34 @@ export const en: Translation = {
     cookbooksPerPage: 'Cookbooks per page',
     saveFrontpage: 'Save front page settings',
     frontpageSaved: 'Front page settings saved.',
+    legalDocuments: 'Legal documents',
+    legalDocumentsDescription: 'Manage the public privacy statement and imprint as Markdown.',
+    legalDocumentsSaved: 'Legal documents saved.',
+    legalDocumentsTitle: 'Legal documents',
+    saveLegalDocuments: 'Save legal documents',
     authentication: 'Authentication',
+    registration: 'Registration',
+    registrationTitle: 'Public registration',
+    registrationDescription:
+      'Allow visitors to create a Shadowcook account and cookbook after email verification.',
+    registrationEnabled: 'Enable public registration',
+    saveRegistration: 'Save registration settings',
+    savingRegistration: 'Saving registration settings …',
+    registrationSaved: 'Registration settings saved.',
+    turnstileEnabled: 'Require Cloudflare Turnstile',
+    turnstileNotConfigured:
+      'Set TURNSTILE_SITE_KEY and TURNSTILE_SECRET in the deployment environment before Turnstile can be enabled.',
     authenticationTitle: 'Sign-in methods',
     authenticationDescription: 'Choose the allowed instance-wide sign-in methods.',
     passwordOnly: 'Password only',
     emailCodeOnly: 'Email code only',
     passwordOrEmailCode: 'Password or email code',
     saveAuthentication: 'Save sign-in methods',
+    minimumPasswordEntropy: 'Minimum password entropy (bits)',
+    minimumPasswordEntropyHint:
+      'New passwords must reach this estimated entropy. No particular character types are required.',
+    passwordEntropyTestTitle: 'Password entropy test',
+    passwordEntropyTestPassword: 'Test password',
     tenantsNew: 'Create tenant',
     createTenant: 'Create cookbook and invite owner',
     firstName: 'First name',

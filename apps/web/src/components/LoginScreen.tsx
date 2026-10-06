@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, ClipboardEvent, JSX, KeyboardEvent, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
 import StatusMessage from './StatusMessage';
+import PasswordField from './PasswordField';
 
 export interface AuthenticationMethods {
   password: boolean;
@@ -117,17 +118,15 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
         ) : null}
         {step === 'password' ? (
           <>
-            <label>
-              {text.login.passwordLabel}
-              <input
-                value={password}
-                onChange={onPasswordChange}
-                type="password"
-                autoComplete="current-password"
-                required
-                autoFocus
-              />
-            </label>
+            <PasswordField
+              text={text}
+              label={text.login.passwordLabel}
+              value={password}
+              onChange={onPasswordChange}
+              autoComplete="current-password"
+              required
+              autoFocus
+            />
             <button
               className="button--secondary"
               type="button"

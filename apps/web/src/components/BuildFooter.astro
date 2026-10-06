@@ -1,5 +1,6 @@
 ---
 import type { Translation } from '../i18n';
+import { applicationVersion } from '../lib/server/build-info';
 
 interface Properties {
   buildCommit: string | undefined;
@@ -10,12 +11,44 @@ const { buildCommit, text } = Astro.props;
 const displayedCommit: string =
   buildCommit === undefined || buildCommit.length === 0
     ? text.buildFooter.unavailable
-    : buildCommit;
+    : buildCommit.slice(0, 7);
+const githubRepositoryUrl: string = 'https://github.com/Shadowcook/shadowcook';
+const githubCommitUrl: string | undefined =
+  buildCommit === undefined || buildCommit.length === 0
+    ? undefined
+    : `${githubRepositoryUrl}/commit/${buildCommit}`;
+const githubLicenseUrl: string | undefined =
+  buildCommit === undefined || buildCommit.length === 0
+    ? undefined
+    : `${githubRepositoryUrl}/blob/${buildCommit}/LICENSE`;
 ---
 
 <footer class="build-footer">
   <div class="build-footer__content">
-    <span>{text.buildFooter.commit}:</span>
-    <code>{displayedCommit}</code>
+    {
+      githubLicenseUrl === undefined ? (
+        <span>{text.buildFooter.license}</span>
+      ) : (
+        <a href={githubLicenseUrl} rel="noreferrer" target="_blank">
+          {text.buildFooter.license}
+        </a>
+      )
+    }
+    <span aria-hidden="true">·</span>
+    <a href="/privacy-statement">{text.buildFooter.privacyStatement}</a>
+    <span aria-hidden="true">·</span>
+    <a href="/imprint">{text.buildFooter.imprint}</a>
+    <span aria-hidden="true">·</span>
+    {
+      githubCommitUrl === undefined ? (
+        <span>
+          {text.buildFooter.version} {applicationVersion} (<code>{displayedCommit}</code>)
+        </span>
+      ) : (
+        <a href={githubCommitUrl} rel="noreferrer" target="_blank">
+          {text.buildFooter.version} {applicationVersion} (<code>{displayedCommit}</code>)
+        </a>
+      )
+    }
   </div>
 </footer>

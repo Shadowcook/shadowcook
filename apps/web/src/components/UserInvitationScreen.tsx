@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
+import PasswordEntropyMeter from './PasswordEntropyMeter';
+import PasswordField from './PasswordField';
 
 interface Invitation {
   email: string;
@@ -75,19 +77,19 @@ export default function UserInvitationScreen({
           />
         </label>
         {invitation.passwordRequired ? (
-          <label>
-            {text.userInvitation.password}
-            <input
+          <>
+            <PasswordField
+              text={text}
+              label={text.userInvitation.password}
               value={password}
-              type="password"
-              minLength={12}
               autoComplete="new-password"
               required
               onChange={(event: ChangeEvent<HTMLInputElement>): void =>
                 setPassword(event.currentTarget.value)
               }
             />
-          </label>
+            <PasswordEntropyMeter text={text} password={password} />
+          </>
         ) : null}
         <button type="submit">{text.userInvitation.accept}</button>
       </form>

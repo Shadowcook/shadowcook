@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
-import { hashPassword, verifyPassword } from './password.js';
+import { hashPassword, minimumPasswordEntropy, verifyPassword } from './password.js';
 import { completePasswordReset, createPasswordResetToken } from './password-reset.js';
 import { currentSessionUser, hashSessionToken, sessionTokenFromRequest } from './session.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from './email-code.js';
@@ -57,6 +57,11 @@ export function registerAuthenticationRoutes(
       requestPath === '/auth/email-code/request' ||
       requestPath === '/auth/email-code/verify' ||
       requestPath === '/auth/authentication-methods' ||
+      requestPath === '/auth/password-requirements' ||
+      requestPath === '/registration' ||
+      requestPath === '/registration/config' ||
+      requestPath === '/registration/resend-verification' ||
+      requestPath === '/registration/verify' ||
       requestPath.startsWith('/invitations/') ||
       requestPath.startsWith('/user-invitations/')
     )
@@ -97,6 +102,12 @@ export function registerAuthenticationRoutes(
     return reply.send({
       hasPassword: user.password_hash !== null,
       passwordChangeRequired: user.password_change_required,
+    });
+  });
+
+  api.get('/auth/password-requirements', async (_request: FastifyRequest, reply: FastifyReply) => {
+    return reply.send({
+      minimumPasswordEntropy: await minimumPasswordEntropy(pool),
     });
   });
 
@@ -177,7 +188,10 @@ export function registerAuthenticationRoutes(
       return sendError(reply, 401, 'AUTHENTICATION_FAILED', 'Authentication failed.');
     }
     try {
-      const passwordHash: string = await hashPassword(body.newPassword);
+      const passwordHash: string = await hashPassword(
+        body.newPassword,
+        await minimumPasswordEntropy(pool),
+      );
       await pool.query(
         'UPDATE user_account SET password_hash = $1, password_change_required = false, password_changed_at = now(), updated_at = now() WHERE id = $2',
         [passwordHash, user.id],
@@ -238,7 +252,12 @@ export function registerAuthenticationRoutes(
       )
         return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
       try {
-        const completed: boolean = await completePasswordReset(pool, body.token, body.newPassword);
+        const completed: boolean = await completePasswordReset(
+          pool,
+          body.token,
+          body.newPassword,
+          await minimumPasswordEntropy(pool),
+        );
         if (!completed)
           return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
         return reply.code(204).send();

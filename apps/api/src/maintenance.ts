@@ -1,6 +1,6 @@
 import { closeDatabaseConnection, createDatabaseConnection, migrateDatabase } from '@shadowcook/db';
 import type { DatabaseConnection } from '@shadowcook/db';
-import { hashPassword } from './auth/password.js';
+import { hashPassword, minimumPasswordEntropy } from './auth/password.js';
 
 interface ResetPasswordArguments {
   email: string;
@@ -19,7 +19,10 @@ async function main(): Promise<void> {
   const connection: DatabaseConnection = createDatabaseConnection(databaseUrl);
   try {
     await migrateDatabase(connection.pool);
-    const passwordHash: string = await hashPassword(argumentsValue.password);
+    const passwordHash: string = await hashPassword(
+      argumentsValue.password,
+      await minimumPasswordEntropy(connection.pool),
+    );
     const result = await connection.pool.query(
       `UPDATE user_account
        SET password_hash = $1, password_change_required = true, password_changed_at = NULL, updated_at = now()

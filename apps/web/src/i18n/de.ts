@@ -12,10 +12,17 @@ export const de: Translation = {
   headBar: {
     userMenu: 'Benutzermenü',
     signOutFailed: 'Abmeldung fehlgeschlagen. Bitte versuche es erneut.',
+    register: 'Registrieren',
   },
   buildFooter: {
-    commit: 'Build-Commit',
+    imprint: 'Impressum',
+    license: 'Lizenz',
+    privacyStatement: 'Datenschutzerklärung',
     unavailable: 'nicht verfügbar',
+    version: 'Version',
+  },
+  legalDocument: {
+    unavailable: 'Dieses Dokument wurde noch nicht veröffentlicht.',
   },
   loading: 'Sitzung wird geprüft …',
   accessDenied: {
@@ -177,6 +184,25 @@ export const de: Translation = {
     completed: 'Dein Passwort wurde zurückgesetzt. Du kannst dich jetzt anmelden.',
     invalid: 'Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.',
   },
+  registration: {
+    title: 'Kochbuch erstellen',
+    subtitle:
+      'Erstelle ein Konto und Kochbuch. Beides wird angelegt, nachdem du deine E-Mail-Adresse bestätigt hast.',
+    email: 'E-Mail-Adresse',
+    password: 'Passwort',
+    cookbookName: 'Name des Kochbuchs',
+    submit: 'Konto erstellen',
+    submitting: 'Konto wird erstellt …',
+    checkEmail:
+      'Prüfe deine E-Mails. Wir haben einen Bestätigungslink gesendet. Dein Shadowcook-Konto wird nach der Bestätigung erstellt.',
+    unavailable: 'Die öffentliche Registrierung ist derzeit nicht verfügbar.',
+    verificationInvalid: 'Dieser Bestätigungslink ist ungültig oder abgelaufen.',
+    verificationSucceeded:
+      'Dein Konto und Kochbuch wurden erstellt. Du kannst dich jetzt anmelden.',
+    resend: 'Neuen Bestätigungslink senden',
+    resendSent:
+      'Falls eine ausstehende Registrierung für diese E-Mail-Adresse existiert, wurde eine neue Bestätigungs-E-Mail gesendet.',
+  },
   userInvitation: {
     title: 'Konto anlegen',
     subtitle: 'Lege Anzeigename und Anmeldedaten für dein Shadowcook-Konto fest.',
@@ -189,15 +215,22 @@ export const de: Translation = {
   passwordChange: {
     currentPasswordLabel: 'Aktuelles Passwort',
     newPasswordLabel: 'Neues Passwort',
-    repeatPasswordLabel: 'Neues Passwort wiederholen',
-    passwordMismatch: 'Die neuen Passwörter stimmen nicht überein.',
     complexityHint:
-      'Verwende mindestens 12 Zeichen, darunter Klein- und Großbuchstaben, eine Zahl und ein Sonderzeichen.',
+      'Verwende ein Passwort, das die konfigurierte Entropie-Schwelle dieser Instanz erreicht.',
     submit: 'Passwort speichern',
     submitting: 'Wird gespeichert …',
     subtitle:
       'Lege ein sicheres Passwort fest, um dein Konto abzuschließen oder dein aktuelles Passwort zu ersetzen.',
     title: 'Lege ein neues Passwort fest.',
+  },
+  passwordField: {
+    showPassword: 'Passwort anzeigen',
+    hidePassword: 'Passwort verbergen',
+  },
+  passwordEntropy: {
+    progressLabel: 'Geschätzte Passwortentropie',
+    value: '{entropy} Bit geschätzte Entropie; Schwelle: {threshold} Bit.',
+    analysisLimit: 'Für die Schätzung werden die ersten {maximum} Zeichen berücksichtigt.',
   },
   invitation: {
     title: 'Kochbuch-Einladung',
@@ -289,13 +322,35 @@ export const de: Translation = {
     cookbooksPerPage: 'Kochbücher pro Seite',
     saveFrontpage: 'Startseiteneinstellungen speichern',
     frontpageSaved: 'Startseiteneinstellungen gespeichert.',
+    legalDocuments: 'Rechtliche Dokumente',
+    legalDocumentsDescription:
+      'Pflege die öffentliche Datenschutzerklärung und das Impressum als Markdown.',
+    legalDocumentsSaved: 'Rechtliche Dokumente gespeichert.',
+    legalDocumentsTitle: 'Rechtliche Dokumente',
+    saveLegalDocuments: 'Rechtliche Dokumente speichern',
     authentication: 'Authentifizierung',
+    registration: 'Registrierung',
+    registrationTitle: 'Öffentliche Registrierung',
+    registrationDescription:
+      'Erlaube Besuchern, nach der E-Mail-Bestätigung ein Shadowcook-Konto und Kochbuch anzulegen.',
+    registrationEnabled: 'Öffentliche Registrierung aktivieren',
+    saveRegistration: 'Registrierungseinstellungen speichern',
+    savingRegistration: 'Registrierungseinstellungen werden gespeichert …',
+    registrationSaved: 'Registrierungseinstellungen gespeichert.',
+    turnstileEnabled: 'Cloudflare Turnstile verlangen',
+    turnstileNotConfigured:
+      'Setze TURNSTILE_SITE_KEY und TURNSTILE_SECRET in der Deployment-Umgebung, bevor Turnstile aktiviert werden kann.',
     authenticationTitle: 'Anmeldeverfahren',
     authenticationDescription: 'Wähle die instanzweit erlaubten Anmeldeverfahren.',
     passwordOnly: 'Nur Passwort',
     emailCodeOnly: 'Nur E-Mail-Code',
     passwordOrEmailCode: 'Passwort oder E-Mail-Code',
     saveAuthentication: 'Anmeldeverfahren speichern',
+    minimumPasswordEntropy: 'Minimale Passwortentropie (Bit)',
+    minimumPasswordEntropyHint:
+      'Neue Passwörter müssen diese geschätzte Entropie erreichen. Bestimmte Zeichentypen sind nicht vorgeschrieben.',
+    passwordEntropyTestTitle: 'Passwortentropie testen',
+    passwordEntropyTestPassword: 'Testpasswort',
     tenantsNew: 'Tenant anlegen',
     createTenant: 'Kochbuch anlegen und Owner einladen',
     firstName: 'Vorname',

@@ -3,6 +3,140 @@ info:
   title: Shadowcook API
   version: 0.1.0
 paths:
+  /registration/config:
+    get:
+      operationId: getPublicRegistrationConfiguration
+      summary: Returns whether public self-service registration is enabled.
+      responses:
+        '200':
+          description: Public registration configuration.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [enabled, turnstileSiteKey, turnstileRequired]
+                properties:
+                  enabled: { type: boolean }
+                  turnstileSiteKey: { type: string }
+                  turnstileRequired: { type: boolean }
+  /admin/registration-settings:
+    get:
+      operationId: getRegistrationSettings
+      summary: Returns the instance public-registration setting.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Registration settings.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [enabled, turnstileEnabled, turnstileConfigured]
+                properties:
+                  enabled: { type: boolean }
+                  turnstileEnabled: { type: boolean }
+                  turnstileConfigured: { type: boolean }
+        '403': { description: Instance administration permission is required. }
+    put:
+      operationId: updateRegistrationSettings
+      summary: Enables or disables public self-service registration.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [enabled, turnstileEnabled]
+              properties:
+                enabled: { type: boolean }
+                turnstileEnabled: { type: boolean }
+      responses:
+        '204': { description: Registration setting updated. }
+        '400': { description: Registration setting is invalid. }
+        '403': { description: Instance administration permission is required. }
+        '409':
+          {
+            description: Turnstile was requested but is not configured in the deployment environment.,
+          }
+  /registration:
+    post:
+      operationId: createPendingRegistration
+      summary: Creates an email-verification pending registration without creating a user or tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email, password, tenantName, turnstileToken, website]
+              properties:
+                email: { type: string, format: email }
+                password:
+                  {
+                    type: string,
+                    format: password,
+                    description: Must meet the configured minimum estimated entropy.,
+                  }
+                tenantName: { type: string, minLength: 1, maxLength: 120 }
+                turnstileToken: { type: string }
+                website: { type: string, description: Honeypot field which must be empty. }
+      responses:
+        '202':
+          {
+            description: The generic registration acknowledgement; it does not disclose account existence.,
+          }
+        '400': { description: Registration details or Turnstile verification are invalid. }
+        '403': { description: Public registration is disabled. }
+        '429': { description: Registration request limit reached. }
+        '503': { description: Verification email delivery is unavailable. }
+  /registration/resend-verification:
+    post:
+      operationId: resendRegistrationVerification
+      summary: Requests a new verification email without disclosing registration existence.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+      responses:
+        '202': { description: Generic acknowledgement. }
+        '403': { description: Public registration is disabled. }
+  /registration/verify:
+    post:
+      operationId: verifyPendingRegistration
+      summary: Consumes a registration verification token and atomically creates the user and tenant.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token: { type: string }
+      responses:
+        '201':
+          description: User and tenant were created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [tenantSlug]
+                properties:
+                  tenantSlug: { type: string }
+        '400': { description: Verification token is invalid, expired, or already consumed. }
   /auth/login:
     post:
       operationId: login
@@ -52,6 +186,21 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+  /auth/password-requirements:
+    get:
+      operationId: getPasswordRequirements
+      summary: Returns the current instance minimum password entropy for local password-form feedback.
+      responses:
+        '200':
+          description: Password requirements.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [minimumPasswordEntropy]
+                properties:
+                  minimumPasswordEntropy: { type: integer, minimum: 1, maximum: 256 }
   /auth/change-password:
     post:
       operationId: changePassword
@@ -73,7 +222,7 @@ paths:
                 newPassword:
                   type: string
                   format: password
-                  minLength: 12
+                  description: Must meet the configured minimum estimated entropy.
       responses:
         '204':
           description: The password was changed.
@@ -118,7 +267,12 @@ paths:
               required: [token, newPassword]
               properties:
                 token: { type: string }
-                newPassword: { type: string, format: password, minLength: 12 }
+                newPassword:
+                  {
+                    type: string,
+                    format: password,
+                    description: Must meet the configured minimum estimated entropy.,
+                  }
       responses:
         '204': { description: The password was changed and the reset token was consumed. }
         '400':
@@ -275,13 +429,20 @@ paths:
                       schema:
                         {
                           type: object,
-                          required: [loginMode],
+                          required: [loginMode, minimumPasswordEntropy],
                           properties:
                             {
                               loginMode:
                                 {
                                   type: string,
                                   enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE],
+                                },
+                              minimumPasswordEntropy:
+                                {
+                                  type: integer,
+                                  minimum: 1,
+                                  maximum: 256,
+                                  description: Minimum estimated password entropy in bits.,
                                 },
                             },
                         },
@@ -301,13 +462,20 @@ paths:
                 schema:
                   {
                     type: object,
-                    required: [loginMode],
+                    required: [loginMode, minimumPasswordEntropy],
                     properties:
                       {
                         loginMode:
                           {
                             type: string,
                             enum: [PASSWORD_ONLY, EMAIL_CODE_ONLY, PASSWORD_OR_EMAIL_CODE],
+                          },
+                        minimumPasswordEntropy:
+                          {
+                            type: integer,
+                            minimum: 1,
+                            maximum: 256,
+                            description: Minimum estimated password entropy in bits.,
                           },
                       },
                   },
@@ -316,6 +484,11 @@ paths:
       responses:
         {
           '204': { description: Saved. },
+          '400':
+            {
+              description: Invalid authentication settings,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
           '409':
             {
               description: SMTP required for email-only mode,
@@ -1231,7 +1404,12 @@ paths:
               required: [displayName]
               properties:
                 displayName: { type: string, minLength: 1 }
-                password: { type: string, format: password, minLength: 12 }
+                password:
+                  {
+                    type: string,
+                    format: password,
+                    description: Must meet the configured minimum estimated entropy.,
+                  }
       responses:
         '204': { description: Account created and invitation accepted. }
         '400': { description: Invalid invitation details or password. }
@@ -1648,6 +1826,45 @@ paths:
       responses:
         '204': { description: Instance root-page settings updated. }
         '400': { description: Invalid root-page settings. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
+  /legal-documents:
+    get:
+      operationId: getPublicLegalDocuments
+      summary: Returns the public privacy statement and imprint Markdown.
+      responses:
+        '200':
+          description: Public legal documents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstanceLegalDocuments' }
+  /admin/legal-documents:
+    get:
+      operationId: getInstanceLegalDocuments
+      summary: Returns the editable instance legal documents.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Instance legal documents.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstanceLegalDocuments' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
+    put:
+      operationId: updateInstanceLegalDocuments
+      summary: Updates the public privacy statement and imprint Markdown.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InstanceLegalDocuments' }
+      responses:
+        '204': { description: Instance legal documents updated. }
+        '400':
+          description: Invalid legal documents.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/InstancePermissionRequired' }
   /cookbook/tenants/{tenantSlug}/recipe-policy:
@@ -2756,6 +2973,13 @@ components:
         siteName: { type: string, minLength: 1, maxLength: 80 }
         slogan: { type: string, minLength: 1, maxLength: 80 }
         cookbooksPerPage: { type: integer, minimum: 1, maximum: 100 }
+    InstanceLegalDocuments:
+      type: object
+      additionalProperties: false
+      required: [privacyStatementMarkdown, imprintMarkdown]
+      properties:
+        privacyStatementMarkdown: { type: string, maxLength: 50000 }
+        imprintMarkdown: { type: string, maxLength: 50000 }
     CookbookTenantSelection:
       type: object
       additionalProperties: false
