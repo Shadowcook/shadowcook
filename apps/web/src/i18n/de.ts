@@ -562,7 +562,8 @@ export const de: Translation = {
     title: 'Allgemeine Einstellungen',
     frontpageRecipeCount: 'Rezepte auf der Kochbuch-Startseite',
     frontpageHeading: 'Überschrift der Kochbuch-Startseite',
-    frontpageHeadingHint: 'Leer lassen, um die lokalisierte Vorgabe zu verwenden. Maximal 80 Zeichen.',
+    frontpageHeadingHint:
+      'Leer lassen, um die lokalisierte Vorgabe zu verwenden. Maximal 80 Zeichen.',
     defaultVisibility: 'Standard-Sichtbarkeit',
     defaultDiscoverability: 'Standard-Auffindbarkeit',
     save: 'Richtlinie speichern',
@@ -683,6 +684,8 @@ export const de: Translation = {
     breadcrumb: 'Brotkrümelnavigation',
     categories: 'Kategorien',
     allCategories: 'Alle Kategorien',
+    openCategories: 'Kategorien öffnen',
+    closeCategories: 'Kategorien schließen',
     collapseCategory: 'Kategorie einklappen',
     expandCategory: 'Kategorie ausklappen',
     recipes: 'Rezepte',

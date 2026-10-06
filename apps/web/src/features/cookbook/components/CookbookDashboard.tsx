@@ -4,6 +4,7 @@ import type { Translation } from '../../../i18n';
 import AiShareIcon from './AiShareIcon';
 import BreadcrumbBar from './BreadcrumbBar';
 import CategoryTree from './CategoryTree';
+import MobileCategoryDrawer from './MobileCategoryDrawer';
 import RecipeDetailView from './RecipeDetailView';
 import RecipePagination from './RecipePagination';
 import { cookbookPath } from '../model/routing';
@@ -79,7 +80,10 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           <h1>{frontpageHeading}</h1>
         </div>
         {cookbook.canManageRecipes || cookbook.canManageCategories || cookbook.canManageUsers ? (
-          <a className="button--secondary" href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}>
+          <a
+            className="button--secondary"
+            href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}
+          >
             {text.tenantNavigation.title}
           </a>
         ) : null}
@@ -105,6 +109,12 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
         />
       ) : (
         <div className="cookbook-layout">
+          <MobileCategoryDrawer
+            categories={cookbook.categories}
+            selectedCategoryId={selectedCategoryId}
+            text={text}
+            tenantSlug={tenantSlug}
+          />
           <aside className="category-panel">
             <div className="category-panel__heading">
               <p className="eyebrow">{text.dashboard.categories}</p>

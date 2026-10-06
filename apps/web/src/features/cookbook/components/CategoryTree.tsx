@@ -9,10 +9,11 @@ interface CategoryTreeProperties {
   selectedCategoryId: string | null;
   text: Translation;
   tenantSlug: string;
+  onNavigate?: () => void;
 }
 
 export default function CategoryTree(properties: CategoryTreeProperties): JSX.Element {
-  const { categories, selectedCategoryId, text, tenantSlug } = properties;
+  const { categories, selectedCategoryId, text, tenantSlug, onNavigate } = properties;
   const byParentId: Map<string | null, Category[]> = new Map();
   for (const category of categories) {
     const siblings: Category[] = byParentId.get(category.parent_public_id) ?? [];
@@ -50,6 +51,7 @@ export default function CategoryTree(properties: CategoryTreeProperties): JSX.El
         text,
         tenantSlug,
         toggleCategory,
+        onNavigate,
       )}
     </div>
   );
@@ -64,6 +66,7 @@ function categoryTreeItems(
   text: Translation,
   tenantSlug: string,
   onToggleCategory: (categoryId: string) => void,
+  onNavigate: (() => void) | undefined,
 ): JSX.Element[] {
   const children: Category[] = byParentId.get(parentId) ?? [];
   children.sort(
@@ -101,6 +104,7 @@ function categoryTreeItems(
                 : 'category-button'
             }
             href={cookbookPath(tenantSlug, categories, category.public_id, null)}
+            onClick={onNavigate}
           >
             {category.name}
           </a>
@@ -116,6 +120,7 @@ function categoryTreeItems(
               text,
               tenantSlug,
               onToggleCategory,
+              onNavigate,
             )}
           </div>
         ) : null}

@@ -530,6 +530,8 @@ export interface Translation {
     breadcrumb: string;
     categories: string;
     allCategories: string;
+    openCategories: string;
+    closeCategories: string;
     collapseCategory: string;
     expandCategory: string;
     recipes: string;

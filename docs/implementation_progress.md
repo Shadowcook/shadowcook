@@ -24,6 +24,7 @@
 - Tenant General settings configure the front-page featured-recipe count, recipe defaults, and an optional front-page heading with an 80-character limit.
 - Category and recipe slugs are tenant-unique, route segments are reserved in the database, and cookbook navigation supports root recipe URLs, category paths, and breadcrumbs.
 - Hydrated cookbook categories, recipes, breadcrumbs, and tenant-management navigation are native deep-link anchors that support opening in a new browser tab.
+- Mobile cookbook navigation provides the category tree in a header-adjacent left-side drawer with a fixed close control and a scrollable category list.
 - Category management supports hierarchical creation, renaming, reparenting, guarded deletion, and adjacent sibling ordering.
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.
 - Cookbook code is organized under `apps/web/src/features/cookbook`; shared browser-session and API infrastructure is under `apps/web/src/lib`.

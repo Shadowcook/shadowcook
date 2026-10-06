@@ -341,7 +341,7 @@ code {
   margin-bottom: 2rem;
 }
 .dashboard__header h1 {
-  font-size: clamp(1.0rem, 3vw, 2.0rem);
+  font-size: clamp(1rem, 3vw, 2rem);
 }
 .dashboard__cookbook-name {
   font-size: 2.5rem;
@@ -411,6 +411,14 @@ code {
   font:
     0.82rem Arial,
     sans-serif;
+}
+@media (max-width: 700px) {
+  body.category-drawer-open {
+    overflow: hidden;
+  }
+  .head-bar__home {
+    margin-left: 2.65rem;
+  }
 }
 @media (max-width: 600px) {
   .application-shell {
@@ -544,7 +552,10 @@ code {
   display: grid;
   gap: 0.02rem;
   color: currentColor;
-  font: 900 0.68rem/0.56rem 'Arial Black', Arial, sans-serif;
+  font:
+    900 0.68rem/0.56rem 'Arial Black',
+    Arial,
+    sans-serif;
   text-align: center;
 }
 .unit-form,

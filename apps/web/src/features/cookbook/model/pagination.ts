@@ -31,6 +31,27 @@ export function frontpagePaginationItems(
   return items;
 }
 
+export function compactPaginationItems(
+  currentPage: number,
+  totalPages: number,
+): PaginationItem[] {
+  if (totalPages <= 5)
+    return Array.from(
+      { length: totalPages },
+      (_value: unknown, index: number): number => index + 1,
+    );
+
+  const items: PaginationItem[] = [1];
+  const windowStart: number = Math.max(2, Math.min(currentPage - 1, totalPages - 3));
+  const windowEnd: number = Math.min(totalPages - 1, windowStart + 2);
+
+  if (windowStart > 2) items.push(null);
+  appendPageRange(items, windowStart, windowEnd);
+  if (windowEnd < totalPages - 1) items.push(null);
+  items.push(totalPages);
+  return items;
+}
+
 function appendPageRange(items: PaginationItem[], start: number, end: number): void {
   for (let page: number = start; page <= end; page += 1) items.push(page);
 }

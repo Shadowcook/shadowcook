@@ -209,6 +209,7 @@ shadowcook/
 - A category slug is unique within its tenant. A recipe slug is unique within its tenant.
 - Cookbook navigation is deep-linkable: category pages use `/{category-slug}/{sub-category-slug...}` and recipe pages use `/{category-slug}/{sub-category-slug...}/recipes/{recipe-slug}`. A non-default visible variant appends `/{variant-slug}`. A recipe opened from the root cookbook view uses `/recipes/{recipe-slug}`; a recipe opened from a category view uses that category path.
 - Hydrated cookbook category, recipe, breadcrumb, and tenant-management navigation use anchor elements with their deep-link URLs.
+- On mobile cookbook overview and category pages, the category tree is provided through a left-side drawer opened from the global header area. The drawer has a fixed control area and a separately scrollable category list.
 - The category and recipe slug reservation list is `admin`, `api`, `assets`, `auth`, `health`, `login`, `logout`, `recipes`, and `settings`. The database rejects these values for both entity types.
 - `/login` is the public sign-in route. An unauthenticated request to it renders the sign-in form; an authenticated request redirects to `/`.
 - `/` presents the accessible tenant selection. Cookbook content is loaded only after choosing a tenant at `/tenants/{tenant-slug}`; a cookbook response contains records from exactly one tenant.

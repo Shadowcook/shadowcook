@@ -3,6 +3,7 @@ import type { JSX } from 'react';
 type IconName =
   | 'add'
   | 'aliases'
+  | 'close'
   | 'copy'
   | 'consolidate'
   | 'delete'
@@ -12,6 +13,7 @@ type IconName =
   | 'enable'
   | 'moveDown'
   | 'moveUp'
+  | 'menu'
   | 'next'
   | 'previous'
   | 'roles'
@@ -21,6 +23,7 @@ type IconName =
 const iconPathByName: Readonly<Record<IconName, string>> = {
   add: '/font-awesome/solid/plus.svg',
   aliases: '/font-awesome/solid/tags.svg',
+  close: '/font-awesome/solid/xmark.svg',
   copy: '/font-awesome/solid/copy.svg',
   consolidate: '/font-awesome/solid/code-merge.svg',
   default: '/font-awesome/solid/star.svg',
@@ -30,6 +33,7 @@ const iconPathByName: Readonly<Record<IconName, string>> = {
   enable: '/font-awesome/solid/play.svg',
   moveDown: '/font-awesome/solid/arrow-down.svg',
   moveUp: '/font-awesome/solid/arrow-up.svg',
+  menu: '/font-awesome/solid/bars.svg',
   next: '/font-awesome/solid/chevron-right.svg',
   previous: '/font-awesome/solid/chevron-left.svg',
   resetPassword: '/font-awesome/solid/key.svg',

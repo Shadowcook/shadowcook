@@ -674,6 +674,8 @@ export const en: Translation = {
     breadcrumb: 'Breadcrumb',
     categories: 'Categories',
     allCategories: 'All categories',
+    openCategories: 'Open categories',
+    closeCategories: 'Close categories',
     collapseCategory: 'Collapse category',
     expandCategory: 'Expand category',
     recipes: 'Recipes',

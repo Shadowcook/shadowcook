@@ -24,7 +24,7 @@
 If `personal_agents.md` exists in the repository root, read it and apply it as local developer preference guidance. Personal preferences must not override the project rules above.
 This file will not be checked in into the repository. Therefore, check the local file system for it, not the repo!
 
-## Delivery mode: BETA-2
+## Delivery mode: BETA-3
 
 - Leave the initial SQL-Script untouched (0001_initial_schema.sql)
 - Create new schemas after the following pattern:
