@@ -56,6 +56,12 @@ if [ -z "${public_web_origin}" ]; then
   exit 65
 fi
 
+image_tag=$(read_environment_value SHADOWCOOK_IMAGE_TAG)
+
+if [ -z "${image_tag}" ]; then
+  image_tag=local
+fi
+
 temporary_directory=$(mktemp -d)
 environment_backup="${temporary_directory}/.env"
 upgrade_completed=false
@@ -111,11 +117,28 @@ update_environment_value() {
 update_environment_value SHADOWCOOK_SOURCE_REF "${build_commit}"
 update_environment_value SHADOWCOOK_BUILD_COMMIT "${build_commit}"
 
+verify_shadowcook_image_label() {
+  image_name=$1
+  image_label=$(docker image inspect \
+    --format '{{ index .Config.Labels "net.shadowcook.deployment" }}' \
+    "${image_name}" 2>/dev/null || true)
+
+  if [ "${image_label}" != true ]; then
+    printf '%s\n' "${image_name} is missing the required net.shadowcook.deployment=true label." >&2
+    printf '%s\n' 'The requested Git ref must contain the current deployments/docker/Dockerfile.' >&2
+    exit 65
+  fi
+}
+
 cd "${deployment_directory}"
 docker compose build \
   --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}" \
   --build-arg "PUBLIC_WEB_ORIGIN=${public_web_origin}"
+verify_shadowcook_image_label "shadowcook-api:${image_tag}"
+verify_shadowcook_image_label "shadowcook-web:${image_tag}"
 docker compose up --no-build -d
 
 upgrade_completed=true
+docker image prune --all --force --filter 'label=net.shadowcook.deployment=true'
+
 printf '%s\n' "Upgraded Shadowcook to ${build_commit}"

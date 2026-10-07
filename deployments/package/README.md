@@ -64,7 +64,12 @@ It passes the commit and `PUBLIC_WEB_ORIGIN` explicitly to the Docker Compose
 build, rebuilds both application images, and recreates changed containers. The
 web footer displays that commit. If the build or container update fails, the script restores the
 previous `.env` file. Use a full commit hash or immutable release tag for
-repeatable production deployments.
+repeatable production deployments. After every successful recreation, it
+removes unused images labelled as Shadowcook deployment images. Images without
+that label, including images from other deployments, are not removed.
+The script verifies the label on both built runtime images before it recreates
+containers. The requested Git ref must therefore include the deployment
+Dockerfile shipped in this package.
 
 `INSTANCE_SECRET_KEY_FILE` is mounted only as a Docker secret. Keep that file
 outside version control and retain the same key with database backups: it is
