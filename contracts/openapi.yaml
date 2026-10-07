@@ -966,7 +966,7 @@ paths:
   /admin/tenants/{publicId}:
     patch:
       operationId: updateTenant
-      summary: Renames a tenant or changes its enabled state.
+      summary: Changes a tenant display name, slug, or enabled state.
       security: [{ sessionCookie: [] }]
       parameters:
         [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
@@ -981,7 +981,11 @@ paths:
                     type: object,
                     additionalProperties: false,
                     properties:
-                      { displayName: { type: string, minLength: 1 }, disabled: { type: boolean } },
+                      {
+                        displayName: { type: string, minLength: 1 },
+                        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' },
+                        disabled: { type: boolean },
+                      },
                     minProperties: 1,
                   },
               },
@@ -992,6 +996,11 @@ paths:
           '400':
             {
               description: Invalid update,
+              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            },
+          '409':
+            {
+              description: Tenant slug conflict,
               content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
             },
           '404':
@@ -1777,7 +1786,7 @@ paths:
   /cookbook/tenants:
     get:
       operationId: listAccessibleCookbookTenants
-      summary: Returns the paginated, shuffled accessible enabled cookbooks and root-page presentation settings.
+      summary: Returns the paginated, shuffled accessible enabled cookbooks, the authenticated user's enabled cookbook memberships, and root-page presentation settings.
       parameters:
         - name: page
           in: query
@@ -1792,7 +1801,7 @@ paths:
           schema: { type: string, maxLength: 100 }
       responses:
         '200':
-          description: Accessible enabled cookbooks.
+          description: Accessible enabled cookbooks and the authenticated user's enabled cookbook memberships.
           content:
             application/json:
               schema:
@@ -2986,12 +2995,26 @@ components:
       type: object
       additionalProperties: false
       required:
-        [siteName, slogan, cookbooksPerPage, tenants, page, totalPages, totalTenants, shuffleSeed]
+        [
+          siteName,
+          slogan,
+          cookbooksPerPage,
+          tenants,
+          myCookbooks,
+          page,
+          totalPages,
+          totalTenants,
+          shuffleSeed,
+        ]
       properties:
         siteName: { type: string, minLength: 1, maxLength: 80 }
         slogan: { type: string, minLength: 1, maxLength: 80 }
         cookbooksPerPage: { type: integer, minimum: 1, maximum: 100 }
         tenants:
+          type: array
+          items: { $ref: '#/components/schemas/CookbookTenant' }
+        myCookbooks:
+          description: Enabled cookbooks where the authenticated principal has a tenant membership. This list does not apply root-page or recipe visibility filters.
           type: array
           items: { $ref: '#/components/schemas/CookbookTenant' }
         page: { type: integer, minimum: 1 }

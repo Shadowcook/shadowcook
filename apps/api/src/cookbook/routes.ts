@@ -128,8 +128,9 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     const totalTenants: number = countResult.rows[0]?.total_tenants ?? 0;
     const totalPages: number = Math.ceil(totalTenants / cookbooksPerPage);
     const selectedPage: number = Math.min(page, Math.max(totalPages, 1));
-    const tenants = await pool.query(
-      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug,
+    const [tenants, myCookbooks] = await Promise.all([
+      pool.query(
+        `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug,
          count(recipe.id) FILTER (
            WHERE recipe.published_revision_id IS NOT NULL
              AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
@@ -140,13 +141,30 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
        GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
        ORDER BY md5(tenant.public_id::text || $3), tenant.public_id
        LIMIT $4 OFFSET $5`,
-      [principalId, filter, shuffleSeed, cookbooksPerPage, (selectedPage - 1) * cookbooksPerPage],
-    );
+        [principalId, filter, shuffleSeed, cookbooksPerPage, (selectedPage - 1) * cookbooksPerPage],
+      ),
+      pool.query(
+        `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug,
+           count(recipe.id) FILTER (
+             WHERE recipe.published_revision_id IS NOT NULL
+           )::integer AS recipe_count
+         FROM tenant
+         INNER JOIN tenant_membership
+           ON tenant_membership.tenant_id = tenant.id
+           AND tenant_membership.principal_id = $1
+         LEFT JOIN recipe ON recipe.tenant_id = tenant.id
+         WHERE tenant.disabled_at IS NULL
+         GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
+         ORDER BY lower(tenant.display_name), tenant.public_id`,
+        [principalId],
+      ),
+    ]);
     return reply.send({
       siteName: settings?.site_name ?? defaultSiteName,
       slogan: settings?.slogan ?? defaultSlogan,
       cookbooksPerPage,
       tenants: tenants.rows,
+      myCookbooks: myCookbooks.rows,
       page: selectedPage,
       totalPages,
       totalTenants,

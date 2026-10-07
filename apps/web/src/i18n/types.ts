@@ -220,11 +220,14 @@ export interface Translation {
     tenantCreationSmtpRequired: string;
     tenantInvitationDeliveryFailed: string;
     tenantCreated: string;
+    editTenant: string;
     renameTenant: string;
     renameTenantDescription: string;
     deleteTenant: string;
     deleteTenantDescription: string;
     tenantRenamed: string;
+    tenantSlugConflict: string;
+    tenantSlugInvalid: string;
     tenantDeleted: string;
     save: string;
     cancel: string;
@@ -613,6 +616,7 @@ export interface Translation {
     chooseTenantDescription: string;
     rootSlogan: string;
     cookbooks: string;
+    myCookbooks: string;
     noCookbooks: string;
     recipesCount: string;
     filterTenants: string;

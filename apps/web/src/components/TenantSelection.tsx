@@ -14,6 +14,7 @@ interface TenantSelectionResponse {
   slogan: string;
   cookbooksPerPage: number;
   tenants: CookbookTenant[];
+  myCookbooks: CookbookTenant[];
   page: number;
   totalPages: number;
   totalTenants: number;
@@ -51,6 +52,15 @@ export default function TenantSelection({ locale }: TenantSelectionProperties): 
           {error}
         </p>
       ) : null}
+      {selection !== null && selection.myCookbooks.length > 0 ? (
+        <section className="recipes-panel tenant-selection__my-cookbooks">
+          <div className="recipes-panel__heading">
+            <p className="eyebrow">{text.dashboard.myCookbooks}</p>
+            <strong>{selection.myCookbooks.length}</strong>
+          </div>
+          <CookbookCards cookbooks={selection.myCookbooks} text={text} />
+        </section>
+      ) : null}
       <section className="recipes-panel tenant-selection">
         <div className="recipes-panel__heading">
           <p className="eyebrow">{text.dashboard.cookbooks}</p>
@@ -74,21 +84,7 @@ export default function TenantSelection({ locale }: TenantSelectionProperties): 
         ) : selection.tenants.length === 0 ? (
           <p className="empty-state">{text.dashboard.noCookbooks}</p>
         ) : (
-          <div className="recipe-grid">
-            {selection.tenants.map((tenant: CookbookTenant): JSX.Element => (
-              <article className="recipe-card" key={tenant.public_id}>
-                <a className="recipe-card__button" href={`/${encodeURIComponent(tenant.slug)}`}>
-                  <h2>{tenant.display_name}</h2>
-                  {tenant.description === null ? null : <p>{tenant.description}</p>}
-                  <div className="recipe-card__categories">
-                    <span>
-                      {tenant.recipe_count} {text.dashboard.recipesCount}
-                    </span>
-                  </div>
-                </a>
-              </article>
-            ))}
-          </div>
+          <CookbookCards cookbooks={selection.tenants} text={text} />
         )}
         {selection !== null && selection.totalPages > 1 ? (
           <RecipePagination
@@ -100,6 +96,31 @@ export default function TenantSelection({ locale }: TenantSelectionProperties): 
         ) : null}
       </section>
     </section>
+  );
+}
+
+interface CookbookCardsProperties {
+  cookbooks: CookbookTenant[];
+  text: Translation;
+}
+
+function CookbookCards({ cookbooks, text }: CookbookCardsProperties): JSX.Element {
+  return (
+    <div className="recipe-grid">
+      {cookbooks.map((cookbook: CookbookTenant): JSX.Element => (
+        <article className="recipe-card" key={cookbook.public_id}>
+          <a className="recipe-card__button" href={`/${encodeURIComponent(cookbook.slug)}`}>
+            <h2>{cookbook.display_name}</h2>
+            {cookbook.description === null ? null : <p>{cookbook.description}</p>}
+            <div className="recipe-card__categories">
+              <span>
+                {cookbook.recipe_count} {text.dashboard.recipesCount}
+              </span>
+            </div>
+          </a>
+        </article>
+      ))}
+    </div>
   );
 }
 

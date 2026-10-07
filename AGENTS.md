@@ -26,7 +26,7 @@
 If `personal_agents.md` exists in the repository root, read it and apply it as local developer preference guidance. Personal preferences must not override the project rules above.
 This file will not be checked in into the repository. Therefore, check the local file system for it, not the repo!
 
-## Delivery mode: BETA-1
+## Delivery mode: BETA-2
 
 - Every migration filename timestamp uses the UTC time at creation in the exact `YYYYmmddHHiiss` format, for example `20261006232324`.
 - Create new schemas after the following pattern:

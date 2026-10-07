@@ -203,13 +203,10 @@ export function registerPublicRegistrationRoutes(
           registration.password_hash,
         ],
       );
-      const tenant = await client.query<{ id: string; public_id: string; slug: string }>(
-        'INSERT INTO tenant (display_name, slug) VALUES ($1, $2) RETURNING id, public_id, slug',
-        [registration.tenant_name, tenantSlug(registration.tenant_name)],
-      );
+      const tenant = await createTenant(client, registration.tenant_name);
       const owner = await client.query<{ id: string }>(
         "INSERT INTO tenant_role (tenant_id, name) VALUES ($1, 'Owner') RETURNING id",
-        [tenant.rows[0]!.id],
+        [tenant.id],
       );
       await client.query(
         "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code LIKE 'tenant:%' OR code LIKE 'recipe:%' OR code LIKE 'variant:%' OR code LIKE 'ingredient:%' OR code LIKE 'unit:%' OR code LIKE 'category:%' OR code = 'service-account:manage'",
@@ -217,7 +214,7 @@ export function registerPublicRegistrationRoutes(
       );
       const editor = await client.query<{ id: string }>(
         "INSERT INTO tenant_role (tenant_id, name) VALUES ($1, 'Editor') RETURNING id",
-        [tenant.rows[0]!.id],
+        [tenant.id],
       );
       await client.query(
         "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'recipe:revision:read', 'recipe:create', 'recipe:update', 'variant:read', 'variant:create', 'variant:update', 'ingredient:read', 'ingredient:create', 'ingredient:update', 'unit:read', 'unit:create', 'unit:update', 'category:read', 'category:update')",
@@ -225,7 +222,7 @@ export function registerPublicRegistrationRoutes(
       );
       const viewer = await client.query<{ id: string }>(
         "INSERT INTO tenant_role (tenant_id, name) VALUES ($1, 'Viewer') RETURNING id",
-        [tenant.rows[0]!.id],
+        [tenant.id],
       );
       await client.query(
         "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'variant:read', 'ingredient:read', 'unit:read', 'category:read')",
@@ -233,15 +230,15 @@ export function registerPublicRegistrationRoutes(
       );
       await client.query(
         'INSERT INTO tenant_membership (tenant_id, principal_id) VALUES ($1, $2)',
-        [tenant.rows[0]!.id, user.rows[0]!.principal_id],
+        [tenant.id, user.rows[0]!.principal_id],
       );
       await client.query(
         'INSERT INTO tenant_membership_role (tenant_id, principal_id, tenant_role_id) VALUES ($1, $2, $3)',
-        [tenant.rows[0]!.id, user.rows[0]!.principal_id, owner.rows[0]!.id],
+        [tenant.id, user.rows[0]!.principal_id, owner.rows[0]!.id],
       );
       await client.query('COMMIT');
       request.log.info('Registration verification succeeded');
-      return reply.code(201).send({ tenantSlug: tenant.rows[0]!.slug });
+      return reply.code(201).send({ tenantSlug: tenant.slug });
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -399,15 +396,35 @@ function hashToken(token: string): Buffer {
 function displayName(email: string): string {
   return email.split('@', 1)[0]!.slice(0, 120) || 'User';
 }
-function tenantSlug(name: string): string {
-  const normalized: string =
+function tenantSlugBase(name: string): string {
+  return (
     name
       .toLowerCase()
       .normalize('NFKD')
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '')
-      .slice(0, 45) || 'cookbook';
-  return `${normalized}-${randomBytes(4).toString('hex')}`;
+      .replace(/^-+|-+$/g, '') || 'cookbook'
+  );
+}
+async function createTenant(
+  client: PoolClient,
+  displayName: string,
+): Promise<{ id: string; public_id: string; slug: string }> {
+  const baseSlug: string = tenantSlugBase(displayName);
+  await client.query("SELECT pg_advisory_xact_lock(hashtext('tenant-slug:' || $1))", [baseSlug]);
+  let slug: string = baseSlug;
+  while (true) {
+    const existing = await client.query<{ exists: boolean }>(
+      'SELECT EXISTS (SELECT 1 FROM tenant WHERE slug = $1) AS exists',
+      [slug],
+    );
+    if (existing.rows[0]?.exists !== true) break;
+    slug = `${baseSlug}-${randomBytes(4).toString('hex')}`;
+  }
+  const tenant = await client.query<{ id: string; public_id: string; slug: string }>(
+    'INSERT INTO tenant (display_name, slug) VALUES ($1, $2) RETURNING id, public_id, slug',
+    [displayName, slug],
+  );
+  return tenant.rows[0]!;
 }
 function invalidRegistration(reply: FastifyReply): FastifyReply {
   return reply

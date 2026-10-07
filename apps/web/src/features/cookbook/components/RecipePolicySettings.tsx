@@ -87,7 +87,7 @@ export default function RecipePolicySettings({
             <option value="UNLISTED">{text.recipeEditor.unlisted}</option>
           </select>
         </label>
-        <label>
+        <label className="recipe-editor__check">
           <input
             type="checkbox"
             checked={policy.showOnStartPage}

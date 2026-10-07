@@ -21,6 +21,7 @@ export default function AdminTenantManagement({
   const [renameTenant, setRenameTenant] = useState<CookbookTenant | null>(null);
   const [deleteTenant, setDeleteTenant] = useState<CookbookTenant | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
+  const [slug, setSlug] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [toast, setToast] = useState<string>('');
   function refresh(): void {
@@ -29,11 +30,13 @@ export default function AdminTenantManagement({
   function openRename(tenant: CookbookTenant): void {
     setRenameTenant(tenant);
     setDisplayName(tenant.display_name);
+    setSlug(tenant.slug);
     setMessage('');
   }
   function closeRename(): void {
     setRenameTenant(null);
     setDisplayName('');
+    setSlug('');
   }
   function closeDelete(): void {
     setDeleteTenant(null);
@@ -46,8 +49,9 @@ export default function AdminTenantManagement({
   async function rename(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (renameTenant === null) return;
-    if (!(await updateTenant(renameTenant.public_id, { displayName })).ok) {
-      setMessage(text.errors.requestFailed);
+    const response: Response = await updateTenant(renameTenant.public_id, { displayName, slug });
+    if (!response.ok) {
+      setMessage(await tenantUpdateError(response, text));
       return;
     }
     closeRename();
@@ -186,7 +190,7 @@ export default function AdminTenantManagement({
       {renameTenant === null ? null : (
         <div className="modal-backdrop">
           <section className="modal" aria-labelledby="rename-tenant-title">
-            <h2 id="rename-tenant-title">{text.admin.renameTenant}</h2>
+            <h2 id="rename-tenant-title">{text.admin.editTenant}</h2>
             <p>{text.admin.renameTenantDescription}</p>
             <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void rename(event)}>
               <label>
@@ -198,6 +202,17 @@ export default function AdminTenantManagement({
                   }
                   required
                   autoFocus
+                />
+              </label>
+              <label>
+                {text.admin.tenantSlug}
+                <input
+                  value={slug}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    setSlug(event.currentTarget.value)
+                  }
+                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
+                  required
                 />
               </label>
               <button type="submit">{text.admin.save}</button>
@@ -241,7 +256,7 @@ async function loadTenants(
 }
 async function updateTenant(
   publicId: string,
-  body: { displayName?: string; disabled?: boolean },
+  body: { displayName?: string; slug?: string; disabled?: boolean },
 ): Promise<Response> {
   return fetch(`/api/admin/tenants/${publicId}`, {
     method: 'PATCH',
@@ -249,6 +264,13 @@ async function updateTenant(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   });
+}
+
+async function tenantUpdateError(response: Response, text: Translation): Promise<string> {
+  const body = (await response.json().catch((): null => null)) as { code?: unknown } | null;
+  if (body?.code === 'TENANT_SLUG_CONFLICT') return text.admin.tenantSlugConflict;
+  if (body?.code === 'INVALID_TENANT_SLUG') return text.admin.tenantSlugInvalid;
+  return text.errors.requestFailed;
 }
 async function toggleDisabled(tenant: CookbookTenant, refresh: () => void): Promise<void> {
   const response: Response = await updateTenant(tenant.public_id, {

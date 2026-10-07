@@ -21,6 +21,11 @@ interface UpdateUserBody {
   displayName?: string;
   disabled?: boolean;
 }
+interface UpdateTenantBody {
+  displayName?: string;
+  slug?: string;
+  disabled?: boolean;
+}
 interface CreateUserInvitationBody {
   email: string;
   roleCode: string;
@@ -70,16 +75,38 @@ export function registerTenantRoutes(
   });
   api.patch('/admin/tenants/:publicId', async (request: FastifyRequest, reply: FastifyReply) => {
     if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
-    const body = request.body as { displayName?: unknown; disabled?: unknown };
+    const body = request.body as UpdateTenantBody;
     const id = (request.params as { publicId: string }).publicId;
-    if (typeof body.displayName === 'string' && body.displayName.trim().length > 0) {
-      const result = await pool.query(
-        'UPDATE tenant SET display_name = $1, updated_at = now() WHERE public_id = $2',
-        [body.displayName.trim(), id],
-      );
-      return result.rowCount === 1
-        ? reply.code(204).send()
-        : reply.code(404).send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
+    const displayName: string | undefined =
+      typeof body.displayName === 'string' && body.displayName.trim().length > 0
+        ? body.displayName.trim()
+        : undefined;
+    const suppliedSlug: string | null | undefined =
+      typeof body.slug === 'string' ? validateSlug(body.slug) : undefined;
+    if (suppliedSlug === null)
+      return reply.code(400).send({
+        code: 'INVALID_TENANT_SLUG',
+        error: 'The tenant slug must contain only lowercase letters, digits, and hyphens.',
+      });
+    const slug: string | undefined = suppliedSlug;
+    if (displayName !== undefined || slug !== undefined) {
+      try {
+        const result = await pool.query(
+          `UPDATE tenant
+           SET display_name = COALESCE($1, display_name), slug = COALESCE($2, slug), updated_at = now()
+           WHERE public_id = $3`,
+          [displayName ?? null, slug ?? null, id],
+        );
+        return result.rowCount === 1
+          ? reply.code(204).send()
+          : reply.code(404).send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
+      } catch (error: unknown) {
+        if (isUniqueViolation(error))
+          return reply
+            .code(409)
+            .send({ code: 'TENANT_SLUG_CONFLICT', error: 'That tenant slug is already in use.' });
+        throw error;
+      }
     }
     if (typeof body.disabled === 'boolean') {
       const result = await pool.query(

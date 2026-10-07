@@ -95,6 +95,9 @@
   border-radius: 0.5rem;
   background: #fffaf0;
 }
+.tenant-selection__my-cookbooks {
+  margin-bottom: 1.25rem;
+}
 .category-panel {
   display: grid;
   align-content: start;

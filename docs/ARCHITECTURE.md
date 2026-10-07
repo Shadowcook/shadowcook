@@ -219,6 +219,7 @@ shadowcook/
 - The footer links the license and the displayed application version to the Shadowcook GitHub repository at the build commit.
 - A cookbook has a `show_on_start_page` setting that defaults to `true` and is configurable through General settings.
 - The root page lists accessible enabled cookbooks with `show_on_start_page = true`, with a case-insensitive contains filter over cookbook names and descriptions. Results use a client-provided stable shuffle seed and paginate using the configured cookbook page size.
+- Above the root-page cookbook selection, authenticated users receive an alphabetical `My Cookbooks` list of every enabled cookbook where they have a tenant membership. The list does not apply root-page or recipe visibility filters.
 - The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
 - A sticky global head bar is rendered on application, public cookbook, and public recipe pages. It resolves the current session, provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
@@ -314,6 +315,8 @@ shadowcook/
 - `PUBLIC_WEB_ORIGIN` is the public web origin used to construct invitation URLs.
 - Tenant creation is unavailable until instance SMTP configuration and `INSTANCE_SECRET_KEY` are available. `GET /admin/tenants` returns `smtpConfigured` for the tenant-management UI, and `POST /admin/tenants` returns `SMTP_REQUIRED` without creating a tenant when SMTP is unavailable.
 - Tenant creation commits only after SMTP delivery of the owner invitation succeeds.
+- Public self-service registration derives a normalized tenant slug from the cookbook name. It appends a random suffix only when that derived slug already exists.
+- An instance administrator can change a tenant display name and slug. Tenant-scoped owners cannot change either value.
 - A failed owner-invitation delivery returns `MAIL_DELIVERY_FAILED`, and the tenant-management UI displays a mail-delivery-specific error.
 - A disabled tenant is excluded from tenant selection, cookbook responses, recipe-detail responses, and invitation acceptance.
 - Deleting a tenant permanently deletes its tenant-owned records and inbound sharing records that identify the deleted tenant by public ID.

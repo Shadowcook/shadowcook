@@ -362,12 +362,16 @@ export const de: Translation = {
     tenantInvitationDeliveryFailed:
       'Der Tenant wurde nicht angelegt, weil die Einladungs-E-Mail an den Owner nicht zugestellt werden konnte.',
     tenantCreated: 'Tenant angelegt und Owner eingeladen.',
+    editTenant: 'Kochbuch bearbeiten',
     renameTenant: 'Kochbuch umbenennen',
     renameTenantDescription: 'Ändere den Namen des Kochbuchs.',
     deleteTenant: 'Kochbuch löschen',
     deleteTenantDescription:
       'Dadurch werden das Kochbuch und alle zugehörigen Daten dauerhaft gelöscht.',
     tenantRenamed: 'Kochbuch umbenannt.',
+    tenantSlugConflict: 'Dieser Tenant-Slug wird bereits verwendet.',
+    tenantSlugInvalid:
+      'Der Tenant-Slug darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.',
     tenantDeleted: 'Kochbuch gelöscht.',
     save: 'Speichern',
     cancel: 'Abbrechen',
@@ -775,6 +779,7 @@ export const de: Translation = {
     chooseTenantDescription: 'Wähle ein Kochbuch aus, bevor du dessen Rezepte ansiehst.',
     rootSlogan: 'Gemacht zum Teilen',
     cookbooks: 'Kochbücher',
+    myCookbooks: 'Meine Kochbücher',
     noCookbooks: 'Keine Kochbücher entsprechen deinem Filter.',
     recipesCount: 'Rezepte',
     filterTenants: 'Kochbücher filtern',
