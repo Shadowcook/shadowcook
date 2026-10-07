@@ -28,6 +28,14 @@ const isTenantManagementPath: boolean =
   path.includes('/manage/') ||
   path.endsWith('/recipes/new') ||
   /\/recipes\/[^/]+\/edit$/.test(path);
+const isCookbookPath: boolean =
+  path !== '/' &&
+  !path.startsWith('/invitations/') &&
+  !path.startsWith('/password-reset/') &&
+  path !== '/register' &&
+  !path.startsWith('/verify-email/') &&
+  !path.startsWith('/user-invitations/') &&
+  !isAdministrationPath;
 ---
 
 <!doctype html>
@@ -39,7 +47,7 @@ const isTenantManagementPath: boolean =
     <Favicon />
     <title>{text.metadata.title}</title>
   </head>
-  <body>
+  <body class={isCookbookPath ? 'cookbook-page' : undefined}>
     <HeadBar client:load locale={locale} />
     <main
       class={isAdministrationPath || isTenantManagementPath

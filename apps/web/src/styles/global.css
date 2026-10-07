@@ -508,11 +508,35 @@ code {
   body.category-drawer-open {
     overflow: hidden;
   }
-  .head-bar__home {
+  body.cookbook-page .head-bar__home {
     margin-left: 2.65rem;
+  }
+  .head-bar {
+    gap: 0.5rem;
+    padding-right: 0.75rem;
+    padding-left: 0.75rem;
+  }
+  .head-bar__home {
+    min-width: 0;
+    flex: 1 1 auto;
+    white-space: nowrap;
+  }
+  .head-bar__logo {
+    flex: 0 0 auto;
+  }
+  .head-bar__actions {
+    flex: 0 0 auto;
+    gap: 0.35rem;
+  }
+  .head-bar__actions .button--secondary {
+    padding: 0.55rem 0.6rem;
+    white-space: nowrap;
   }
 }
 @media (max-width: 600px) {
+  body.cookbook-page .head-bar__home {
+    display: none;
+  }
   .application-shell {
     width: min(100% - 2rem, 1080px);
     padding-top: 1.5rem;

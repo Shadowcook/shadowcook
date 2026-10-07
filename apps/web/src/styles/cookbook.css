@@ -1265,6 +1265,7 @@
     padding: 0;
     border: 1px solid #d7c4b4;
     border-radius: 0.3rem;
+    color: #4d4037;
     background: #fffaf0;
   }
   .mobile-category-menu__trigger:hover,
@@ -1315,6 +1316,7 @@
     padding: 0;
     border: 1px solid #d7c4b4;
     border-radius: 0.3rem;
+    color: #4d4037;
     background: #fffdf9;
   }
   .mobile-category-menu__drawer-content {
