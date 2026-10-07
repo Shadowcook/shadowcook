@@ -205,6 +205,12 @@ export const en: Translation = {
   userInvitation: {
     title: 'Create your account',
     subtitle: 'Choose the display name and sign-in details for your Shadowcook account.',
+    existingAccountTitle: 'Join cookbook',
+    existingAccountSubtitle: 'Sign in with the invited email address to join this cookbook.',
+    signInToAccept: 'Sign in to accept invitation',
+    signedInWithDifferentEmail:
+      'You are signed in with a different email address. Sign out before accepting this invitation.',
+    acceptCookbookInvitation: 'Join cookbook',
     displayName: 'Display name',
     password: 'Password',
     accept: 'Create account',

@@ -1388,16 +1388,17 @@ paths:
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       responses:
         '200':
-          description: Invitation details and current password requirement.
+          description: Invitation details, account state, and current password requirement.
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [email, passwordRequired]
+                required: [email, passwordRequired, existingAccount]
                 properties:
                   email: { type: string, format: email }
                   passwordRequired: { type: boolean }
+                  existingAccount: { type: boolean }
         '404': { description: Invitation unavailable. }
   /user-invitations/{token}/accept:
     post:
@@ -1410,7 +1411,6 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [displayName]
               properties:
                 displayName: { type: string, minLength: 1 }
                 password:
@@ -1420,10 +1420,13 @@ paths:
                     description: Must meet the configured minimum estimated entropy.,
                   }
       responses:
-        '204': { description: Account created and invitation accepted. }
+        '204': { description: Account created or an existing account joined the invited cookbook. }
         '400': { description: Invalid invitation details or password. }
+        '401': { description: Existing invited account must sign in before accepting. }
+        '403': { description: Signed-in email address does not match the invitation. }
         '404': { description: Invitation unavailable. }
-        '409': { description: An active user already has this email address. }
+        '409':
+          { description: An instance-user invitation cannot be accepted for an existing account. }
   /invitations/{token}:
     get:
       operationId: getTenantInvitation

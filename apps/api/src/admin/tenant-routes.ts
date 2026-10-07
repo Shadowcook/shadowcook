@@ -31,7 +31,7 @@ interface CreateUserInvitationBody {
   roleCode: string;
 }
 interface AcceptUserInvitationBody {
-  displayName: string;
+  displayName?: string;
   password?: string;
 }
 interface UpdateInstanceRolesBody {
@@ -309,15 +309,6 @@ export function registerTenantRoutes(
         return reply
           .code(400)
           .send({ code: 'INVALID_TENANT_USER_INVITATION', error: 'The invitation is invalid.' });
-      const existing = await pool.query<{ exists: boolean }>(
-        'SELECT EXISTS (SELECT 1 FROM user_account WHERE email = $1 AND deleted_at IS NULL) AS exists',
-        [email],
-      );
-      if (existing.rows[0]?.exists === true)
-        return reply.code(409).send({
-          code: 'USER_EMAIL_CONFLICT',
-          error: 'An active user already uses this email address.',
-        });
       const token: string = randomBytes(32).toString('base64url');
       const invitation = await pool.query<{ id: string }>(
         'INSERT INTO user_invitation (tenant_id, tenant_role_id, invited_email, token_hash, expires_at, created_by_principal_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id',
@@ -336,7 +327,7 @@ export function registerTenantRoutes(
           key,
           email,
           'You are invited to Shadowcook',
-          `You are invited to a Shadowcook cookbook. Open ${publicOrigin}/user-invitations/${token} to create your account. The link expires in seven days.`,
+          `You are invited to a Shadowcook cookbook. Open ${publicOrigin}/user-invitations/${token} to join the cookbook. The link expires in seven days.`,
         );
         if (delivered) return reply.code(201).send();
       } catch (error: unknown) {
@@ -694,9 +685,14 @@ export function registerTenantRoutes(
         .code(404)
         .send({ code: 'USER_INVITATION_NOT_FOUND', error: 'The user invitation is unavailable.' });
     const settings: AuthenticationSettingsRow = await authenticationSettings(pool);
+    const existingAccount = await pool.query<{ exists: boolean }>(
+      'SELECT EXISTS (SELECT 1 FROM user_account WHERE email = $1 AND deleted_at IS NULL) AS exists',
+      [invitation.invited_email],
+    );
     return reply.send({
       email: invitation.invited_email,
       passwordRequired: settings.login_mode !== 'EMAIL_CODE_ONLY',
+      existingAccount: existingAccount.rows[0]?.exists === true,
     });
   });
   api.post(
@@ -716,21 +712,6 @@ export function registerTenantRoutes(
           code: 'USER_INVITATION_NOT_FOUND',
           error: 'The user invitation is unavailable.',
         });
-      const settings: AuthenticationSettingsRow = await authenticationSettings(pool);
-      if (settings.login_mode !== 'EMAIL_CODE_ONLY' && body.password === undefined)
-        return reply
-          .code(400)
-          .send({ code: 'INVALID_PASSWORD', error: 'A password is required for this invitation.' });
-      let passwordHash: string | null = null;
-      try {
-        if (body.password !== undefined)
-          passwordHash = await hashPassword(body.password, await minimumPasswordEntropy(pool));
-      } catch (error: unknown) {
-        return reply.code(400).send({
-          code: 'INVALID_PASSWORD',
-          error: error instanceof Error ? error.message : 'Invalid password.',
-        });
-      }
       const client: PoolClient = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -756,10 +737,65 @@ export function registerTenantRoutes(
           [claim.invited_email],
         );
         if (existing.rows[0] !== undefined) {
+          if (claim.tenant_id === null || claim.tenant_role_id === null) {
+            await client.query('ROLLBACK');
+            return reply.code(409).send({
+              code: 'USER_EMAIL_CONFLICT',
+              error: 'An active user already uses this email address.',
+            });
+          }
+          const session = await currentSessionUser(pool, request);
+          if (session === null || session.disabled_at !== null) {
+            await client.query('ROLLBACK');
+            return reply.code(401).send({
+              code: 'INVITATION_LOGIN_REQUIRED',
+              error: 'Sign in with the invited email address before accepting this invitation.',
+            });
+          }
+          if (session.email !== claim.invited_email) {
+            await client.query('ROLLBACK');
+            return reply.code(403).send({
+              code: 'INVITATION_EMAIL_MISMATCH',
+              error: 'The signed-in email address does not match this invitation.',
+            });
+          }
+          await client.query(
+            'INSERT INTO tenant_membership (tenant_id, principal_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
+            [claim.tenant_id, session.principal_id],
+          );
+          await client.query(
+            'INSERT INTO tenant_membership_role (tenant_id, principal_id, tenant_role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
+            [claim.tenant_id, session.principal_id, claim.tenant_role_id],
+          );
+          await client.query('COMMIT');
+          return reply.code(204).send();
+        }
+        if (body.displayName === undefined) {
           await client.query('ROLLBACK');
-          return reply.code(409).send({
-            code: 'USER_EMAIL_CONFLICT',
-            error: 'An active user already uses this email address.',
+          return reply.code(400).send({
+            code: 'INVALID_USER_INVITATION',
+            error: 'The invitation details are invalid.',
+          });
+        }
+        const settings: AuthenticationSettingsRow = await authenticationSettings(pool);
+        if (settings.login_mode !== 'EMAIL_CODE_ONLY' && body.password === undefined) {
+          await client.query('ROLLBACK');
+          return reply
+            .code(400)
+            .send({
+              code: 'INVALID_PASSWORD',
+              error: 'A password is required for this invitation.',
+            });
+        }
+        let passwordHash: string | null = null;
+        try {
+          if (body.password !== undefined)
+            passwordHash = await hashPassword(body.password, await minimumPasswordEntropy(pool));
+        } catch (error: unknown) {
+          await client.query('ROLLBACK');
+          return reply.code(400).send({
+            code: 'INVALID_PASSWORD',
+            error: error instanceof Error ? error.message : 'Invalid password.',
           });
         }
         const principal = await client.query<{ id: string }>(
@@ -854,10 +890,14 @@ function parseCreateTenantUserInvitation(value: unknown): CreateTenantUserInvita
 function parseAcceptUserInvitation(value: unknown): AcceptUserInvitationBody | null {
   if (typeof value !== 'object' || value === null) return null;
   const body: Record<string, unknown> = value as Record<string, unknown>;
-  if (typeof body.displayName !== 'string' || body.displayName.trim().length === 0) return null;
+  if (
+    body.displayName !== undefined &&
+    (typeof body.displayName !== 'string' || body.displayName.trim().length === 0)
+  )
+    return null;
   if (body.password !== undefined && typeof body.password !== 'string') return null;
   return {
-    displayName: body.displayName.trim(),
+    displayName: typeof body.displayName === 'string' ? body.displayName.trim() : undefined,
     password:
       typeof body.password === 'string' && body.password.length > 0 ? body.password : undefined,
   };
@@ -894,9 +934,9 @@ async function invitationForToken(pool: Pool, token: string): Promise<any | null
 async function userInvitationForToken(
   pool: Pool,
   token: string,
-): Promise<{ invited_email: string } | null> {
-  const result = await pool.query<{ invited_email: string }>(
-    'SELECT invited_email FROM user_invitation WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > now()',
+): Promise<{ invited_email: string; tenant_id: string | null } | null> {
+  const result = await pool.query<{ invited_email: string; tenant_id: string | null }>(
+    'SELECT invited_email, tenant_id FROM user_invitation WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > now()',
     [hashToken(token)],
   );
   return result.rows[0] ?? null;

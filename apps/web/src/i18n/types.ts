@@ -76,6 +76,11 @@ export interface Translation {
   userInvitation: {
     title: string;
     subtitle: string;
+    existingAccountTitle: string;
+    existingAccountSubtitle: string;
+    signInToAccept: string;
+    signedInWithDifferentEmail: string;
+    acceptCookbookInvitation: string;
     displayName: string;
     password: string;
     accept: string;

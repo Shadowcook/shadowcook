@@ -190,6 +190,18 @@ shadowcook/
 - A migration checksum mismatch or an unknown applied migration stops API startup.
 - The API process loads the optional repository-root `.env` file only as a local-development convenience. Existing process environment variables remain authoritative.
 
+### 4.1.1 Automated test execution
+
+- `pnpm test` executes the unit, API integration, API contract, migration, and browser end-to-end test commands sequentially, prints a pass/fail result for every suite, prints an overall pass/fail result, and exits unsuccessfully when any suite fails.
+- API integration, API contract, and migration tests create a dedicated disposable PostgreSQL Docker container named with the `shadowcook-test-` prefix.
+- Each disposable test container has a randomly assigned loopback TCP port, a generated database password, a fresh `shadowcook_test` database, and is removed after its test suite.
+- Test database migrations run through `migrateDatabase`; test execution does not read or modify `DATABASE_URL`, development databases, production databases, or configured development ports.
+- API tests construct Fastify with `createApi` and execute requests through Fastify injection without binding an HTTP port.
+- Unit tests use the Node.js test runner through `tsx` and cover deterministic API functions without PostgreSQL or HTTP transport.
+- Priority-0 API integration tests cover login validation, HttpOnly session creation, logout revocation, disabled and expired sessions, password-change-required access restrictions, and the separation of tenant roles from instance permissions.
+- Priority-0 API integration tests verify category tenant isolation for tenant-slug and category-public-ID routes, including cross-tenant list, create, and update attempts.
+- `pnpm test:e2e` is reserved for the browser test suite and currently reports that browser end-to-end tests have not been implemented.
+
 ### 4.2 Cookbook overview
 
 - `GET /cookbook` returns publicly visible published recipes without authentication and all published recipes for tenants in which the authenticated user's principal is a member.
@@ -1004,7 +1016,7 @@ Roles are convenience collections of explicit permissions.
 - `Tenant-Owner` is a tenant-scoped role for complete administration of one tenant.
 - A Tenant-Owner can manage users, roles, cookbook content, settings, and service accounts only within the tenant in which the role is assigned.
 - Tenant-Manager permissions do not make the assignee a Tenant-Owner of any tenant.
-- Tenant-user invitations select exactly one tenant role and assign the accepted account to that tenant with the selected role.
+- Tenant-user invitations select exactly one tenant role and assign the accepted account to that tenant with the selected role. They support both new accounts and existing accounts that authenticate with the invited email address.
 
 Example permissions:
 
@@ -1048,7 +1060,7 @@ Service accounts should normally receive least-privilege permissions.
 - Display names are not unique.
 - `user_invitation` stores a SHA-256 verifier of an opaque seven-day invitation token, the invited email address, the creator principal, and acceptance state.
 - Instance administrators invite a user by email only. The invitation acceptance page creates the account with the invited email address and the user-selected display name, then redirects to `/login`. It requires a password unless the instance login mode is `EMAIL_CODE_ONLY`.
-- Tenant invitation acceptance routes a new account to its assigned cookbook password-completion screen and routes an account that already has a valid password directly to its assigned cookbook.
+- Tenant-user invitation acceptance creates a new account when the invited email address has no active account. When an active account exists, acceptance requires a session for the invited email address and adds its principal to the invited tenant membership with the selected role.
 - `instance_role` is an instance-wide role. The seeded `administrator` role has every registered permission.
 - `principal_instance_role` assigns an instance role to a principal.
 - `tenant_role` is tenant-scoped. `tenant_membership` associates a principal with a tenant and `tenant_membership_role` assigns its tenant roles.
