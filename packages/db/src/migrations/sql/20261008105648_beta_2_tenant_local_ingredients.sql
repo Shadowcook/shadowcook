@@ -12,17 +12,22 @@ INSERT INTO global_ingredient_tenant_map (
   target_ingredient_id,
   target_exists
 )
-SELECT DISTINCT ingredient_usage.ingredient_id,
-  recipe.tenant_id,
+SELECT ingredient_tenant.source_ingredient_id,
+  ingredient_tenant.tenant_id,
   COALESCE(existing_ingredient.id, gen_random_uuid()),
   existing_ingredient.id IS NOT NULL
-FROM ingredient_usage
-INNER JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
-INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
-INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
-INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
+FROM (
+  SELECT DISTINCT ingredient_usage.ingredient_id AS source_ingredient_id,
+    recipe.tenant_id
+  FROM ingredient_usage
+  INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
+  INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
+  INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
+  WHERE ingredient_usage.ingredient_id IS NOT NULL
+) AS ingredient_tenant
+INNER JOIN ingredient ON ingredient.id = ingredient_tenant.source_ingredient_id
 LEFT JOIN ingredient AS existing_ingredient
-  ON existing_ingredient.owner_tenant_id = recipe.tenant_id
+  ON existing_ingredient.owner_tenant_id = ingredient_tenant.tenant_id
   AND existing_ingredient.canonical_name = ingredient.canonical_name
 WHERE ingredient.owner_tenant_id IS NULL;
 
