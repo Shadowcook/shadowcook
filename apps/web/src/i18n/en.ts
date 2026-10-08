@@ -24,7 +24,7 @@ export const en: Translation = {
   legalDocument: {
     unavailable: 'This document has not been published yet.',
   },
-  loading: 'Checking session …',
+  loading: 'Loading …',
   accessDenied: {
     title: 'Access denied',
     description: 'Your account does not have permission to access this page.',
@@ -506,6 +506,12 @@ export const en: Translation = {
     dimension: 'Dimension',
     baseFactor: 'Base factor',
     baseOffset: 'Base offset',
+    conversion: 'Conversion',
+    notConvertible: 'No conversion available',
+    equivalent: '1 unit equals',
+    equivalentOption: 'Equivalent to another unit',
+    one: '1',
+    cannotChangeUsed: 'The conversion of a unit used in recipes cannot be changed.',
     usage: 'Recipe uses',
     dimensions: { MASS: 'Mass', VOLUME: 'Volume', COUNT: 'Count', TEMPERATURE: 'Temperature' },
     created: 'Unit created.',

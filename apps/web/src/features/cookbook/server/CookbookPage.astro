@@ -2,13 +2,12 @@
 import BuildFooter from '../../../components/BuildFooter.astro';
 import Favicon from '../../../components/Favicon.astro';
 import HeadBar from '../../../components/HeadBar';
-import PublicCategoryTree from './PublicCategoryTree.astro';
-import CookbookScreen from '../CookbookScreen';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import { buildCommit } from '../../../lib/server/build-info';
-import { categoryPath, cookbookPath } from '../model/routing';
-import type { Category, CookbookResponse, Recipe } from '../model/types';
+import { loadHeadBarSession } from '../../../lib/server/head-bar-session';
+import CookbookScreen from '../CookbookScreen';
+import type { CookbookResponse } from '../model/types';
 import '../../../styles/global.css';
 import '../../../styles/cookbook.css';
 
@@ -21,52 +20,15 @@ interface Properties {
 const { cookbook, categoryId, locale } = Astro.props;
 const text: Translation = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
+const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
-const frontpageHeading: string = cookbook.tenant?.frontpage_heading ?? text.dashboard.greeting;
 const tenantSlug: string = requestedTenantSlug();
-const selectedCategory: Category | undefined = cookbook.categories.find(
-  (category: Category): boolean => category.public_id === categoryId,
-);
-const breadcrumbCategories: Category[] =
-  selectedCategory === undefined ? [] : categoryAncestors(selectedCategory);
-const visibleRecipes: Recipe[] =
-  categoryId === null
-    ? cookbook.frontpage.recipes
-    : cookbook.recipes.filter((recipe: Recipe): boolean =>
-        recipe.category_public_ids.includes(categoryId),
-      );
 
 function requestedTenantSlug(): string {
   const segment: string | undefined = Astro.url.pathname
     .split('/')
     .filter((value: string): boolean => value.length > 0)[0];
   return segment === undefined ? '' : decodeURIComponent(segment);
-}
-
-function categoryUrl(category: Category): string {
-  const segments: string[] | null = categoryPath(cookbook.categories, category.public_id);
-  return segments === null
-    ? `/${encodeURIComponent(tenantSlug)}`
-    : `/${encodeURIComponent(tenantSlug)}/${segments.map(encodeURIComponent).join('/')}`;
-}
-
-function recipeUrl(recipe: Recipe): string {
-  return cookbookPath(tenantSlug, cookbook.categories, categoryId, recipe);
-}
-
-function categoryAncestors(category: Category): Category[] {
-  const ancestors: Category[] = [];
-  let current: Category | undefined = category;
-  while (current !== undefined) {
-    ancestors.unshift(current);
-    current =
-      current.parent_public_id === null
-        ? undefined
-        : cookbook.categories.find(
-            (candidate: Category): boolean => candidate.public_id === current?.parent_public_id,
-          );
-  }
-  return ancestors;
 }
 ---
 
@@ -80,134 +42,16 @@ function categoryAncestors(category: Category): Category[] {
     <title>{cookbookName} · {text.metadata.title}</title>
   </head>
   <body>
-    <HeadBar client:load locale={locale} />
+    <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main class="application-shell">
-      <section class="dashboard" data-public-cookbook>
-        <header class="dashboard__header">
-          <div>
-            <p class="eyebrow dashboard__cookbook-name">{cookbookName}</p>
-            <h1>{selectedCategory?.name ?? frontpageHeading}</h1>
-          </div>
-        </header>
-        <nav class="breadcrumb" aria-label={text.dashboard.breadcrumb}>
-          <ol>
-            <li><a href={`/${encodeURIComponent(tenantSlug)}`}>{cookbookName}</a></li>
-            {
-              breadcrumbCategories.map((category: Category, index: number) => (
-                <li>
-                  {index === breadcrumbCategories.length - 1 ? (
-                    <span aria-current="page">{category.name}</span>
-                  ) : (
-                    <a href={categoryUrl(category)}>{category.name}</a>
-                  )}
-                </li>
-              ))
-            }
-          </ol>
-        </nav>
-        <div class="cookbook-layout">
-          <aside class="category-panel">
-            <div class="category-panel__heading">
-              <p class="eyebrow">{text.dashboard.categories}</p>
-            </div>
-            <a
-              class={categoryId === null
-                ? 'category-button category-button--active'
-                : 'category-button'}
-              href={`/${encodeURIComponent(tenantSlug)}`}
-            >
-              {text.dashboard.allCategories}
-            </a>
-            <nav aria-label={text.dashboard.categories}>
-              <PublicCategoryTree
-                categories={cookbook.categories}
-                collapseLabel={text.dashboard.collapseCategory}
-                expandLabel={text.dashboard.expandCategory}
-                parentId={null}
-                selectedCategoryId={categoryId}
-                tenantSlug={tenantSlug}
-              />
-            </nav>
-          </aside>
-          <section class="recipes-panel">
-            <div class="recipes-panel__heading">
-              <p class="eyebrow">{text.dashboard.recipes}</p>
-              <div class="recipes-panel__actions">
-                <strong
-                  >{
-                    categoryId === null ? cookbook.frontpage.totalRecipes : visibleRecipes.length
-                  }</strong
-                >
-              </div>
-            </div>
-            {
-              visibleRecipes.length === 0 ? (
-                <p class="empty-state">{text.dashboard.noRecipes}</p>
-              ) : (
-                <div class="recipe-grid">
-                  {visibleRecipes.map((recipe: Recipe) => (
-                    <article class="recipe-card">
-                      <a class="recipe-card__button" href={recipeUrl(recipe)}>
-                        <h2>{recipe.title}</h2>
-                        {recipe.summary === null ? null : <p>{recipe.summary}</p>}
-                      </a>
-                    </article>
-                  ))}
-                </div>
-              )
-            }
-          </section>
-        </div>
-      </section>
-      <div hidden data-cookbook-client>
-        <CookbookScreen client:load locale={locale} notifyWhenReady={true} />
-      </div>
+      <CookbookScreen
+        client:load
+        initialCategoryId={categoryId}
+        initialCookbook={cookbook}
+        initialTenantSlug={tenantSlug}
+        locale={locale}
+      />
     </main>
     <BuildFooter buildCommit={deployedBuildCommit} text={text} />
   </body>
 </html>
-
-<script>
-  const publicCookbook: HTMLElement | null = document.querySelector('[data-public-cookbook]');
-  const cookbookClient: HTMLElement | null = document.querySelector('[data-cookbook-client]');
-  window.addEventListener(
-    'shadowcook:cookbook-ready',
-    (): void => {
-      if (publicCookbook === null || cookbookClient === null) return;
-      publicCookbook.hidden = true;
-      cookbookClient.hidden = false;
-    },
-    { once: true },
-  );
-
-  const disclosures: NodeListOf<HTMLButtonElement> = document.querySelectorAll(
-    '[data-category-tree-disclosure]',
-  );
-
-  for (const disclosure of disclosures) {
-    const item: HTMLElement | null = disclosure.closest('.category-tree__item');
-    if (item === null) continue;
-    const children: HTMLElement | undefined = Array.from(item.children).find(
-      (child: Element): child is HTMLElement => child.classList.contains('category-tree__children'),
-    );
-    if (children === undefined) continue;
-
-    function setExpanded(expanded: boolean): void {
-      children.hidden = !expanded;
-      disclosure.setAttribute('aria-expanded', String(expanded));
-      disclosure.classList.toggle('category-disclosure--expanded', expanded);
-      const label: string | undefined = expanded
-        ? disclosure.dataset.collapseLabel
-        : disclosure.dataset.expandLabel;
-      const categoryName: string | null =
-        item.querySelector('.category-button')?.textContent ?? null;
-      if (label !== undefined && categoryName !== null)
-        disclosure.setAttribute('aria-label', `${label}: ${categoryName}`);
-    }
-
-    setExpanded(disclosure.dataset.initialExpanded === 'true');
-    disclosure.addEventListener('click', (): void => {
-      setExpanded(disclosure.getAttribute('aria-expanded') !== 'true');
-    });
-  }
-</script>

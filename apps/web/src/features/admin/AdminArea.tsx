@@ -16,18 +16,25 @@ import { cacheAdminAccess, cachedAdminAccess } from '../../lib/browser/session-c
 import type { AdminAccessState } from '../../lib/browser/session-cache';
 
 interface Properties {
+  initialAccess?: AdminAccessState;
+  initialIsAdministrator?: boolean;
   locale: Locale;
   path: string;
 }
 type AccessState = 'loading' | AdminAccessState;
 
-export default function AdminArea({ locale, path }: Properties): JSX.Element {
+export default function AdminArea({
+  initialAccess,
+  initialIsAdministrator = false,
+  locale,
+  path,
+}: Properties): JSX.Element {
   const text: Translation = translations[locale];
-  const [access, setAccess] = useState<AccessState>(initialAccessState);
-  const [isAdministrator, setIsAdministrator] = useState<boolean>(false);
+  const [access, setAccess] = useState<AccessState>(initialAccess ?? initialAccessState());
+  const [isAdministrator, setIsAdministrator] = useState<boolean>(initialIsAdministrator);
   const [currentPath, setCurrentPath] = useState<string>(path);
   useEffect((): void => {
-    void checkAccess(setAccess);
+    void checkAccess(setAccess, initialAccess !== undefined);
   }, []);
   useEffect((): void => {
     void checkAdministrator(setIsAdministrator);
@@ -323,11 +330,16 @@ function AdminPlaceholder({
     </section>
   );
 }
-async function checkAccess(setAccess: (value: AccessState) => void): Promise<void> {
-  const cached: AdminAccessState | null = cachedAdminAccess();
-  if (cached === 'granted' || cached === 'denied') {
-    setAccess(cached);
-    return;
+async function checkAccess(
+  setAccess: (value: AccessState) => void,
+  ignoreCache: boolean,
+): Promise<void> {
+  if (!ignoreCache) {
+    const cached: AdminAccessState | null = cachedAdminAccess();
+    if (cached === 'granted' || cached === 'denied') {
+      setAccess(cached);
+      return;
+    }
   }
   const response: Response = await fetch('/api/admin/tenants', {
     credentials: 'same-origin',

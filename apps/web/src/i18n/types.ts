@@ -469,6 +469,12 @@ export interface Translation {
     dimension: string;
     baseFactor: string;
     baseOffset: string;
+    conversion: string;
+    notConvertible: string;
+    equivalent: string;
+    equivalentOption: string;
+    one: string;
+    cannotChangeUsed: string;
     usage: string;
     dimensions: Record<'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE', string>;
     created: string;

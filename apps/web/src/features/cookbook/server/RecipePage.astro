@@ -5,6 +5,7 @@ import HeadBar from '../../../components/HeadBar';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import { buildCommit } from '../../../lib/server/build-info';
+import { loadHeadBarSession } from '../../../lib/server/head-bar-session';
 import CookbookScreen from '../CookbookScreen';
 import type { CookbookResponse, Recipe, RecipeDetail } from '../model/types';
 import { recipeJsonLd } from './recipe-structured-data';
@@ -21,11 +22,11 @@ interface Properties {
 const { cookbook, categoryId, locale, recipe } = Astro.props;
 const text: Translation = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
+const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
 const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
 const canonicalUrl: string = `${Astro.url.origin}${Astro.url.pathname}`;
-const tenantSlug: string = Astro.url.pathname
-  .split('/')
-  .filter((segment: string): boolean => segment.length > 0)[0] ?? '';
+const tenantSlug: string =
+  Astro.url.pathname.split('/').filter((segment: string): boolean => segment.length > 0)[0] ?? '';
 const categoryIds: string[] = recipeCategories(cookbook, recipe.public_id);
 const structuredData = recipeJsonLd(
   recipe,
@@ -57,7 +58,7 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
     <script type="application/ld+json" set:html={structuredDataJson} />
   </head>
   <body>
-    <HeadBar client:load locale={locale} />
+    <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main class="application-shell">
       <CookbookScreen
         client:load

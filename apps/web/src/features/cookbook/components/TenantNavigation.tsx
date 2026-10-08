@@ -20,12 +20,7 @@ interface TenantNavigationProperties {
 }
 
 export default function TenantNavigation(properties: TenantNavigationProperties): JSX.Element {
-  const {
-    text,
-    cookbook,
-    activeView,
-    tenantSlug,
-  } = properties;
+  const { text, cookbook, activeView, tenantSlug } = properties;
   return (
     <aside className="tenant-navigation">
       <p className="eyebrow">{text.tenantNavigation.title}</p>

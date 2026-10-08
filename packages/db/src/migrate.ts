@@ -1,5 +1,5 @@
 import type { Pool, PoolClient } from 'pg';
-import { migrations } from './migrations/index.js';
+import { discoverSqlMigrations } from './migrations/discover-sql-migrations.js';
 import type { Migration } from './migrations/types.js';
 
 interface AppliedMigration {
@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS application_schema_migration (
 );`;
 
 export async function migrateDatabase(pool: Pool): Promise<void> {
+  const migrations: readonly Migration[] = discoverSqlMigrations();
   const client: PoolClient = await pool.connect();
 
   try {

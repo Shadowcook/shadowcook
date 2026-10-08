@@ -183,7 +183,7 @@ shadowcook/
 
 - The API process executes database migrations before binding its HTTP listener.
 - Database migrations run in the API process and do not require a dedicated migration container.
-- Database migration statements are stored as `YYYYmmddHHiiss_descriptive_name.sql` files in `packages/db/src/migrations`, where the prefix is a UTC timestamp; the database package loads them as runtime assets.
+- Database migration statements are stored as `YYYYmmddHHiiss_descriptive_name.sql` files in `packages/db/src/migrations/sql`, where the prefix is a UTC timestamp. The database package loads every SQL file in lexicographic filename order as a runtime asset.
 - Migration execution uses a PostgreSQL advisory lock named `shadowcook-schema-migration`.
 - Each migration is executed in one database transaction.
 - Applied migration identifiers, SHA-256 checksums, and UTC application timestamps are stored in `application_schema_migration`.
@@ -234,11 +234,12 @@ shadowcook/
 - Above the root-page cookbook selection, authenticated users receive an alphabetical `My Cookbooks` list of every enabled cookbook where they have a tenant membership. The list does not apply root-page or recipe visibility filters.
 - The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
-- A sticky global head bar is rendered on application, public cookbook, and public recipe pages. It resolves the current session, provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
+- A sticky global head bar is rendered on application, public cookbook, and public recipe pages. The Astro server resolves the current session before rendering it; the hydrated client validates that state after load. It provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
+- Protected tenant-management and instance-administration pages server-resolve their access state before rendering. Client-side validation does not introduce a session-check loading screen.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`; it forwards API redirects without following them and requests uncompressed upstream API responses. At image build time, `PUBLIC_WEB_ORIGIN` configures Astro's allowed forwarded domain for SSR origin checks.
 - Public cookbook overview and category navigation paths render their accessible category and recipe links as semantic server-rendered HTML without a client-side session check.
-- Public cookbook overview and category pages retain their server-rendered HTML in the response and replace it with the hydrated cookbook client only after the client has loaded its session and cookbook state.
+- Public cookbook overview, category, and recipe pages server-render the same cookbook component with server-resolved data; JavaScript-capable browsers hydrate that component without replacing it.
 - A direct recipe navigation renders its title, summary, category links, selected visible variant links, ingredient usages, and preparation steps as semantic server-rendered HTML. The server forwards the request cookie when resolving recipe access.
 - Server-rendered recipe pages render the `CookbookScreen` with the resolved cookbook, category, and recipe state. JavaScript-capable browsers hydrate that same `CookbookScreen`; clients that do not execute JavaScript retain its server-rendered recipe content.
 - Server-rendered recipe pages include a canonical URL and a Schema.org `Recipe` JSON-LD document with the recipe URL, tenant author, title, optional summary, category names, non-special ingredient usages, and ordered preparation steps.
@@ -313,6 +314,10 @@ shadowcook/
 - The instance administration UI has its own navigation and does not use cookbook breadcrumbs.
 - `/admin` is the administration dashboard, `/admin/tenants` is tenant management, `/admin/users` is instance and tenant user management, `/admin/settings` is the instance settings overview, `/admin/settings/smtp` manages SMTP delivery, and `/admin/settings/legal-documents` manages public legal-document Markdown.
 - `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
+- A unit is convertible only when `dimension`, `base_factor`, and `base_offset` are all set. A non-convertible unit has all three fields set to `NULL`.
+- Tenant unit creation stores a derived base factor from one explicit equivalence to a visible, non-temperature convertible unit. The derived value is the conversion source of truth.
+- A tenant unit referenced by recipe ingredient usages permits name and symbol changes only; changes to its conversion state or conversion values return a conflict.
+- The tenant role named `Owner` has every non-instance permission except `tenant:create`.
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.

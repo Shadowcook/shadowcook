@@ -12,11 +12,17 @@ import HeadBar from './HeadBar';
 import { resolveLocale, translations } from '../i18n';
 import type { Locale } from '../i18n';
 import { buildCommit } from '../lib/server/build-info';
+import { loadAdminAreaState, loadHeadBarSession } from '../lib/server/head-bar-session';
+import { loadServerTenantCookbook } from '../lib/server/cookbook';
+import type { CookbookResponse } from '../features/cookbook/model/types';
+import { managementRoute } from '../features/cookbook/model/management-routing';
+import type { ManagementRoute } from '../features/cookbook/model/management-routing';
 import '../styles/global.css';
 
 const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
 const text = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
+const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
 interface Properties {
   path: string;
 }
@@ -36,6 +42,19 @@ const isCookbookPath: boolean =
   !path.startsWith('/verify-email/') &&
   !path.startsWith('/user-invitations/') &&
   !isAdministrationPath;
+const requestCookie: string | null = Astro.request.headers.get('cookie');
+const initialAdminAreaState = isAdministrationPath
+  ? await loadAdminAreaState(requestCookie)
+  : null;
+const initialTenantCookbook: CookbookResponse | null = isTenantManagementPath
+  ? await loadServerTenantCookbook(path, requestCookie)
+  : null;
+const tenantSlug: string | undefined = isTenantManagementPath
+  ? decodeURIComponent(path.split('/')[1] ?? '')
+  : undefined;
+const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPath
+  ? managementRoute(path)
+  : undefined;
 ---
 
 <!doctype html>
@@ -48,7 +67,7 @@ const isCookbookPath: boolean =
     <title>{text.metadata.title}</title>
   </head>
   <body class={isCookbookPath ? 'cookbook-page' : undefined}>
-    <HeadBar client:load locale={locale} />
+    <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main
       class={isAdministrationPath || isTenantManagementPath
         ? 'application-shell application-shell--admin'
@@ -80,9 +99,21 @@ const isCookbookPath: boolean =
             token={path.slice('/user-invitations/'.length)}
           />
         ) : isAdministrationPath ? (
-          <AdminArea client:load locale={locale} path={path} />
+          <AdminArea
+            client:load
+            initialAccess={initialAdminAreaState?.access}
+            initialIsAdministrator={initialAdminAreaState?.isAdministrator}
+            locale={locale}
+            path={path}
+          />
         ) : (
-          <CookbookScreen client:load locale={locale} />
+          <CookbookScreen
+            client:load
+            initialCookbook={initialTenantCookbook ?? undefined}
+            initialManagementRoute={initialManagementRoute}
+            initialTenantSlug={tenantSlug}
+            locale={locale}
+          />
         )
       }
     </main>

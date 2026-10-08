@@ -28,21 +28,24 @@ export default function RecipeLinkPicker(properties: RecipeLinkPickerProperties)
 
   useEffect((): (() => void) => {
     let isCurrent: boolean = true;
-    const timeoutId: number = window.setTimeout((): void => {
-      void request<{ recipes: EditorRecipe[] }>(
-        `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue/recipes?search=${encodeURIComponent(search.trim())}`,
-      )
-        .then((response): void => {
-          if (!isCurrent) return;
-          setRecipes(response.recipes);
-          setSearchFailed(false);
-        })
-        .catch((): void => {
-          if (!isCurrent) return;
-          setRecipes([]);
-          setSearchFailed(true);
-        });
-    }, search.length === 0 ? 0 : searchDelayMilliseconds);
+    const timeoutId: number = window.setTimeout(
+      (): void => {
+        void request<{ recipes: EditorRecipe[] }>(
+          `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue/recipes?search=${encodeURIComponent(search.trim())}`,
+        )
+          .then((response): void => {
+            if (!isCurrent) return;
+            setRecipes(response.recipes);
+            setSearchFailed(false);
+          })
+          .catch((): void => {
+            if (!isCurrent) return;
+            setRecipes([]);
+            setSearchFailed(true);
+          });
+      },
+      search.length === 0 ? 0 : searchDelayMilliseconds,
+    );
     return (): void => {
       isCurrent = false;
       window.clearTimeout(timeoutId);
@@ -50,11 +53,17 @@ export default function RecipeLinkPicker(properties: RecipeLinkPickerProperties)
   }, [properties.tenantSlug, search]);
 
   return (
-    <div className="recipe-link-picker" role="dialog" aria-label={properties.text.recipeEditor.recipeLinkPicker}>
+    <div
+      className="recipe-link-picker"
+      role="dialog"
+      aria-label={properties.text.recipeEditor.recipeLinkPicker}
+    >
       <input
         autoFocus
         value={search}
-        onChange={(event: ChangeEvent<HTMLInputElement>): void => setSearch(event.currentTarget.value)}
+        onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+          setSearch(event.currentTarget.value)
+        }
         placeholder={properties.text.recipeEditor.searchRecipes}
         aria-label={properties.text.recipeEditor.searchRecipes}
       />
@@ -68,7 +77,9 @@ export default function RecipeLinkPicker(properties: RecipeLinkPickerProperties)
         ))}
       </ul>
       {searchFailed ? <p role="alert">{properties.text.errors.requestFailed}</p> : null}
-      {!searchFailed && recipes.length === 0 ? <p>{properties.text.recipeEditor.noRecipesFound}</p> : null}
+      {!searchFailed && recipes.length === 0 ? (
+        <p>{properties.text.recipeEditor.noRecipesFound}</p>
+      ) : null}
     </div>
   );
 }

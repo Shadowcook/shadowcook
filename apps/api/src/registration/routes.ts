@@ -209,7 +209,7 @@ export function registerPublicRegistrationRoutes(
         [tenant.id],
       );
       await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code LIKE 'tenant:%' OR code LIKE 'recipe:%' OR code LIKE 'variant:%' OR code LIKE 'ingredient:%' OR code LIKE 'unit:%' OR code LIKE 'category:%' OR code = 'service-account:manage'",
+        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code NOT LIKE 'instance:%' AND code <> 'tenant:create'",
         [owner.rows[0]!.id],
       );
       const editor = await client.query<{ id: string }>(

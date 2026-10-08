@@ -199,7 +199,8 @@
       "name": "gram",
       "symbol": "g",
       "dimension": "MASS",
-      "base_factor": 1
+      "base_factor": 1,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000002",
@@ -207,7 +208,8 @@
       "name": "millilitre",
       "symbol": "ml",
       "dimension": "VOLUME",
-      "base_factor": 1
+      "base_factor": 1,
+      "base_offset": 0
     }
   ]
 }

@@ -228,10 +228,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     <section className="recipe-steps-editor">
       <div className="recipe-steps-editor__heading">
         <h2>{properties.text.recipeEditor.steps}</h2>
-        <button
-          type="button"
-          onClick={(): void => addStep()}
-        >
+        <button type="button" onClick={(): void => addStep()}>
           {properties.text.recipeEditor.addStep}
         </button>
       </div>

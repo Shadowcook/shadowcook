@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { requireInstancePermission } from './authorization.js';
+import { convertAmount, decimal, displayDecimal } from '../unit-domain.js';
 
 type UnitDimension = 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE';
 
@@ -24,7 +25,6 @@ interface UnitRow {
 }
 
 const dimensions: ReadonlySet<string> = new Set(['MASS', 'VOLUME', 'COUNT', 'TEMPERATURE']);
-const decimalPattern: RegExp = /^-?(?:0|[1-9][0-9]*)(?:\.[0-9]{1,12})?$/;
 
 export function registerUnitRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/admin/units', async (request, reply) => {
@@ -131,19 +131,13 @@ export function registerUnitRoutes(api: FastifyInstance, pool: Pool): void {
     const target = result.rows.find((row) => row.public_id === body.targetUnitPublicId);
     if (source === undefined || target === undefined)
       return reply.code(404).send({ code: 'UNIT_NOT_FOUND', error: 'The unit was not found.' });
-    if (source.dimension !== target.dimension)
+    const converted = await convertAmount(pool, amount, source, target);
+    if (converted === null)
       return reply.code(409).send({
-        code: 'UNIT_DIMENSION_MISMATCH',
-        error: 'Only units of the same dimension can be converted.',
+        code: 'UNIT_NOT_CONVERTIBLE',
+        error: 'Both units must be convertible and have the same dimension.',
       });
-    const conversion = await pool.query<{ amount: string }>(
-      `SELECT (($1::numeric * $2::numeric + $3::numeric - $4::numeric) / $5::numeric)::text AS amount`,
-      [amount, source.base_factor, source.base_offset, target.base_offset, target.base_factor],
-    );
-    return reply.send({
-      amount: displayDecimal(conversion.rows[0]!.amount),
-      dimension: source.dimension,
-    });
+    return reply.send(converted);
   });
 }
 
@@ -173,12 +167,6 @@ function trimmed(value: unknown): string | null {
   return result.length > 0 && result.length <= 100 ? result : null;
 }
 
-function decimal(value: unknown, positive: boolean): string | null {
-  if (typeof value !== 'string' || !decimalPattern.test(value)) return null;
-  if (positive && Number(value) <= 0) return null;
-  return value;
-}
-
 function unitResponse(unit: UnitRow): object {
   return {
     publicId: unit.public_id,
@@ -205,8 +193,4 @@ function duplicateUnit(reply: FastifyReply): FastifyReply {
 
 function isUniqueViolation(error: unknown): error is { code: string } {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
-}
-
-function displayDecimal(value: string): string {
-  return value.includes('.') ? value.replace(/\.0+$/, '').replace(/(\.[0-9]*?)0+$/, '$1') : value;
 }

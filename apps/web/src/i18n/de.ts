@@ -24,7 +24,7 @@ export const de: Translation = {
   legalDocument: {
     unavailable: 'Dieses Dokument wurde noch nicht veröffentlicht.',
   },
-  loading: 'Sitzung wird geprüft …',
+  loading: 'Wird geladen …',
   accessDenied: {
     title: 'Zugriff verweigert',
     description: 'Dein Konto hat keine Berechtigung für diese Seite.',
@@ -520,6 +520,13 @@ export const de: Translation = {
     dimension: 'Dimension',
     baseFactor: 'Basisfaktor',
     baseOffset: 'Basisoffset',
+    conversion: 'Umrechnung',
+    notConvertible: 'Keine Umrechnung verfügbar',
+    equivalent: '1 Einheit entspricht',
+    equivalentOption: 'Entspricht einer anderen Einheit',
+    one: '1',
+    cannotChangeUsed:
+      'Die Umrechnung einer in Rezepten verwendeten Einheit kann nicht geändert werden.',
     usage: 'Rezeptverwendungen',
     dimensions: { MASS: 'Masse', VOLUME: 'Volumen', COUNT: 'Anzahl', TEMPERATURE: 'Temperatur' },
     created: 'Maßeinheit angelegt.',

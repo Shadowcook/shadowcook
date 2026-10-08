@@ -7,7 +7,7 @@
 - The pnpm workspace contains the Fastify API, Astro web application, database package, and OpenAPI contract.
 - The Docker Compose deployment package includes an upgrade script that resolves a requested Git ref to a full commit before rebuilding the API and web runtime images, removes unused labelled Shadowcook deployment images after a successful recreation, embeds the root package version and the commit prefix in the localized web footer, supports bundled or existing PostgreSQL through separate Compose configurations, includes an Apache reverse-proxy example, and can be created as a versioned server-copyable tarball.
 - PostgreSQL uses the initial normalized schema for tenants, principals, roles, catalogues, recipes, immutable revisions, media, audit events, cooking sessions, sharing, federation upstreams, and mappings. The initial schema migration is maintained as a UTC timestamp-prefixed SQL file.
-- API startup runs transactional, advisory-lock-protected migrations with recorded checksums and UTC timestamps before binding its HTTP listener.
+- API startup runs transactional, advisory-lock-protected migrations with recorded checksums and UTC timestamps before binding its HTTP listener. The database package discovers all SQL-only migration assets in lexicographic filename order.
 - The automated-test foundation provides a sequential root test runner with per-suite and overall pass/fail summaries, deterministic clock/token helpers, Fastify API factory helpers, and isolated PostgreSQL integration fixtures. API, contract, and migration suites run against a fresh disposable Docker PostgreSQL container on a random loopback port; unit tests cover password, token, cookie, email-normalization, and encryption functions.
 - Priority-0 API integration coverage verifies login failures, HttpOnly session lifecycle, logout revocation, disabled and expired session rejection, password-change-required restrictions, and tenant-role separation from instance administration.
 - Priority-0 API integration coverage verifies that a tenant category manager can read and mutate only its own tenant categories and cannot use another tenant's slug or category public ID to read or mutate data.
@@ -38,7 +38,7 @@
 - Cookbook code is organized under `apps/web/src/features/cookbook`; shared browser-session and API infrastructure is under `apps/web/src/lib`.
 - Direct recipe URLs render semantic recipe content on the Astro server without requiring JavaScript and include canonical Schema.org Recipe JSON-LD with author, categories, ingredients, and ordered steps.
 - Public cookbook overview and category URLs render accessible category and recipe links on the Astro server without waiting for a browser session check.
-- Public cookbook overview and category pages progressively transition to the hydrated client cookbook after it has loaded its session and cookbook state.
+- Public cookbook overview, category, and recipe pages server-render and hydrate the same cookbook component with server-resolved data.
 - Server-rendered recipe pages render the resolved `CookbookScreen`; JavaScript-capable browsers hydrate the same component and non-JavaScript clients retain its semantic HTML recipe page.
 
 ### Recipe authoring, revisions, and variants
@@ -61,6 +61,8 @@
 ### Catalogues and units
 
 - Instance administration manages instance-owned units with same-dimension conversion validation and usage-aware deletion protection.
+- Units of measure support non-convertible cookbook units and human-readable one-unit equivalences to visible non-temperature units.
+- Tenant Owner roles receive all tenant-scoped permissions, including permissions added before the migration.
 - Standard units use localization keys; tenant ingredients and aliases retain their stored presentation.
 - Tenant management provides deep-linkable ingredient, alias, and unit CRUD.
 - Tenant ingredient management provides one action dialog for transactional merging, alias conversion, alias separation into independent ingredients for exact alias usages, and conversion of catalogue ingredients into free-text recipe entries with recipe-usage reassignment. Merges require a source-and-target confirmation that states their irreversible effect. Ingredient-management API failures open a localized error dialog with a response-code-specific message.
@@ -77,7 +79,8 @@
 - Instance administration lists every website user and manages global instance roles, user deactivation, password resets, and soft deletion. Tenant membership and tenant-role assignment require the tenant-scoped `tenant:manage` permission.
 - Instance administration provides deep-linkable dashboards and tenant, user, authentication, SMTP, and unit management.
 - Middleware protects administration and tenant-management routes, preserves validated post-login navigation, and the web client validates restored sessions with the API.
-- A sticky global head bar provides localized sign-in, authenticated-user, authorized administration, and sign-out actions on every web route, including invitation acceptance routes.
+- Protected tenant-management and instance-administration pages server-resolve their access state before rendering without a session-check loading screen.
+- A sticky global head bar is server-seeded with the current session on every web route, then client-validated, and provides localized sign-in, authenticated-user, authorized administration, and sign-out actions, including invitation acceptance routes.
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.
 - Tenant owners can create service accounts, assign existing tenant roles, issue one-time-view opaque bearer tokens, inspect token lifecycle metadata, revoke tokens, and disable service accounts.
 - Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.

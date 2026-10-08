@@ -499,7 +499,7 @@ export function registerTenantRoutes(
         [tenant.id, 'Owner'],
       );
       await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code LIKE 'tenant:%' OR code LIKE 'recipe:%' OR code LIKE 'variant:%' OR code LIKE 'ingredient:%' OR code LIKE 'unit:%' OR code LIKE 'category:%' OR code = 'service-account:manage'",
+        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code NOT LIKE 'instance:%' AND code <> 'tenant:create'",
         [roleResult.rows[0]!.id],
       );
       const editorRole = await client.query<{ id: string }>(
@@ -780,12 +780,10 @@ export function registerTenantRoutes(
         const settings: AuthenticationSettingsRow = await authenticationSettings(pool);
         if (settings.login_mode !== 'EMAIL_CODE_ONLY' && body.password === undefined) {
           await client.query('ROLLBACK');
-          return reply
-            .code(400)
-            .send({
-              code: 'INVALID_PASSWORD',
-              error: 'A password is required for this invitation.',
-            });
+          return reply.code(400).send({
+            code: 'INVALID_PASSWORD',
+            error: 'A password is required for this invitation.',
+          });
         }
         let passwordHash: string | null = null;
         try {

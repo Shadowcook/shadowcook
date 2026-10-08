@@ -2431,9 +2431,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [units]
+                required: [units, referenceUnits]
                 properties:
                   units:
+                    type: array
+                    items: { $ref: '#/components/schemas/TenantUnit' }
+                  referenceUnits:
                     type: array
                     items: { $ref: '#/components/schemas/TenantUnit' }
     post:
@@ -2443,7 +2446,7 @@ paths:
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
+        content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnitInput' } } }
       responses:
         '201':
           description: Unit created.
@@ -2459,7 +2462,7 @@ paths:
         ]
       requestBody:
         required: true
-        content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
+        content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnitInput' } } }
       responses: { '204': { description: Unit updated. } }
     delete:
       operationId: deleteTenantUnit
@@ -3079,15 +3082,27 @@ components:
     TenantUnit:
       type: object
       additionalProperties: false
-      required: [publicId, name, symbol, dimension, baseFactor, baseOffset, usageCount]
+      required: [publicId, name, symbol, convertible, dimension, baseFactor, baseOffset, usageCount]
       properties:
         publicId: { type: string, format: uuid }
         name: { type: string }
         symbol: { type: string }
-        dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] }
-        baseFactor: { type: string }
-        baseOffset: { type: string }
+        localizationKey: { type: [string, 'null'] }
+        convertible: { type: boolean }
+        dimension: { type: [string, 'null'], enum: [MASS, VOLUME, COUNT, TEMPERATURE, null] }
+        baseFactor: { type: [string, 'null'] }
+        baseOffset: { type: [string, 'null'] }
         usageCount: { type: integer, minimum: 0 }
+    TenantUnitInput:
+      type: object
+      additionalProperties: false
+      required: [name, symbol, equivalenceAmount, referenceUnitPublicId]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        symbol: { type: string, minLength: 1, maxLength: 100 }
+        equivalenceAmount:
+          { type: [string, 'null'], pattern: '^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' }
+        referenceUnitPublicId: { type: [string, 'null'], format: uuid }
     UnitInput:
       type: object
       additionalProperties: false

@@ -178,9 +178,9 @@ export interface UnitTable {
   name: string;
   symbol: string;
   localization_key: string | null;
-  dimension: 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE';
-  base_factor: string;
-  base_offset: string;
+  dimension: 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE' | null;
+  base_factor: string | null;
+  base_offset: string | null;
   created_at: Generated<Timestamp>;
 }
 

@@ -7,7 +7,8 @@
       "symbol": "g",
       "localization_key": "unit.mass.gram",
       "dimension": "MASS",
-      "base_factor": 1
+      "base_factor": 1,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000101",
@@ -16,7 +17,8 @@
       "symbol": "kg",
       "localization_key": "unit.mass.kilogram",
       "dimension": "MASS",
-      "base_factor": 1000
+      "base_factor": 1000,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000102",
@@ -25,7 +27,8 @@
       "symbol": "mg",
       "localization_key": "unit.mass.milligram",
       "dimension": "MASS",
-      "base_factor": 0.001
+      "base_factor": 0.001,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000103",
@@ -34,7 +37,8 @@
       "symbol": "oz",
       "localization_key": "unit.mass.ounce",
       "dimension": "MASS",
-      "base_factor": 28.349523125
+      "base_factor": 28.349523125,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000104",
@@ -43,7 +47,8 @@
       "symbol": "lb",
       "localization_key": "unit.mass.pound",
       "dimension": "MASS",
-      "base_factor": 453.59237
+      "base_factor": 453.59237,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000002",
@@ -52,7 +57,8 @@
       "symbol": "ml",
       "localization_key": "unit.volume.millilitre",
       "dimension": "VOLUME",
-      "base_factor": 1
+      "base_factor": 1,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000201",
@@ -61,7 +67,8 @@
       "symbol": "l",
       "localization_key": "unit.volume.litre",
       "dimension": "VOLUME",
-      "base_factor": 1000
+      "base_factor": 1000,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000202",
@@ -70,7 +77,8 @@
       "symbol": "tsp",
       "localization_key": "unit.volume.teaspoon.metric",
       "dimension": "VOLUME",
-      "base_factor": 5
+      "base_factor": 5,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000203",
@@ -79,7 +87,8 @@
       "symbol": "tbsp",
       "localization_key": "unit.volume.tablespoon.metric",
       "dimension": "VOLUME",
-      "base_factor": 15
+      "base_factor": 15,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000204",
@@ -88,7 +97,8 @@
       "symbol": "cup",
       "localization_key": "unit.volume.cup.us",
       "dimension": "VOLUME",
-      "base_factor": 236.5882365
+      "base_factor": 236.5882365,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000205",
@@ -97,7 +107,8 @@
       "symbol": "fl oz",
       "localization_key": "unit.volume.fluid.ounce.us",
       "dimension": "VOLUME",
-      "base_factor": 29.5735295625
+      "base_factor": 29.5735295625,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000206",
@@ -106,7 +117,8 @@
       "symbol": "pt",
       "localization_key": "unit.volume.pint.us",
       "dimension": "VOLUME",
-      "base_factor": 473.176473
+      "base_factor": 473.176473,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000207",
@@ -115,7 +127,8 @@
       "symbol": "qt",
       "localization_key": "unit.volume.quart.us",
       "dimension": "VOLUME",
-      "base_factor": 946.352946
+      "base_factor": 946.352946,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000208",
@@ -124,7 +137,8 @@
       "symbol": "gal",
       "localization_key": "unit.volume.gallon.us",
       "dimension": "VOLUME",
-      "base_factor": 3785.411784
+      "base_factor": 3785.411784,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000301",
@@ -133,7 +147,8 @@
       "symbol": "pc",
       "localization_key": "unit.count.piece",
       "dimension": "COUNT",
-      "base_factor": 1
+      "base_factor": 1,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000302",
@@ -142,7 +157,8 @@
       "symbol": "doz",
       "localization_key": "unit.count.dozen",
       "dimension": "COUNT",
-      "base_factor": 12
+      "base_factor": 12,
+      "base_offset": 0
     },
     {
       "id": "40000000-0000-4000-8000-000000000401",

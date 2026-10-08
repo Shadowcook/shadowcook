@@ -2,6 +2,7 @@
 import BuildFooter from './BuildFooter.astro';
 import Favicon from './Favicon.astro';
 import HeadBar from './HeadBar';
+import { loadHeadBarSession } from '../lib/server/head-bar-session';
 import { translations } from '../i18n';
 import type { Locale } from '../i18n';
 import { buildCommit } from '../lib/server/build-info';
@@ -14,6 +15,7 @@ interface Properties {
 }
 
 const { locale, markdown, title } = Astro.props;
+const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
 const text = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
 const renderedMarkdown: string = renderMarkdown(markdown);
@@ -29,7 +31,7 @@ const renderedMarkdown: string = renderMarkdown(markdown);
     <title>{title} · {text.metadata.title}</title>
   </head>
   <body>
-    <HeadBar client:load locale={locale} />
+    <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main class="application-shell">
       <article class="legal-document">
         <h1>{title}</h1>

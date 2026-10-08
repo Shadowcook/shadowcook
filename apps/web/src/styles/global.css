@@ -820,6 +820,20 @@ code {
   margin: 0;
   padding: 0;
 }
+.tenant-unit-conversion__option {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin-block: 0.45rem;
+}
+.tenant-unit-conversion__option input {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+.tenant-unit-conversion__details {
+  margin-left: 1.55rem;
+}
 .ingredient-consolidation__description {
   margin: 0 0 0.8rem 1.5rem;
   color: #75675d;

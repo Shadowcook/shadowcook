@@ -3,25 +3,23 @@ import type { JSX } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
+import type { HeadBarSession } from '../lib/server/head-bar-session';
 import AdminIcon from './AdminIcon';
 
+const signedOut: HeadBarSession = {
+  authenticated: false,
+  email: '',
+  canAccessAdministration: false,
+};
+
 interface Properties {
+  initialSession?: HeadBarSession;
   locale: Locale;
 }
 
-interface SessionResponse {
-  email: string;
-}
-
-type SessionState =
-  | { authenticated: false }
-  | { authenticated: true; email: string; canAccessAdministration: boolean };
-
-const signedOut: SessionState = { authenticated: false };
-
-export default function HeadBar({ locale }: Properties): JSX.Element {
+export default function HeadBar({ locale, initialSession = signedOut }: Properties): JSX.Element {
   const text: Translation = translations[locale];
-  const [session, setSession] = useState<SessionState>(signedOut);
+  const [session, setSession] = useState<HeadBarSession>(initialSession);
   const [signInHref, setSignInHref] = useState<string>('/login');
   const [signOutError, setSignOutError] = useState<string>('');
   const [signingOut, setSigningOut] = useState<boolean>(false);
@@ -110,7 +108,7 @@ export default function HeadBar({ locale }: Properties): JSX.Element {
   );
 }
 
-async function restoreSession(setSession: (session: SessionState) => void): Promise<void> {
+async function restoreSession(setSession: (session: HeadBarSession) => void): Promise<void> {
   let response: Response;
   try {
     response = await fetch('/api/auth/session', { credentials: 'same-origin' });
@@ -122,7 +120,7 @@ async function restoreSession(setSession: (session: SessionState) => void): Prom
     setSession(signedOut);
     return;
   }
-  const body: SessionResponse = (await response.json()) as SessionResponse;
+  const body: { email: string } = (await response.json()) as { email: string };
   let canAccessAdministration: boolean = false;
   try {
     const administrationResponse: Response = await fetch('/api/admin/tenants', {

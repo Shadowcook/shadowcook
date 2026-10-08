@@ -13,6 +13,8 @@ import CookbookDashboard from './components/CookbookDashboard';
 import CategoryEditor from './components/CategoryEditor';
 import { cookbookPath, resolveCookbookLocation } from './model/routing';
 import type { CookbookLocation } from './model/routing';
+import { managementRoute } from './model/management-routing';
+import type { EditorPath, ManagementRoute } from './model/management-routing';
 import type { CookbookResponse, Recipe, RecipeDetail } from './model/types';
 import RecipeEditor from './components/RecipeEditor';
 import DraftRecipeList from './components/DraftRecipeList';
@@ -40,6 +42,7 @@ interface CookbookScreenProperties {
   initialCategoryId?: string | null;
   initialRecipe?: RecipeDetail | null;
   initialTenantSlug?: string;
+  initialManagementRoute?: ManagementRoute;
   notifyWhenReady?: boolean;
 }
 interface SessionResponse {
@@ -74,6 +77,7 @@ export default function CookbookScreen({
   initialCategoryId = null,
   initialRecipe = null,
   initialTenantSlug,
+  initialManagementRoute,
   notifyWhenReady = false,
 }: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
@@ -98,8 +102,12 @@ export default function CookbookScreen({
   const isRecipeLoading: boolean = false;
   const [recipeError, setRecipeError] = useState<string>('');
   const [recipeFilter, setRecipeFilter] = useState<string>('');
-  const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(false);
-  const [editorPath, setEditorPath] = useState<'manage' | 'new' | 'drafts' | string | null>(null);
+  const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(
+    initialManagementRoute?.isCategoryEditor ?? false,
+  );
+  const [editorPath, setEditorPath] = useState<EditorPath>(
+    initialManagementRoute?.editorPath ?? null,
+  );
   const [shareToken, setShareToken] = useState<string | null>(sharedRecipeToken());
   const [isDetailShareDialogOpen, setIsDetailShareDialogOpen] = useState<boolean>(false);
   const [detailShareLinks, setDetailShareLinks] = useState<RecipeShareLink[]>([]);
@@ -133,8 +141,9 @@ export default function CookbookScreen({
       !cookbook.canManageRecipes);
 
   useEffect((): void => {
-    setIsCategoryEditor(categoryEditorPath());
-    setEditorPath(recipeEditorPath());
+    const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
+    setIsCategoryEditor(currentManagementRoute.isCategoryEditor);
+    setEditorPath(currentManagementRoute.editorPath);
     setShareToken(sharedRecipeToken());
     void restoreSession();
     void request<AuthenticationMethods>('/auth/authentication-methods')
@@ -143,8 +152,9 @@ export default function CookbookScreen({
   }, []);
   useEffect((): (() => void) => {
     function restoreLocation(): void {
-      setIsCategoryEditor(categoryEditorPath());
-      setEditorPath(recipeEditorPath());
+      const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
+      setIsCategoryEditor(currentManagementRoute.isCategoryEditor);
+      setEditorPath(currentManagementRoute.editorPath);
       setShareToken(sharedRecipeToken());
       void applyBrowserLocation(cookbook);
     }
@@ -190,7 +200,7 @@ export default function CookbookScreen({
         return;
       }
       const loaded: CookbookResponse = await loadCookbook();
-      await applyBrowserLocation(loaded);
+      await applyBrowserLocation(loaded, initialRecipe);
       setScreen('dashboard');
       return;
     }
@@ -205,7 +215,7 @@ export default function CookbookScreen({
       return;
     }
     const loaded: CookbookResponse = await loadCookbook();
-    await applyBrowserLocation(loaded);
+    await applyBrowserLocation(loaded, initialRecipe);
     setScreen('dashboard');
   }
 
@@ -437,8 +447,12 @@ export default function CookbookScreen({
     setRecipeFilter(filter);
     void loadCookbook(1, filter);
   }
-  async function applyBrowserLocation(loaded: CookbookResponse): Promise<void> {
-    if (categoryEditorPath() || recipeEditorPath() !== null) {
+  async function applyBrowserLocation(
+    loaded: CookbookResponse,
+    preservedRecipe: RecipeDetail | null = null,
+  ): Promise<void> {
+    const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
+    if (currentManagementRoute.isCategoryEditor || currentManagementRoute.editorPath !== null) {
       setSelectedCategoryId(null);
       setSelectedRecipe(null);
       setRecipeError('');
@@ -446,9 +460,20 @@ export default function CookbookScreen({
     }
     const location: CookbookLocation = resolveCookbookLocation(loaded, window.location.pathname);
     setSelectedCategoryId(location.categoryId);
-    setSelectedRecipe(null);
     setRecipeError('');
-    if (location.recipe === null) return;
+    if (location.recipe === null) {
+      setSelectedRecipe(null);
+      return;
+    }
+    if (
+      preservedRecipe !== null &&
+      preservedRecipe.public_id === location.recipe.public_id &&
+      (location.variantSlug === null || preservedRecipe.selectedVariant === location.variantSlug)
+    ) {
+      setSelectedRecipe(preservedRecipe);
+      return;
+    }
+    setSelectedRecipe(null);
     try {
       setSelectedRecipe(
         await request<RecipeDetail>(
@@ -530,42 +555,42 @@ export default function CookbookScreen({
               <AccessDeniedScreen text={text} />
             ) : editorPath === 'manage' ? (
               <ManagementPlaceholder text={text} />
-            ) : editorPath === 'manage-users' && tenantSlugFromPath() !== null ? (
-              <TenantUserManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
-            ) : editorPath === 'manage-ingredients' && tenantSlugFromPath() !== null ? (
-              <TenantIngredientManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
-            ) : editorPath === 'manage-units' && tenantSlugFromPath() !== null ? (
-              <TenantUnitManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
-            ) : editorPath === 'manage-recipe-policy' && tenantSlugFromPath() !== null ? (
-              <RecipePolicySettings tenantSlug={tenantSlugFromPath()!} text={text} />
-            ) : editorPath === 'manage-service-accounts' && tenantSlugFromPath() !== null ? (
-              <ServiceAccountManagement locale={locale} tenantSlug={tenantSlugFromPath()!} />
-            ) : isCategoryEditor && tenantSlugFromPath() !== null ? (
+            ) : editorPath === 'manage-users' && tenantSlug.length > 0 ? (
+              <TenantUserManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : editorPath === 'manage-ingredients' && tenantSlug.length > 0 ? (
+              <TenantIngredientManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : editorPath === 'manage-units' && tenantSlug.length > 0 ? (
+              <TenantUnitManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : editorPath === 'manage-recipe-policy' && tenantSlug.length > 0 ? (
+              <RecipePolicySettings tenantSlug={tenantSlug} text={text} />
+            ) : editorPath === 'manage-service-accounts' && tenantSlug.length > 0 ? (
+              <ServiceAccountManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : isCategoryEditor && tenantSlug.length > 0 ? (
               <CategoryEditor
                 locale={locale}
-                tenantSlug={tenantSlugFromPath()!}
+                tenantSlug={tenantSlug}
                 onChanged={async (): Promise<void> => {
                   await loadCookbook();
                 }}
               />
-            ) : editorPath === 'drafts' && tenantSlugFromPath() !== null ? (
+            ) : editorPath === 'drafts' && tenantSlug.length > 0 ? (
               <DraftRecipeList
                 locale={locale}
-                tenantSlug={tenantSlugFromPath()!}
+                tenantSlug={tenantSlug}
                 onEdit={openRecipeEditor}
                 onCreate={(): void => openRecipeEditor(null)}
               />
             ) : editorPath === 'manage-recipes' ? (
               <RecipeManagementList
                 locale={locale}
-                tenantSlug={tenantSlugFromPath() ?? ''}
+                tenantSlug={tenantSlug}
                 onEdit={openRecipeEditor}
                 onCreate={(): void => openRecipeEditor(null)}
               />
-            ) : editorPath !== null && tenantSlugFromPath() !== null ? (
+            ) : editorPath !== null && tenantSlug.length > 0 ? (
               <RecipeEditor
                 locale={locale}
-                tenantSlug={tenantSlugFromPath()!}
+                tenantSlug={tenantSlug}
                 recipePublicId={editorPath === 'new' ? null : editorPath}
                 categories={cookbook.categories}
                 onChanged={loadCookbook}
@@ -682,37 +707,6 @@ function tenantSlugFromPath(): string | null {
   )
     return null;
   return decodeURIComponent(segment);
-}
-function categoryEditorPath(): boolean {
-  if (typeof window === 'undefined') return false;
-  const segments: string[] = window.location.pathname
-    .split('/')
-    .filter((value: string): boolean => value.length > 0);
-  return segments.length === 2 && segments[1] === 'categories';
-}
-
-function recipeEditorPath(): 'manage' | 'new' | 'drafts' | string | null {
-  const segments: string[] = window.location.pathname
-    .split('/')
-    .filter((segment: string): boolean => segment.length > 0);
-  if (segments.length === 2 && segments[1] === 'drafts') return 'drafts';
-  if (segments.length === 3 && segments[1] === 'recipes' && segments[2] === 'new') return 'new';
-  if (segments.length === 4 && segments[1] === 'recipes' && segments[3] === 'edit')
-    return segments[2]!;
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'recipes')
-    return 'manage-recipes';
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'users')
-    return 'manage-users';
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'ingredients')
-    return 'manage-ingredients';
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'units')
-    return 'manage-units';
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'settings')
-    return 'manage-recipe-policy';
-  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'service-accounts')
-    return 'manage-service-accounts';
-  if (segments.length === 2 && segments[1] === 'manage') return 'manage';
-  return null;
 }
 function sharedRecipeToken(): string | null {
   if (typeof window === 'undefined') return null;

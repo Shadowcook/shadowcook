@@ -31,10 +31,7 @@ export function frontpagePaginationItems(
   return items;
 }
 
-export function compactPaginationItems(
-  currentPage: number,
-  totalPages: number,
-): PaginationItem[] {
+export function compactPaginationItems(currentPage: number, totalPages: number): PaginationItem[] {
   if (totalPages <= 5)
     return Array.from(
       { length: totalPages },

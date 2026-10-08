@@ -2,34 +2,31 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
+import { localizedUnitName, localizedUnitSymbol } from '../../../i18n/unit-localization';
 import AdminIcon from '../../../components/AdminIcon';
 
-type UnitDimension = 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE';
 interface Unit {
   publicId: string;
   name: string;
   symbol: string;
-  dimension: UnitDimension;
-  baseFactor: string;
-  baseOffset: string;
+  localizationKey: string | null;
+  convertible: boolean;
+  baseFactor: string | null;
   usageCount: number;
 }
 interface UnitForm {
   name: string;
   symbol: string;
-  dimension: UnitDimension;
-  baseFactor: string;
-  baseOffset: string;
+  equivalenceAmount: string;
+  referenceUnitPublicId: string;
 }
-const dimensions: readonly UnitDimension[] = ['MASS', 'VOLUME', 'COUNT', 'TEMPERATURE'];
+type ConversionMode = 'NONE' | 'EQUIVALENT';
 const emptyForm: UnitForm = {
   name: '',
   symbol: '',
-  dimension: 'MASS',
-  baseFactor: '1',
-  baseOffset: '0',
+  equivalenceAmount: '',
+  referenceUnitPublicId: '',
 };
-
 export default function TenantUnitManagement({
   locale,
   tenantSlug,
@@ -39,58 +36,69 @@ export default function TenantUnitManagement({
 }): JSX.Element {
   const text: Translation = translations[locale];
   const [units, setUnits] = useState<Unit[]>([]);
+  const [references, setReferences] = useState<Unit[]>([]);
   const [form, setForm] = useState<UnitForm>(emptyForm);
+  const [conversionMode, setConversionMode] = useState<ConversionMode>('NONE');
   const [editing, setEditing] = useState<Unit | null>(null);
   const [showForm, setShowForm] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
-  function endpoint(suffix: string = ''): string {
-    return `/api/cookbook/tenants/${encodeURIComponent(tenantSlug)}/units${suffix}`;
-  }
-  function refresh(): void {
-    void loadUnits(endpoint(), setUnits);
-  }
+  const endpoint = (suffix: string = ''): string =>
+    `/api/cookbook/tenants/${encodeURIComponent(tenantSlug)}/units${suffix}`;
+  const refresh = (): void => {
+    void loadUnits(endpoint(), setUnits, setReferences);
+  };
   useEffect(refresh, [tenantSlug]);
-  function update(field: keyof UnitForm, value: string): void {
+  const update = (field: keyof UnitForm, value: string): void =>
     setForm((current: UnitForm): UnitForm => ({ ...current, [field]: value }));
-  }
-  function closeForm(): void {
+  const close = (): void => {
     setEditing(null);
     setForm(emptyForm);
+    setConversionMode('NONE');
     setShowForm(false);
-  }
-  function openCreate(): void {
-    setEditing(null);
-    setForm(emptyForm);
-    setShowForm(true);
-  }
-  function openEdit(unit: Unit): void {
+  };
+  const edit = (unit: Unit): void => {
     setEditing(unit);
     setForm({
       name: unit.name,
       symbol: unit.symbol,
-      dimension: unit.dimension,
-      baseFactor: unit.baseFactor,
-      baseOffset: unit.baseOffset,
+      equivalenceAmount: '',
+      referenceUnitPublicId: '',
     });
+    setConversionMode('NONE');
     setShowForm(true);
-  }
+  };
   async function save(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    const hasConversion: boolean = conversionMode === 'EQUIVALENT';
+    const body =
+      editing === null
+        ? {
+            name: form.name,
+            symbol: form.symbol,
+            equivalenceAmount: hasConversion ? form.equivalenceAmount : null,
+            referenceUnitPublicId: hasConversion ? form.referenceUnitPublicId : null,
+          }
+        : { name: form.name, symbol: form.symbol };
     const response: Response = await fetch(
       editing === null ? endpoint() : endpoint(`/${editing.publicId}`),
       {
         method: editing === null ? 'POST' : 'PATCH',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(body),
       },
     );
     if (!response.ok) {
-      setMessage(text.errors.requestFailed);
+      const error = (await response.json().catch((): object => ({}))) as { code?: string };
+      setMessage(
+        error.code === 'UNIT_IN_USE'
+          ? text.tenantUnits.cannotChangeUsed
+          : text.errors.requestFailed,
+      );
       return;
     }
     setMessage(editing === null ? text.tenantUnits.created : text.tenantUnits.updated);
-    closeForm();
+    close();
     refresh();
   }
   async function remove(unit: Unit): Promise<void> {
@@ -108,7 +116,15 @@ export default function TenantUnitManagement({
           <p className="eyebrow">{text.tenantNavigation.units}</p>
           <h1>{text.tenantUnits.title}</h1>
         </div>
-        <button type="button" onClick={openCreate}>
+        <button
+          type="button"
+          onClick={(): void => {
+            setEditing(null);
+            setForm(emptyForm);
+            setConversionMode('NONE');
+            setShowForm(true);
+          }}
+        >
           {text.tenantUnits.create}
         </button>
       </div>
@@ -124,9 +140,7 @@ export default function TenantUnitManagement({
             <tr>
               <th>{text.tenantUnits.name}</th>
               <th>{text.tenantUnits.symbol}</th>
-              <th>{text.tenantUnits.dimension}</th>
-              <th>{text.tenantUnits.baseFactor}</th>
-              <th>{text.tenantUnits.baseOffset}</th>
+              <th>{text.tenantUnits.conversion}</th>
               <th>{text.tenantUnits.usage}</th>
               <th>{text.dashboard.actions}</th>
             </tr>
@@ -136,9 +150,7 @@ export default function TenantUnitManagement({
               <tr key={unit.publicId}>
                 <td>{unit.name}</td>
                 <td>{unit.symbol}</td>
-                <td>{text.tenantUnits.dimensions[unit.dimension]}</td>
-                <td>{unit.baseFactor}</td>
-                <td>{unit.baseOffset}</td>
+                <td>{unit.convertible ? text.tenantUnits.equivalent : '—'}</td>
                 <td>{unit.usageCount}</td>
                 <td>
                   <div className="tenant-actions">
@@ -146,7 +158,7 @@ export default function TenantUnitManagement({
                       type="button"
                       aria-label={text.dashboard.rename}
                       title={text.dashboard.rename}
-                      onClick={(): void => openEdit(unit)}
+                      onClick={(): void => edit(unit)}
                     >
                       <AdminIcon name="edit" />
                     </button>
@@ -195,48 +207,60 @@ export default function TenantUnitManagement({
                   }
                 />
               </label>
-              <label>
-                {text.tenantUnits.dimension}
-                <select
-                  value={form.dimension}
-                  onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                    update('dimension', event.currentTarget.value)
-                  }
-                >
-                  {dimensions.map((dimension: UnitDimension): JSX.Element => (
-                    <option key={dimension} value={dimension}>
-                      {text.tenantUnits.dimensions[dimension]}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label>
-                {text.tenantUnits.baseFactor}
-                <input
-                  required
-                  inputMode="decimal"
-                  pattern="(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?"
-                  value={form.baseFactor}
-                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                    update('baseFactor', event.currentTarget.value)
-                  }
-                />
-              </label>
-              <label>
-                {text.tenantUnits.baseOffset}
-                <input
-                  required
-                  disabled={form.dimension !== 'TEMPERATURE'}
-                  inputMode="decimal"
-                  pattern="-?(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?"
-                  value={form.baseOffset}
-                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                    update('baseOffset', event.currentTarget.value)
-                  }
-                />
-              </label>
+              {editing === null ? (
+                <fieldset>
+                  <legend>{text.tenantUnits.conversion}</legend>
+                  <label className="tenant-unit-conversion__option">
+                    <input
+                      type="radio"
+                      name="unit-conversion"
+                      checked={conversionMode === 'NONE'}
+                      onChange={(): void => setConversionMode('NONE')}
+                    />
+                    {text.tenantUnits.notConvertible}
+                  </label>
+                  <label className="tenant-unit-conversion__option">
+                    <input
+                      type="radio"
+                      name="unit-conversion"
+                      checked={conversionMode === 'EQUIVALENT'}
+                      onChange={(): void => setConversionMode('EQUIVALENT')}
+                    />
+                    {text.tenantUnits.equivalentOption}
+                  </label>
+                  {conversionMode === 'EQUIVALENT' ? (
+                    <label className="tenant-unit-conversion__details">
+                      {text.tenantUnits.equivalent}
+                      <input
+                        required
+                        inputMode="decimal"
+                        value={form.equivalenceAmount}
+                        onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                          update('equivalenceAmount', event.currentTarget.value)
+                        }
+                        placeholder="15"
+                      />
+                      <select
+                        required
+                        value={form.referenceUnitPublicId}
+                        onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                          update('referenceUnitPublicId', event.currentTarget.value)
+                        }
+                      >
+                        <option value="">{text.admin.selectUnit}</option>
+                        {references.map((unit: Unit): JSX.Element => (
+                          <option key={unit.publicId} value={unit.publicId}>
+                            {localizedUnitName(text, unit.localizationKey, unit.name)} (
+                            {localizedUnitSymbol(text, unit.localizationKey, unit.symbol)})
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                  ) : null}
+                </fieldset>
+              ) : null}
               <button type="submit">{text.admin.save}</button>
-              <button type="button" className="button--secondary" onClick={closeForm}>
+              <button type="button" className="button--secondary" onClick={close}>
                 {text.admin.cancel}
               </button>
             </form>
@@ -246,7 +270,15 @@ export default function TenantUnitManagement({
     </section>
   );
 }
-async function loadUnits(path: string, setUnits: (units: Unit[]) => void): Promise<void> {
+async function loadUnits(
+  path: string,
+  setUnits: (units: Unit[]) => void,
+  setReferences: (units: Unit[]) => void,
+): Promise<void> {
   const response: Response = await fetch(path, { credentials: 'same-origin' });
-  if (response.ok) setUnits(((await response.json()) as { units: Unit[] }).units);
+  if (response.ok) {
+    const payload = (await response.json()) as { units: Unit[]; referenceUnits: Unit[] };
+    setUnits(payload.units);
+    setReferences(payload.referenceUnits);
+  }
 }

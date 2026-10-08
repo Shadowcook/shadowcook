@@ -12,7 +12,8 @@ interface RecipeInstructionProperties {
   tenantSlug?: string;
 }
 
-const recipeLinkPattern: RegExp = /\{recipe:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\}/gi;
+const recipeLinkPattern: RegExp =
+  /\{recipe:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\}/gi;
 
 export default function RecipeInstruction(properties: RecipeInstructionProperties): JSX.Element {
   const linksById: Map<string, RecipeLink> = new Map(
@@ -25,13 +26,17 @@ export default function RecipeInstruction(properties: RecipeInstructionPropertie
   let cursor: number = 0;
   let match: RegExpExecArray | null;
   while ((match = recipeLinkPattern.exec(properties.instruction)) !== null) {
-    if (match.index > cursor) parts.push(<span key={cursor}>{properties.instruction.slice(cursor, match.index)}</span>);
+    if (match.index > cursor)
+      parts.push(<span key={cursor}>{properties.instruction.slice(cursor, match.index)}</span>);
     const reference: RecipeLink | undefined = linksById.get(match[1]!.toLowerCase());
     if (reference === undefined || properties.tenantSlug === undefined) {
       parts.push(<span key={match.index}>{match[0]}</span>);
     } else {
       parts.push(
-        <a key={match.index} href={`/${encodeURIComponent(properties.tenantSlug)}/recipes/${encodeURIComponent(reference.slug)}`}>
+        <a
+          key={match.index}
+          href={`/${encodeURIComponent(properties.tenantSlug)}/recipes/${encodeURIComponent(reference.slug)}`}
+        >
           {reference.title}
         </a>,
       );

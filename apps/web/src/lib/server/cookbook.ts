@@ -15,6 +15,15 @@ export interface ServerCookbookPage {
   location: CookbookLocation;
 }
 
+export async function loadServerTenantCookbook(
+  pathname: string,
+  cookie: string | null,
+): Promise<CookbookResponse | null> {
+  const tenantSlug: string | null = tenantSlugFromPath(pathname);
+  if (tenantSlug === null) return null;
+  return getJson<CookbookResponse>(`/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}`, cookie);
+}
+
 export async function loadServerRecipePage(
   pathname: string,
   cookie: string | null,

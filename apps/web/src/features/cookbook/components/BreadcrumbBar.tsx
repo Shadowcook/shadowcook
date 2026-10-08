@@ -13,7 +13,8 @@ interface BreadcrumbBarProperties {
 }
 
 export default function BreadcrumbBar(properties: BreadcrumbBarProperties): JSX.Element {
-  const { categories, selectedCategoryId, selectedRecipe, cookbookName, text, tenantSlug } = properties;
+  const { categories, selectedCategoryId, selectedRecipe, cookbookName, text, tenantSlug } =
+    properties;
   const categoryTrail: Category[] = categoryTrailFor(categories, selectedCategoryId);
   const currentLabel: string | null = selectedRecipe === null ? null : selectedRecipe.title;
   return (
@@ -23,9 +24,7 @@ export default function BreadcrumbBar(properties: BreadcrumbBarProperties): JSX.
           {categoryTrail.length === 0 && currentLabel === null ? (
             <span aria-current="page">{cookbookName}</span>
           ) : (
-            <a href={cookbookPath(tenantSlug, categories, null, null)}>
-              {cookbookName}
-            </a>
+            <a href={cookbookPath(tenantSlug, categories, null, null)}>{cookbookName}</a>
           )}
         </li>
         {categoryTrail.map((category: Category, index: number): JSX.Element => {
