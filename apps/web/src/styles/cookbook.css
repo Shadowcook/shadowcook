@@ -553,11 +553,31 @@
 .recipe-share-dialog__name {
   grid-column: 1 / -1;
 }
+.ai-context-dialog__create-button {
+  display: inline-flex;
+  min-height: 3.75rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  box-shadow: 0 0.2rem 0.45rem rgb(116 54 32 / 16%);
+  transition:
+    background-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+.ai-context-dialog__create-button:hover:not(:disabled) {
+  box-shadow: 0 0.3rem 0.7rem rgb(116 54 32 / 22%);
+  transform: translateY(-1px);
+}
+.ai-context-dialog__create-button .admin-icon {
+  flex: 0 0 auto;
+}
 .recipe-share-dialog__expiry-toggle input {
   width: auto;
   margin: 0;
 }
 .recipe-share-dialog__created {
+  align-items: end;
   padding: 0.9rem;
   border-left: 4px solid #314d42;
   background: #edf4ee;

@@ -93,7 +93,12 @@ export default function AiContextDialog(properties: AiContextDialogProperties): 
             <option value={24}>{properties.text.recipeEditor.aiContextTwentyFourHours}</option>
           </select>
         </label>
-        <button type="button" disabled={isCreating} onClick={(): void => void createContext()}>
+        <button
+          type="button"
+          className="ai-context-dialog__create-button"
+          disabled={isCreating}
+          onClick={(): void => void createContext()}
+        >
           <AdminIcon name="share" />
           {properties.text.recipeEditor.createAiContext}
         </button>
