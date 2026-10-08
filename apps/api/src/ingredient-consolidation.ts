@@ -12,7 +12,7 @@ interface LockedIngredient {
 export async function convertIngredientToTextOverride(
   pool: Pool,
   sourcePublicId: string,
-  ownerTenantId: string | null,
+  ownerTenantId: string,
 ): Promise<'SOURCE_NOT_FOUND' | null> {
   const client: PoolClient = await pool.connect();
   try {
@@ -20,7 +20,7 @@ export async function convertIngredientToTextOverride(
     const sourceResult = await client.query<LockedIngredient>(
       `SELECT id, public_id, canonical_name
        FROM ingredient
-       WHERE public_id = $1 AND owner_tenant_id IS NOT DISTINCT FROM $2::uuid
+       WHERE public_id = $1 AND owner_tenant_id = $2
        FOR UPDATE`,
       [sourcePublicId, ownerTenantId],
     );
@@ -62,7 +62,7 @@ export async function separateIngredientAlias(
   pool: Pool,
   ingredientPublicId: string,
   aliasPublicId: string,
-  ownerTenantId: string | null,
+  ownerTenantId: string,
 ): Promise<SeparateIngredientAliasResult> {
   const client: PoolClient = await pool.connect();
   try {
@@ -73,7 +73,7 @@ export async function separateIngredientAlias(
        INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
        WHERE ingredient.public_id = $1
          AND ingredient_alias.public_id = $2
-         AND ingredient.owner_tenant_id IS NOT DISTINCT FROM $3::uuid
+         AND ingredient.owner_tenant_id = $3
        FOR UPDATE OF ingredient_alias, ingredient`,
       [ingredientPublicId, aliasPublicId, ownerTenantId],
     );
@@ -115,7 +115,7 @@ export async function consolidateIngredient(
   pool: Pool,
   sourcePublicId: string,
   targetPublicId: string,
-  ownerTenantId: string | null,
+  ownerTenantId: string,
   preserveSourceNameAsAlias: boolean,
 ): Promise<IngredientConsolidationResult> {
   if (sourcePublicId === targetPublicId) return 'SAME_INGREDIENT';
@@ -127,7 +127,7 @@ export async function consolidateIngredient(
       `SELECT id, public_id, canonical_name
        FROM ingredient
        WHERE public_id = ANY($1::uuid[])
-         AND owner_tenant_id IS NOT DISTINCT FROM $2::uuid
+         AND owner_tenant_id = $2
        FOR UPDATE`,
       [[sourcePublicId, targetPublicId], ownerTenantId],
     );

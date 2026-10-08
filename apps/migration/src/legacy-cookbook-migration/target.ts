@@ -434,8 +434,8 @@ async function resolveIngredientId(
   const existing: QueryResult<IngredientIdentifierRow> =
     await client.query<IngredientIdentifierRow>(
       `SELECT id FROM ingredient
-     WHERE (owner_tenant_id IS NULL OR owner_tenant_id = $1) AND lower(canonical_name) = lower($2)
-     ORDER BY owner_tenant_id NULLS FIRST LIMIT 1`,
+     WHERE owner_tenant_id = $1 AND lower(canonical_name) = lower($2)
+     LIMIT 1`,
       [tenantId, canonicalName],
     );
   const existingIngredient: IngredientIdentifierRow | undefined = existing.rows[0];

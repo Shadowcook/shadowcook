@@ -55,7 +55,6 @@ interface IngredientUsageRow {
   unit_localization_key: string | null;
   ingredient_public_id: string | null;
   ingredient_name: string;
-  ingredient_localization_key: string | null;
   is_catalog_ingredient: boolean;
   special_kind: string | null;
   note: string | null;
@@ -544,7 +543,6 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         unit.localization_key AS unit_localization_key,
         ingredient.public_id AS ingredient_public_id,
         COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
-        COALESCE(ingredient_alias.localization_key, ingredient.localization_key) AS ingredient_localization_key,
         (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
         ingredient_usage.special_kind,
         ingredient_usage.note, ingredient_usage.is_optional

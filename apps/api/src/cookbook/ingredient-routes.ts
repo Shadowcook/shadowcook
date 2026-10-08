@@ -72,7 +72,7 @@ export function registerTenantIngredientRoutes(api: FastifyInstance, pool: Pool)
         `SELECT 1
          FROM ingredient
          LEFT JOIN ingredient_alias ON ingredient_alias.ingredient_id = ingredient.id
-         WHERE (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $1)
+         WHERE ingredient.owner_tenant_id = $1
            AND (lower(ingredient.canonical_name) = lower($2) OR lower(ingredient_alias.alias) = lower($2))
          LIMIT 1`,
         [tenantId, input.canonicalName],

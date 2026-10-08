@@ -8,7 +8,6 @@ import { registerFrontpageSettingsRoutes } from './admin/frontpage-routes.js';
 import { registerLegalDocumentRoutes } from './admin/legal-document-routes.js';
 import { registerTenantRoutes } from './admin/tenant-routes.js';
 import { registerUnitRoutes } from './admin/unit-routes.js';
-import { registerIngredientRoutes } from './admin/ingredient-routes.js';
 import { registerCategoryRoutes } from './cookbook/category-routes.js';
 import { registerRecipeEditorRoutes } from './cookbook/recipe-editor-routes.js';
 import { registerTenantUserRoutes } from './cookbook/tenant-user-routes.js';
@@ -58,7 +57,5 @@ export function createApi(
   registerLegalDocumentRoutes(api, pool);
   registerTenantRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerUnitRoutes(api, pool);
-  registerIngredientRoutes(api, pool);
-
   return api;
 }

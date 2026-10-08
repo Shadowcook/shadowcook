@@ -124,7 +124,6 @@ interface SharedIngredientUsageRow {
   unit_localization_key: string | null;
   ingredient_public_id: string | null;
   ingredient_name: string;
-  ingredient_localization_key: string | null;
   is_catalog_ingredient: boolean;
   special_kind: string | null;
   note: string | null;
@@ -189,14 +188,14 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       `SELECT ingredient.public_id, NULL::uuid AS alias_public_id, ingredient.canonical_name AS name,
          lower(ingredient.canonical_name) = lower($2) AS exact_match
        FROM ingredient
-       WHERE (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $1)
+       WHERE ingredient.owner_tenant_id = $1
          AND ingredient.canonical_name ILIKE '%' || $2 || '%'
        UNION ALL
        SELECT ingredient.public_id, ingredient_alias.public_id AS alias_public_id, ingredient_alias.alias AS name,
          lower(ingredient_alias.alias) = lower($2) AS exact_match
        FROM ingredient_alias
        INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
-       WHERE (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $1)
+       WHERE ingredient.owner_tenant_id = $1
          AND ingredient_alias.alias ILIKE '%' || $2 || '%'
        ORDER BY exact_match DESC, name
        LIMIT 20`,
@@ -222,7 +221,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     );
     if (tenantId === null) return;
     const query = request.query as { search?: unknown };
-    const search: string = typeof query.search === 'string' ? query.search.trim().slice(0, 200) : '';
+    const search: string =
+      typeof query.search === 'string' ? query.search.trim().slice(0, 200) : '';
     const recipes = await pool.query<EditorRecipeRow>(
       `SELECT recipe.public_id, recipe_revision.title
        FROM recipe
@@ -379,9 +379,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
               !isSpecialEntry && typeof usage.amount === 'string' && usage.amount.length > 0
                 ? usage.amount
                 : null,
-              typeof usage.note === 'string' && usage.note.trim().length > 0
-                ? usage.note
-                : null,
+              typeof usage.note === 'string' && usage.note.trim().length > 0 ? usage.note : null,
               !isSpecialEntry && usage.isOptional === true,
               usageIndex,
             ],
@@ -448,7 +446,6 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
         unit.localization_key AS unit_localization_key, ingredient.public_id AS ingredient_public_id,
         COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
-        COALESCE(ingredient_alias.localization_key, ingredient.localization_key) AS ingredient_localization_key,
         (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
         ingredient_usage.special_kind, ingredient_usage.note, ingredient_usage.is_optional
        FROM ingredient_usage
@@ -1558,7 +1555,7 @@ async function validateStepInput(
       typeof usage.ingredientAliasPublicId === 'string' && usage.ingredientAliasPublicId.length > 0,
   );
   const ingredients = await client.query<{ count: string }>(
-    'SELECT count(*) FROM ingredient WHERE public_id = ANY($1::uuid[]) AND (owner_tenant_id IS NULL OR owner_tenant_id = $2)',
+    'SELECT count(*) FROM ingredient WHERE public_id = ANY($1::uuid[]) AND owner_tenant_id = $2',
     [ingredientIds, tenantId],
   );
   const units =
@@ -1582,7 +1579,7 @@ async function validateStepInput(
       `SELECT 1 FROM ingredient_alias
        INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
        WHERE ingredient_alias.public_id = $1 AND ingredient.public_id = $2
-         AND (ingredient.owner_tenant_id IS NULL OR ingredient.owner_tenant_id = $3)`,
+         AND ingredient.owner_tenant_id = $3`,
       [usage.ingredientAliasPublicId, usage.ingredientPublicId, tenantId],
     );
     if (alias.rowCount !== 1) throw new InvalidStepInputError();

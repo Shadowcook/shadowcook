@@ -1,7 +1,6 @@
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
 import { localizedUnitSymbol } from '../../../i18n/unit-localization';
-import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import AdminIcon from '../../../components/AdminIcon';
 import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from '../model/types';
 import RecipeShoppingList from './RecipeShoppingList';
@@ -159,12 +158,8 @@ interface IngredientTextProperties {
 }
 
 function IngredientText(properties: IngredientTextProperties): JSX.Element {
-  const { ingredient, text } = properties;
-  const ingredientName: string = localizedIngredientName(
-    text,
-    ingredient.ingredient_localization_key,
-    ingredient.ingredient_name,
-  );
+  const { ingredient } = properties;
+  const ingredientName: string = ingredient.ingredient_name;
   return (
     <span>
       {ingredient.special_kind === null ? (

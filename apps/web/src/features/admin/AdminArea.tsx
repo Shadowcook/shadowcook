@@ -8,7 +8,6 @@ import AdminLegalDocuments from './components/AdminLegalDocuments';
 import AdminTenantManagement from './components/AdminTenantManagement';
 import AdminTenantCreate from './components/AdminTenantCreate';
 import AdminUnitManagement from './components/AdminUnitManagement';
-import AdminIngredientManagement from './components/AdminIngredientManagement';
 import AdminUserManagement from './components/AdminUserManagement';
 import AccessDeniedScreen from '../../components/AccessDeniedScreen';
 import { translations } from '../../i18n';
@@ -115,21 +114,6 @@ export default function AdminArea({ locale, path }: Properties): JSX.Element {
               }
             >
               {text.admin.units}
-            </a>
-          ) : null}
-          {isAdministrator ? (
-            <a
-              className={
-                currentPath.startsWith('/admin/ingredients')
-                  ? 'admin-navigation__link admin-navigation__link--active'
-                  : 'admin-navigation__link'
-              }
-              href="/admin/ingredients"
-              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
-                navigate(event, '/admin/ingredients')
-              }
-            >
-              {text.dashboard.ingredients}
             </a>
           ) : null}
           {isAdministrator ? (
@@ -257,7 +241,6 @@ function page(
   if (path === '/admin/tenants/new') return <AdminTenantCreate locale={locale} />;
   if (path === '/admin/tenants') return <AdminTenantManagement locale={locale} />;
   if (path === '/admin/units') return <AdminUnitManagement locale={locale} />;
-  if (path === '/admin/ingredients') return <AdminIngredientManagement locale={locale} />;
   if (path === '/admin/users') return <AdminUserManagement locale={locale} />;
   if (path === '/admin/settings')
     return (

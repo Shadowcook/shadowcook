@@ -598,7 +598,7 @@ Aliases support:
 - federation mapping,
 - user-entered pantry lists.
 
-Ingredient usages reference an ingredient identity and optionally the selected ingredient alias. Recipe output uses the selected alias when present and otherwise uses the ingredient canonical name. Ingredient consolidation reassigns every `IngredientUsage` from a source ingredient to a target ingredient and removes the source ingredient. Alias conversion additionally retains the source canonical name as an alias of the target ingredient and transfers non-conflicting source aliases. Instance-owned ingredients can be consolidated only with instance-owned ingredients. Tenant-owned ingredients can be consolidated only with ingredients owned by the same tenant.
+Ingredient usages reference an ingredient identity and optionally the selected ingredient alias. Recipe output uses the selected alias when present and otherwise uses the ingredient canonical name. Ingredients are owned by one tenant. Ingredient consolidation reassigns every `IngredientUsage` from a source ingredient to a target ingredient and removes the source ingredient. Alias conversion additionally retains the source canonical name as an alias of the target ingredient and transfers non-conflicting source aliases. Consolidation is limited to ingredients owned by the same tenant.
 
 ### 9.3 Ingredient usage
 
@@ -698,9 +698,7 @@ Instance-owned units have no owner tenant. The server converts an amount to its 
 
 Seeded standard units have a stable `localization_key`. Web clients resolve their localized names and symbols from that key. Units without a `localization_key` are administrator-defined and use their stored name and symbol without translation. Recipe ingredient usages store a unit reference and receive the unit localization key with the recipe detail response.
 
-Seeded standard ingredients and their aliases have stable `localization_key` values. Web clients resolve localized ingredient and alias names from these keys. Administrator-defined ingredients and aliases have no localization key and use their stored names without translation. Recipe ingredient usages store an ingredient reference and receive its localization key with the recipe detail response.
-
-Ingredient translations and ingredient aliases are separate concepts. A future ingredient translation stores one preferred display name for an ingredient and locale. A future ingredient alias stores an additional recognized name for an ingredient and locale. Tenant-owned ingredients will support tenant-managed translations and aliases. Recipe ingredient usages continue to reference ingredient identities rather than translated names.
+Ingredients and their aliases are tenant-authored content. Web clients render their stored names without localization. Recipe ingredient usages continue to reference ingredient identities rather than translated names.
 
 Examples of dimensions:
 

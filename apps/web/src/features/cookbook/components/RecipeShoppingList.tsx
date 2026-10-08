@@ -1,6 +1,5 @@
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
-import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import { aggregateShoppingList, formatShoppingListAmount } from '../model/shopping-list';
 import type { AggregatedAmount, ShoppingListItem } from '../model/shopping-list';
 import type { RecipeDetail } from '../model/types';
@@ -21,11 +20,7 @@ export default function RecipeShoppingList({
       <p className="eyebrow">{text.dashboard.shoppingList}</p>
       <ul>
         {items.map((item: ShoppingListItem): JSX.Element => {
-          const ingredientName: string = localizedIngredientName(
-            text,
-            item.ingredient.ingredient_localization_key,
-            item.ingredient.ingredient_name,
-          );
+          const ingredientName: string = item.ingredient.ingredient_name;
           const quantities: string[] = Array.from(item.amountsByUnit.values())
             .map((amount: AggregatedAmount): string => formatShoppingListAmount(amount, text))
             .filter((amount: string): boolean => amount.length > 0);

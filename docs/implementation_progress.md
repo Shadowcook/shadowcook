@@ -13,7 +13,7 @@
 - Priority-0 API integration coverage verifies that a tenant category manager can read and mutate only its own tenant categories and cannot use another tenant's slug or category public ID to read or mutate data.
 - The API exposes the health endpoint and documented API contract.
 - Development startup loads the base JSON seed and then an optional local JSON content seed for ingredients, categories, recipes, revisions, variants, steps, ingredient usages, and their referenced catalogues.
-- The tracked initial-deployment seed creates localized instance-owned units, ingredients, and aliases.
+- The tracked initial-deployment seed creates localized instance-owned units.
 - `pnpm reset:shadowcook-db` and its `pnpm reset:dev-db` alias recreate only the `public` schema of the development `shadowcook` database.
 - The separate local `apps/migration` workspace application provides `pnpm migrate:production-cookbook`, uses isolated `SOURCE_DB_*` and `TARGET_DB_*` settings from `.env.migration`, and performs a read-only HSQLDB-to-PostgreSQL legacy cookbook migration with required target-tenant selection, Owner author attribution, a transactional dry run, deterministic category and recipe slugs, published revisions, default variants, ordered steps, tenant ingredients created from real-unit usages, authored usage notes from parenthetical text and comma-separated modifiers, semantic special entries, and legacy unit mapping.
 - `pnpm export:development-content-seed` validates the selected development tenant for a JSON category and recipe content export; its `--execute` mode writes the optional local development content seed.
@@ -61,9 +61,9 @@
 ### Catalogues and units
 
 - Instance administration manages instance-owned units with same-dimension conversion validation and usage-aware deletion protection.
-- Standard units, ingredients, and aliases use localization keys; administrator-defined catalogue records retain their stored presentation.
+- Standard units use localization keys; tenant ingredients and aliases retain their stored presentation.
 - Tenant management provides deep-linkable ingredient, alias, and unit CRUD.
-- Instance and tenant ingredient management provide one action dialog for transactional merging, alias conversion, alias separation into independent ingredients for exact alias usages, and conversion of catalogue ingredients into free-text recipe entries with recipe-usage reassignment. Merges require a source-and-target confirmation that states their irreversible effect. Ingredient-management API failures open a localized error dialog with a response-code-specific message.
+- Tenant ingredient management provides one action dialog for transactional merging, alias conversion, alias separation into independent ingredients for exact alias usages, and conversion of catalogue ingredients into free-text recipe entries with recipe-usage reassignment. Merges require a source-and-target confirmation that states their irreversible effect. Ingredient-management API failures open a localized error dialog with a response-code-specific message.
 - Recipe ingredient usages retain the selected alias for recipe output while sharing the normalized ingredient identity for search and aggregation.
 
 ### Authentication, authorization, and administration
@@ -75,7 +75,7 @@
 - Tenant creation is disabled until SMTP delivery is configured, with a localized configuration requirement, server-side `SMTP_REQUIRED` enforcement, and a localized mail-delivery failure message for owner invitations.
 - The authorization model includes canonical permissions, instance roles, tenant roles, tenant memberships, tenant-scoped role assignment, and the initial `Owner`, `Editor`, and `Viewer` roles.
 - Instance administration lists every website user and manages global instance roles, user deactivation, password resets, and soft deletion. Tenant membership and tenant-role assignment require the tenant-scoped `tenant:manage` permission.
-- Instance administration provides deep-linkable dashboards and tenant, user, authentication, SMTP, ingredient, and unit management.
+- Instance administration provides deep-linkable dashboards and tenant, user, authentication, SMTP, and unit management.
 - Middleware protects administration and tenant-management routes, preserves validated post-login navigation, and the web client validates restored sessions with the API.
 - A sticky global head bar provides localized sign-in, authenticated-user, authorized administration, and sign-out actions on every web route, including invitation acceptance routes.
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.

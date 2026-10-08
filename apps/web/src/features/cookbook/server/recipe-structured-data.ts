@@ -1,5 +1,4 @@
 import type { Translation } from '../../../i18n';
-import { localizedIngredientName } from '../../../i18n/ingredient-localization';
 import { localizedUnitSymbol } from '../../../i18n/unit-localization';
 import type { Category, IngredientUsage, RecipeDetail } from '../model/types';
 
@@ -72,11 +71,7 @@ export function recipeIngredientText(ingredient: IngredientUsage, text: Translat
     ingredient.unit_symbol === null
       ? null
       : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol);
-  const name: string = localizedIngredientName(
-    text,
-    ingredient.ingredient_localization_key,
-    ingredient.ingredient_name,
-  );
+  const name: string = ingredient.ingredient_name;
   const parts: string[] = [amount, unit, name].filter(
     (value: string | null): value is string => value !== null && value.length > 0,
   );

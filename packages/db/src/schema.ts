@@ -186,10 +186,9 @@ export interface UnitTable {
 
 export interface IngredientTable {
   id: Generated<Uuid>;
-  owner_tenant_id: string | null;
+  owner_tenant_id: string;
   public_id: Generated<Uuid>;
   canonical_name: string;
-  localization_key: string | null;
   created_at: Generated<Timestamp>;
 }
 
@@ -198,7 +197,6 @@ export interface IngredientAliasTable {
   ingredient_id: string;
   public_id: Generated<Uuid>;
   alias: string;
-  localization_key: string | null;
 }
 
 export interface ApplicationSeedTable {
