@@ -437,6 +437,7 @@ code {
 }
 .dashboard__cookbook-name {
   font-size: 2.5rem;
+  overflow-wrap: anywhere;
 }
 .accent {
   color: #c34e2d;
@@ -544,6 +545,9 @@ code {
   .dashboard__header {
     align-items: start;
     flex-direction: column;
+  }
+  .dashboard__cookbook-name {
+    font-size: clamp(2rem, 9vw, 2.5rem);
   }
   .dashboard__grid {
     grid-template-columns: 1fr;
