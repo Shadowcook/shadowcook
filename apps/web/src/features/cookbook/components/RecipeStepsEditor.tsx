@@ -21,6 +21,22 @@ interface Usage {
   unitPublicId: string;
   note: string;
   isOptional: boolean;
+  isFreeTextMode: boolean;
+}
+interface SavedUsage {
+  ingredientPublicId: string;
+  ingredientAliasPublicId: string;
+  textOverride: string;
+  specialKind: string;
+  amount: string;
+  unitPublicId: string;
+  note: string;
+  isOptional: boolean;
+}
+interface SavedStep {
+  id: string;
+  instruction: string;
+  ingredients: SavedUsage[];
 }
 interface Step {
   id: string;
@@ -53,6 +69,7 @@ const emptyUsage: Usage = {
   unitPublicId: '',
   note: '',
   isOptional: false,
+  isFreeTextMode: false,
 };
 
 export default function RecipeStepsEditor(properties: RecipeStepsEditorProperties): JSX.Element {
@@ -99,6 +116,9 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
                 amount: normalizeAmount(usage.amount ?? ''),
                 unitPublicId: usage.unitPublicId ?? '',
                 note: usage.note ?? '',
+                isFreeTextMode:
+                  (usage.textOverride ?? '').trim().length > 0 &&
+                  (usage.specialKind ?? '').length === 0,
               }))
             : [],
         })),
@@ -212,7 +232,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          steps: steps.filter((step): boolean => step.instruction.trim().length > 0),
+          steps: savedSteps(),
         }),
       });
       setMessage(properties.text.recipeEditor.stepsSaved);
@@ -222,6 +242,28 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     } finally {
       setIsSaving(false);
     }
+  }
+  function savedSteps(): SavedStep[] {
+    return steps
+      .filter((step: Step): boolean => step.instruction.trim().length > 0)
+      .map(
+        (step: Step): SavedStep => ({
+          id: step.id,
+          instruction: step.instruction,
+          ingredients: step.ingredients.map(
+            (usage: Usage): SavedUsage => ({
+              ingredientPublicId: usage.ingredientPublicId,
+              ingredientAliasPublicId: usage.ingredientAliasPublicId,
+              textOverride: usage.textOverride,
+              specialKind: usage.specialKind,
+              amount: usage.amount,
+              unitPublicId: usage.unitPublicId,
+              note: usage.note,
+              isOptional: usage.isOptional,
+            }),
+          ),
+        }),
+      );
   }
   if (isLoading) return <p className="empty-state">{properties.text.loading}</p>;
   return (
@@ -322,30 +364,58 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
                     </option>
                   ))}
                 </select>
-                <IngredientPicker
-                  tenantSlug={properties.tenantSlug}
-                  ingredientPublicId={usage.ingredientPublicId}
-                  ingredientAliasPublicId={usage.ingredientAliasPublicId}
-                  ingredientName={usage.ingredientName}
-                  textOverride={usage.textOverride}
-                  specialKind={usage.specialKind}
-                  text={properties.text}
-                  onChange={(patch): void => updateUsage(stepIndex, usageIndex, patch)}
-                />
+                <div className="recipe-usage-editor__ingredient">
+                  {usage.specialKind.length === 0 ? (
+                    <label className="recipe-editor__check">
+                      <input
+                        type="checkbox"
+                        checked={usage.isFreeTextMode}
+                        onChange={(event): void =>
+                          updateUsage(stepIndex, usageIndex, {
+                            ingredientPublicId: '',
+                            ingredientAliasPublicId: '',
+                            ingredientName: '',
+                            textOverride: '',
+                            specialKind: '',
+                            isFreeTextMode: event.currentTarget.checked,
+                          })
+                        }
+                      />
+                      {properties.text.recipeEditor.freeTextIngredient}
+                    </label>
+                  ) : null}
+                  {usage.isFreeTextMode ? (
+                    <input
+                      value={usage.textOverride}
+                      onChange={(event): void =>
+                        updateUsage(stepIndex, usageIndex, {
+                          textOverride: event.currentTarget.value,
+                        })
+                      }
+                      placeholder={properties.text.recipeEditor.ingredientName}
+                      aria-label={properties.text.recipeEditor.ingredientName}
+                    />
+                  ) : (
+                    <IngredientPicker
+                      tenantSlug={properties.tenantSlug}
+                      ingredientPublicId={usage.ingredientPublicId}
+                      ingredientAliasPublicId={usage.ingredientAliasPublicId}
+                      ingredientName={usage.ingredientName}
+                      specialKind={usage.specialKind}
+                      text={properties.text}
+                      onChange={(patch): void =>
+                        updateUsage(stepIndex, usageIndex, {
+                          ...patch,
+                          isFreeTextMode: false,
+                        })
+                      }
+                    />
+                  )}
+                </div>
                 <input
-                  value={
-                    usage.ingredientPublicId.length > 0 || usage.specialKind.length > 0
-                      ? usage.note
-                      : usage.textOverride
-                  }
+                  value={usage.note}
                   onChange={(event): void =>
-                    updateUsage(
-                      stepIndex,
-                      usageIndex,
-                      usage.ingredientPublicId.length > 0 || usage.specialKind.length > 0
-                        ? { note: event.currentTarget.value }
-                        : { textOverride: event.currentTarget.value },
-                    )
+                    updateUsage(stepIndex, usageIndex, { note: event.currentTarget.value })
                   }
                   placeholder={properties.text.recipeEditor.note}
                   aria-label={properties.text.recipeEditor.note}

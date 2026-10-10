@@ -530,7 +530,7 @@ An ingredient usage without a special entry kind contains either a normalized in
 
 The recipe editor retrieves at most twenty matching ingredients for a non-empty ingredient search query. The web client delays each ingredient-search request by 300 milliseconds and does not request or render catalogue ingredient results for an empty query.
 
-The recipe editor presents one note input for every recipe step entry. A normalized ingredient stores this input as its ingredient note. Free-text and special entries store it as their text override.
+The recipe editor provides an independent free-text ingredient control. A free-text ingredient stores its name as a text override and its optional note as an ingredient usage note. A normalized ingredient and a special entry store the optional note as an ingredient usage note.
 
 Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render all non-special ingredient usage names prominently and render their notes as secondary text. Ingredient management can convert a normalized ingredient into free-text recipe entries, which removes its catalogue identity, search availability, and shopping-list aggregation.
 
@@ -622,6 +622,8 @@ RecipeStep
 ```
 
 This supports the side-by-side Shadowcook UI naturally.
+
+Recipe-step instructions retain authored whitespace and line breaks throughout draft storage, published revisions, and reader rendering.
 
 ### 9.4 Usage notes
 

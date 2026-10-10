@@ -481,6 +481,8 @@ export const de: Translation = {
     amount: 'Menge',
     noUnit: 'Keine Einheit',
     note: 'Hinweis',
+    freeTextIngredient: 'Freitext-Zutat',
+    ingredientName: 'Zutatenname',
     saveSteps: 'Schritte speichern',
     stepsSaved: 'Schritte gespeichert.',
   },

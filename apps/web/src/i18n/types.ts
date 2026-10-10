@@ -407,6 +407,8 @@ export interface Translation {
     amount: string;
     noUnit: string;
     note: string;
+    freeTextIngredient: string;
+    ingredientName: string;
     saveSteps: string;
     stepsSaved: string;
     freeText: string;

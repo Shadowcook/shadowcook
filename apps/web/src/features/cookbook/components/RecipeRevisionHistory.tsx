@@ -152,7 +152,8 @@ function Snapshot(properties: { snapshot: RevisionSnapshot; text: Translation })
       {snapshot.steps.map((step: RevisionStep): JSX.Element => (
         <article key={step.stepKey} className="recipe-revision-history__step">
           <h4>
-            {step.sortOrder + 1}. {step.instruction}
+            {step.sortOrder + 1}.{' '}
+            <span className="recipe-revision-history__instruction">{step.instruction}</span>
           </h4>
           {step.ingredients.length === 0 ? null : (
             <ul>

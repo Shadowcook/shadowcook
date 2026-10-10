@@ -308,8 +308,8 @@ async function insertRecipes(
     const variantId: string = variant.rows[0]!.id;
     for (let stepIndex: number = 0; stepIndex < recipe.steps.length; stepIndex += 1) {
       const step: LegacyStep = recipe.steps[stepIndex]!;
-      let instruction: string = step.instruction?.trim() ?? '';
-      if (instruction.length === 0) {
+      let instruction: string = step.instruction ?? '';
+      if (instruction.trim().length === 0) {
         instruction = '—';
         summary.substitutedEmptyInstructions += 1;
       }

@@ -3307,7 +3307,10 @@ components:
       additionalProperties: false
       required: [instruction, ingredients]
       properties:
-        instruction: { type: string, minLength: 1 }
+        instruction:
+          type: string
+          minLength: 1
+          description: Authored preparation text. Whitespace and line breaks are preserved verbatim.
         ingredients:
           type: array
           items: { $ref: '#/components/schemas/RecipeDraftUsageInput' }

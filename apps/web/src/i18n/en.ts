@@ -468,6 +468,8 @@ export const en: Translation = {
     amount: 'Amount',
     noUnit: 'No unit',
     note: 'Note',
+    freeTextIngredient: 'Free-text ingredient',
+    ingredientName: 'Ingredient name',
     saveSteps: 'Save steps',
     stepsSaved: 'Steps saved.',
   },

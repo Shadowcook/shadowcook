@@ -335,7 +335,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         const step = steps[index] as { instruction: string; ingredients?: unknown[] };
         const inserted = await client.query<{ id: string }>(
           `INSERT INTO recipe_step (recipe_revision_id, step_key, sort_order, instruction) VALUES ($1, gen_random_uuid(), $2, $3) RETURNING id`,
-          [revisionId, index, step.instruction.trim()],
+          [revisionId, index, step.instruction],
         );
         if (!Array.isArray(step.ingredients)) continue;
         for (let usageIndex = 0; usageIndex < step.ingredients.length; usageIndex += 1) {

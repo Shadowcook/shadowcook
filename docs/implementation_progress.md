@@ -44,9 +44,10 @@
 ### Recipe authoring, revisions, and variants
 
 - Recipe-step editors append steps and insert new steps immediately after any existing step.
+- Recipe-step instruction line breaks and other authored whitespace are retained when drafts are saved and rendered in recipe details.
 - Recipes use mutable drafts and immutable published revisions, with category assignment, publication, incrementing versions, and draft lists on deep-linkable tenant management routes. Recipe slug, featured state, visibility, and discoverability are immediate recipe-level metadata and do not create drafts or revisions.
 - Recipe editors provide a revision history tab for published and archived snapshots, including metadata, categories, steps, ingredient usages, variants, and changes against the preceding published revision. Historical revisions are read-only and cannot yet be restored.
-- Recipe steps contain normalized ingredient usages, free-text overrides, optional values, notes, and semantic special-entry kinds with optional notes.
+- Recipe steps contain normalized ingredient usages, free-text ingredient overrides with independent notes, optional values, and semantic special-entry kinds with optional notes.
 - Recipe-step instructions support UUID-based recipe links. The editor provides an `@` picker with a delayed current-tenant recipe search, and recipe details render resolved references as links.
 - Ingredient preparation and state information is stored as authored free-text usage notes. It is preserved without translation or mapping during federation.
 - Ingredient search is delayed and server-backed, searches aliases, and supports creating tenant ingredients during editing.

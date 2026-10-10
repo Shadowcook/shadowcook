@@ -133,7 +133,7 @@ export default function RecipeDetailView({
               <p className="recipe-step__number">
                 {text.dashboard.step} {index + 1}
               </p>
-              <p>
+              <p className="recipe-step__instruction">
                 <RecipeInstruction
                   instruction={step.instruction}
                   recipeLinks={recipe.recipe_links ?? []}
@@ -158,14 +158,9 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
   const ingredientName: string = ingredient.ingredient_name;
   return (
     <span>
-      {ingredient.special_kind === null ? (
-        <strong>{ingredientName}</strong>
-      ) : (
-        ingredientName
-      )}
+      {ingredient.special_kind === null ? <strong>{ingredientName}</strong> : ingredientName}
       {ingredient.note !== null &&
-      ingredient.note.length > 0 &&
-      (ingredient.is_catalog_ingredient || ingredient.special_kind !== null) ? (
+      ingredient.note.length > 0 ? (
         <em className="recipe-ingredient-note"> {ingredient.note}</em>
       ) : null}
     </span>

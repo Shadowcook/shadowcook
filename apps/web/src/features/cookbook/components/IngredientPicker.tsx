@@ -23,7 +23,6 @@ interface IngredientPickerProperties {
   ingredientPublicId: string;
   ingredientAliasPublicId: string;
   ingredientName: string;
-  textOverride: string;
   specialKind: string;
   text: Translation;
   onChange: (patch: IngredientPickerPatch) => void;
@@ -123,7 +122,7 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
     setIsCreating(false);
   }
 
-  function selectFreeText(): void {
+  function clearSelection(): void {
     properties.onChange({
       ingredientPublicId: '',
       ingredientAliasPublicId: '',
@@ -206,8 +205,8 @@ export default function IngredientPicker(properties: IngredientPickerProperties)
           </ul>
         ) : null}
         <div className="ingredient-picker__special-entries">
-          <button type="button" className="button--secondary" onClick={selectFreeText}>
-            {properties.text.recipeEditor.freeText}
+          <button type="button" className="button--secondary" onClick={clearSelection}>
+            {properties.text.recipeEditor.clearIngredient}
           </button>
           {recipeSpecialEntries(properties.text)
             .filter((entry): boolean => entry.kind !== 'NO_ICON')
@@ -313,6 +312,5 @@ function selectionLabel(properties: IngredientPickerProperties): string {
     );
     return entry === undefined ? properties.text.recipeEditor.specialEntry : entry.label;
   }
-  if (properties.textOverride.length > 0) return properties.text.recipeEditor.freeText;
   return properties.text.recipeEditor.selectIngredient;
 }
