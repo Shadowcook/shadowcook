@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { JSX } from 'react';
+import type { JSX, MouseEvent } from 'react';
 import AdminIcon from '../../../components/AdminIcon';
 import type { Translation } from '../../../i18n';
 import { cookbookPath } from '../model/routing';
@@ -10,11 +10,13 @@ interface CategoryTreeProperties {
   selectedCategoryId: string | null;
   text: Translation;
   tenantSlug: string;
+  onCategoryNavigate?: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void;
   onNavigate?: () => void;
 }
 
 export default function CategoryTree(properties: CategoryTreeProperties): JSX.Element {
-  const { categories, selectedCategoryId, text, tenantSlug, onNavigate } = properties;
+  const { categories, selectedCategoryId, text, tenantSlug, onCategoryNavigate, onNavigate } =
+    properties;
   const byParentId: Map<string | null, Category[]> = new Map();
   for (const category of categories) {
     const siblings: Category[] = byParentId.get(category.parent_public_id) ?? [];
@@ -51,6 +53,7 @@ export default function CategoryTree(properties: CategoryTreeProperties): JSX.El
         selectedCategoryId,
         text,
         tenantSlug,
+        onCategoryNavigate,
         toggleCategory,
         onNavigate,
       )}
@@ -66,6 +69,8 @@ function categoryTreeItems(
   selectedCategoryId: string | null,
   text: Translation,
   tenantSlug: string,
+  onCategoryNavigate:
+    ((event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void) | undefined,
   onToggleCategory: (categoryId: string) => void,
   onNavigate: (() => void) | undefined,
 ): JSX.Element[] {
@@ -78,6 +83,7 @@ function categoryTreeItems(
     const descendants: Category[] = byParentId.get(category.public_id) ?? [];
     const isExpanded: boolean = expandedCategoryIds.has(category.public_id);
     const hasDescendants: boolean = descendants.length > 0;
+    const categoryPath: string = cookbookPath(tenantSlug, categories, category.public_id, null);
     const disclosureLabel: string = `${isExpanded ? text.dashboard.collapseCategory : text.dashboard.expandCategory}: ${category.name}`;
     return (
       <div className="category-tree__item" key={category.public_id}>
@@ -108,8 +114,11 @@ function categoryTreeItems(
                 ? 'category-button category-button--active'
                 : 'category-button'
             }
-            href={cookbookPath(tenantSlug, categories, category.public_id, null)}
-            onClick={onNavigate}
+            href={categoryPath}
+            onClick={(event: MouseEvent<HTMLAnchorElement>): void => {
+              onCategoryNavigate?.(event, categoryPath);
+              onNavigate?.();
+            }}
           >
             {category.name}
           </a>
@@ -124,6 +133,7 @@ function categoryTreeItems(
               selectedCategoryId,
               text,
               tenantSlug,
+              onCategoryNavigate,
               onToggleCategory,
               onNavigate,
             )}

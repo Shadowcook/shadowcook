@@ -31,6 +31,7 @@
 - The localized footer links the license and application version to the GitHub build commit, and links to deep-linkable public privacy-statement and legal-notice pages. New initial databases contain editable English Markdown templates with operator placeholders; instance administrators maintain the two public documents in Legal documents settings.
 - Category and recipe slugs are tenant-unique, route segments are reserved in the database, and cookbook navigation supports root recipe URLs, category paths, and breadcrumbs.
 - Hydrated cookbook categories, recipes, breadcrumbs, and tenant-management navigation are native deep-link anchors that support opening in a new browser tab.
+- Hydrated category navigation updates the selected cookbook category without remounting the category tree, retaining manually expanded branches.
 - Mobile cookbook navigation provides the category tree in a header-adjacent left-side drawer with a fixed close control and a scrollable category list.
 - Category management supports hierarchical creation, renaming, reparenting, guarded deletion, and adjacent sibling ordering.
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.

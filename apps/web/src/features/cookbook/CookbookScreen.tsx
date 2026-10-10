@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ChangeEvent, JSX, SubmitEvent } from 'react';
+import type { ChangeEvent, JSX, MouseEvent, SubmitEvent } from 'react';
 import { translations } from '../../i18n';
 import type { Locale, Translation } from '../../i18n';
 import { ApiRequestError, jsonRequest, request } from '../../lib/api/client';
@@ -447,6 +447,21 @@ export default function CookbookScreen({
     setRecipeFilter(filter);
     void loadCookbook(1, filter);
   }
+  function navigateCategory(event: MouseEvent<HTMLAnchorElement>, targetPath: string): void {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    )
+      return;
+    event.preventDefault();
+    if (window.location.pathname === targetPath) return;
+    window.history.pushState(null, '', targetPath);
+    void applyBrowserLocation(cookbook);
+  }
   async function applyBrowserLocation(
     loaded: CookbookResponse,
     preservedRecipe: RecipeDetail | null = null,
@@ -614,6 +629,7 @@ export default function CookbookScreen({
                   onSelectFrontpagePage={loadCookbook}
                   recipeFilter={recipeFilter}
                   onRecipeFilterChange={changeRecipeFilter}
+                  onCategoryNavigate={navigateCategory}
                   tenantSlug={tenantSlug}
                 />
                 {aiContextTarget === null ? null : (

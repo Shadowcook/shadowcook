@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { JSX } from 'react';
+import type { JSX, MouseEvent } from 'react';
 import AdminIcon from '../../../components/AdminIcon';
 import type { Translation } from '../../../i18n';
 import { cookbookPath } from '../model/routing';
@@ -11,6 +11,7 @@ interface MobileCategoryDrawerProperties {
   selectedCategoryId: string | null;
   text: Translation;
   tenantSlug: string;
+  onCategoryNavigate: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void;
 }
 
 export default function MobileCategoryDrawer(
@@ -85,7 +86,13 @@ export default function MobileCategoryDrawer(
                     : 'category-button'
                 }
                 href={cookbookPath(properties.tenantSlug, properties.categories, null, null)}
-                onClick={closeDrawer}
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void => {
+                  properties.onCategoryNavigate(
+                    event,
+                    cookbookPath(properties.tenantSlug, properties.categories, null, null),
+                  );
+                  closeDrawer();
+                }}
               >
                 {properties.text.dashboard.featuredRecipes}
               </a>
@@ -94,6 +101,7 @@ export default function MobileCategoryDrawer(
                 selectedCategoryId={properties.selectedCategoryId}
                 text={properties.text}
                 tenantSlug={properties.tenantSlug}
+                onCategoryNavigate={properties.onCategoryNavigate}
                 onNavigate={closeDrawer}
               />
             </nav>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { ChangeEvent, JSX } from 'react';
+import type { ChangeEvent, JSX, MouseEvent } from 'react';
 import type { Translation } from '../../../i18n';
 import AiShareIcon from './AiShareIcon';
 import BreadcrumbBar from './BreadcrumbBar';
@@ -26,6 +26,7 @@ interface CookbookDashboardProperties {
   onSelectFrontpagePage: (page: number) => Promise<CookbookResponse>;
   recipeFilter: string;
   onRecipeFilterChange: (filter: string) => void;
+  onCategoryNavigate: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void;
   tenantSlug: string;
 }
 
@@ -46,6 +47,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onSelectFrontpagePage,
     recipeFilter,
     onRecipeFilterChange,
+    onCategoryNavigate,
     tenantSlug,
   } = properties;
   const [categoryPage, setCategoryPage] = useState<number>(1);
@@ -115,6 +117,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
             selectedCategoryId={selectedCategoryId}
             text={text}
             tenantSlug={tenantSlug}
+            onCategoryNavigate={onCategoryNavigate}
           />
           <aside className="category-panel">
             <div className="category-panel__heading">
@@ -127,6 +130,9 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                   : 'category-button'
               }
               href={cookbookPath(tenantSlug, cookbook.categories, null, null)}
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                onCategoryNavigate(event, cookbookPath(tenantSlug, cookbook.categories, null, null))
+              }
             >
               {text.dashboard.featuredRecipes}
             </a>
@@ -135,6 +141,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
               selectedCategoryId={selectedCategoryId}
               text={text}
               tenantSlug={tenantSlug}
+              onCategoryNavigate={onCategoryNavigate}
             />
           </aside>
           <section className="recipes-panel">
