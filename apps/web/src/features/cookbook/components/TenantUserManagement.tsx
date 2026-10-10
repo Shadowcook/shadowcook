@@ -125,14 +125,16 @@ export default function TenantUserManagement({ locale, tenantSlug }: Properties)
                 <td>{user.email}</td>
                 <td>{user.roles.map((role: TenantRole): string => role.name).join(', ')}</td>
                 <td>
-                  <button
-                    type="button"
-                    aria-label={text.tenantUsers.assignRoles}
-                    title={text.tenantUsers.assignRoles}
-                    onClick={(): void => openRoles(user)}
-                  >
-                    <AdminIcon name="roles" />
-                  </button>
+                  {user.roles.some((role: TenantRole): boolean => role.name === 'Owner') ? null : (
+                    <button
+                      type="button"
+                      aria-label={text.tenantUsers.assignRoles}
+                      title={text.tenantUsers.assignRoles}
+                      onClick={(): void => openRoles(user)}
+                    >
+                      <AdminIcon name="roles" />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

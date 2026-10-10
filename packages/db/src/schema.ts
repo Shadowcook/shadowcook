@@ -16,6 +16,7 @@ export interface TenantTable {
   frontpage_heading: string | null;
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;
+  owner_principal_id: string | null;
 }
 
 export interface InstanceFrontpageSettingsTable {
@@ -86,7 +87,7 @@ export interface PendingRegistrationTable {
   id: Generated<Uuid>;
   email: string;
   password_hash: string;
-  tenant_name: string;
+  tenant_name: string | null;
   verification_token_hash: Buffer;
   created_at: Generated<Timestamp>;
   expires_at: Timestamp;
@@ -104,6 +105,7 @@ export interface InstanceRegistrationSettingsTable {
   singleton: Generated<boolean>;
   enabled: Generated<boolean>;
   turnstile_enabled: Generated<boolean>;
+  max_cookbooks_per_owner: Generated<number>;
   updated_by_principal_id: string | null;
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;

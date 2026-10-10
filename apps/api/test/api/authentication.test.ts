@@ -200,6 +200,55 @@ test('a tenant role never grants instance administration', async (): Promise<voi
   });
 });
 
+test('an authenticated account can create an owned cookbook without instance permissions', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'independent-cookbook@example.test',
+  });
+  const loginResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+
+  const response = await api.inject({
+    method: 'POST',
+    url: '/account/cookbooks',
+    headers: { cookie },
+    payload: { cookbookName: 'Independent cookbook' },
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(response.json(), { tenantSlug: 'independent-cookbook' });
+  const membership = await database.pool.query<{ role_name: string }>(
+    `SELECT tenant_role.name AS role_name
+     FROM tenant_membership
+     INNER JOIN tenant ON tenant.id = tenant_membership.tenant_id
+     INNER JOIN tenant_membership_role
+       ON tenant_membership_role.tenant_id = tenant_membership.tenant_id
+       AND tenant_membership_role.principal_id = tenant_membership.principal_id
+     INNER JOIN tenant_role ON tenant_role.id = tenant_membership_role.tenant_role_id
+     WHERE tenant.slug = 'independent-cookbook' AND tenant_membership.principal_id = $1`,
+    [user.principalId],
+  );
+  assert.deepEqual(membership.rows, [{ role_name: 'Owner' }]);
+});
+
+test('cookbook URL preview reports a normalized available and unavailable slug', async (): Promise<void> => {
+  const available = await api.inject({
+    method: 'GET',
+    url: '/account/cookbook-slug-preview?cookbookName=My%20Preview',
+  });
+  assert.equal(available.statusCode, 200);
+  assert.deepEqual(available.json(), { slug: 'my-preview', available: true });
+
+  await database.pool.query(
+    "INSERT INTO tenant (display_name, slug) VALUES ('Taken', 'my-preview')",
+  );
+  const unavailable = await api.inject({
+    method: 'GET',
+    url: '/account/cookbook-slug-preview?cookbookName=My%20Preview',
+  });
+  assert.equal(unavailable.statusCode, 200);
+  assert.deepEqual(unavailable.json(), { slug: 'my-preview', available: false });
+});
+
 async function login(user: TestUser) {
   return await api.inject({
     method: 'POST',

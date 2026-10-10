@@ -10,6 +10,7 @@ export default function AdminRegistrationSettings({ locale }: { locale: Locale }
   const [enabled, setEnabled] = useState<boolean>(true);
   const [turnstileEnabled, setTurnstileEnabled] = useState<boolean>(false);
   const [turnstileConfigured, setTurnstileConfigured] = useState<boolean>(false);
+  const [maxCookbooksPerOwner, setMaxCookbooksPerOwner] = useState<number>(1);
   const [message, setMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   useEffect((): void => {
@@ -17,16 +18,19 @@ export default function AdminRegistrationSettings({ locale }: { locale: Locale }
       enabled: boolean;
       turnstileEnabled: boolean;
       turnstileConfigured: boolean;
+      maxCookbooksPerOwner: number;
     }>('/admin/registration-settings')
       .then(
         (settings: {
           enabled: boolean;
           turnstileEnabled: boolean;
           turnstileConfigured: boolean;
+          maxCookbooksPerOwner: number;
         }): void => {
           setEnabled(settings.enabled);
           setTurnstileEnabled(settings.turnstileEnabled);
           setTurnstileConfigured(settings.turnstileConfigured);
+          setMaxCookbooksPerOwner(settings.maxCookbooksPerOwner);
         },
       )
       .catch((): void => setMessage(text.errors.requestFailed));
@@ -36,7 +40,7 @@ export default function AdminRegistrationSettings({ locale }: { locale: Locale }
     setMessage('');
     try {
       await request<void>('/admin/registration-settings', {
-        ...jsonRequest({ enabled, turnstileEnabled }),
+        ...jsonRequest({ enabled, turnstileEnabled, maxCookbooksPerOwner }),
         method: 'PUT',
       });
       setMessage(text.admin.registrationSaved);
@@ -69,6 +73,16 @@ export default function AdminRegistrationSettings({ locale }: { locale: Locale }
         {text.admin.turnstileEnabled}
       </label>
       {!turnstileConfigured ? <p className="hint">{text.admin.turnstileNotConfigured}</p> : null}
+      <label className="admin-registration-settings__limit">
+        {text.admin.maxCookbooksPerOwner}
+        <input
+          type="number"
+          min={1}
+          max={100}
+          value={maxCookbooksPerOwner}
+          onChange={(event): void => setMaxCookbooksPerOwner(Number(event.currentTarget.value))}
+        />
+      </label>
       <button
         className="admin-registration-settings__save"
         type="button"

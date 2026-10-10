@@ -13,6 +13,7 @@ export const de: Translation = {
     userMenu: 'Benutzermenü',
     signOutFailed: 'Abmeldung fehlgeschlagen. Bitte versuche es erneut.',
     register: 'Registrieren',
+    accountSettings: 'Kontoeinstellungen',
   },
   buildFooter: {
     imprint: 'Impressum',
@@ -79,23 +80,49 @@ export const de: Translation = {
     invalid: 'Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.',
   },
   registration: {
-    title: 'Kochbuch erstellen',
+    title: 'Konto erstellen',
     subtitle:
-      'Erstelle ein Konto und Kochbuch. Beides wird angelegt, nachdem du deine E-Mail-Adresse bestätigt hast.',
+      'Erstelle zuerst ein Konto. Ein Kochbuch kannst du jetzt oder später nach der Anmeldung anlegen.',
     email: 'E-Mail-Adresse',
     password: 'Passwort',
     cookbookName: 'Name des Kochbuchs',
+    cookbookChoice: 'Kochbuch',
+    createCookbookNow: 'Kochbuch jetzt anlegen',
+    createCookbookLater: 'Kochbuch später anlegen',
     submit: 'Konto erstellen',
     submitting: 'Konto wird erstellt …',
     checkEmail:
       'Prüfe deine E-Mails. Wir haben einen Bestätigungslink gesendet. Dein Shadowcook-Konto wird nach der Bestätigung erstellt.',
     unavailable: 'Die öffentliche Registrierung ist derzeit nicht verfügbar.',
     verificationInvalid: 'Dieser Bestätigungslink ist ungültig oder abgelaufen.',
-    verificationSucceeded:
-      'Dein Konto und Kochbuch wurden erstellt. Du kannst dich jetzt anmelden.',
+    verificationSucceeded: 'Dein Konto wurde erstellt. Du kannst dich jetzt anmelden.',
     resend: 'Neuen Bestätigungslink senden',
     resendSent:
       'Falls eine ausstehende Registrierung für diese E-Mail-Adresse existiert, wurde eine neue Bestätigungs-E-Mail gesendet.',
+    requestFailed: 'Dein Konto konnte nicht angelegt werden. Bitte starte erneut.',
+    startAgain: 'Registrierung neu starten',
+  },
+  accountSettings: {
+    title: 'Kontoeinstellungen',
+    subtitle:
+      'Lege ein Kochbuch an, wenn du bereit bist, Rezepte zu veröffentlichen oder zu organisieren.',
+    cookbookName: 'Name des Kochbuchs',
+    createCookbook: 'Kochbuch anlegen',
+    creatingCookbook: 'Kochbuch wird angelegt …',
+    cookbookCreated: 'Dein Kochbuch wurde angelegt.',
+    signInRequired: 'Melde dich an, um deine Kontoeinstellungen zu verwalten.',
+    ownedCookbooks: 'Meine Kochbücher',
+    cookbookLimitReached: 'Du hast die maximale Anzahl an Kochbüchern pro Konto erreicht.',
+    cookbookRecipes: 'Rezepte',
+    cookbookUsers: 'Benutzer',
+    cookbookStartPage: 'Auf Startseite',
+    yes: 'Ja',
+    no: 'Nein',
+  },
+  cookbookUrlPreview: {
+    label: 'Kochbuch-URL',
+    collision:
+      'Diese URL wird bereits verwendet. Wähle einen anderen Kochbuchnamen, um einen Suffix zu vermeiden.',
   },
   userInvitation: {
     title: 'Konto anlegen',
@@ -259,11 +286,12 @@ export const de: Translation = {
     registration: 'Registrierung',
     registrationTitle: 'Öffentliche Registrierung',
     registrationDescription:
-      'Erlaube Besuchern, nach der E-Mail-Bestätigung ein Shadowcook-Konto und Kochbuch anzulegen.',
+      'Erlaube Besuchern, nach der E-Mail-Bestätigung ein Shadowcook-Konto und optional ein Kochbuch anzulegen.',
     registrationEnabled: 'Öffentliche Registrierung aktivieren',
     saveRegistration: 'Registrierungseinstellungen speichern',
     savingRegistration: 'Registrierungseinstellungen werden gespeichert …',
     registrationSaved: 'Registrierungseinstellungen gespeichert.',
+    maxCookbooksPerOwner: 'Maximale Kochbücher pro Benutzer',
     turnstileEnabled: 'Cloudflare Turnstile verlangen',
     turnstileNotConfigured:
       'Setze TURNSTILE_SITE_KEY und TURNSTILE_SECRET in der Deployment-Umgebung, bevor Turnstile aktiviert werden kann.',

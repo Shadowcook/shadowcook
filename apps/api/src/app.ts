@@ -18,6 +18,7 @@ import { registerServiceAccountRoutes } from './cookbook/service-account-routes.
 import { registerAiContextRoutes } from './cookbook/ai-context-routes.js';
 import { registerPublicRegistrationRoutes } from './registration/routes.js';
 import { registerRegistrationSettingsRoutes } from './admin/registration-settings-routes.js';
+import { registerAccountRoutes } from './account/routes.js';
 import type { RegistrationConfig } from './config.js';
 
 export function createApi(
@@ -36,6 +37,7 @@ export function createApi(
 
   api.get('/health', async () => ({ status: 'ok' }));
   registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
+  registerAccountRoutes(api, pool);
   registerPublicRegistrationRoutes(
     api,
     pool,

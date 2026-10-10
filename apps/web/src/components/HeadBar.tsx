@@ -74,6 +74,9 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
             <AdminIcon name="expand" />
           </summary>
           <div className="head-bar__menu" role="menu">
+            <a href="/settings" role="menuitem">
+              {text.headBar.accountSettings}
+            </a>
             {session.canAccessAdministration ? (
               <a href="/admin" role="menuitem">
                 {text.admin.title}

@@ -47,8 +47,7 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
   } = properties;
   const [step, setStep] = useState<LoginStep>('email');
 
-  async function continueWithEmail(event: SubmitEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
+  async function continueWithEmail(): Promise<void> {
     onCodeChange('');
     if (methods.emailCode) {
       await onRequestCode();
@@ -57,7 +56,8 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
   }
 
   function submit(event: SubmitEvent<HTMLFormElement>): void {
-    if (step === 'email') void continueWithEmail(event);
+    event.preventDefault();
+    if (step === 'email') void continueWithEmail();
     else if (step === 'code') onVerifyCode(event);
     else onSubmit(event);
   }

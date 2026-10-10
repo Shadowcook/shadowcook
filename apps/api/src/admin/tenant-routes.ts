@@ -306,7 +306,7 @@ export function registerTenantRoutes(
           .code(400)
           .send({ code: 'INVALID_TENANT_USER_INVITATION', error: 'The invitation is invalid.' });
       const role = await pool.query<{ id: string }>(
-        'SELECT id FROM tenant_role WHERE id = $1 AND tenant_id = $2',
+        "SELECT id FROM tenant_role WHERE id = $1 AND tenant_id = $2 AND name IN ('Editor', 'Viewer')",
         [body.roleId, tenantId],
       );
       if (role.rows[0] === undefined)
@@ -690,6 +690,12 @@ export function registerTenantRoutes(
       await client.query(
         'INSERT INTO tenant_membership_role (tenant_id, principal_id, tenant_role_id) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING',
         [invitation.tenant_id, principalId, invitation.tenant_role_id],
+      );
+      await client.query(
+        `UPDATE tenant SET owner_principal_id = $1
+         WHERE id = $2 AND owner_principal_id IS NULL
+           AND EXISTS (SELECT 1 FROM tenant_role WHERE id = $3 AND name = 'Owner')`,
+        [principalId, invitation.tenant_id, invitation.tenant_role_id],
       );
       await client.query('COMMIT');
       await createSession(pool, reply, userId, secureCookies);

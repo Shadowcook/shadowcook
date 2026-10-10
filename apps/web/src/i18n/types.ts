@@ -13,6 +13,7 @@ export interface Translation {
     userMenu: string;
     signOutFailed: string;
     register: string;
+    accountSettings: string;
   };
   buildFooter: {
     imprint: string;
@@ -63,6 +64,9 @@ export interface Translation {
     email: string;
     password: string;
     cookbookName: string;
+    cookbookChoice: string;
+    createCookbookNow: string;
+    createCookbookLater: string;
     submit: string;
     submitting: string;
     checkEmail: string;
@@ -71,6 +75,28 @@ export interface Translation {
     verificationSucceeded: string;
     resend: string;
     resendSent: string;
+    requestFailed: string;
+    startAgain: string;
+  };
+  accountSettings: {
+    title: string;
+    subtitle: string;
+    cookbookName: string;
+    createCookbook: string;
+    creatingCookbook: string;
+    cookbookCreated: string;
+    signInRequired: string;
+    ownedCookbooks: string;
+    cookbookLimitReached: string;
+    cookbookRecipes: string;
+    cookbookUsers: string;
+    cookbookStartPage: string;
+    yes: string;
+    no: string;
+  };
+  cookbookUrlPreview: {
+    label: string;
+    collision: string;
   };
   userInvitation: {
     title: string;
@@ -220,6 +246,7 @@ export interface Translation {
     saveRegistration: string;
     savingRegistration: string;
     registrationSaved: string;
+    maxCookbooksPerOwner: string;
     turnstileEnabled: string;
     turnstileNotConfigured: string;
     authenticationTitle: string;

@@ -58,6 +58,7 @@ export function registerAuthenticationRoutes(
       requestPath === '/auth/email-code/verify' ||
       requestPath === '/auth/authentication-methods' ||
       requestPath === '/auth/password-requirements' ||
+      requestPath === '/account/cookbook-slug-preview' ||
       requestPath === '/registration' ||
       requestPath === '/registration/config' ||
       requestPath === '/registration/resend-verification' ||

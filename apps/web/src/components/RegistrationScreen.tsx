@@ -5,6 +5,7 @@ import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 import StatusMessage from './StatusMessage';
 import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
+import CookbookUrlPreview from './CookbookUrlPreview';
 
 interface TurnstileApi {
   render: (
@@ -23,6 +24,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
   const [tenantName, setTenantName] = useState<string>('');
+  const [createCookbook, setCreateCookbook] = useState<boolean>(true);
   const [website, setWebsite] = useState<string>('');
   const [turnstileToken, setTurnstileToken] = useState<string>('');
   const [message, setMessage] = useState<string>('');
@@ -30,6 +32,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
   const [siteKey, setSiteKey] = useState<string>('');
   const [turnstileRequired, setTurnstileRequired] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [outcome, setOutcome] = useState<'FORM' | 'ACCEPTED' | 'FAILED'>('FORM');
   const widgetContainer = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
 
@@ -81,15 +84,22 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
     try {
       await request(
         '/registration',
-        jsonRequest({ email, password, tenantName, turnstileToken, website }),
+        jsonRequest({
+          email,
+          password,
+          tenantName: createCookbook ? tenantName : null,
+          turnstileToken,
+          website,
+        }),
       );
-      setMessage(text.registration.checkEmail);
+      setOutcome('ACCEPTED');
     } catch (error: unknown) {
       setMessage(
         error instanceof ApiRequestError && error.code === 'REGISTRATION_DISABLED'
           ? text.registration.unavailable
-          : text.errors.requestFailed,
+          : text.registration.requestFailed,
       );
+      setOutcome('FAILED');
       if (widgetId.current !== null) window.turnstile?.reset(widgetId.current);
       setTurnstileToken('');
     } finally {
@@ -103,6 +113,15 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
       <p className="lede">{text.registration.subtitle}</p>
       {!enabled ? (
         <StatusMessage message={text.registration.unavailable} />
+      ) : outcome === 'ACCEPTED' ? (
+        <StatusMessage message={text.registration.checkEmail} />
+      ) : outcome === 'FAILED' ? (
+        <>
+          <StatusMessage message={message} />
+          <a className="button-link" href="/register">
+            {text.registration.startAgain}
+          </a>
+        </>
       ) : (
         <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void submit(event)}>
           <label>
@@ -124,16 +143,41 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
             onChange={(event): void => setPassword(event.currentTarget.value)}
           />
           <PasswordEntropyMeter text={text} password={password} />
-          <label>
-            {text.registration.cookbookName}
-            <input
-              type="text"
-              maxLength={120}
-              value={tenantName}
-              required
-              onChange={(event): void => setTenantName(event.currentTarget.value)}
-            />
-          </label>
+          <fieldset>
+            <legend>{text.registration.cookbookChoice}</legend>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="cookbook-timing"
+                checked={createCookbook}
+                onChange={(): void => setCreateCookbook(true)}
+              />
+              {text.registration.createCookbookNow}
+            </label>
+            <label className="radio-option">
+              <input
+                type="radio"
+                name="cookbook-timing"
+                checked={!createCookbook}
+                onChange={(): void => setCreateCookbook(false)}
+              />
+              {text.registration.createCookbookLater}
+            </label>
+          </fieldset>
+          {createCookbook ? (
+            <label>
+              {text.registration.cookbookName}
+              <input
+                type="text"
+                minLength={3}
+                maxLength={120}
+                value={tenantName}
+                required
+                onChange={(event): void => setTenantName(event.currentTarget.value)}
+              />
+              <CookbookUrlPreview cookbookName={tenantName} text={text} />
+            </label>
+          ) : null}
           <div className="registration-honeypot" aria-hidden="true">
             <label>
               Website
@@ -156,7 +200,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
           </button>
         </form>
       )}
-      <StatusMessage message={message} />
+      {outcome === 'FORM' ? <StatusMessage message={message} /> : null}
     </section>
   );
 }

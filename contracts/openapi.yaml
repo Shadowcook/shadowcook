@@ -3,6 +3,28 @@ info:
   title: Shadowcook API
   version: 0.1.0
 paths:
+  /account/cookbook-slug-preview:
+    get:
+      operationId: getCookbookSlugPreview
+      summary: Returns the URL slug derived from a cookbook name and whether it is currently unused.
+      parameters:
+        - name: cookbookName
+          in: query
+          required: true
+          schema: { type: string, minLength: 3, maxLength: 120 }
+      responses:
+        '200':
+          description: Cookbook URL preview.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [slug, available]
+                properties:
+                  slug: { type: string }
+                  available: { type: boolean }
+        '400': { description: Cookbook details are invalid. }
   /registration/config:
     get:
       operationId: getPublicRegistrationConfiguration
@@ -33,11 +55,12 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [enabled, turnstileEnabled, turnstileConfigured]
+                required: [enabled, turnstileEnabled, turnstileConfigured, maxCookbooksPerOwner]
                 properties:
                   enabled: { type: boolean }
                   turnstileEnabled: { type: boolean }
                   turnstileConfigured: { type: boolean }
+                  maxCookbooksPerOwner: { type: integer, minimum: 1, maximum: 100 }
         '403': { description: Instance administration permission is required. }
     put:
       operationId: updateRegistrationSettings
@@ -50,10 +73,11 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [enabled, turnstileEnabled]
+              required: [enabled, turnstileEnabled, maxCookbooksPerOwner]
               properties:
                 enabled: { type: boolean }
                 turnstileEnabled: { type: boolean }
+                maxCookbooksPerOwner: { type: integer, minimum: 1, maximum: 100 }
       responses:
         '204': { description: Registration setting updated. }
         '400': { description: Registration setting is invalid. }
@@ -65,7 +89,7 @@ paths:
   /registration:
     post:
       operationId: createPendingRegistration
-      summary: Creates an email-verification pending registration without creating a user or tenant.
+      summary: Creates an email-verification pending registration without creating a user.
       requestBody:
         required: true
         content:
@@ -82,7 +106,7 @@ paths:
                     format: password,
                     description: Must meet the configured minimum estimated entropy.,
                   }
-                tenantName: { type: string, minLength: 1, maxLength: 120 }
+                tenantName: { type: [string, 'null'], minLength: 3, maxLength: 120 }
                 turnstileToken: { type: string }
                 website: { type: string, description: Honeypot field which must be empty. }
       responses:
@@ -114,7 +138,7 @@ paths:
   /registration/verify:
     post:
       operationId: verifyPendingRegistration
-      summary: Consumes a registration verification token and atomically creates the user and tenant.
+      summary: Consumes a registration verification token and atomically creates the user and an optional cookbook.
       requestBody:
         required: true
         content:
@@ -127,7 +151,62 @@ paths:
                 token: { type: string }
       responses:
         '201':
-          description: User and tenant were created.
+          description: User and optional cookbook were created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [tenantSlug]
+                properties:
+                  tenantSlug: { type: [string, 'null'] }
+        '400': { description: Verification token is invalid, expired, or already consumed. }
+  /account/cookbooks:
+    get:
+      operationId: getAccountCookbooks
+      summary: Lists cookbooks owned by the authenticated account and its creation limit.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Owned cookbooks and creation limit.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [cookbooks, maxCookbooksPerOwner]
+                properties:
+                  cookbooks:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [name, slug, recipeCount, userCount, showOnStartPage]
+                      properties:
+                        name: { type: string }
+                        slug: { type: string }
+                        recipeCount: { type: integer, minimum: 0 }
+                        userCount: { type: integer, minimum: 0 }
+                        showOnStartPage: { type: boolean }
+                  maxCookbooksPerOwner: { type: integer, minimum: 1, maximum: 100 }
+        '401': { description: Authentication is required. }
+    post:
+      operationId: createAccountCookbook
+      summary: Creates a cookbook owned by the authenticated account.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [cookbookName]
+              properties:
+                cookbookName: { type: string, minLength: 3, maxLength: 120 }
+      responses:
+        '201':
+          description: Cookbook created.
           content:
             application/json:
               schema:
@@ -136,7 +215,8 @@ paths:
                 required: [tenantSlug]
                 properties:
                   tenantSlug: { type: string }
-        '400': { description: Verification token is invalid, expired, or already consumed. }
+        '400': { description: Cookbook details are invalid. }
+        '401': { description: Authentication is required. }
   /auth/login:
     post:
       operationId: login

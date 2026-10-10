@@ -283,7 +283,14 @@ shadowcook/
 - `POST /registration` applies configurable IP limits, validates an empty honeypot and a Cloudflare Turnstile token, and sends the email-verification URL.
 - `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET`, and `TURNSTILE_SECRET_FILE` are optional deployment environment settings. The API exposes only a configured `TURNSTILE_SITE_KEY` through the public registration configuration endpoint.
 - Instance administrators can require Turnstile only when both the site key and secret are configured. When Turnstile is not required, registration accepts no Turnstile token.
-- `POST /registration/verify` deletes an unexpired matching pending registration and creates the user, tenant, initial Owner, Editor, and Viewer roles, membership, and owner-role membership in one transaction.
+- `POST /registration/verify` deletes an unexpired matching pending registration and creates the user in one transaction. A pending registration with a cookbook name additionally creates the tenant, initial Owner, Editor, and Viewer roles, membership, and owner-role membership in that transaction.
+- Public registration presents the mutually exclusive choices to create a cookbook now or later. The later choice stores no cookbook name and verification creates only the account.
+- Authenticated accounts create an owned cookbook through `POST /account/cookbooks` and the deep-linkable `/settings` account-settings page. The created cookbook has the initial Owner, Editor, and Viewer roles, and the creating account receives the Owner membership.
+- `GET /account/cookbook-slug-preview` returns the normalized cookbook URL slug and its current availability. Cookbook-name forms show the resulting read-only URL and a collision warning.
+- Cookbook names contain from 3 through 120 trimmed characters. A slug collision is resolved during cookbook creation with a random suffix.
+- A cookbook has at most one owner, stored as `tenant.owner_principal_id`. Owner accounts receive the Owner role; tenant user management permits only Editor and Viewer role assignments for other users.
+- Instance registration settings store an administrator-configured maximum of 1 through 100 owned cookbooks per account, defaulting to 1. Account settings list owned cookbooks and hide cookbook creation once the limit is reached.
+- Account settings display owned cookbooks in a table with their recipe and member counts and start-page visibility.
 - `POST /registration/resend-verification` has a configurable email-address limit and returns a generic acknowledgement for every input.
 - Registration rate events are retained for 25 hours. Default registration limits are five requests per 15 minutes and twenty requests per 24 hours per IP. The default resend limit is three emails per address per hour.
 - SMTP transport supports STARTTLS and implicit TLS and can send a test message through the stored configuration.
@@ -342,7 +349,7 @@ shadowcook/
 - `PUBLIC_WEB_ORIGIN` is the public web origin used to construct invitation URLs.
 - Tenant creation is unavailable until instance SMTP configuration and `INSTANCE_SECRET_KEY` are available. `GET /admin/tenants` returns `smtpConfigured` for the tenant-management UI, and `POST /admin/tenants` returns `SMTP_REQUIRED` without creating a tenant when SMTP is unavailable.
 - Tenant creation commits only after SMTP delivery of the owner invitation succeeds.
-- Public self-service registration derives a normalized tenant slug from the cookbook name. It appends a random suffix only when that derived slug already exists.
+- Public self-service registration derives a normalized tenant slug from a selected cookbook name. It appends a random suffix only when that derived slug already exists.
 - An instance administrator can change a tenant display name and slug. Tenant-scoped owners cannot change either value.
 - A failed owner-invitation delivery returns `MAIL_DELIVERY_FAILED`, and the tenant-management UI displays a mail-delivery-specific error.
 - A disabled tenant is excluded from tenant selection, cookbook responses, recipe-detail responses, and invitation acceptance.

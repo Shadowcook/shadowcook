@@ -38,7 +38,7 @@ export function registerTenantUserRoutes(api: FastifyInstance, pool: Pool): void
         [tenantId],
       ),
       pool.query<{ id: string; name: string }>(
-        'SELECT id, name FROM tenant_role WHERE tenant_id = $1 ORDER BY name',
+        "SELECT id, name FROM tenant_role WHERE tenant_id = $1 AND name IN ('Editor', 'Viewer') ORDER BY name",
         [tenantId],
       ),
     ]);
@@ -79,8 +79,19 @@ export function registerTenantUserRoutes(api: FastifyInstance, pool: Pool): void
             .code(404)
             .send({ code: 'TENANT_USER_NOT_FOUND', error: 'The tenant user was not found.' });
         }
+        const owner = await client.query<{ owner_principal_id: string | null }>(
+          'SELECT owner_principal_id FROM tenant WHERE id = $1 FOR UPDATE',
+          [tenantId],
+        );
+        if (owner.rows[0]?.owner_principal_id === user.rows[0].principal_id) {
+          await client.query('ROLLBACK');
+          return reply.code(403).send({
+            code: 'OWNER_ROLE_PROTECTED',
+            error: 'The cookbook owner role cannot be changed.',
+          });
+        }
         const roles = await client.query<{ id: string }>(
-          'SELECT id FROM tenant_role WHERE tenant_id = $1 AND id = ANY($2::uuid[])',
+          "SELECT id FROM tenant_role WHERE tenant_id = $1 AND name IN ('Editor', 'Viewer') AND id = ANY($2::uuid[])",
           [tenantId, body.roleIds],
         );
         if (roles.rowCount !== body.roleIds.length) {

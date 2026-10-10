@@ -6,6 +6,7 @@ import TenantSelection from './TenantSelection';
 import PasswordResetScreen from './PasswordResetScreen';
 import UserInvitationScreen from './UserInvitationScreen';
 import RegistrationScreen, { VerificationScreen } from './RegistrationScreen';
+import AccountSettingsScreen from './AccountSettingsScreen';
 import BuildFooter from './BuildFooter.astro';
 import Favicon from './Favicon.astro';
 import HeadBar from './HeadBar';
@@ -39,13 +40,12 @@ const isCookbookPath: boolean =
   !path.startsWith('/invitations/') &&
   !path.startsWith('/password-reset/') &&
   path !== '/register' &&
+  path !== '/settings' &&
   !path.startsWith('/verify-email/') &&
   !path.startsWith('/user-invitations/') &&
   !isAdministrationPath;
 const requestCookie: string | null = Astro.request.headers.get('cookie');
-const initialAdminAreaState = isAdministrationPath
-  ? await loadAdminAreaState(requestCookie)
-  : null;
+const initialAdminAreaState = isAdministrationPath ? await loadAdminAreaState(requestCookie) : null;
 const initialTenantCookbook: CookbookResponse | null = isTenantManagementPath
   ? await loadServerTenantCookbook(path, requestCookie)
   : null;
@@ -90,6 +90,8 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
           />
         ) : path === '/register' ? (
           <RegistrationScreen client:load text={text} />
+        ) : path === '/settings' ? (
+          <AccountSettingsScreen client:load text={text} />
         ) : path.startsWith('/verify-email/') ? (
           <VerificationScreen client:load text={text} token={path.slice('/verify-email/'.length)} />
         ) : path.startsWith('/user-invitations/') ? (
@@ -110,6 +112,7 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
           <CookbookScreen
             client:load
             initialCookbook={initialTenantCookbook ?? undefined}
+            initialLogin={path === '/login'}
             initialManagementRoute={initialManagementRoute}
             initialTenantSlug={tenantSlug}
             locale={locale}

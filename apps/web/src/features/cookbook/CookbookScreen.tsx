@@ -43,6 +43,7 @@ interface CookbookScreenProperties {
   initialRecipe?: RecipeDetail | null;
   initialTenantSlug?: string;
   initialManagementRoute?: ManagementRoute;
+  initialLogin?: boolean;
   notifyWhenReady?: boolean;
 }
 interface SessionResponse {
@@ -78,11 +79,16 @@ export default function CookbookScreen({
   initialRecipe = null,
   initialTenantSlug,
   initialManagementRoute,
+  initialLogin = false,
   notifyWhenReady = false,
 }: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
   const tenantSlug: string = initialTenantSlug ?? tenantSlugFromPath() ?? '';
-  const initialScreen: Screen = initialCookbook === undefined ? 'loading' : 'dashboard';
+  const initialScreen: Screen = initialLogin
+    ? 'login'
+    : initialCookbook === undefined
+      ? 'loading'
+      : 'dashboard';
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');

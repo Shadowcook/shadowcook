@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
@@ -26,17 +26,17 @@ export default function TenantSelection({ locale }: TenantSelectionProperties): 
   const [selection, setSelection] = useState<TenantSelectionResponse | null>(null);
   const [filter, setFilter] = useState<string>('');
   const [page, setPage] = useState<number>(1);
-  const [shuffleSeed, setShuffleSeed] = useState<string>('');
+  const shuffleSeed = useRef<string>('');
   const [error, setError] = useState<string>('');
   useEffect((): void => {
-    void loadTenants(page, filter, shuffleSeed)
+    void loadTenants(page, filter, shuffleSeed.current)
       .then((response: TenantSelectionResponse): void => {
         setSelection(response);
-        setShuffleSeed(response.shuffleSeed);
+        shuffleSeed.current = response.shuffleSeed;
         setError('');
       })
       .catch((): void => setError(text.errors.requestFailed));
-  }, [page, filter, shuffleSeed, text.errors.requestFailed]);
+  }, [page, filter, text.errors.requestFailed]);
   return (
     <section className="dashboard">
       <header className="dashboard__header">

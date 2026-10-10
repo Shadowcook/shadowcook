@@ -8,12 +8,14 @@ import { sendTemplatedInstanceMail } from '../mail/service.js';
 import {
   publicRegistrationEnabled,
   turnstileRequired,
+  maximumCookbooksPerOwner,
 } from '../admin/registration-settings-routes.js';
+import { createOwnedCookbook } from '../cookbook/owned-cookbook.js';
 
 interface RegistrationBody {
   email: string;
   password: string;
-  tenantName: string;
+  tenantName: string | null;
   turnstileToken: string;
   website: string;
 }
@@ -71,8 +73,11 @@ export function registerPublicRegistrationRoutes(
       });
     }
     const email: string | null = normalizeEmail(body.email);
-    const tenantName: string = body.tenantName.trim();
-    if (email === null || tenantName.length < 1 || tenantName.length > 120)
+    const tenantName: string | null = body.tenantName === null ? null : body.tenantName.trim();
+    if (
+      email === null ||
+      (tenantName !== null && (tenantName.length < 3 || tenantName.length > 120))
+    )
       return invalidRegistration(reply);
     let passwordHash: string;
     try {
@@ -148,7 +153,7 @@ export function registerPublicRegistrationRoutes(
         return reply.code(202).send(genericRegistrationResponse);
       }
       const token: string = randomBytes(32).toString('base64url');
-      const pending = await pool.query<{ id: string; tenant_name: string }>(
+      const pending = await pool.query<{ id: string; tenant_name: string | null }>(
         'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id, tenant_name',
         [hashToken(token), email],
       );
@@ -180,7 +185,7 @@ export function registerPublicRegistrationRoutes(
         id: string;
         email: string;
         password_hash: string;
-        tenant_name: string;
+        tenant_name: string | null;
       }>(
         'DELETE FROM pending_registration WHERE verification_token_hash = $1 AND expires_at > now() RETURNING id, email, password_hash, tenant_name',
         [hashToken(body.token)],
@@ -211,42 +216,18 @@ export function registerPublicRegistrationRoutes(
           registration.password_hash,
         ],
       );
-      const tenant = await createTenant(client, registration.tenant_name);
-      const owner = await client.query<{ id: string }>(
-        "INSERT INTO tenant_role (tenant_id, name) VALUES ($1, 'Owner') RETURNING id",
-        [tenant.id],
-      );
-      await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code NOT LIKE 'instance:%' AND code <> 'tenant:create'",
-        [owner.rows[0]!.id],
-      );
-      const editor = await client.query<{ id: string }>(
-        "INSERT INTO tenant_role (tenant_id, name) VALUES ($1, 'Editor') RETURNING id",
-        [tenant.id],
-      );
-      await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'recipe:revision:read', 'recipe:create', 'recipe:update', 'variant:read', 'variant:create', 'variant:update', 'ingredient:read', 'ingredient:create', 'ingredient:update', 'unit:read', 'unit:create', 'unit:update', 'category:read', 'category:update')",
-        [editor.rows[0]!.id],
-      );
-      const viewer = await client.query<{ id: string }>(
-        "INSERT INTO tenant_role (tenant_id, name) VALUES ($1, 'Viewer') RETURNING id",
-        [tenant.id],
-      );
-      await client.query(
-        "INSERT INTO tenant_role_permission (tenant_role_id, permission_code) SELECT $1, code FROM permission WHERE code IN ('recipe:read', 'variant:read', 'ingredient:read', 'unit:read', 'category:read')",
-        [viewer.rows[0]!.id],
-      );
-      await client.query(
-        'INSERT INTO tenant_membership (tenant_id, principal_id) VALUES ($1, $2)',
-        [tenant.id, user.rows[0]!.principal_id],
-      );
-      await client.query(
-        'INSERT INTO tenant_membership_role (tenant_id, principal_id, tenant_role_id) VALUES ($1, $2, $3)',
-        [tenant.id, user.rows[0]!.principal_id, owner.rows[0]!.id],
-      );
+      const tenant =
+        registration.tenant_name === null
+          ? null
+          : await createOwnedCookbook(
+              client,
+              user.rows[0]!.principal_id,
+              registration.tenant_name,
+              await maximumCookbooksPerOwner(pool),
+            );
       await client.query('COMMIT');
       request.log.info('Registration verification succeeded');
-      return reply.code(201).send({ tenantSlug: tenant.slug });
+      return reply.code(201).send({ tenantSlug: tenant?.slug ?? null });
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -360,11 +341,11 @@ async function sendVerificationMail(
   email: string,
   token: string,
   origin: string,
-  cookbookName: string,
+  cookbookName: string | null,
 ): Promise<boolean> {
   return sendTemplatedInstanceMail(pool, key, email, 'REGISTRATION_VERIFICATION', {
     action_url: `${origin}/verify-email/${token}`,
-    cookbook_name: cookbookName,
+    cookbook_name: cookbookName ?? '',
     expires_in: '24 hours',
   });
 }
@@ -373,7 +354,7 @@ function parseRegistrationBody(value: unknown): RegistrationBody | null {
     !isRecord(value) ||
     typeof value.email !== 'string' ||
     typeof value.password !== 'string' ||
-    typeof value.tenantName !== 'string' ||
+    (value.tenantName !== null && typeof value.tenantName !== 'string') ||
     typeof value.turnstileToken !== 'string' ||
     typeof value.website !== 'string'
   )
@@ -402,36 +383,6 @@ function hashToken(token: string): Buffer {
 }
 function displayName(email: string): string {
   return email.split('@', 1)[0]!.slice(0, 120) || 'User';
-}
-function tenantSlugBase(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'cookbook'
-  );
-}
-async function createTenant(
-  client: PoolClient,
-  displayName: string,
-): Promise<{ id: string; public_id: string; slug: string }> {
-  const baseSlug: string = tenantSlugBase(displayName);
-  await client.query("SELECT pg_advisory_xact_lock(hashtext('tenant-slug:' || $1))", [baseSlug]);
-  let slug: string = baseSlug;
-  while (true) {
-    const existing = await client.query<{ exists: boolean }>(
-      'SELECT EXISTS (SELECT 1 FROM tenant WHERE slug = $1) AS exists',
-      [slug],
-    );
-    if (existing.rows[0]?.exists !== true) break;
-    slug = `${baseSlug}-${randomBytes(4).toString('hex')}`;
-  }
-  const tenant = await client.query<{ id: string; public_id: string; slug: string }>(
-    'INSERT INTO tenant (display_name, slug) VALUES ($1, $2) RETURNING id, public_id, slug',
-    [displayName, slug],
-  );
-  return tenant.rows[0]!;
 }
 function invalidRegistration(reply: FastifyReply): FastifyReply {
   return reply

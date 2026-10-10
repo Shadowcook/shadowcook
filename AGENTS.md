@@ -19,6 +19,7 @@
 - Write clean code! Not everything in one line! Readability and Style: Use clear naming rules, consistent spacing, and proper indentation so other humans can read the code like a book.
 - UI pictograms must use simple, stylized, and immediately distinguishable silhouettes. Prefer a few bold geometric strokes over detailed or realistic representations.
 - Radio buttons must always be presented as a clearly labelled group of two or more mutually exclusive options. Never render an isolated radio button; use a checkbox for an independent boolean option.
+- Radio buttons must always be displayed to the left of their caption.
 - Use the `@fortawesome/fontawesome-svg-core`, `@fortawesome/free-solid-svg-icons`, and `@fortawesome/react-fontawesome` packages for Font Awesome pictograms in the web application. Do not copy Font Awesome SVG files into application assets.
 - `/assets/fontawesome` is a local reference library for finding icon candidates. If no matching icon exists, create a custom SVG.
 
