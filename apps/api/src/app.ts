@@ -3,6 +3,7 @@ import type { Pool } from 'pg';
 import { registerAuthenticationRoutes } from './auth/routes.js';
 import { registerCookbookRoutes } from './cookbook/routes.js';
 import { registerAdminMailRoutes } from './admin/mail-routes.js';
+import { registerAdminEmailTemplateRoutes } from './admin/email-template-routes.js';
 import { registerAuthenticationSettingsRoutes } from './admin/authentication-routes.js';
 import { registerFrontpageSettingsRoutes } from './admin/frontpage-routes.js';
 import { registerLegalDocumentRoutes } from './admin/legal-document-routes.js';
@@ -52,6 +53,7 @@ export function createApi(
   registerServiceAccountRoutes(api, pool);
   registerAiContextRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAdminMailRoutes(api, pool, instanceSecretKey);
+  registerAdminEmailTemplateRoutes(api, pool);
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
   registerFrontpageSettingsRoutes(api, pool);
   registerLegalDocumentRoutes(api, pool);

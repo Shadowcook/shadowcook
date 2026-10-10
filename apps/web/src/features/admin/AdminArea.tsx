@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
 import AdminMailSettings from './components/AdminMailSettings';
+import AdminEmailTemplates from './components/AdminEmailTemplates';
 import AdminAuthenticationSettings from './components/AdminAuthenticationSettings';
 import AdminRegistrationSettings from './components/AdminRegistrationSettings';
 import AdminFrontpageSettings from './components/AdminFrontpageSettings';
@@ -183,6 +184,19 @@ export default function AdminArea({
               </a>
               <a
                 className={
+                  currentPath === '/admin/settings/email-templates'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/email-templates"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/email-templates')
+                }
+              >
+                {text.admin.emailTemplates}
+              </a>
+              <a
+                className={
                   currentPath === '/admin/settings/authentication'
                     ? 'admin-navigation__sublink admin-navigation__sublink--active'
                     : 'admin-navigation__sublink'
@@ -240,6 +254,7 @@ function page(
   navigate: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void,
 ): JSX.Element {
   if (path === '/admin/settings/smtp') return <AdminMailSettings locale={locale} />;
+  if (path === '/admin/settings/email-templates') return <AdminEmailTemplates locale={locale} />;
   if (path === '/admin/settings/authentication')
     return <AdminAuthenticationSettings locale={locale} />;
   if (path === '/admin/settings/registration') return <AdminRegistrationSettings locale={locale} />;
@@ -274,6 +289,16 @@ function page(
         >
           <span>{text.admin.smtp}</span>
           <strong>{text.admin.openSmtp}</strong>
+        </a>
+        <a
+          className="admin-card"
+          href="/admin/settings/email-templates"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/email-templates')
+          }
+        >
+          <span>{text.admin.emailTemplates}</span>
+          <strong>{text.admin.emailTemplatesTitle}</strong>
         </a>
         <a
           className="admin-card"

@@ -5,7 +5,7 @@ import { hashPassword, minimumPasswordEntropy, verifyPassword } from './password
 import { completePasswordReset, createPasswordResetToken } from './password-reset.js';
 import { currentSessionUser, hashSessionToken, sessionTokenFromRequest } from './session.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from './email-code.js';
-import { sendInstanceMail } from '../mail/service.js';
+import { sendTemplatedInstanceMail } from '../mail/service.js';
 
 interface LoginBody {
   email: string;
@@ -134,13 +134,10 @@ export function registerAuthenticationRoutes(
     const code = await requestEmailCode(pool, email, 'LOGIN', request.ip ?? null);
     if (code !== null) {
       try {
-        await sendInstanceMail(
-          pool,
-          instanceSecretKey,
-          email,
-          'Your Shadowcook sign-in code',
-          `Your Shadowcook sign-in code is ${code}. It expires in 10 minutes.`,
-        );
+        await sendTemplatedInstanceMail(pool, instanceSecretKey, email, 'LOGIN_CODE', {
+          code,
+          expires_in: '10 minutes',
+        });
       } catch (error: unknown) {
         request.log.warn({ error }, 'Email code delivery failed');
       }
@@ -227,13 +224,10 @@ export function registerAuthenticationRoutes(
     if (recentReset.rows[0]?.requested === true) return reply.code(204).send();
     const token: string = await createPasswordResetToken(pool, user.id, false);
     try {
-      await sendInstanceMail(
-        pool,
-        instanceSecretKey,
-        email,
-        'Reset your Shadowcook password',
-        `Use this link to reset your Shadowcook password: ${publicWebOrigin}/password-reset/${token}. The link expires in one hour.`,
-      );
+      await sendTemplatedInstanceMail(pool, instanceSecretKey, email, 'PASSWORD_RESET', {
+        action_url: `${publicWebOrigin}/password-reset/${token}`,
+        expires_in: 'one hour',
+      });
     } catch (error: unknown) {
       request.log.warn({ error }, 'Password-reset email delivery failed');
     }

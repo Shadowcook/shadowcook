@@ -36,6 +36,14 @@ export interface InstanceLegalDocumentsTable {
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;
 }
+export interface InstanceEmailTemplateTable {
+  template_key: string;
+  subject_template: string;
+  body_template: string;
+  updated_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
 
 export interface UserAccountTable {
   id: Generated<Uuid>;
@@ -212,6 +220,7 @@ export interface ApplicationSeedTable {
 export interface Database {
   instance_frontpage_settings: InstanceFrontpageSettingsTable;
   instance_legal_documents: InstanceLegalDocumentsTable;
+  instance_email_template: InstanceEmailTemplateTable;
   tenant: TenantTable;
   user_account: UserAccountTable;
   user_session: UserSessionTable;

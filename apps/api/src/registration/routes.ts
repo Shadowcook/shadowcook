@@ -4,7 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import type { RegistrationConfig } from '../config.js';
 import { normalizeEmail } from '../auth/email-code.js';
 import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
-import { sendInstanceMail } from '../mail/service.js';
+import { sendTemplatedInstanceMail } from '../mail/service.js';
 import {
   publicRegistrationEnabled,
   turnstileRequired,
@@ -118,6 +118,7 @@ export function registerPublicRegistrationRoutes(
         email,
         token,
         publicWebOrigin,
+        tenantName,
       );
       if (!delivered) throw new Error('SMTP is not configured.');
     } catch (error: unknown) {
@@ -147,13 +148,20 @@ export function registerPublicRegistrationRoutes(
         return reply.code(202).send(genericRegistrationResponse);
       }
       const token: string = randomBytes(32).toString('base64url');
-      const pending = await pool.query<{ id: string }>(
-        'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id',
+      const pending = await pool.query<{ id: string; tenant_name: string }>(
+        'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id, tenant_name',
         [hashToken(token), email],
       );
       if (pending.rows[0] !== undefined) {
         try {
-          await sendVerificationMail(pool, instanceSecretKey, email, token, publicWebOrigin);
+          await sendVerificationMail(
+            pool,
+            instanceSecretKey,
+            email,
+            token,
+            publicWebOrigin,
+            pending.rows[0].tenant_name,
+          );
         } catch (error: unknown) {
           request.log.warn({ err: error }, 'Registration verification email resend failed');
         }
@@ -352,14 +360,13 @@ async function sendVerificationMail(
   email: string,
   token: string,
   origin: string,
+  cookbookName: string,
 ): Promise<boolean> {
-  return sendInstanceMail(
-    pool,
-    key,
-    email,
-    'Verify your Shadowcook email address',
-    `Verify your email address to create your Shadowcook account: ${origin}/verify-email/${token}. This link expires in 24 hours.`,
-  );
+  return sendTemplatedInstanceMail(pool, key, email, 'REGISTRATION_VERIFICATION', {
+    action_url: `${origin}/verify-email/${token}`,
+    cookbook_name: cookbookName,
+    expires_in: '24 hours',
+  });
 }
 function parseRegistrationBody(value: unknown): RegistrationBody | null {
   if (

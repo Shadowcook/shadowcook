@@ -137,6 +137,22 @@ export interface Translation {
     testSent: string;
     notConfigured: string;
   };
+  emailTemplates: {
+    title: string;
+    subtitle: string;
+    selectTemplate: string;
+    subject: string;
+    body: string;
+    placeholders: string;
+    save: string;
+    saving: string;
+    saved: string;
+    restoreDefault: string;
+    restored: string;
+    signInRequired: string;
+    accessDenied: string;
+    templateNames: Record<string, string>;
+  };
   admin: {
     title: string;
     dashboard: string;
@@ -145,6 +161,8 @@ export interface Translation {
     users: string;
     settings: string;
     smtp: string;
+    emailTemplates: string;
+    emailTemplatesTitle: string;
     dashboardTitle: string;
     dashboardDescription: string;
     tenantsTitle: string;

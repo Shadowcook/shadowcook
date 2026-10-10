@@ -1461,6 +1461,65 @@ paths:
             description: The instance encryption key is not configured,
             content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
           }
+  /admin/email-templates:
+    get:
+      operationId: listInstanceEmailTemplates
+      summary: Returns resolved system email templates and permitted placeholders.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: System email templates.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [templates]
+                properties:
+                  templates:
+                    type: array
+                    items: { $ref: '#/components/schemas/InstanceEmailTemplate' }
+        '401': { description: Authentication is required }
+        '403': { description: An instance permission is required }
+  /admin/email-templates/{key}:
+    parameters:
+      - name: key
+        in: path
+        required: true
+        schema:
+          type: string
+          enum:
+            [
+              REGISTRATION_VERIFICATION,
+              LOGIN_CODE,
+              PASSWORD_RESET,
+              ADMIN_PASSWORD_RESET,
+              INSTANCE_USER_INVITATION,
+              COOKBOOK_USER_INVITATION,
+              COOKBOOK_OWNER_INVITATION,
+            ]
+    put:
+      operationId: saveInstanceEmailTemplate
+      summary: Saves a customized system email template.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InstanceEmailTemplateInput' }
+      responses:
+        '204': { description: The template was saved. }
+        '400': { description: The template or a placeholder is invalid }
+        '401': { description: Authentication is required }
+        '403': { description: An instance permission is required }
+    delete:
+      operationId: restoreInstanceEmailTemplateDefault
+      summary: Removes a customized template and restores the built-in default.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '204': { description: The built-in default is active. }
+        '401': { description: Authentication is required }
+        '403': { description: An instance permission is required }
+        '404': { description: The template key is unknown }
   /cookbook:
     get:
       operationId: getCookbook
@@ -3040,6 +3099,36 @@ components:
         password: { type: [string, 'null'], writeOnly: true }
         fromEmail: { type: string, format: email }
         fromName: { type: string, minLength: 1 }
+    InstanceEmailTemplate:
+      type: object
+      additionalProperties: false
+      required: [key, subject, body, placeholders, customized]
+      properties:
+        key:
+          type: string
+          enum:
+            [
+              REGISTRATION_VERIFICATION,
+              LOGIN_CODE,
+              PASSWORD_RESET,
+              ADMIN_PASSWORD_RESET,
+              INSTANCE_USER_INVITATION,
+              COOKBOOK_USER_INVITATION,
+              COOKBOOK_OWNER_INVITATION,
+            ]
+        subject: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
+        placeholders:
+          type: array
+          items: { type: string }
+        customized: { type: boolean }
+    InstanceEmailTemplateInput:
+      type: object
+      additionalProperties: false
+      required: [subject, body]
+      properties:
+        subject: { type: string, minLength: 1, maxLength: 300 }
+        body: { type: string, minLength: 1, maxLength: 20000 }
     IngredientInput:
       type: object
       additionalProperties: false

@@ -6,7 +6,7 @@ import { createSession } from '../auth/routes.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from '../auth/email-code.js';
 import { createPasswordResetToken } from '../auth/password-reset.js';
 import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
-import { sendInstanceMail } from '../mail/service.js';
+import { sendTemplatedInstanceMail } from '../mail/service.js';
 import { isSmtpConfigured } from './mail-routes.js';
 import { requireInstancePermission, requireTenantPermission } from './authorization.js';
 
@@ -256,12 +256,16 @@ export function registerTenantRoutes(
       ],
     );
     try {
-      const delivered: boolean = await sendInstanceMail(
+      const delivered: boolean = await sendTemplatedInstanceMail(
         pool,
         key,
         email,
-        'You are invited to Shadowcook',
-        `You are invited to Shadowcook. Open ${publicOrigin}/user-invitations/${token} to create your account. The link expires in seven days.`,
+        'INSTANCE_USER_INVITATION',
+        {
+          action_url: `${publicOrigin}/user-invitations/${token}`,
+          expires_in: 'seven days',
+          inviter_name: await principalDisplayName(pool, principal),
+        },
       );
       if (delivered) return reply.code(201).send();
     } catch (error: unknown) {
@@ -322,12 +326,22 @@ export function registerTenantRoutes(
         ],
       );
       try {
-        const delivered: boolean = await sendInstanceMail(
+        const tenant = await pool.query<{ display_name: string; slug: string }>(
+          'SELECT display_name, slug FROM tenant WHERE id = $1',
+          [tenantId],
+        );
+        const delivered: boolean = await sendTemplatedInstanceMail(
           pool,
           key,
           email,
-          'You are invited to Shadowcook',
-          `You are invited to a Shadowcook cookbook. Open ${publicOrigin}/user-invitations/${token} to join the cookbook. The link expires in seven days.`,
+          'COOKBOOK_USER_INVITATION',
+          {
+            action_url: `${publicOrigin}/user-invitations/${token}`,
+            expires_in: 'seven days',
+            inviter_name: await principalDisplayName(pool, principal.principal_id),
+            cookbook_name: tenant.rows[0]?.display_name ?? '',
+            cookbook_url: `${publicOrigin}/${tenant.rows[0]?.slug ?? ''}`,
+          },
         );
         if (delivered) return reply.code(201).send();
       } catch (error: unknown) {
@@ -385,8 +399,13 @@ export function registerTenantRoutes(
   api.post(
     '/admin/users/:publicId/reset-password',
     async (request: FastifyRequest, reply: FastifyReply) => {
-      if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
-        return;
+      const principal: string | null = await requireInstancePermission(
+        pool,
+        request,
+        reply,
+        'instance:administer',
+      );
+      if (principal === null) return;
       const client: PoolClient = await pool.connect();
       try {
         await client.query('BEGIN');
@@ -407,12 +426,16 @@ export function registerTenantRoutes(
         const token: string = await createPasswordResetToken(pool, user.id, true);
         let delivered: boolean;
         try {
-          delivered = await sendInstanceMail(
+          delivered = await sendTemplatedInstanceMail(
             pool,
             key,
             user.email,
-            'Reset your Shadowcook password',
-            `An administrator requires you to reset your Shadowcook password. Use this link: ${publicOrigin}/password-reset/${token}. The link expires in one hour.`,
+            'ADMIN_PASSWORD_RESET',
+            {
+              action_url: `${publicOrigin}/password-reset/${token}`,
+              expires_in: 'one hour',
+              inviter_name: await principalDisplayName(pool, principal),
+            },
           );
         } catch (error: unknown) {
           request.log.warn({ error }, 'Administrator password-reset email delivery failed');
@@ -540,12 +563,19 @@ export function registerTenantRoutes(
         invitationToken: token,
       });
       if (code === null) throw new InvitationDeliveryError('INVITATION_CODE_RATE_LIMITED');
-      const delivered: boolean = await sendInstanceMail(
+      const delivered: boolean = await sendTemplatedInstanceMail(
         pool,
         key,
         email,
-        'You are invited to Shadowcook',
-        `You are invited to ${body.cookbookName}. Open ${publicOrigin}/invitations/${token} and enter this code: ${code}. The code expires in 10 minutes.`,
+        'COOKBOOK_OWNER_INVITATION',
+        {
+          action_url: `${publicOrigin}/invitations/${token}`,
+          expires_in: '10 minutes',
+          code,
+          inviter_name: await principalDisplayName(pool, principal),
+          cookbook_name: body.cookbookName.trim(),
+          cookbook_url: `${publicOrigin}/${slug}`,
+        },
       );
       if (!delivered) throw new InvitationDeliveryError('MAIL_NOT_CONFIGURED');
       await client.query('COMMIT');
@@ -944,4 +974,11 @@ async function authenticationSettings(pool: Pool): Promise<AuthenticationSetting
     'SELECT login_mode FROM instance_authentication_settings WHERE singleton = true',
   );
   return result.rows[0] ?? { login_mode: 'PASSWORD_OR_EMAIL_CODE' };
+}
+async function principalDisplayName(pool: Pool, principalId: string): Promise<string> {
+  const result = await pool.query<{ display_name: string }>(
+    'SELECT display_name FROM user_account WHERE principal_id = $1',
+    [principalId],
+  );
+  return result.rows[0]?.display_name ?? '';
 }

@@ -287,6 +287,12 @@ shadowcook/
 - `POST /registration/resend-verification` has a configurable email-address limit and returns a generic acknowledgement for every input.
 - Registration rate events are retained for 25 hours. Default registration limits are five requests per 15 minutes and twenty requests per 24 hours per IP. The default resend limit is three emails per address per hour.
 - SMTP transport supports STARTTLS and implicit TLS and can send a test message through the stored configuration.
+- Instance administrators with `instance:mail-manage` or `instance:administer` manage system email templates at `/admin/settings/email-templates`.
+- `instance_email_template` stores customized subject and plain-text body overrides by system email type. Missing overrides use built-in defaults.
+- The system email types are registration verification, sign-in code, user password reset, administrator-required password reset, instance-user invitation, cookbook-user invitation, and cookbook-owner invitation.
+- A template accepts only the placeholders defined for its system email type. Placeholder replacement occurs in the API immediately before SMTP delivery.
+- System email templates provide `recipient_name`; the API uses the active recipient account display name or the recipient email address when no account exists.
+- Cookbook invitation templates can use the inviter name, cookbook name, cookbook URL, invitation URL, code, and expiry placeholders.
 
 ### 4.5 Docker-first runtime configuration
 
@@ -2449,6 +2455,16 @@ Not required for V2.0.
 Automatic discovery of a tenant after migration may evolve beyond direct known locators.
 
 The cryptographic identity model is designed to support this later.
+
+### 35.5 Cookbook update subscriptions
+
+- A cookbook owner can enable or disable followers for the cookbook.
+- Authenticated users can follow a cookbook only while following is enabled by its owner.
+- An instance administrator configures the maximum automated update-delivery rate as a minimum interval between deliveries, such as one delivery per day, three per week, one every two days, or one per month.
+- A cookbook owner selects an automated update-delivery interval that is equal to or less frequent than the instance limit.
+- At each selected delivery time, the server groups recipe publication updates made since the preceding delivery for each followed cookbook and sends one update to its followers.
+- The application records these deliveries as user notifications. Unread update notifications are visible live through the global notification symbol and link to the affected cookbook or recipe.
+- Cookbook owners do not compose, select, or manually send newsletter deliveries.
 
 ---
 
