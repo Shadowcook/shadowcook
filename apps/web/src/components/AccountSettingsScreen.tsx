@@ -36,7 +36,7 @@ export default function AccountSettingsScreen({ text }: { text: Translation }): 
         '/account/cookbooks',
         jsonRequest({ cookbookName }),
       );
-      window.location.assign(`/tenants/${encodeURIComponent(result.tenantSlug)}`);
+      window.location.assign(`/${encodeURIComponent(result.tenantSlug)}`);
     } catch (_error: unknown) {
       setMessage(text.errors.requestFailed);
       setSubmitting(false);
