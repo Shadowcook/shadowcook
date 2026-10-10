@@ -255,8 +255,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
       LEFT JOIN category ON category.id = recipe_revision_category.category_id
       WHERE tenant.slug = $2
-        AND ($3 = '' OR recipe_revision.title ILIKE '%' || $3 || '%'
-          OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $3 || '%')
+        AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
         AND (COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
           OR EXISTS (
             SELECT 1 FROM tenant_membership_role
@@ -276,10 +275,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
           )))
       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
       ORDER BY
-        CASE
-          WHEN $3 = '' OR recipe_revision.title ILIKE '%' || $3 || '%' THEN 0
-          ELSE 1
-        END,
+        recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3),
         recipe_revision.title ASC
     `,
       [principalId, tenantSlug, recipeFilter],
@@ -299,8 +295,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
        LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
          AND tenant_membership.principal_id = $1
        WHERE tenant.slug = $2
-         AND ($3 = '' OR recipe_revision.title ILIKE '%' || $3 || '%'
-           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $3 || '%')
+         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
          AND recipe.is_featured
          AND recipe.published_revision_id IS NOT NULL
          AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
@@ -332,8 +327,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
        LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
        LEFT JOIN category ON category.id = recipe_revision_category.category_id
        WHERE tenant.slug = $2
-         AND ($4 = '' OR recipe_revision.title ILIKE '%' || $4 || '%'
-           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $4 || '%')
+         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4) < 5
          AND recipe.is_featured
          AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
          AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
@@ -348,10 +342,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
            )))
        GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
        ORDER BY
-         CASE
-           WHEN $4 = '' OR recipe_revision.title ILIKE '%' || $4 || '%' THEN 0
-           ELSE 1
-         END,
+        recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4),
          md5(recipe.public_id::text || $3),
          recipe.public_id
        LIMIT $5 OFFSET $6`,

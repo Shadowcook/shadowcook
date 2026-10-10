@@ -87,7 +87,7 @@ export default function MobileCategoryDrawer(
                 href={cookbookPath(properties.tenantSlug, properties.categories, null, null)}
                 onClick={closeDrawer}
               >
-                {properties.text.dashboard.allCategories}
+                {properties.text.dashboard.featuredRecipes}
               </a>
               <CategoryTree
                 categories={properties.categories}

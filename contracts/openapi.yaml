@@ -1464,7 +1464,7 @@ paths:
   /cookbook:
     get:
       operationId: getCookbook
-      summary: Returns published public recipes, accessible membership recipes, and the paginated featured front page.
+      summary: Returns published accessible recipe search results and the paginated featured front page.
       parameters:
         - name: tenantSlug
           in: query
@@ -1477,7 +1477,7 @@ paths:
         - name: recipeFilter
           in: query
           required: false
-          description: Case-insensitive contains filter for recipe titles and summaries. Title matches are ordered before summary-only matches.
+          description: Accent-insensitive recipe filter for titles and summaries. Non-alphanumeric ASCII characters are word separators. The recipes response contains all matching accessible discoverable recipes regardless of featured state; the frontpage response remains limited to matching featured recipes. Exact title, title phrase, title token, summary phrase, and summary token matches are returned in that order.
           schema: { type: string, maxLength: 200 }
         - name: refreshFrontpageShuffle
           in: query
@@ -1519,6 +1519,7 @@ paths:
                     items:
                       $ref: '#/components/schemas/CookbookCategory'
                   recipes:
+                    description: Accessible discoverable recipes matching recipeFilter regardless of featured state.
                     type: array
                     items:
                       $ref: '#/components/schemas/CookbookRecipe'
@@ -1830,11 +1831,11 @@ paths:
         - name: filter
           in: query
           required: false
-          description: Case-insensitive contains filter for recipe titles and summaries. Title matches are ordered before summary-only matches.
+          description: Accent-insensitive recipe filter for titles and summaries. Non-alphanumeric ASCII characters are word separators. Exact title, title phrase, title token, summary phrase, and summary token matches are returned in that order.
           schema: { type: string, maxLength: 200 }
       responses:
         '200':
-          description: Published recipes for management, with title matches ordered before summary-only matches and alphabetical ordering within each group.
+          description: Published recipes for management, ordered by normalized recipe match rank and then alphabetically by title.
           content:
             application/json:
               schema:
@@ -2244,6 +2245,7 @@ paths:
         - name: search
           in: query
           required: false
+          description: Accent-insensitive title search. Non-alphanumeric ASCII characters are word separators.
           schema: { type: string, maxLength: 200 }
       responses:
         '200':

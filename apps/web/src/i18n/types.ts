@@ -564,13 +564,14 @@ export interface Translation {
     cookbook: string;
     breadcrumb: string;
     categories: string;
-    allCategories: string;
+    featuredRecipes: string;
     openCategories: string;
     closeCategories: string;
     collapseCategory: string;
     expandCategory: string;
     recipes: string;
     filterRecipes: string;
+    searchResults: string;
     noRecipes: string;
     previousPage: string;
     nextPage: string;

@@ -55,16 +55,19 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
       category.name,
     ]),
   );
+  const isGlobalSearch: boolean = selectedCategoryId === null && recipeFilter.trim().length > 0;
   const recipes: Recipe[] =
     selectedCategoryId === null
-      ? cookbook.frontpage.recipes
+      ? isGlobalSearch
+        ? cookbook.recipes
+        : cookbook.frontpage.recipes
       : cookbook.recipes.filter((recipe: Recipe): boolean =>
           recipe.category_public_ids.includes(selectedCategoryId),
         );
   const categoryPageSize: number = 100;
   const categoryTotalPages: number = Math.ceil(recipes.length / categoryPageSize);
   const visibleRecipes: Recipe[] =
-    selectedCategoryId === null
+    selectedCategoryId === null && !isGlobalSearch
       ? recipes
       : recipes.slice((categoryPage - 1) * categoryPageSize, categoryPage * categoryPageSize);
   useEffect((): void => {
@@ -125,7 +128,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
               }
               href={cookbookPath(tenantSlug, cookbook.categories, null, null)}
             >
-              {text.dashboard.allCategories}
+              {text.dashboard.featuredRecipes}
             </a>
             <CategoryTree
               categories={cookbook.categories}
@@ -136,10 +139,14 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           </aside>
           <section className="recipes-panel">
             <div className="recipes-panel__heading">
-              <p className="eyebrow">{text.dashboard.recipes}</p>
+              <p className="eyebrow">
+                {isGlobalSearch ? text.dashboard.searchResults : text.dashboard.recipes}
+              </p>
               <div className="recipes-panel__actions">
                 <strong>
-                  {selectedCategoryId === null ? cookbook.frontpage.totalRecipes : recipes.length}
+                  {selectedCategoryId === null && !isGlobalSearch
+                    ? cookbook.frontpage.totalRecipes
+                    : recipes.length}
                 </strong>
                 {cookbook.canCreateAiContexts ? (
                   <button
@@ -211,7 +218,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                 ))}
               </div>
             )}
-            {selectedCategoryId === null && cookbook.frontpage.totalPages > 1 ? (
+            {selectedCategoryId === null && !isGlobalSearch && cookbook.frontpage.totalPages > 1 ? (
               <RecipePagination
                 currentPage={cookbook.frontpage.page}
                 totalPages={cookbook.frontpage.totalPages}
@@ -221,7 +228,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                 }}
               />
             ) : null}
-            {selectedCategoryId !== null && categoryTotalPages > 1 ? (
+            {(selectedCategoryId !== null || isGlobalSearch) && categoryTotalPages > 1 ? (
               <RecipePagination
                 currentPage={categoryPage}
                 totalPages={categoryTotalPages}

@@ -228,8 +228,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
        FROM recipe
        INNER JOIN recipe_revision ON recipe_revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
        WHERE recipe.tenant_id = $1
-         AND ($2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%')
-       ORDER BY CASE WHEN lower(recipe_revision.title) = lower($2) THEN 0 ELSE 1 END,
+         AND recipe_search_match_rank(recipe_revision.title, NULL, $2) < 3
+       ORDER BY recipe_search_match_rank(recipe_revision.title, NULL, $2),
                 recipe_revision.title
        LIMIT 100`,
       [tenantId, search],
@@ -605,8 +605,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
        FROM recipe
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
        WHERE recipe.tenant_id = $1
-         AND ($2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%'
-           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $2 || '%')`,
+         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $2) < 5`,
       [tenantId, filter],
     );
     const totalRecipes: number = recipeCount.rows[0]?.total_recipes ?? 0;
@@ -620,14 +619,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
        LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
        LEFT JOIN category ON category.id = recipe_revision_category.category_id
        WHERE recipe.tenant_id = $1
-         AND ($2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%'
-           OR COALESCE(recipe_revision.summary, '') ILIKE '%' || $2 || '%')
+         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $2) < 5
        GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
        ORDER BY
-         CASE
-           WHEN $2 = '' OR recipe_revision.title ILIKE '%' || $2 || '%' THEN 0
-           ELSE 1
-         END,
+        recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $2),
          lower(recipe_revision.title),
          recipe_revision.title,
          recipe.public_id

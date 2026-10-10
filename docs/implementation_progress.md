@@ -56,8 +56,9 @@
 - Recipe creation, draft creation, and the development seed create and preserve default variants, stable step keys, variant keys, and direct step memberships.
 - Recipe visibility and discoverability use tenant defaults with inheritable recipe overrides. `PRIVATE`, `MEMBERS_ONLY`, and `PUBLIC` visibility are enforced for recipe reads; `DISCOVERABLE` and `UNLISTED` control cookbook lists while direct links remain access-controlled. Opaque share links grant access to the full published default variant, can have an optional name and UTC expiry, and are listed, copied, and individually revoked from the recipe editor; those actions require the `recipe:visibility-update` permission.
 - Recipe editors manage a featured flag. Cookbook root pages show only eligible featured recipes in session-seeded pagination, with a tenant-configured front-page recipe count.
-- Cookbook category recipe lists paginate at 100 recipes and provide a case-insensitive contains filter that orders title matches before summary-only matches.
-- Tenant recipe management lists paginate published recipes at 100 results, filter recipe titles and summaries, order title matches before summary-only matches, and use alphabetical title ordering within each group.
+- The localized `Featured` root navigation renders featured recipes until a non-empty recipe search switches the root list to all accessible discoverable matching recipes, regardless of featured state.
+- Cookbook category recipe lists paginate at 100 recipes and recipe-link searches normalize Unicode accents and transliterations to ASCII, treat non-alphanumeric ASCII characters as word separators, and rank exact normalized title matches, title phrase matches, title token matches, summary phrase matches, and summary token matches in that order.
+- Tenant recipe management lists paginate published recipes at 100 results, use normalized recipe search, and use alphabetical title ordering within each match-rank group.
 
 ### Catalogues and units
 
