@@ -532,7 +532,7 @@ The recipe editor retrieves at most twenty matching ingredients for a non-empty 
 
 The recipe editor presents one note input for every recipe step entry. A normalized ingredient stores this input as its ingredient note. Free-text and special entries store it as their text override.
 
-Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render normalized ingredient names prominently and render their notes as secondary text. Ingredient management can convert a normalized ingredient into free-text recipe entries, which removes its catalogue identity, search availability, and shopping-list aggregation.
+Recipe detail responses identify whether each ingredient usage references a normalized ingredient. Web clients render all non-special ingredient usage names prominently and render their notes as secondary text. Ingredient management can convert a normalized ingredient into free-text recipe entries, which removes its catalogue identity, search availability, and shopping-list aggregation.
 
 Separating an ingredient alias creates an independent ingredient with the alias name. Only ingredient usages that retain that alias identity are reassigned to the independent ingredient.
 

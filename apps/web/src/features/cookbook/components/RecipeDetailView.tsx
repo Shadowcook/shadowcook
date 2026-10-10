@@ -159,11 +159,7 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
   return (
     <span>
       {ingredient.special_kind === null ? (
-        ingredient.is_catalog_ingredient ? (
-          <strong>{ingredientName}</strong>
-        ) : (
-          ingredientName
-        )
+        <strong>{ingredientName}</strong>
       ) : (
         ingredientName
       )}
