@@ -108,30 +108,26 @@ export default function RecipeDetailView({
         {recipe.steps.map((step: RecipeStep, index: number): JSX.Element => (
           <li key={step.public_id}>
             <ul>
-              {step.ingredients
-                .filter(
-                  (ingredient: IngredientUsage): boolean => ingredient.special_kind !== 'NO_ICON',
-                )
-                .map((ingredient: IngredientUsage): JSX.Element => (
-                  <li key={`${ingredient.sort_order}-${ingredient.ingredient_name}`}>
-                    <span className="recipe-ingredient-amount">
-                      {ingredientAmountText(ingredient, text)}
-                    </span>
-                    <span className="recipe-step-entry">
-                      {ingredient.special_kind === null ? null : (
-                        <span
-                          className="recipe-special-icon"
-                          aria-label={specialKindLabel(ingredient.special_kind, text)}
-                          title={specialKindLabel(ingredient.special_kind, text)}
-                        >
-                          <SpecialIngredientIcon kind={ingredient.special_kind} />
-                        </span>
-                      )}
-                      <IngredientText ingredient={ingredient} text={text} />
-                      {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
-                    </span>
-                  </li>
-                ))}
+              {step.ingredients.map((ingredient: IngredientUsage): JSX.Element => (
+                <li key={`${ingredient.sort_order}-${ingredient.ingredient_name}`}>
+                  <span className="recipe-ingredient-amount">
+                    {ingredientAmountText(ingredient, text)}
+                  </span>
+                  <span className="recipe-step-entry">
+                    {ingredient.special_kind === null ? null : (
+                      <span
+                        className="recipe-special-icon"
+                        aria-label={specialKindLabel(ingredient.special_kind, text)}
+                        title={specialKindLabel(ingredient.special_kind, text)}
+                      >
+                        <SpecialIngredientIcon kind={ingredient.special_kind} />
+                      </span>
+                    )}
+                    <IngredientText ingredient={ingredient} text={text} />
+                    {ingredient.is_optional ? <em>{text.dashboard.optional}</em> : null}
+                  </span>
+                </li>
+              ))}
             </ul>
             <section>
               <p className="recipe-step__number">
