@@ -41,7 +41,7 @@ function requestedTenantSlug(): string {
     <Favicon />
     <title>{cookbookName} · {text.metadata.title}</title>
   </head>
-  <body>
+  <body class="cookbook-page">
     <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main class="application-shell">
       <CookbookScreen

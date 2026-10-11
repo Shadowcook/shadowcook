@@ -42,6 +42,7 @@
 - Mobile cookbook navigation provides the category tree in a header-adjacent left-side drawer with a fixed close control and a scrollable category list.
 - Category management supports hierarchical creation, renaming, reparenting, guarded deletion, and adjacent sibling ordering.
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.
+- The global head bar switches between English and German. A 365-day cookie retains the selected language for anonymous and authenticated visitors, including after sign-out. All Astro pages resolve the preference before server rendering; switching preserves the current URL (architecture section 3.4).
 - Web UI pictograms are bundled from the Font Awesome core, solid-icon, and React packages.
 - Cookbook code is organized under `apps/web/src/features/cookbook`; shared browser-session and API infrastructure is under `apps/web/src/lib`.
 - Direct recipe URLs render semantic recipe content on the Astro server without requiring JavaScript and include canonical Schema.org Recipe JSON-LD with author, categories, ingredients, and ordered steps.

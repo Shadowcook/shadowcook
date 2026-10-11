@@ -126,7 +126,11 @@ No separate "agent API" should be implemented unless there is a compelling trans
 
 - English is the default web application language.
 - UI strings, metadata, accessibility labels, and client-side API error messages are resolved through the web application's locale dictionary.
-- `PUBLIC_DEFAULT_LOCALE` selects the Astro web build locale. Supported initial locales are `en` and `de`.
+- Supported UI locales are `en` and `de`. `PUBLIC_DEFAULT_LOCALE` selects the fallback locale at build time; an unset or unsupported value falls back to English.
+- The global head bar provides a language selector for authenticated and anonymous users.
+- The selected locale is stored in the host-only `shadowcook_locale` cookie with `Path=/`, a 365-day maximum age, `SameSite=Lax`, and `Secure` on HTTPS. The preference is independent of the authentication session and remains after sign-out.
+- Astro resolves the locale from the request cookie before rendering every web page, including metadata and HTML language attributes. Missing, malformed, and unsupported preferences use the configured fallback locale.
+- Changing the language reloads the current URL, preserving its path, query parameters, and fragment.
 - Recipe text remains authored content and is not translated by the UI locale system.
 
 #### Application dialogs

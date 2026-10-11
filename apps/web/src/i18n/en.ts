@@ -16,6 +16,11 @@ export const en: Translation = {
     register: 'Register',
     accountSettings: 'Account settings',
   },
+  languageSwitch: {
+    label: 'Language',
+    english: 'English',
+    german: 'Deutsch',
+  },
   buildFooter: {
     imprint: 'Legal notice',
     license: 'License',
@@ -553,7 +558,7 @@ export const en: Translation = {
     defaultVisibility: 'Default visibility',
     defaultDiscoverability: 'Default discoverability',
     showOnStartPage: 'Show on start page',
-    save: 'Save policy',
+    save: 'Save settings',
     saved: 'General settings saved.',
   },
   tenantNavigation: {

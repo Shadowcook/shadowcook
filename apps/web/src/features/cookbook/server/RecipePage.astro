@@ -57,7 +57,7 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
     <title>{recipe.title} · {text.metadata.title}</title>
     <script type="application/ld+json" set:html={structuredDataJson} />
   </head>
-  <body>
+  <body class="cookbook-page">
     <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main class="application-shell">
       <CookbookScreen

@@ -5,6 +5,7 @@ import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
 import type { HeadBarSession } from '../lib/server/head-bar-session';
 import AdminIcon from './AdminIcon';
+import LanguageSwitch from './LanguageSwitch';
 
 const signedOut: HeadBarSession = {
   authenticated: false,
@@ -67,46 +68,49 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
         <img className="head-bar__logo" src="/shadowcook-logo.png" alt="" aria-hidden="true" />
         {text.brandName}
       </a>
-      {session.authenticated ? (
-        <details className="head-bar__user-menu">
-          <summary aria-label={text.headBar.userMenu}>
-            {session.email}
-            <AdminIcon name="expand" />
-          </summary>
-          <div className="head-bar__menu" role="menu">
-            <a href="/settings" role="menuitem">
-              {text.headBar.accountSettings}
-            </a>
-            {session.canAccessAdministration ? (
-              <a href="/admin" role="menuitem">
-                {text.admin.title}
+      <div className="head-bar__controls">
+        <LanguageSwitch locale={locale} />
+        {session.authenticated ? (
+          <details className="head-bar__user-menu">
+            <summary aria-label={text.headBar.userMenu}>
+              {session.email}
+              <AdminIcon name="expand" />
+            </summary>
+            <div className="head-bar__menu" role="menu">
+              <a href="/settings" role="menuitem">
+                {text.headBar.accountSettings}
               </a>
-            ) : null}
-            <button
-              type="button"
-              role="menuitem"
-              disabled={signingOut}
-              onClick={(): void => void signOut()}
-            >
-              {text.dashboard.logout}
-            </button>
-            {signOutError.length === 0 ? null : (
-              <p className="head-bar__menu-message" role="alert">
-                {signOutError}
-              </p>
-            )}
+              {session.canAccessAdministration ? (
+                <a href="/admin" role="menuitem">
+                  {text.admin.title}
+                </a>
+              ) : null}
+              <button
+                type="button"
+                role="menuitem"
+                disabled={signingOut}
+                onClick={(): void => void signOut()}
+              >
+                {text.dashboard.logout}
+              </button>
+              {signOutError.length === 0 ? null : (
+                <p className="head-bar__menu-message" role="alert">
+                  {signOutError}
+                </p>
+              )}
+            </div>
+          </details>
+        ) : (
+          <div className="head-bar__actions">
+            <a className="button--secondary" href="/register">
+              {text.headBar.register}
+            </a>
+            <a className="button--secondary" href={signInHref}>
+              {text.dashboard.login}
+            </a>
           </div>
-        </details>
-      ) : (
-        <div className="head-bar__actions">
-          <a className="button--secondary" href="/register">
-            {text.headBar.register}
-          </a>
-          <a className="button--secondary" href={signInHref}>
-            {text.dashboard.login}
-          </a>
-        </div>
-      )}
+        )}
+      </div>
     </header>
   );
 }

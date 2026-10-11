@@ -196,6 +196,22 @@ select {
   height: 2.25rem;
   object-fit: contain;
 }
+.head-bar__controls {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+.head-bar__language-switch {
+  width: auto;
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 0.5rem;
+  font:
+    0.85rem Arial,
+    sans-serif;
+}
 .head-bar__user-menu {
   position: relative;
   color: #4d4037;
@@ -625,16 +641,22 @@ code {
   }
   .head-bar {
     gap: 0.5rem;
+    flex-wrap: wrap;
     padding-right: 0.75rem;
     padding-left: 0.75rem;
   }
   .head-bar__home {
     min-width: 0;
-    flex: 1 1 auto;
+    flex: 1 0 auto;
     white-space: nowrap;
   }
   .head-bar__logo {
     flex: 0 0 auto;
+  }
+  .head-bar__controls {
+    margin-left: auto;
+    flex-wrap: wrap;
+    gap: 0.35rem;
   }
   .head-bar__actions {
     flex: 0 0 auto;
@@ -646,6 +668,9 @@ code {
   }
 }
 @media (max-width: 600px) {
+  body.cookbook-page .head-bar {
+    padding-left: 3.4rem;
+  }
   body.cookbook-page .head-bar__home {
     display: none;
   }

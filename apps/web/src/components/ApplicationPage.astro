@@ -10,7 +10,8 @@ import AccountSettingsScreen from './AccountSettingsScreen';
 import BuildFooter from './BuildFooter.astro';
 import Favicon from './Favicon.astro';
 import HeadBar from './HeadBar';
-import { resolveLocale, translations } from '../i18n';
+import { translations } from '../i18n';
+import { resolveRequestLocale } from '../i18n/locale-preference';
 import type { Locale } from '../i18n';
 import { buildCommit } from '../lib/server/build-info';
 import { loadAdminAreaState, loadHeadBarSession } from '../lib/server/head-bar-session';
@@ -20,7 +21,10 @@ import { managementRoute } from '../features/cookbook/model/management-routing';
 import type { ManagementRoute } from '../features/cookbook/model/management-routing';
 import '../styles/global.css';
 
-const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
+const locale: Locale = resolveRequestLocale(
+  Astro.request.headers.get('cookie'),
+  import.meta.env.PUBLIC_DEFAULT_LOCALE,
+);
 const text = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
 const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));

@@ -16,6 +16,11 @@ export interface Translation {
     register: string;
     accountSettings: string;
   };
+  languageSwitch: {
+    label: string;
+    english: string;
+    german: string;
+  };
   buildFooter: {
     imprint: string;
     license: string;

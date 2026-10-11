@@ -5,7 +5,8 @@ import CookbookPage from '../features/cookbook/server/CookbookPage.astro';
 import RecipePage from '../features/cookbook/server/RecipePage.astro';
 import { loadServerCookbookPage, loadServerRecipePage } from '../lib/server/cookbook';
 import { loadLegalDocuments } from '../lib/server/legal-documents';
-import { resolveLocale, translations } from '../i18n';
+import { translations } from '../i18n';
+import { resolveRequestLocale } from '../i18n/locale-preference';
 import type { Locale } from '../i18n';
 
 export const prerender = false;
@@ -22,7 +23,10 @@ const cookbookPage =
         isTenantRoot(Astro.url.pathname),
       )
     : null;
-const locale: Locale = resolveLocale(import.meta.env.PUBLIC_DEFAULT_LOCALE);
+const locale: Locale = resolveRequestLocale(
+  Astro.request.headers.get('cookie'),
+  import.meta.env.PUBLIC_DEFAULT_LOCALE,
+);
 const legalDocuments =
   Astro.url.pathname === '/privacy-statement' || Astro.url.pathname === '/imprint'
     ? await loadLegalDocuments()

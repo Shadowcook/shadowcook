@@ -3,12 +3,9 @@ import { en } from './en';
 import type { Locale, Translation } from './types';
 
 export type { Locale, Translation } from './types';
+export { resolveLocale } from './locale-preference';
 
 export const translations: Record<Locale, Translation> = {
   de,
   en,
 };
-
-export function resolveLocale(value: string | undefined): Locale {
-  return value === 'de' ? 'de' : 'en';
-}
