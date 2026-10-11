@@ -18,6 +18,12 @@ interface UnitResponse {
   translations: UnitTranslations;
 }
 
+interface StoredUnitConversion {
+  dimension: string | null;
+  base_factor: string | null;
+  base_offset: string | null;
+}
+
 let database: DisposablePostgresDatabase;
 let api: FastifyInstance;
 let administratorCookie: string;
@@ -229,3 +235,140 @@ test('tenant unit creation, editing, and deletion handle all language versions',
   );
   assert.equal(remaining.rowCount, 0);
 });
+
+test('used tenant units allow default names, symbols, and translations to change without conversion fields', async (): Promise<void> => {
+  for (const convertible of [false, true]) {
+    const unit: UnitResponse = await createUsedTenantUnit(convertible);
+    const beforeConversion: StoredUnitConversion = await storedConversion(unit.publicId);
+    const translations: UnitTranslations = { de: { name: 'Spritzer', symbol: 'Spr.' } };
+    const edited: LightMyRequestResponse = await api.inject({
+      method: 'PATCH',
+      url: `/cookbook/tenants/unit-test/units/${unit.publicId}`,
+      headers: { cookie: tenantCookie },
+      payload: { name: `squeeze ${convertible}`, symbol: `sq-${convertible}`, translations },
+    });
+    assert.equal(edited.statusCode, 204, edited.body);
+    assert.deepEqual(await storedConversion(unit.publicId), beforeConversion);
+    const listed: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: '/cookbook/tenants/unit-test/units',
+      headers: { cookie: tenantCookie },
+    });
+    assert.equal(listed.statusCode, 200);
+    const updated: UnitResponse | undefined = listed
+      .json<{ units: UnitResponse[] }>()
+      .units.find((candidate: UnitResponse): boolean => candidate.publicId === unit.publicId);
+    assert.ok(updated);
+    assert.equal(updated.name, `squeeze ${convertible}`);
+    assert.equal(updated.symbol, `sq-${convertible}`);
+    assert.deepEqual(updated.translations, translations);
+  }
+});
+
+test('used tenant units accept numerically identical conversion values with different decimal scales', async (): Promise<void> => {
+  const unit: UnitResponse = await createUsedTenantUnit(true);
+  const beforeConversion: StoredUnitConversion = await storedConversion(unit.publicId);
+  const edited: LightMyRequestResponse = await api.inject({
+    method: 'PATCH',
+    url: `/cookbook/tenants/unit-test/units/${unit.publicId}`,
+    headers: { cookie: tenantCookie },
+    payload: {
+      name: unit.name,
+      symbol: unit.symbol,
+      equivalenceAmount: '2.000000000000',
+      referenceUnitPublicId: teaspoonId,
+    },
+  });
+  assert.equal(edited.statusCode, 204, edited.body);
+  assert.deepEqual(await storedConversion(unit.publicId), beforeConversion);
+});
+
+test('used tenant units reject conversion changes and keep names and translations unchanged', async (): Promise<void> => {
+  for (const convertible of [false, true]) {
+    const unit: UnitResponse = await createUsedTenantUnit(convertible);
+    const beforeConversion: StoredUnitConversion = await storedConversion(unit.publicId);
+    const conversions: {
+      equivalenceAmount: string | null;
+      referenceUnitPublicId: string | null;
+    }[] = [
+      { equivalenceAmount: '3', referenceUnitPublicId: teaspoonId },
+      { equivalenceAmount: '2.000000000001', referenceUnitPublicId: teaspoonId },
+      ...(convertible ? [{ equivalenceAmount: null, referenceUnitPublicId: null }] : []),
+    ];
+    for (const conversion of conversions) {
+      const rejected: LightMyRequestResponse = await api.inject({
+        method: 'PATCH',
+        url: `/cookbook/tenants/unit-test/units/${unit.publicId}`,
+        headers: { cookie: tenantCookie },
+        payload: {
+          name: `rejected ${unit.publicId}`,
+          symbol: `rejected-${unit.publicId}`,
+          translations: { de: { name: 'Rejected translation', symbol: 'X' } },
+          ...conversion,
+        },
+      });
+      assert.equal(rejected.statusCode, 409, rejected.body);
+      assert.equal(rejected.json<{ code: string }>().code, 'UNIT_IN_USE');
+      assert.deepEqual(await storedConversion(unit.publicId), beforeConversion);
+      const stored: QueryResult<{ name: string; symbol: string }> = await database.pool.query<{
+        name: string;
+        symbol: string;
+      }>('SELECT name, symbol FROM unit WHERE public_id = $1', [unit.publicId]);
+      assert.deepEqual(stored.rows, [{ name: unit.name, symbol: unit.symbol }]);
+      const translations: QueryResult = await database.pool.query(
+        'SELECT 1 FROM unit_translation JOIN unit ON unit.id = unit_translation.unit_id WHERE unit.public_id = $1',
+        [unit.publicId],
+      );
+      assert.equal(translations.rowCount, 0);
+    }
+  }
+});
+
+async function createUsedTenantUnit(convertible: boolean): Promise<UnitResponse> {
+  const sequence: QueryResult<{ count: number }> = await database.pool.query<{ count: number }>(
+    'SELECT count(*)::integer AS count FROM unit WHERE owner_tenant_id IS NOT NULL',
+  );
+  const name: string = `used scoop ${sequence.rows[0]!.count}`;
+  const created: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/cookbook/tenants/unit-test/units',
+    headers: { cookie: tenantCookie },
+    payload: {
+      name,
+      symbol: name,
+      equivalenceAmount: convertible ? '2' : null,
+      referenceUnitPublicId: convertible ? teaspoonId : null,
+    },
+  });
+  assert.equal(created.statusCode, 201, created.body);
+  const unit: UnitResponse = created.json<UnitResponse>();
+  await database.pool.query(
+    `WITH created_recipe AS (
+       INSERT INTO recipe (tenant_id, lineage_public_id, slug)
+       SELECT id, gen_random_uuid(), $2 FROM tenant WHERE slug = 'unit-test'
+       RETURNING id
+     ), created_revision AS (
+       INSERT INTO recipe_revision (recipe_id, revision_no, status, title)
+       SELECT id, 1, 'DRAFT', 'Unit usage fixture' FROM created_recipe
+       RETURNING id
+     ), created_step AS (
+       INSERT INTO recipe_step (recipe_revision_id, step_key, sort_order, instruction)
+       SELECT id, gen_random_uuid(), 0, 'Add the ingredient.' FROM created_revision
+       RETURNING id
+     )
+     INSERT INTO ingredient_usage (recipe_step_id, usage_key, text_override, unit_id, amount, sort_order)
+     SELECT created_step.id, gen_random_uuid(), 'Test ingredient', unit.id, 1, 0
+     FROM created_step CROSS JOIN unit WHERE unit.public_id = $1`,
+    [unit.publicId, `unit-${unit.publicId}`],
+  );
+  return unit;
+}
+
+async function storedConversion(publicId: string): Promise<StoredUnitConversion> {
+  const result: QueryResult<StoredUnitConversion> = await database.pool.query<StoredUnitConversion>(
+    'SELECT dimension, base_factor::text, base_offset::text FROM unit WHERE public_id = $1',
+    [publicId],
+  );
+  assert.equal(result.rowCount, 1);
+  return result.rows[0]!;
+}

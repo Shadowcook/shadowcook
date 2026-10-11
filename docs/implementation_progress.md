@@ -76,6 +76,7 @@
 
 - Instance administration manages instance-owned units with same-dimension conversion validation and usage-aware deletion protection.
 - Instance and tenant unit editors provide modal creation and editing through the shared application dialog, with cancellation, busy-state protection, and save errors inside the dialog (architecture section 4.6).
+- Cookbook-manager unit conversion columns and creation controls are hidden through a view flag; the prepared implementation and instance-administrator controls remain available (architecture section 4.6).
 - Units of measure support non-convertible cookbook units and human-readable one-unit equivalences to visible non-temperature units.
 - Tenant Owner roles receive all tenant-scoped permissions, including permissions added before the migration.
 - Unit names and symbols use database language versions with an English default. Instance and tenant unit dialogs edit all stored languages; tables, conversion selectors, recipe editors, recipe output, shopping lists, and recipe metadata select the active UI locale. Standard-unit German versions are migrated and seeded. Tenant ingredients and aliases retain their stored presentation (architecture section 11.1).

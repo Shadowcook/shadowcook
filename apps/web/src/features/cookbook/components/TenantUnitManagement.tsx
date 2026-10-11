@@ -26,6 +26,7 @@ interface UnitForm {
   referenceUnitPublicId: string;
 }
 type ConversionMode = 'NONE' | 'EQUIVALENT';
+const showUnitConversion: boolean = false;
 const emptyForm: UnitForm = {
   translations: {},
   name: '',
@@ -84,7 +85,7 @@ export default function TenantUnitManagement({
     if (saving) return;
     setSaving(true);
     setFormError('');
-    const hasConversion: boolean = conversionMode === 'EQUIVALENT';
+    const hasConversion: boolean = showUnitConversion && conversionMode === 'EQUIVALENT';
     const body: {
       name: string;
       symbol: string;
@@ -167,7 +168,7 @@ export default function TenantUnitManagement({
             <tr>
               <th>{text.tenantUnits.name}</th>
               <th>{text.tenantUnits.symbol}</th>
-              <th>{text.tenantUnits.conversion}</th>
+              {showUnitConversion ? <th>{text.tenantUnits.conversion}</th> : null}
               <th>{text.tenantUnits.usage}</th>
               <th>{text.dashboard.actions}</th>
             </tr>
@@ -177,7 +178,9 @@ export default function TenantUnitManagement({
               <tr key={unit.publicId}>
                 <td>{localizedUnitName(text, unit.translations, unit.name)}</td>
                 <td>{localizedUnitSymbol(text, unit.translations, unit.symbol)}</td>
-                <td>{unit.convertible ? text.tenantUnits.equivalent : '—'}</td>
+                {showUnitConversion ? (
+                  <td>{unit.convertible ? text.tenantUnits.equivalent : '—'}</td>
+                ) : null}
                 <td>{unit.usageCount}</td>
                 <td>
                   <div className="tenant-actions">
@@ -227,7 +230,7 @@ export default function TenantUnitManagement({
               setForm((current: UnitForm): UnitForm => ({ ...current, translations }))
             }
           />
-          {editing === null ? (
+          {showUnitConversion && editing === null ? (
             <fieldset className="unit-editor-form__conversion">
               <legend>{text.tenantUnits.conversion}</legend>
               <label className="tenant-unit-conversion__option">

@@ -373,9 +373,10 @@ shadowcook/
 - Cookbook URL slugs are rejected when they exactly match the hardcoded reserved-slug dictionary or contain an instance-administered blocked term. The checks apply to cookbook URL previews, public-registration cookbook creation, account cookbook creation, and instance-administrator slug changes. Category slugs do not use this policy.
 - `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
 - Instance and tenant unit creation and editing use `UnitEditorDialog.tsx` with the shared application dialog shell. Save errors appear inside the dialog. Saving disables form controls, actions, and Escape dismissal. Successful saves close the dialog and refresh the unit list; cancellation discards the form.
+- Cookbook-manager unit tables and creation dialogs hide conversion information and controls through the `showUnitConversion` flag in `TenantUnitManagement.tsx`. Instance-administrator conversion controls remain visible. Tenant unit conversion APIs and stored conversion data remain available.
 - A unit is convertible only when `dimension`, `base_factor`, and `base_offset` are all set. A non-convertible unit has all three fields set to `NULL`.
 - Tenant unit creation stores a derived base factor from one explicit equivalence to a visible, non-temperature convertible unit. The derived value is the conversion source of truth.
-- A tenant unit referenced by recipe ingredient usages permits name and symbol changes only; changes to its conversion state or conversion values return a conflict.
+- A tenant unit referenced by recipe ingredient usages permits name, symbol, and translation changes; changes to its conversion state or conversion values return a conflict. Omitted conversion fields preserve the stored dimension, factor, and offset. Conversion comparisons ignore trailing decimal zeroes.
 - The tenant role named `Owner` has every non-instance permission except `tenant:create`.
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.

@@ -29,6 +29,12 @@ interface UnitInput {
   translations: UnitTranslations | undefined;
 }
 
+interface UnitConversion {
+  dimension: UnitDimension;
+  factor: string;
+  offset: string;
+}
+
 export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants/:tenantSlug/units', async (request, reply) => {
     const tenantId: string | null = await tenantIdFor(pool, request, reply, 'unit:read');
@@ -52,7 +58,11 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
     if (tenantId === null) return;
     const input: UnitInput | null = parseUnitInput(request.body);
     if (input === null) return invalidUnit(reply);
-    const conversion = await conversionFor(pool, tenantId, input);
+    const conversion: UnitConversion | null | 'invalid' = await conversionFor(
+      pool,
+      tenantId,
+      input,
+    );
     if (conversion === 'invalid') return invalidReference(reply);
     if (!(await namesAvailable(pool, tenantId, input.name, input.symbol)))
       return duplicateUnit(reply);
@@ -67,7 +77,7 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
           input.symbol,
           conversion?.dimension ?? null,
           conversion?.factor ?? null,
-          conversion === null ? null : '0',
+          conversion?.offset ?? null,
         ],
       );
       await replaceUnitTranslations(client, result.rows[0]!.public_id, input.translations);
@@ -90,20 +100,24 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
     const input: UnitInput | null = parseUnitInput(request.body);
     if (input === null) return invalidUnit(reply);
     const publicId: string = (request.params as { publicId: string }).publicId;
-    const current = (
+    const current: UnitRow | undefined = (
       await listUnits(pool, 'owner_tenant_id = $1 AND public_id = $2', [tenantId, publicId], true)
     )[0];
     if (current === undefined) return unitNotFound(reply);
-    const conversion = input.conversionProvided
+    const conversion: UnitConversion | null | 'invalid' = input.conversionProvided
       ? await conversionFor(pool, tenantId, input)
       : current.dimension === null
         ? null
-        : { dimension: current.dimension, factor: current.base_factor! };
+        : {
+            dimension: current.dimension,
+            factor: current.base_factor!,
+            offset: current.base_offset!,
+          };
     if (conversion === 'invalid') return invalidReference(reply);
-    const changed =
+    const changed: boolean =
       current.dimension !== (conversion?.dimension ?? null) ||
-      current.base_factor !== (conversion?.factor ?? null) ||
-      current.base_offset !== (conversion === null ? null : '0');
+      normalizedDecimal(current.base_factor) !== normalizedDecimal(conversion?.factor ?? null) ||
+      normalizedDecimal(current.base_offset) !== normalizedDecimal(conversion?.offset ?? null);
     if (current.usage_count > 0 && changed)
       return reply.code(409).send({
         code: 'UNIT_IN_USE',
@@ -121,7 +135,7 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
           input.symbol,
           conversion?.dimension ?? null,
           conversion?.factor ?? null,
-          conversion === null ? null : '0',
+          conversion?.offset ?? null,
           tenantId,
           publicId,
         ],
@@ -179,7 +193,7 @@ async function conversionFor(
   pool: Pool,
   tenantId: string,
   input: UnitInput,
-): Promise<{ dimension: UnitDimension; factor: string } | null | 'invalid'> {
+): Promise<UnitConversion | null | 'invalid'> {
   if (input.equivalenceAmount === null) return null;
   const reference = await pool.query<{ dimension: UnitDimension | null; factor: string | null }>(
     `SELECT dimension, base_factor::text AS factor FROM unit WHERE public_id = $1 AND (owner_tenant_id IS NULL OR owner_tenant_id = $2)`,
@@ -197,7 +211,11 @@ async function conversionFor(
     'SELECT ($1::numeric * $2::numeric)::text AS factor',
     [input.equivalenceAmount, row.factor],
   );
-  return { dimension: row.dimension, factor: value.rows[0]!.factor };
+  return { dimension: row.dimension, factor: value.rows[0]!.factor, offset: '0' };
+}
+
+function normalizedDecimal(value: string | null): string | null {
+  return value === null ? null : displayDecimal(value);
 }
 async function namesAvailable(
   pool: Pool,

@@ -2844,6 +2844,11 @@ paths:
   /cookbook/tenants/{tenantSlug}/units/{publicId}:
     patch:
       operationId: updateTenantUnit
+      description: >-
+        Updates default names, symbols, and supplied language versions. Omitting conversion
+        fields preserves the stored conversion. Numerically identical conversions are
+        accepted regardless of trailing decimal zeroes. Changes to conversion state or
+        values are rejected when the unit is used by recipe ingredients.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
@@ -2853,7 +2858,21 @@ paths:
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnitInput' } } }
-      responses: { '204': { description: Unit updated. } }
+      responses:
+        '204': { description: Unit updated. }
+        '400':
+          description: Invalid unit input or conversion reference (INVALID_UNIT or INVALID_REFERENCE_UNIT).
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: Unit not found in the cookbook (UNIT_NOT_FOUND), or cookbook absent or disabled (TENANT_NOT_FOUND).
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '409':
+          description: >-
+            The default name or symbol conflicts with a visible unit (UNIT_CONFLICT),
+            or a used unit's conversion would change (UNIT_IN_USE).
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     delete:
       operationId: deleteTenantUnit
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
