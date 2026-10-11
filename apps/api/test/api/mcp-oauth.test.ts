@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { after, before, test } from 'node:test';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { mcpTools, type McpToolDefinition } from '../../src/mcp/tool-schemas.js';
 import { createTestUser, assignTenantRole, type TestUser } from '../helpers/actors.js';
 import { createTestApi } from '../helpers/api.js';
 import {
@@ -159,6 +160,7 @@ async function verifyOAuthLogin(redirectUri: string, tenantSlug: string): Promis
     'recipe:read',
     'recipe:create',
     'recipe:update',
+    'unit:create',
   ]);
   const cookie: string = await loginCookie(user);
   const registrationResponse: LightMyRequestResponse = await api.inject({
@@ -290,11 +292,16 @@ async function verifyOAuthLogin(redirectUri: string, tenantSlug: string): Promis
     result: { content: { type: string; text: string }[]; isError: boolean };
   } = createDraftResponse.json();
   assert.equal(createDraftResult.result.isError, false);
-  const createdDraft: { title: string; isFeatured: boolean } = JSON.parse(
-    createDraftResult.result.content[0]!.text,
-  );
+  const createdDraft: {
+    publicId: string;
+    title: string;
+    summary: string | null;
+    isFeatured: boolean;
+  } = JSON.parse(createDraftResult.result.content[0]!.text);
   assert.equal(createdDraft.title, 'OAuth MCP draft');
   assert.equal(createdDraft.isFeatured, true);
+  assert.equal(createdDraft.summary, 'Created through the restored MCP adapter.');
+  await verifyToolSchemasAndNullSemantics(tokens.access_token, tenantSlug, createdDraft.publicId);
 
   const refreshedResponse: LightMyRequestResponse = await refreshToken(
     registration.client_id,
@@ -310,6 +317,80 @@ async function verifyOAuthLogin(redirectUri: string, tenantSlug: string): Promis
   );
   assert.equal(replayResponse.statusCode, 400);
   assert.deepEqual(replayResponse.json(), { error: 'invalid_grant' });
+}
+
+async function verifyToolSchemasAndNullSemantics(
+  accessToken: string,
+  tenantSlug: string,
+  draftPublicId: string,
+): Promise<void> {
+  const listResponse: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/mcp',
+    headers: { authorization: `Bearer ${accessToken}` },
+    payload: { jsonrpc: '2.0', id: 3, method: 'tools/list' },
+  });
+  assert.equal(listResponse.statusCode, 200);
+  const listed: { result: { tools: McpToolDefinition[] } } = listResponse.json();
+  assert.deepEqual(listed.result.tools, mcpTools);
+
+  await callTool(accessToken, 'update_recipe_draft', {
+    tenantSlug,
+    publicId: draftPublicId,
+    recipe: { title: 'OAuth MCP draft', slug: 'oauth-mcp-draft', summary: null },
+  });
+  const clearedDraft: Record<string, unknown> = await callTool(accessToken, 'get_recipe_draft', {
+    tenantSlug,
+    publicId: draftPublicId,
+  });
+  assert.equal(clearedDraft.summary, null);
+
+  for (const includeNull of [true, false]) {
+    const suffix: string = includeNull ? 'null' : 'omitted';
+    const recipe: Record<string, unknown> = await callTool(accessToken, 'create_recipe_draft', {
+      tenantSlug,
+      recipe: {
+        title: `Nullable summary ${suffix}`,
+        slug: `nullable-summary-${suffix}`,
+        ...(includeNull ? { summary: null } : {}),
+      },
+    });
+    assert.equal(recipe.summary, null);
+    const unit: Record<string, unknown> = await callTool(accessToken, 'create_unit', {
+      tenantSlug,
+      unit: {
+        name: `Nullable conversion ${suffix}`,
+        symbol: `nc-${suffix}`,
+        ...(includeNull ? { equivalenceAmount: null, referenceUnitPublicId: null } : {}),
+      },
+    });
+    assert.equal(unit.convertible, false);
+    assert.equal(unit.baseFactor, null);
+  }
+}
+
+async function callTool(
+  accessToken: string,
+  name: string,
+  arguments_: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const response: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/mcp',
+    headers: { authorization: `Bearer ${accessToken}` },
+    payload: {
+      jsonrpc: '2.0',
+      id: 4,
+      method: 'tools/call',
+      params: { name, arguments: arguments_ },
+    },
+  });
+  assert.equal(response.statusCode, 200);
+  const result: { result: { content: { type: string; text: string }[]; isError: boolean } } =
+    response.json();
+  assert.equal(result.result.isError, false, `${name}: ${result.result.content[0]!.text}`);
+  const text: string = result.result.content[0]!.text;
+  return text === '' ? {} : (JSON.parse(text) as Record<string, unknown>);
 }
 
 async function loginCookie(user: TestUser): Promise<string> {

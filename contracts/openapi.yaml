@@ -1532,7 +1532,7 @@ paths:
     post:
       operationId: modelContextProtocol
       summary: Serves authenticated Shadowcook Model Context Protocol tools.
-      description: Active OAuth access tokens and service-account bearer tokens are accepted. Tools can search recipes and create or modify drafts; none publish or delete recipes. The public web proxy serves this endpoint at /api/mcp and through the direct /mcp alias. OAuth discovery advertises the canonical resource at PUBLIC_API_ORIGIN/mcp.
+      description: Active OAuth access tokens and service-account bearer tokens are accepted. Tools can search recipes and create or modify drafts; none publish or delete recipes. The public web proxy serves this endpoint at /api/mcp and through the direct /mcp alias. OAuth discovery advertises the canonical resource at PUBLIC_API_ORIGIN/mcp. The tools/list input schemas represent nullable fields with anyOf containing separate non-null and null branches; UUID formats remain on string branches. Recipe summary and unit equivalenceAmount/referenceUnitPublicId remain optional and accept explicit null. Tool argument objects have additionalProperties set to false.
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true

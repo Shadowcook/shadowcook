@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
+import { mcpTools } from './tool-schemas.js';
 
 interface JsonRpcRequest {
   jsonrpc?: unknown;
@@ -15,7 +16,6 @@ interface ToolCallParams {
 }
 
 const protocolVersion: string = '2025-06-18';
-const oauthScope: string = 'shadowcook:recipes';
 
 export function registerMcpRoutes(api: FastifyInstance, pool: Pool, publicApiOrigin: string): void {
   api.post('/mcp', async (request: FastifyRequest, reply: FastifyReply) => {
@@ -45,7 +45,8 @@ export function registerMcpRoutes(api: FastifyInstance, pool: Pool, publicApiOri
         }),
       );
     if (body.method === 'ping') return reply.send(jsonRpcResult(body.id, {}));
-    if (body.method === 'tools/list') return reply.send(jsonRpcResult(body.id, { tools }));
+    if (body.method === 'tools/list')
+      return reply.send(jsonRpcResult(body.id, { tools: mcpTools }));
     if (body.method === 'tools/call') return handleToolCall(api, request, reply, body);
     return reply.send(jsonRpcError(body.id, -32601, 'Method not found.'));
   });
@@ -197,103 +198,4 @@ function jsonRpcResult(id: unknown, result: object): object {
 
 function jsonRpcError(id: unknown, code: number, message: string): object {
   return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
-}
-
-const stringSchema: object = { type: 'string', minLength: 1 };
-const uuidSchema: object = { type: 'string', format: 'uuid' };
-const recipeSchema: object = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['title', 'slug'],
-  properties: {
-    title: stringSchema,
-    slug: stringSchema,
-    summary: { type: ['string', 'null'] },
-    categoryPublicIds: { type: 'array', items: uuidSchema },
-    isFeatured: { type: 'boolean' },
-  },
-};
-const ingredientSchema: object = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['canonicalName'],
-  properties: {
-    canonicalName: stringSchema,
-    aliases: { type: 'array', items: stringSchema },
-  },
-};
-const unitSchema: object = {
-  type: 'object',
-  additionalProperties: false,
-  required: ['name', 'symbol'],
-  properties: {
-    name: stringSchema,
-    symbol: stringSchema,
-    equivalenceAmount: { type: ['string', 'null'] },
-    referenceUnitPublicId: { type: ['string', 'null'], format: 'uuid' },
-  },
-};
-
-const tools: object[] = [
-  tool('search_recipes', 'Search published recipes in an accessible tenant.', {
-    tenantSlug: stringSchema,
-  }),
-  tool('list_recipe_drafts', 'List the recipe drafts in a tenant.', { tenantSlug: stringSchema }),
-  tool('search_ingredients', 'Search ingredients before creating a new tenant ingredient.', {
-    tenantSlug: stringSchema,
-    query: stringSchema,
-  }),
-  tool('create_ingredient', 'Create an ingredient that belongs only to this tenant.', {
-    tenantSlug: stringSchema,
-    ingredient: ingredientSchema,
-  }),
-  tool(
-    'list_units',
-    'List available instance and tenant units before creating a new tenant unit.',
-    {
-      tenantSlug: stringSchema,
-    },
-  ),
-  tool(
-    'create_unit',
-    'Create a unit that belongs only to this tenant. Use it only when no suitable unit exists.',
-    { tenantSlug: stringSchema, unit: unitSchema },
-  ),
-  tool('get_recipe_draft', 'Read a recipe draft or the published revision used to start a draft.', {
-    tenantSlug: stringSchema,
-    publicId: uuidSchema,
-  }),
-  tool(
-    'create_recipe_draft',
-    'Create a recipe as a draft. The recipe is never published by this tool.',
-    { tenantSlug: stringSchema, recipe: recipeSchema },
-  ),
-  tool(
-    'update_recipe_draft',
-    'Update recipe metadata in a draft. Read the recipe first and preserve fields that should not change.',
-    { tenantSlug: stringSchema, publicId: uuidSchema, recipe: recipeSchema },
-  ),
-  tool('get_recipe_steps', 'Read the preparation steps of an editable recipe.', {
-    tenantSlug: stringSchema,
-    publicId: uuidSchema,
-  }),
-  tool(
-    'replace_recipe_steps',
-    'Replace all preparation steps in a draft. This tool never publishes a recipe.',
-    { tenantSlug: stringSchema, publicId: uuidSchema, steps: { type: 'array' } },
-  ),
-];
-
-function tool(name: string, description: string, properties: object): object {
-  return {
-    name,
-    description,
-    securitySchemes: [{ type: 'oauth2', scopes: [oauthScope] }],
-    inputSchema: {
-      type: 'object',
-      additionalProperties: false,
-      properties,
-      required: Object.keys(properties),
-    },
-  };
 }

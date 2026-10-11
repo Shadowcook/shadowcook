@@ -1171,6 +1171,7 @@ created_at
 - Astro's built-in Origin check is disabled. The web middleware checks request origins before API forwarding, session validation, and page rendering. Cross-origin or Origin-less unsafe requests with a form content type or no content type receive HTTP 403 with an empty body. `POST /api/oauth/token` with `application/x-www-form-urlencoded` is exempt from this check. Safe HTTP methods, same-origin requests, and non-form content types retain Astro's previous Origin-check behavior.
 - The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
 - MCP tools do not publish or delete recipes.
+- MCP tool input schemas are defined in `apps/api/src/mcp/tool-schemas.ts`. Nullable fields use `anyOf` with separate non-null and null branches. UUID formats apply to the string branch. Tool argument objects reject additional properties; required fields and optional nullable fields are declared separately.
 - MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.
 - MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, dynamic client registration, and the `shadowcook:recipes` scope.
 - OAuth authorization requests that omit `scope` receive `shadowcook:recipes` as their default scope.
