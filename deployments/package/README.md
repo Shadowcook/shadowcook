@@ -72,19 +72,25 @@ Upgrade either deployment mode by passing a branch, tag, or commit hash:
 
 The script fetches the requested Git ref, resolves its commit, and stores the
 full commit hash in both `SHADOWCOOK_SOURCE_REF` and `SHADOWCOOK_BUILD_COMMIT`.
-It passes the commit and `PUBLIC_WEB_ORIGIN` explicitly to the Docker Compose
+It passes the commit, Compose project name, and `PUBLIC_WEB_ORIGIN` explicitly to the Docker Compose
 build, rebuilds both application images, and recreates changed containers. The
 web footer displays that commit. If the build or container update fails, the script restores the
 previous `.env` file. Use a full commit hash or immutable release tag for
 repeatable production deployments. After every successful recreation, it
-removes unused images carrying both `net.shadowcook.deployment=true` and
-`net.shadowcook.project=<current-project>`. Other projects' images and legacy
-images without the project label are retained.
+removes unused images carrying `net.shadowcook.project=<current-project>`.
+`SHADOWCOOK_BUILD_PROJECT` supplies the project name to every Dockerfile stage;
+the project label is set before dependency installation, compilation, and runtime
+assembly. This includes intermediate images created by the classic Docker builder.
+Other projects' images, shared base images such as `node`, and legacy images
+without the project label are retained. BuildKit's separate build cache is not
+removed by this image cleanup.
 The script resolves the project and image names through Compose, rejects image
 tags labelled as belonging to another project before building, and verifies both
 labels on the built runtime images before it recreates containers.
 The requested Git ref must include the deployment
-Dockerfile shipped in this package.
+Dockerfile shipped in this package. Intermediate-image cleanup requires the
+requested Git ref's Dockerfile to apply `SHADOWCOOK_BUILD_PROJECT` in every stage;
+updating the server package alone does not change the Dockerfile fetched from Git.
 
 ## Multiple instances on one server
 

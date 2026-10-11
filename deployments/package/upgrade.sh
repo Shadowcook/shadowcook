@@ -179,6 +179,7 @@ verify_shadowcook_image_label() {
 
 docker compose build \
   --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}" \
+  --build-arg "SHADOWCOOK_BUILD_PROJECT=${project_name}" \
   --build-arg "PUBLIC_WEB_ORIGIN=${public_web_origin}"
 verify_shadowcook_image_label "${api_image}"
 verify_shadowcook_image_label "${web_image}"
@@ -186,7 +187,6 @@ docker compose up --no-build -d
 
 upgrade_completed=true
 docker image prune --all --force \
-  --filter 'label=net.shadowcook.deployment=true' \
   --filter "label=net.shadowcook.project=${project_name}"
 
 printf '%s\n' "Upgraded Shadowcook to ${build_commit}"

@@ -7,6 +7,7 @@ x-shadowcook-source-build: &shadowcook-source-build
     net.shadowcook.project: ${COMPOSE_PROJECT_NAME}
   args:
     SHADOWCOOK_BUILD_COMMIT: ${SHADOWCOOK_BUILD_COMMIT:?Set SHADOWCOOK_BUILD_COMMIT in .env}
+    SHADOWCOOK_BUILD_PROJECT: ${COMPOSE_PROJECT_NAME}
     PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}
 
 x-api-environment: &api-environment
