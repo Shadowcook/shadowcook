@@ -181,6 +181,57 @@ export interface AiContextGrantTable {
   created_at: Generated<Timestamp>;
 }
 
+export interface OAuthClientTable {
+  id: Generated<Uuid>;
+  client_id: string;
+  client_name: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthClientRedirectUriTable {
+  oauth_client_id: string;
+  redirect_uri: string;
+}
+
+export interface OAuthAuthorizationCodeTable {
+  id: Generated<Uuid>;
+  code_hash: Buffer;
+  principal_id: string;
+  client_id: string;
+  redirect_uri: string;
+  resource: string;
+  scope: string;
+  code_challenge: string;
+  expires_at: Timestamp;
+  consumed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthAccessTokenTable {
+  id: Generated<Uuid>;
+  token_hash: Buffer;
+  principal_id: string;
+  client_id: string;
+  resource: string;
+  scope: string;
+  expires_at: Timestamp;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthRefreshTokenTable {
+  id: Generated<Uuid>;
+  token_hash: Buffer;
+  principal_id: string;
+  client_id: string;
+  resource: string;
+  scope: string;
+  expires_at: Timestamp;
+  consumed_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
 export interface UnitTable {
   id: Generated<Uuid>;
   owner_tenant_id: string | null;
@@ -235,6 +286,11 @@ export interface Database {
   recipe_revision: RecipeRevisionTable;
   recipe_share_link: RecipeShareLinkTable;
   ai_context_grant: AiContextGrantTable;
+  oauth_client: OAuthClientTable;
+  oauth_client_redirect_uri: OAuthClientRedirectUriTable;
+  oauth_authorization_code: OAuthAuthorizationCodeTable;
+  oauth_access_token: OAuthAccessTokenTable;
+  oauth_refresh_token: OAuthRefreshTokenTable;
   unit: UnitTable;
   ingredient: IngredientTable;
   ingredient_alias: IngredientAliasTable;

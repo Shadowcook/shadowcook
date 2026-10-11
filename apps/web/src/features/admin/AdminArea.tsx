@@ -10,6 +10,7 @@ import AdminTenantManagement from './components/AdminTenantManagement';
 import AdminTenantCreate from './components/AdminTenantCreate';
 import AdminUnitManagement from './components/AdminUnitManagement';
 import AdminUserManagement from './components/AdminUserManagement';
+import AdminCookbookSlugBlockedTerms from './components/AdminCookbookSlugBlockedTerms';
 import AccessDeniedScreen from '../../components/AccessDeniedScreen';
 import { translations } from '../../i18n';
 import type { Locale, Translation } from '../../i18n';
@@ -158,6 +159,19 @@ export default function AdminArea({
             <>
               <a
                 className={
+                  currentPath === '/admin/settings/cookbook-slug-blocked-terms'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/cookbook-slug-blocked-terms"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/cookbook-slug-blocked-terms')
+                }
+              >
+                {text.admin.cookbookSlugBlockedTerms}
+              </a>
+              <a
+                className={
                   currentPath === '/admin/settings/frontpage'
                     ? 'admin-navigation__sublink admin-navigation__sublink--active'
                     : 'admin-navigation__sublink'
@@ -258,6 +272,8 @@ function page(
   if (path === '/admin/settings/authentication')
     return <AdminAuthenticationSettings locale={locale} />;
   if (path === '/admin/settings/registration') return <AdminRegistrationSettings locale={locale} />;
+  if (path === '/admin/settings/cookbook-slug-blocked-terms')
+    return <AdminCookbookSlugBlockedTerms locale={locale} />;
   if (path === '/admin/settings/frontpage') return <AdminFrontpageSettings locale={locale} />;
   if (path === '/admin/settings/legal-documents') return <AdminLegalDocuments locale={locale} />;
   if (path === '/admin/tenants/new') return <AdminTenantCreate locale={locale} />;
@@ -270,6 +286,16 @@ function page(
         <p className="eyebrow">{text.admin.settings}</p>
         <h1>{text.admin.settingsTitle}</h1>
         <p className="lede">{text.admin.settingsDescription}</p>
+        <a
+          className="admin-card"
+          href="/admin/settings/cookbook-slug-blocked-terms"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/cookbook-slug-blocked-terms')
+          }
+        >
+          <span>{text.admin.cookbookSlugBlockedTerms}</span>
+          <strong>{text.admin.cookbookSlugBlockedTermsTitle}</strong>
+        </a>
         <a
           className="admin-card"
           href="/admin/settings/frontpage"

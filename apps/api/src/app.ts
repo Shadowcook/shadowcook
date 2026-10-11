@@ -19,7 +19,10 @@ import { registerAiContextRoutes } from './cookbook/ai-context-routes.js';
 import { registerPublicRegistrationRoutes } from './registration/routes.js';
 import { registerRegistrationSettingsRoutes } from './admin/registration-settings-routes.js';
 import { registerAccountRoutes } from './account/routes.js';
+import { registerCookbookSlugRoutes } from './admin/cookbook-slug-routes.js';
 import type { RegistrationConfig } from './config.js';
+import { registerOAuthRoutes } from './auth/oauth.js';
+import { registerMcpRoutes } from './mcp/routes.js';
 
 export function createApi(
   pool: Pool,
@@ -36,6 +39,7 @@ export function createApi(
   });
 
   api.get('/health', async () => ({ status: 'ok' }));
+  registerOAuthRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerAccountRoutes(api, pool);
   registerPublicRegistrationRoutes(
@@ -46,6 +50,7 @@ export function createApi(
     registrationConfig,
   );
   registerRegistrationSettingsRoutes(api, pool, registrationConfig);
+  registerCookbookSlugRoutes(api, pool);
   registerCookbookRoutes(api, pool);
   registerCategoryRoutes(api, pool);
   registerRecipeEditorRoutes(api, pool);
@@ -61,5 +66,6 @@ export function createApi(
   registerLegalDocumentRoutes(api, pool);
   registerTenantRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerUnitRoutes(api, pool);
+  registerMcpRoutes(api, pool, publicApiOrigin);
   return api;
 }

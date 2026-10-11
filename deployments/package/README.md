@@ -44,6 +44,10 @@ reverse proxy provides HTTPS.
 The API applies migrations and the initial deployment seed before its health
 check becomes healthy. The web container waits for that check.
 
+To require Cloudflare Turnstile for public registration, set both
+`TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` in `.env`, run `./upgrade.sh` to
+recreate the API container, then enable Turnstile in the registration settings.
+
 ## Existing PostgreSQL
 
 Set `COMPOSE_FILE=compose.external-postgres.yaml` in `.env` and set

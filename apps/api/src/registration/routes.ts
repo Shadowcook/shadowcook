@@ -10,7 +10,13 @@ import {
   turnstileRequired,
   maximumCookbooksPerOwner,
 } from '../admin/registration-settings-routes.js';
-import { createOwnedCookbook } from '../cookbook/owned-cookbook.js';
+import {
+  cookbookSlugBase,
+  CookbookSlugBlockedError,
+  createOwnedCookbook,
+  isValidCookbookName,
+} from '../cookbook/owned-cookbook.js';
+import { cookbookSlugIsBlocked } from '../cookbook/slug-policy.js';
 
 interface RegistrationBody {
   email: string;
@@ -76,8 +82,10 @@ export function registerPublicRegistrationRoutes(
     const tenantName: string | null = body.tenantName === null ? null : body.tenantName.trim();
     if (
       email === null ||
-      (tenantName !== null && (tenantName.length < 3 || tenantName.length > 120))
+      (tenantName !== null && !isValidCookbookName(tenantName))
     )
+      return invalidRegistration(reply);
+    if (tenantName !== null && (await cookbookSlugIsBlocked(pool, cookbookSlugBase(tenantName))))
       return invalidRegistration(reply);
     let passwordHash: string;
     try {
@@ -230,6 +238,7 @@ export function registerPublicRegistrationRoutes(
       return reply.code(201).send({ tenantSlug: tenant?.slug ?? null });
     } catch (error: unknown) {
       await client.query('ROLLBACK');
+      if (error instanceof CookbookSlugBlockedError) return invalidVerification(reply);
       throw error;
     } finally {
       client.release();

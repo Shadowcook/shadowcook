@@ -82,8 +82,11 @@ export interface Translation {
     title: string;
     subtitle: string;
     cookbookName: string;
+    addCookbook: string;
     createCookbook: string;
+    createCookbookTitle: string;
     creatingCookbook: string;
+    cancelCreateCookbook: string;
     cookbookCreated: string;
     signInRequired: string;
     ownedCookbooks: string;
@@ -91,11 +94,14 @@ export interface Translation {
     cookbookRecipes: string;
     cookbookUsers: string;
     cookbookStartPage: string;
+    cookbookCount: string;
+    noOwnedCookbooks: string;
     yes: string;
     no: string;
   };
   cookbookUrlPreview: {
     label: string;
+    invalidName: string;
     collision: string;
   };
   userInvitation: {
@@ -240,6 +246,15 @@ export interface Translation {
     saveLegalDocuments: string;
     authentication: string;
     registration: string;
+    cookbookSlugBlockedTerms: string;
+    cookbookSlugBlockedTermsTitle: string;
+    cookbookSlugBlockedTermsDescription: string;
+    cookbookSlugBlockedTerm: string;
+    addCookbookSlugBlockedTerm: string;
+    removeCookbookSlugBlockedTerm: string;
+    cookbookSlugBlockedTermAdded: string;
+    cookbookSlugBlockedTermRemoved: string;
+    cookbookSlugBlockedTermInvalid: string;
     registrationTitle: string;
     registrationDescription: string;
     registrationEnabled: string;

@@ -5,8 +5,11 @@ import { maximumCookbooksPerOwner } from '../admin/registration-settings-routes.
 import {
   cookbookSlugBase,
   CookbookLimitError,
+  CookbookSlugBlockedError,
   createOwnedCookbook,
+  isValidCookbookName,
 } from '../cookbook/owned-cookbook.js';
+import { cookbookSlugIsBlocked } from '../cookbook/slug-policy.js';
 
 interface CreateCookbookBody {
   cookbookName: string;
@@ -42,11 +45,7 @@ export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
     '/account/cookbook-slug-preview',
     async (request: FastifyRequest, reply: FastifyReply) => {
       const cookbookName: unknown = (request.query as { cookbookName?: unknown }).cookbookName;
-      if (
-        typeof cookbookName !== 'string' ||
-        cookbookName.trim().length < 3 ||
-        cookbookName.trim().length > 120
-      )
+      if (typeof cookbookName !== 'string' || !isValidCookbookName(cookbookName))
         return reply
           .code(400)
           .send({ code: 'INVALID_COOKBOOK', error: 'The cookbook details are invalid.' });
@@ -55,7 +54,10 @@ export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
         'SELECT EXISTS (SELECT 1 FROM tenant WHERE slug = $1) AS exists',
         [slug],
       );
-      return reply.send({ slug, available: existing.rows[0]?.exists !== true });
+      return reply.send({
+        slug,
+        available: existing.rows[0]?.exists !== true && !(await cookbookSlugIsBlocked(pool, slug)),
+      });
     },
   );
 
@@ -87,6 +89,11 @@ export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
         return reply
           .code(409)
           .send({ code: 'COOKBOOK_LIMIT_REACHED', error: 'The cookbook limit has been reached.' });
+      if (error instanceof CookbookSlugBlockedError)
+        return reply.code(400).send({
+          code: 'COOKBOOK_SLUG_BLOCKED',
+          error: 'The cookbook slug is unavailable.',
+        });
       throw error;
     } finally {
       client.release();
@@ -99,5 +106,5 @@ function parseCreateCookbookBody(value: unknown): CreateCookbookBody | null {
   const cookbookName: unknown = value.cookbookName;
   if (typeof cookbookName !== 'string') return null;
   const trimmedName: string = cookbookName.trim();
-  return trimmedName.length >= 3 && trimmedName.length <= 120 ? { cookbookName } : null;
+  return isValidCookbookName(trimmedName) ? { cookbookName: trimmedName } : null;
 }

@@ -1,11 +1,20 @@
 import { randomBytes } from 'node:crypto';
 import type { PoolClient } from 'pg';
+import { cookbookSlugIsBlocked } from './slug-policy.js';
 
 export interface OwnedCookbook {
   id: string;
   slug: string;
 }
 export class CookbookLimitError extends Error {}
+export class CookbookSlugBlockedError extends Error {}
+
+const cookbookNamePattern: RegExp = /^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9]/;
+
+export function isValidCookbookName(value: string): boolean {
+  const trimmedName: string = value.trim();
+  return trimmedName.length <= 120 && cookbookNamePattern.test(trimmedName);
+}
 
 export async function createOwnedCookbook(
   client: PoolClient,
@@ -22,6 +31,7 @@ export async function createOwnedCookbook(
   );
   if (Number(owned.rows[0]?.count ?? 0) >= maximumCookbooks) throw new CookbookLimitError();
   const baseSlug: string = cookbookSlugBase(displayName);
+  if (await cookbookSlugIsBlocked(client, baseSlug)) throw new CookbookSlugBlockedError();
   await client.query("SELECT pg_advisory_xact_lock(hashtext('tenant-slug:' || $1))", [baseSlug]);
   let slug: string = baseSlug;
   while (true) {

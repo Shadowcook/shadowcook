@@ -16,6 +16,8 @@ x-api-environment: &api-environment
   PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}/api}
   BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@localhost}
   INSTANCE_SECRET_KEY_FILE: /run/secrets/instance_secret_key
+  TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
+  TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
 
 x-api-image: &api-image
   image: shadowcook-api:${SHADOWCOOK_IMAGE_TAG:-local}

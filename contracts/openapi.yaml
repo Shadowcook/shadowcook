@@ -11,7 +11,14 @@ paths:
         - name: cookbookName
           in: query
           required: true
-          schema: { type: string, minLength: 3, maxLength: 120 }
+          description: Leading and trailing whitespace is ignored. The trimmed name starts with an ASCII letter or digit and contains at least three ASCII letters or digits.
+          schema:
+            {
+              type: string,
+              minLength: 3,
+              maxLength: 120,
+              pattern: '^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9].*$',
+            }
       responses:
         '200':
           description: Cookbook URL preview.
@@ -86,6 +93,76 @@ paths:
           {
             description: Turnstile was requested but is not configured in the deployment environment.,
           }
+  /admin/cookbook-slug-blocked-terms:
+    get:
+      operationId: getCookbookSlugBlockedTerms
+      summary: Lists instance-administered terms that cannot occur in cookbook URL slugs.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Blocked cookbook URL terms.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [terms]
+                properties:
+                  terms:
+                    type: array
+                    items: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        '401': { description: Authentication is required. }
+        '403': { description: Instance administration permission is required. }
+    post:
+      operationId: createCookbookSlugBlockedTerm
+      summary: Adds an instance-administered blocked cookbook URL term.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [term]
+              properties:
+                term:
+                  {
+                    type: string,
+                    minLength: 1,
+                    maxLength: 64,
+                    pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
+                  }
+      responses:
+        '201':
+          description: Blocked term created.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [term]
+                properties:
+                  term: { type: string }
+        '400': { description: Blocked term is invalid or hardcoded-reserved. }
+        '401': { description: Authentication is required. }
+        '403': { description: Instance administration permission is required. }
+        '409': { description: Blocked term already exists. }
+  /admin/cookbook-slug-blocked-terms/{term}:
+    delete:
+      operationId: deleteCookbookSlugBlockedTerm
+      summary: Deletes an instance-administered blocked cookbook URL term.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: term
+          in: path
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+      responses:
+        '204': { description: Blocked term deleted. }
+        '401': { description: Authentication is required. }
+        '403': { description: Instance administration permission is required. }
+        '404': { description: Blocked term not found. }
   /registration:
     post:
       operationId: createPendingRegistration
@@ -106,7 +183,12 @@ paths:
                     format: password,
                     description: Must meet the configured minimum estimated entropy.,
                   }
-                tenantName: { type: [string, 'null'], minLength: 3, maxLength: 120 }
+                tenantName:
+                  type: [string, 'null']
+                  minLength: 3
+                  maxLength: 120
+                  pattern: '^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9].*$'
+                  description: Leading and trailing whitespace is ignored. A non-null trimmed name starts with an ASCII letter or digit and contains at least three ASCII letters or digits.
                 turnstileToken: { type: string }
                 website: { type: string, description: Honeypot field which must be empty. }
       responses:
@@ -203,7 +285,12 @@ paths:
               additionalProperties: false
               required: [cookbookName]
               properties:
-                cookbookName: { type: string, minLength: 3, maxLength: 120 }
+                cookbookName:
+                  type: string
+                  minLength: 3
+                  maxLength: 120
+                  pattern: '^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9].*$'
+                  description: Leading and trailing whitespace is ignored. The trimmed name starts with an ASCII letter or digit and contains at least three ASCII letters or digits.
       responses:
         '201':
           description: Cookbook created.
@@ -215,8 +302,9 @@ paths:
                 required: [tenantSlug]
                 properties:
                   tenantSlug: { type: string }
-        '400': { description: Cookbook details are invalid. }
+        '400': { description: Cookbook details are invalid or the derived URL slug is blocked. }
         '401': { description: Authentication is required. }
+        '409': { description: Cookbook ownership limit has been reached. }
   /auth/login:
     post:
       operationId: login
@@ -1440,6 +1528,136 @@ paths:
         '401': { description: AI context authentication is required. }
         '404':
           { description: Recipe outside the context scope has no current draft or is unavailable. }
+  /mcp:
+    post:
+      operationId: modelContextProtocol
+      summary: Serves authenticated Shadowcook Model Context Protocol tools.
+      description: Active OAuth access tokens and service-account bearer tokens are accepted. Tools can search recipes and create or modify drafts; none publish or delete recipes.
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [jsonrpc, method]
+              properties:
+                jsonrpc: { type: string, const: '2.0' }
+                id: {}
+                method: { type: string }
+                params: {}
+      responses:
+        '200': { description: JSON-RPC response. }
+        '202': { description: JSON-RPC notification accepted. }
+        '400': { description: The JSON-RPC request is invalid. }
+        '401': { description: OAuth or service-account authentication is required. }
+  /.well-known/oauth-protected-resource:
+    get:
+      operationId: getMcpProtectedResourceMetadata
+      summary: Returns OAuth protected-resource metadata for the MCP endpoint.
+      responses:
+        '200':
+          description: Protected-resource metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthProtectedResourceMetadata' }
+  /.well-known/oauth-protected-resource/api/mcp:
+    get:
+      operationId: getPathSpecificMcpProtectedResourceMetadata
+      summary: Returns OAuth protected-resource metadata for the public /api/mcp endpoint.
+      responses:
+        '200':
+          description: Protected-resource metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthProtectedResourceMetadata' }
+  /.well-known/oauth-authorization-server:
+    get:
+      operationId: getOAuthAuthorizationServerMetadata
+      summary: Returns OAuth authorization-server metadata.
+      responses:
+        '200':
+          description: Authorization-server metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthAuthorizationServerMetadata' }
+  /.well-known/oauth-authorization-server/api:
+    get:
+      operationId: getPathSpecificOAuthAuthorizationServerMetadata
+      summary: Returns OAuth authorization-server metadata for the public /api issuer.
+      responses:
+        '200':
+          description: Authorization-server metadata.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthAuthorizationServerMetadata' }
+  /oauth/register:
+    post:
+      operationId: registerOAuthClient
+      summary: Registers a public OAuth client for the Shadowcook MCP authorization server.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [redirect_uris, client_name]
+              properties:
+                redirect_uris:
+                  type: array
+                  minItems: 1
+                  items: { type: string, format: uri }
+                client_name: { type: string, minLength: 1, maxLength: 160 }
+      responses:
+        '201':
+          description: OAuth client registered.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthClientRegistrationResponse' }
+        '400': { description: OAuth client metadata is invalid. }
+  /oauth/authorize:
+    get:
+      operationId: authorizeMcpOAuthClient
+      summary: Authenticates a Shadowcook user and issues an OAuth authorization code.
+      parameters:
+        - { name: response_type, in: query, required: true, schema: { type: string, const: code } }
+        - { name: client_id, in: query, required: true, schema: { type: string } }
+        - { name: redirect_uri, in: query, required: true, schema: { type: string, format: uri } }
+        - { name: state, in: query, required: true, schema: { type: string } }
+        - { name: resource, in: query, required: true, schema: { type: string, format: uri } }
+        - {
+            name: scope,
+            in: query,
+            required: false,
+            schema: { type: string, const: shadowcook:recipes, default: shadowcook:recipes },
+          }
+        - { name: code_challenge, in: query, required: true, schema: { type: string } }
+        - {
+            name: code_challenge_method,
+            in: query,
+            required: true,
+            schema: { type: string, const: S256 },
+          }
+      responses:
+        '302': { description: Redirects to Shadowcook sign-in or the client's redirect URI. }
+        '400': { description: The authorization request or client is invalid. }
+  /oauth/token:
+    post:
+      operationId: exchangeMcpOAuthToken
+      summary: Exchanges an OAuth authorization code or refresh token for an MCP access token.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema: { $ref: '#/components/schemas/OAuthTokenRequest' }
+      responses:
+        '200':
+          description: OAuth token response.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OAuthTokenResponse' }
+        '400': { description: The OAuth grant is invalid or unsupported. }
   /admin/mail-settings:
     get:
       operationId: getInstanceMailSettings
@@ -2842,6 +3060,91 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    OAuthProtectedResourceMetadata:
+      type: object
+      additionalProperties: false
+      required: [resource, authorization_servers, scopes_supported]
+      properties:
+        resource: { type: string, format: uri }
+        authorization_servers:
+          type: array
+          items: { type: string, format: uri }
+        scopes_supported:
+          type: array
+          items: { type: string, const: shadowcook:recipes }
+    OAuthAuthorizationServerMetadata:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          issuer,
+          authorization_endpoint,
+          token_endpoint,
+          registration_endpoint,
+          client_id_metadata_document_supported,
+          response_types_supported,
+          grant_types_supported,
+          token_endpoint_auth_methods_supported,
+          code_challenge_methods_supported,
+          scopes_supported,
+        ]
+      properties:
+        issuer: { type: string, format: uri }
+        authorization_endpoint: { type: string, format: uri }
+        token_endpoint: { type: string, format: uri }
+        registration_endpoint: { type: string, format: uri }
+        client_id_metadata_document_supported: { type: boolean, const: true }
+        response_types_supported:
+          type: array
+          items: { type: string, const: code }
+        grant_types_supported:
+          type: array
+          items: { type: string, enum: [authorization_code, refresh_token] }
+        token_endpoint_auth_methods_supported:
+          type: array
+          items: { type: string, const: none }
+        code_challenge_methods_supported:
+          type: array
+          items: { type: string, const: S256 }
+        scopes_supported:
+          type: array
+          items: { type: string, const: shadowcook:recipes }
+    OAuthClientRegistrationResponse:
+      type: object
+      additionalProperties: false
+      required: [client_id, token_endpoint_auth_method]
+      properties:
+        client_id: { type: string }
+        token_endpoint_auth_method: { type: string, const: none }
+    OAuthTokenRequest:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required: [grant_type, code, redirect_uri, client_id, code_verifier]
+          properties:
+            grant_type: { type: string, const: authorization_code }
+            code: { type: string }
+            redirect_uri: { type: string, format: uri }
+            client_id: { type: string }
+            code_verifier: { type: string }
+            resource: { type: string, format: uri }
+        - type: object
+          additionalProperties: false
+          required: [grant_type, refresh_token, client_id]
+          properties:
+            grant_type: { type: string, const: refresh_token }
+            refresh_token: { type: string }
+            client_id: { type: string }
+    OAuthTokenResponse:
+      type: object
+      additionalProperties: false
+      required: [access_token, token_type, expires_in, refresh_token, scope]
+      properties:
+        access_token: { type: string }
+        token_type: { type: string, const: Bearer }
+        expires_in: { type: integer, minimum: 1 }
+        refresh_token: { type: string }
+        scope: { type: string, const: shadowcook:recipes }
     TenantListResponse:
       type: object
       additionalProperties: false
@@ -3716,4 +4019,4 @@ components:
     bearerAuth:
       type: http
       scheme: bearer
-      bearerFormat: opaque API token
+      bearerFormat: opaque service-account or OAuth access token

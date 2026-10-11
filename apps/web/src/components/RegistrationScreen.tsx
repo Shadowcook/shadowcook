@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { JSX, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
+import { isValidCookbookName } from '../lib/cookbook-name';
 import StatusMessage from './StatusMessage';
 import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
@@ -33,6 +34,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
   const [turnstileRequired, setTurnstileRequired] = useState<boolean>(false);
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [outcome, setOutcome] = useState<'FORM' | 'ACCEPTED' | 'FAILED'>('FORM');
+  const validCookbookName: boolean = isValidCookbookName(tenantName);
   const widgetContainer = useRef<HTMLDivElement | null>(null);
   const widgetId = useRef<string | null>(null);
 
@@ -87,7 +89,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
         jsonRequest({
           email,
           password,
-          tenantName: createCookbook ? tenantName : null,
+          tenantName: createCookbook ? tenantName.trim() : null,
           turnstileToken,
           website,
         }),
@@ -169,11 +171,10 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
               {text.registration.cookbookName}
               <input
                 type="text"
-                minLength={3}
-                maxLength={120}
                 value={tenantName}
                 required
                 onChange={(event): void => setTenantName(event.currentTarget.value)}
+                onBlur={(): void => setTenantName(tenantName.trim())}
               />
               <CookbookUrlPreview cookbookName={tenantName} text={text} />
             </label>
@@ -194,7 +195,11 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
           {turnstileRequired ? <div ref={widgetContainer} /> : null}
           <button
             type="submit"
-            disabled={submitting || (turnstileRequired && turnstileToken.length === 0)}
+            disabled={
+              submitting ||
+              (createCookbook && !validCookbookName) ||
+              (turnstileRequired && turnstileToken.length === 0)
+            }
           >
             {submitting ? text.registration.submitting : text.registration.submit}
           </button>

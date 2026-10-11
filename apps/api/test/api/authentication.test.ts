@@ -230,6 +230,71 @@ test('an authenticated account can create an owned cookbook without instance per
   assert.deepEqual(membership.rows, [{ role_name: 'Owner' }]);
 });
 
+test('lowering the owned-cookbook limit preserves existing cookbooks and blocks further creation', async (): Promise<void> => {
+  const administrator: TestUser = await createTestUser(database.pool, {
+    email: 'cookbook-limit-administrator@example.test',
+  });
+  const owner: TestUser = await createTestUser(database.pool, {
+    email: 'cookbook-limit-owner@example.test',
+  });
+  await database.pool.query(
+    `INSERT INTO principal_instance_role (principal_id, instance_role_id)
+     SELECT $1, id FROM instance_role WHERE code = 'administrator'`,
+    [administrator.principalId],
+  );
+  const administratorLogin = await login(administrator);
+  const ownerLogin = await login(owner);
+  const administratorCookie: string = sessionCookie(administratorLogin.headers['set-cookie']);
+  const ownerCookie: string = sessionCookie(ownerLogin.headers['set-cookie']);
+
+  const increaseLimit = await api.inject({
+    method: 'PUT',
+    url: '/admin/registration-settings',
+    headers: { cookie: administratorCookie },
+    payload: { enabled: true, turnstileEnabled: false, maxCookbooksPerOwner: 3 },
+  });
+  assert.equal(increaseLimit.statusCode, 204);
+
+  for (const cookbookName of ['First cookbook', 'Second cookbook', 'Third cookbook']) {
+    const create = await api.inject({
+      method: 'POST',
+      url: '/account/cookbooks',
+      headers: { cookie: ownerCookie },
+      payload: { cookbookName },
+    });
+    assert.equal(create.statusCode, 201);
+  }
+
+  const lowerLimit = await api.inject({
+    method: 'PUT',
+    url: '/admin/registration-settings',
+    headers: { cookie: administratorCookie },
+    payload: { enabled: true, turnstileEnabled: false, maxCookbooksPerOwner: 2 },
+  });
+  assert.equal(lowerLimit.statusCode, 204);
+
+  const ownedCookbooks = await api.inject({
+    method: 'GET',
+    url: '/account/cookbooks',
+    headers: { cookie: ownerCookie },
+  });
+  const anotherCookbook = await api.inject({
+    method: 'POST',
+    url: '/account/cookbooks',
+    headers: { cookie: ownerCookie },
+    payload: { cookbookName: 'Fourth cookbook' },
+  });
+
+  assert.equal(ownedCookbooks.statusCode, 200);
+  assert.equal(ownedCookbooks.json().cookbooks.length, 3);
+  assert.equal(ownedCookbooks.json().maxCookbooksPerOwner, 2);
+  assert.equal(anotherCookbook.statusCode, 409);
+  assert.deepEqual(anotherCookbook.json(), {
+    code: 'COOKBOOK_LIMIT_REACHED',
+    error: 'The cookbook limit has been reached.',
+  });
+});
+
 test('cookbook URL preview reports a normalized available and unavailable slug', async (): Promise<void> => {
   const available = await api.inject({
     method: 'GET',

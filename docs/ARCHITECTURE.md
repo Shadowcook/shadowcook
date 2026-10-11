@@ -287,10 +287,11 @@ shadowcook/
 - Public registration presents the mutually exclusive choices to create a cookbook now or later. The later choice stores no cookbook name and verification creates only the account.
 - Authenticated accounts create an owned cookbook through `POST /account/cookbooks` and the deep-linkable `/settings` account-settings page. The created cookbook has the initial Owner, Editor, and Viewer roles, and the creating account receives the Owner membership.
 - `GET /account/cookbook-slug-preview` returns the normalized cookbook URL slug and its current availability. Cookbook-name forms show the resulting read-only URL and a collision warning.
-- Cookbook names contain from 3 through 120 trimmed characters. A slug collision is resolved during cookbook creation with a random suffix.
+- The hardcoded cookbook-slug dictionary reserves `account`, `admin`, `api`, `assets`, `auth`, `health`, `imprint`, `login`, `logout`, `privacy`, `recipes`, `register`, `registration`, and `settings`.
+- Cookbook names are trimmed before storage, contain at most 120 trimmed characters, start with an ASCII letter or digit, and contain at least three ASCII letters or digits. A slug collision is resolved during cookbook creation with a random suffix.
 - A cookbook has at most one owner, stored as `tenant.owner_principal_id`. Owner accounts receive the Owner role; tenant user management permits only Editor and Viewer role assignments for other users.
-- Instance registration settings store an administrator-configured maximum of 1 through 100 owned cookbooks per account, defaulting to 1. Account settings list owned cookbooks and hide cookbook creation once the limit is reached.
-- Account settings display owned cookbooks in a table with their recipe and member counts and start-page visibility.
+- Instance registration settings store an administrator-configured maximum of 1 through 100 owned cookbooks per account, defaulting to 1. Reducing the maximum preserves existing owned cookbooks. Accounts at or above the maximum cannot create further cookbooks until their owned-cookbook count is below the maximum. Account settings display the owned-cookbook count against that maximum, provide a localized add-cookbook dialog below the limit, and hide cookbook creation once the limit is reached.
+- Account settings display owned cookbooks in a table with their recipe and member counts and start-page visibility. An empty table displays a localized no-cookbooks message.
 - `POST /registration/resend-verification` has a configurable email-address limit and returns a generic acknowledgement for every input.
 - Registration rate events are retained for 25 hours. Default registration limits are five requests per 15 minutes and twenty requests per 24 hours per IP. The default resend limit is three emails per address per hour.
 - SMTP transport supports STARTTLS and implicit TLS and can send a test message through the stored configuration.
@@ -314,6 +315,7 @@ shadowcook/
 - The Dockerfile has one build stage and separate API and web runtime targets. The runtime targets contain compiled application output and production dependencies.
 - `deployments/package/compose.yaml` starts API, web, and a persistent bundled PostgreSQL service. `deployments/package/compose.external-postgres.yaml` starts API and web only and requires `DATABASE_URL` for an existing PostgreSQL service.
 - `deployments/package/compose.yaml` derives the API database connection URL from the bundled PostgreSQL service credentials. `deployments/package/compose.external-postgres.yaml` passes the explicit `DATABASE_URL` deployment value to the API process.
+- Both Docker Compose deployment variants pass optional `TURNSTILE_SITE_KEY` and `TURNSTILE_SECRET` values from the deployment `.env` file to the API process.
 - `pnpm package:deployment` creates a versioned tarball containing the Dockerfile, Apache reverse-proxy example, and operator-facing deployment package files.
 - The API waits for the bundled PostgreSQL health check before startup. The web service waits for the API health check before startup.
 - Secrets required before the API can access PostgreSQL data remain outside the database. `INSTANCE_SECRET_KEY` is supplied as a base64-encoded 32-byte value or as the path named by `INSTANCE_SECRET_KEY_FILE`.
@@ -327,6 +329,8 @@ shadowcook/
 - Astro middleware redirects an unauthenticated request for a protected administration or tenant-management route to `/login?next=<requested-path>` before the page is served. After successful login, the web client returns to the validated internal `next` path.
 - The instance administration UI has its own navigation and does not use cookbook breadcrumbs.
 - `/admin` is the administration dashboard, `/admin/tenants` is tenant management, `/admin/users` is instance and tenant user management, `/admin/settings` is the instance settings overview, `/admin/settings/smtp` manages SMTP delivery, and `/admin/settings/legal-documents` manages public legal-document Markdown.
+- `/admin/settings/cookbook-slug-blocked-terms` manages instance-specific blocked terms for cookbook URL slugs.
+- Cookbook URL slugs are rejected when they exactly match the hardcoded reserved-slug dictionary or contain an instance-administered blocked term. The checks apply to cookbook URL previews, public-registration cookbook creation, account cookbook creation, and instance-administrator slug changes. Category slugs do not use this policy.
 - `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
 - A unit is convertible only when `dimension`, `base_factor`, and `base_offset` are all set. A non-convertible unit has all three fields set to `NULL`.
 - Tenant unit creation stores a derived base factor from one explicit equivalence to a visible, non-temperature convertible unit. The derived value is the conversion source of truth.
@@ -1136,6 +1140,18 @@ created_at
 - Creating a token returns its plaintext value once. Token listing returns metadata only.
 - Disabling a service account disables its principal and revokes all of its active API tokens.
 - Service-account credentials use the same tenant-scoped authorization checks and recipe draft endpoints as browser sessions.
+- `POST /mcp` is a remote Model Context Protocol endpoint for active service-account bearer tokens and OAuth access tokens.
+- The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
+- MCP tools do not publish or delete recipes.
+- MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.
+- MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, dynamic client registration, and the `shadowcook:recipes` scope.
+- OAuth authorization requests that omit `scope` receive `shadowcook:recipes` as their default scope.
+- `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp` publish the MCP resource metadata. `/.well-known/oauth-authorization-server/api` publishes authorization-server metadata for the `/api` issuer.
+- OAuth authorization responses return the authorization code and state to the registered callback URI without an `iss` parameter.
+- OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.
+- OAuth authorization codes, access tokens, and refresh tokens are stored only as SHA-256 hashes. Their plaintext values and PKCE verifiers are not written to application logs.
+- OAuth access tokens represent authenticated human principals and are constrained by their existing tenant memberships and permissions.
+- `PUBLIC_API_ORIGIN` is the canonical public HTTPS API origin used in MCP OAuth discovery and token audience binding. It defaults to `${PUBLIC_WEB_ORIGIN}/api`.
 - AI context grants are separate from service-account tokens and contain a tenant, creator, recipe or category-subtree scope, a one-time bootstrap token hash, an access-token hash, UTC lifecycle timestamps, and revocation state.
 - A user with `recipe:visibility-update` creates an AI context grant for one recipe, one category and its descendants, or the complete tenant cookbook. The grant duration is 4, 8, or 24 hours.
 - The one-time bootstrap URL expires after 30 minutes. Its GET response is `no-store`, has `Referrer-Policy: no-referrer`, and returns a read-only bearer token and a reader endpoint manifest.
@@ -1223,7 +1239,7 @@ What has been approved as the current cookbook state?
 
 Publishing remains a deliberate lifecycle action. An AI connection may be granted `recipe:publish`, but the recommended default for conversational assistants is draft-editing access without publish permission so the tenant owner can review the resulting diff before publication.
 
-The integration model is AI-provider-neutral. ChatGPT, Claude, a local model, or another agent may use the published Reader API or a scoped AI context reader manifest. Shadowcook does not require recipe-development conversations to be processed by a specific AI provider.
+The integration model is AI-provider-neutral. ChatGPT, Claude, a local model, or another agent may use the remote MCP endpoint, the published Reader API, or a scoped AI context reader manifest. Shadowcook does not require recipe-development conversations to be processed by a specific AI provider.
 
 ### 15.6 Optimistic locking
 
@@ -1280,6 +1296,7 @@ OpenAPI is the stable machine-readable API contract for:
 - clients,
 - generated DTOs,
 - AI tooling,
+- MCP adapters,
 - scoped AI context reader manifests.
 
 ---

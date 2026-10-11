@@ -107,8 +107,11 @@ export const de: Translation = {
     subtitle:
       'Lege ein Kochbuch an, wenn du bereit bist, Rezepte zu veröffentlichen oder zu organisieren.',
     cookbookName: 'Name des Kochbuchs',
+    addCookbook: 'Kochbuch hinzufügen',
     createCookbook: 'Kochbuch anlegen',
+    createCookbookTitle: 'Kochbuch anlegen',
     creatingCookbook: 'Kochbuch wird angelegt …',
+    cancelCreateCookbook: 'Abbrechen',
     cookbookCreated: 'Dein Kochbuch wurde angelegt.',
     signInRequired: 'Melde dich an, um deine Kontoeinstellungen zu verwalten.',
     ownedCookbooks: 'Meine Kochbücher',
@@ -116,11 +119,14 @@ export const de: Translation = {
     cookbookRecipes: 'Rezepte',
     cookbookUsers: 'Benutzer',
     cookbookStartPage: 'Auf Startseite',
+    cookbookCount: '{count} / {maximum} Kochbücher',
+    noOwnedCookbooks: 'Du hast noch kein Kochbuch angelegt.',
     yes: 'Ja',
     no: 'Nein',
   },
   cookbookUrlPreview: {
     label: 'Kochbuch-URL',
+    invalidName: 'Bitte gib mindestens 3 Zeichen ein.',
     collision:
       'Diese URL wird bereits verwendet. Wähle einen anderen Kochbuchnamen, um einen Suffix zu vermeiden.',
   },
@@ -284,6 +290,17 @@ export const de: Translation = {
     saveLegalDocuments: 'Rechtliche Dokumente speichern',
     authentication: 'Authentifizierung',
     registration: 'Registrierung',
+    cookbookSlugBlockedTerms: 'Gesperrte Kochbuch-URL-Begriffe',
+    cookbookSlugBlockedTermsTitle: 'Gesperrte Kochbuch-URL-Begriffe',
+    cookbookSlugBlockedTermsDescription:
+      'Sperre Kochbuch-URLs, die einen dieser Begriffe in Kleinbuchstaben enthalten.',
+    cookbookSlugBlockedTerm: 'Gesperrter Begriff',
+    addCookbookSlugBlockedTerm: 'Gesperrten Begriff hinzufügen',
+    removeCookbookSlugBlockedTerm: 'Entfernen',
+    cookbookSlugBlockedTermAdded: 'Gesperrter Begriff hinzugefügt.',
+    cookbookSlugBlockedTermRemoved: 'Gesperrter Begriff entfernt.',
+    cookbookSlugBlockedTermInvalid:
+      'Verwende Kleinbuchstaben, Ziffern und Bindestriche für einen neuen, nicht reservierten Begriff.',
     registrationTitle: 'Öffentliche Registrierung',
     registrationDescription:
       'Erlaube Besuchern, nach der E-Mail-Bestätigung ein Shadowcook-Konto und optional ein Kochbuch anzulegen.',
@@ -325,8 +342,7 @@ export const de: Translation = {
       'Dadurch werden das Kochbuch und alle zugehörigen Daten dauerhaft gelöscht.',
     tenantRenamed: 'Kochbuch umbenannt.',
     tenantSlugConflict: 'Dieser Tenant-Slug wird bereits verwendet.',
-    tenantSlugInvalid:
-      'Der Tenant-Slug darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten.',
+    tenantSlugInvalid: 'Der Tenant-Slug ist nicht verfügbar.',
     tenantDeleted: 'Kochbuch gelöscht.',
     save: 'Speichern',
     cancel: 'Abbrechen',

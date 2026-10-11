@@ -9,6 +9,7 @@ import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
 import { sendTemplatedInstanceMail } from '../mail/service.js';
 import { isSmtpConfigured } from './mail-routes.js';
 import { requireInstancePermission, requireTenantPermission } from './authorization.js';
+import { cookbookSlugIsBlocked, normalizeCookbookSlug } from '../cookbook/slug-policy.js';
 
 interface CreateTenantBody {
   firstName: string;
@@ -45,17 +46,6 @@ interface AuthenticationSettingsRow {
   login_mode: 'PASSWORD_ONLY' | 'EMAIL_CODE_ONLY' | 'PASSWORD_OR_EMAIL_CODE';
 }
 const invitationLifetime: number = 7 * 24 * 60 * 60 * 1000;
-const reservedSlugs: ReadonlySet<string> = new Set([
-  'admin',
-  'api',
-  'assets',
-  'auth',
-  'health',
-  'login',
-  'logout',
-  'recipes',
-  'settings',
-]);
 export function registerTenantRoutes(
   api: FastifyInstance,
   pool: Pool,
@@ -82,13 +72,11 @@ export function registerTenantRoutes(
         ? body.displayName.trim()
         : undefined;
     const suppliedSlug: string | null | undefined =
-      typeof body.slug === 'string' ? validateSlug(body.slug) : undefined;
-    if (suppliedSlug === null)
-      return reply.code(400).send({
-        code: 'INVALID_TENANT_SLUG',
-        error: 'The tenant slug must contain only lowercase letters, digits, and hyphens.',
-      });
+      typeof body.slug === 'string' ? normalizeCookbookSlug(body.slug) : undefined;
+    if (suppliedSlug === null) return invalidTenantSlug(reply);
     const slug: string | undefined = suppliedSlug;
+    if (slug !== undefined && (await cookbookSlugIsBlocked(pool, slug)))
+      return invalidTenantSlug(reply);
     if (displayName !== undefined || slug !== undefined) {
       try {
         const result = await pool.query(
@@ -503,12 +491,8 @@ export function registerTenantRoutes(
       return reply
         .code(400)
         .send({ code: 'INVALID_TENANT', error: 'The tenant details are invalid.' });
-    const slug = validateSlug(body.slug);
-    if (slug === null)
-      return reply.code(400).send({
-        code: 'INVALID_TENANT_SLUG',
-        error: 'The tenant slug must contain only lowercase letters, digits, and hyphens.',
-      });
+    const slug = normalizeCookbookSlug(body.slug);
+    if (slug === null || (await cookbookSlugIsBlocked(pool, slug))) return invalidTenantSlug(reply);
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
@@ -941,9 +925,11 @@ function userUpdateResult(reply: FastifyReply, rowCount: number | null): Fastify
     ? reply.code(204).send()
     : reply.code(404).send({ code: 'USER_NOT_FOUND', error: 'The user was not found.' });
 }
-function validateSlug(value: string): string | null {
-  const slug: string = value.trim();
-  return /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) && !reservedSlugs.has(slug) ? slug : null;
+function invalidTenantSlug(reply: FastifyReply): FastifyReply {
+  return reply.code(400).send({
+    code: 'INVALID_TENANT_SLUG',
+    error: 'The tenant slug is unavailable.',
+  });
 }
 function hashToken(token: string): Buffer {
   return createHash('sha256').update(token).digest();

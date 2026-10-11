@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
 import { request } from '../lib/api/client';
+import { isValidCookbookName } from '../lib/cookbook-name';
 
 interface SlugPreview {
   slug: string;
@@ -16,10 +17,11 @@ interface Properties {
 export default function CookbookUrlPreview({ cookbookName, text }: Properties): JSX.Element | null {
   const [preview, setPreview] = useState<SlugPreview | null>(null);
   const normalizedName: string = cookbookName.trim();
+  const validCookbookName: boolean = isValidCookbookName(cookbookName);
   const slug: string = cookbookSlugBase(normalizedName);
 
   useEffect((): (() => void) => {
-    if (normalizedName.length < 3) {
+    if (!validCookbookName) {
       setPreview(null);
       return (): void => undefined;
     }
@@ -39,15 +41,18 @@ export default function CookbookUrlPreview({ cookbookName, text }: Properties): 
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, [cookbookName]);
+  }, [normalizedName, validCookbookName]);
 
-  const url: string = `${window.location.origin}/${encodeURIComponent(slug || '…')}`;
   const collision: boolean =
-    normalizedName.length > 0 && preview?.slug === slug && !preview.available;
+    validCookbookName && preview?.slug === slug && !preview.available;
   return (
     <output className="cookbook-url-preview" aria-live="polite">
       <span>{text.cookbookUrlPreview.label}</span>
-      <code>{url}</code>
+      {validCookbookName ? (
+        <code>{`${window.location.origin}/${encodeURIComponent(slug)}`}</code>
+      ) : (
+        <small>{text.cookbookUrlPreview.invalidName}</small>
+      )}
       {collision ? <small>{text.cookbookUrlPreview.collision}</small> : null}
     </output>
   );
