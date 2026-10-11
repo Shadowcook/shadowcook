@@ -3,6 +3,8 @@ name: shadowcook
 x-shadowcook-source-build: &shadowcook-source-build
   context: '${SHADOWCOOK_SOURCE_REPOSITORY_URL:-https://github.com/Shadowcook/shadowcook.git}#${SHADOWCOOK_SOURCE_REF:?Set SHADOWCOOK_SOURCE_REF in .env}'
   dockerfile: deployments/docker/Dockerfile
+  labels:
+    net.shadowcook.project: ${COMPOSE_PROJECT_NAME}
   args:
     SHADOWCOOK_BUILD_COMMIT: ${SHADOWCOOK_BUILD_COMMIT:?Set SHADOWCOOK_BUILD_COMMIT in .env}
     PUBLIC_WEB_ORIGIN: ${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}
@@ -21,20 +23,21 @@ x-api-environment: &api-environment
 
 x-api-image: &api-image
   image: shadowcook-api:${SHADOWCOOK_IMAGE_TAG:-local}
-  pull_policy: build
+  pull_policy: never
   build:
     <<: *shadowcook-source-build
     target: api-runtime
 
 x-web-image: &web-image
   image: shadowcook-web:${SHADOWCOOK_IMAGE_TAG:-local}
-  pull_policy: build
+  pull_policy: never
   build:
     <<: *shadowcook-source-build
     target: web-runtime
 
 services:
   postgres:
+    container_name: ${COMPOSE_PROJECT_NAME}-postgres
     image: postgres:17.6-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:?Set POSTGRES_DB in .env}
@@ -55,6 +58,7 @@ services:
 
   api:
     <<: *api-image
+    container_name: ${COMPOSE_PROJECT_NAME}-api
     environment: *api-environment
     secrets:
       - instance_secret_key
@@ -78,6 +82,7 @@ services:
 
   web:
     <<: *web-image
+    container_name: ${COMPOSE_PROJECT_NAME}-web
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

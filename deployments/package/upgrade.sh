@@ -56,11 +56,48 @@ if [ -z "${public_web_origin}" ]; then
   exit 65
 fi
 
-image_tag=$(read_environment_value SHADOWCOOK_IMAGE_TAG)
+cd "${deployment_directory}"
+compose_configuration=$(docker compose config)
+project_name=$(docker compose config --environment | awk -F= '$1 == "COMPOSE_PROJECT_NAME" { print $2 }')
 
-if [ -z "${image_tag}" ]; then
-  image_tag=local
+read_service_image() {
+  service_name=$1
+
+  printf '%s\n' "${compose_configuration}" | awk -v service="${service_name}" '
+    /^  [^ ]/ {
+      selected = ($0 == "  " service ":")
+    }
+    selected && /^    image: / {
+      print $2
+    }
+  '
+}
+
+api_image=$(read_service_image api)
+web_image=$(read_service_image web)
+
+if [ -z "${project_name}" ] || [ -z "${api_image}" ] || [ -z "${web_image}" ]; then
+  printf '%s\n' 'Cannot resolve the Compose project name and application images.' >&2
+  exit 65
 fi
+
+verify_image_ownership() {
+  image_name=$1
+  image_project=$(docker image inspect \
+    --format '{{ index .Config.Labels "net.shadowcook.project" }}' \
+    "${image_name}" 2>/dev/null || true)
+
+  case "${image_project}" in
+    '' | '<no value>' | "${project_name}") return ;;
+  esac
+
+  printf '%s\n' "${image_name} belongs to Compose project ${image_project}, not ${project_name}." >&2
+  printf '%s\n' 'Set a separate SHADOWCOOK_IMAGE_TAG for this instance before upgrading.' >&2
+  exit 65
+}
+
+verify_image_ownership "${api_image}"
+verify_image_ownership "${web_image}"
 
 temporary_directory=$(mktemp -d)
 environment_backup="${temporary_directory}/.env"
@@ -128,17 +165,28 @@ verify_shadowcook_image_label() {
     printf '%s\n' 'The requested Git ref must contain the current deployments/docker/Dockerfile.' >&2
     exit 65
   fi
+
+  image_project=$(docker image inspect \
+    --format '{{ index .Config.Labels "net.shadowcook.project" }}' \
+    "${image_name}" 2>/dev/null || true)
+
+  if [ "${image_project}" != "${project_name}" ]; then
+    printf '%s\n' "${image_name} is missing the required net.shadowcook.project=${project_name} label." >&2
+    printf '%s\n' 'Use the Compose configurations shipped in this deployment package.' >&2
+    exit 65
+  fi
 }
 
-cd "${deployment_directory}"
 docker compose build \
   --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}" \
   --build-arg "PUBLIC_WEB_ORIGIN=${public_web_origin}"
-verify_shadowcook_image_label "shadowcook-api:${image_tag}"
-verify_shadowcook_image_label "shadowcook-web:${image_tag}"
+verify_shadowcook_image_label "${api_image}"
+verify_shadowcook_image_label "${web_image}"
 docker compose up --no-build -d
 
 upgrade_completed=true
-docker image prune --all --force --filter 'label=net.shadowcook.deployment=true'
+docker image prune --all --force \
+  --filter 'label=net.shadowcook.deployment=true' \
+  --filter "label=net.shadowcook.project=${project_name}"
 
 printf '%s\n' "Upgraded Shadowcook to ${build_commit}"

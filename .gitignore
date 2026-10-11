@@ -35,6 +35,8 @@ out/
 
 # Logs and runtime data
 logs/
+backups/
+restore-logs/
 *.log
 npm-debug.log*
 yarn-debug.log*

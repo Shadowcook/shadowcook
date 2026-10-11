@@ -307,11 +307,19 @@ shadowcook/
 - A deployed Shadowcook instance runs as containers. The API process is configured through container environment variables and Docker Secrets.
 - A repository-root `.env` file is only a local-development convenience and is not required by a container deployment.
 - The operator-facing Docker Compose package is in `deployments/package`. Its `.env` selects the Git repository URL and stores the full build commit used as the Docker build context and displayed in the web footer.
+- `COMPOSE_PROJECT_NAME` in the deployment `.env` selects the instance's Compose project. The default project name remains `shadowcook`. Container, network, and bundled PostgreSQL volume names are scoped to that project.
+- Both Compose variants explicitly name the API and web containers `${COMPOSE_PROJECT_NAME}-api` and `${COMPOSE_PROJECT_NAME}-web`. Bundled PostgreSQL uses `${COMPOSE_PROJECT_NAME}-postgres`. Container names have no numeric suffix; each service runs as one container per project. Network and volume naming remains scoped to the Compose project.
+- Each instance has a separate deployment directory, `.env`, instance secret, and non-overlapping host listener addresses and ports. External PostgreSQL instances use separate databases.
+- Application image names are `shadowcook-api:<tag>` and `shadowcook-web:<tag>`. `SHADOWCOOK_IMAGE_TAG` selects the tag; its Compose fallback remains `local`. The deployment `.env.example` sets the tag to `${COMPOSE_PROJECT_NAME}`. Separate instances use separate application image tags.
 - `deployments/package/upgrade.sh` accepts a branch, tag, or commit hash, fetches and resolves it to a full commit hash, stores that hash in `SHADOWCOOK_SOURCE_REF` and `SHADOWCOOK_BUILD_COMMIT`, and passes it together with `PUBLIC_WEB_ORIGIN` explicitly to the Docker Compose build before recreating the containers without a second build.
 - The build-stage, API runtime, and web runtime images carry the Docker image label `net.shadowcook.deployment=true`.
-- `deployments/package/upgrade.sh` verifies the label on the built API and web runtime images before container recreation.
-- `deployments/package/upgrade.sh` runs `docker image prune --all --force --filter label=net.shadowcook.deployment=true` after a successful container recreation.
-- Docker Compose builds the database package, API, and Astro web application from the selected Git ref before creating the API and web runtime containers. `SHADOWCOOK_BUILD_COMMIT` and `PUBLIC_WEB_ORIGIN` are passed as Docker build arguments; the commit is compiled into the web footer and the public origin configures Astro's allowed forwarded domain.
+- Both Compose variants apply the image build label `net.shadowcook.project=<resolved-project-name>` to API and web runtime images.
+- `deployments/package/upgrade.sh` resolves project and application image names through Compose, rejects existing image tags labelled for a different project before building, and verifies deployment and project labels on both built runtime images before container recreation.
+- `deployments/package/upgrade.sh` runs `docker image prune --all --force` filtered by both `net.shadowcook.deployment=true` and `net.shadowcook.project=<resolved-project-name>` after a successful container recreation. Other projects' images and legacy images without the project label are retained.
+- Both Docker Compose deployment variants use `pull_policy: never` for the API and web images. Normal `docker compose up -d` reuses existing local application images; missing application images are built from the selected Git ref.
+- `docker compose up -d` reads the deployment `.env` and recreates containers with changed runtime configuration. `docker compose start` and `docker compose restart` retain the existing container environment.
+- Commit changes are built explicitly through `deployments/package/upgrade.sh <git-ref>` or `docker compose build`. Changing the configured Git ref or build commit alone does not rebuild an existing image during normal startup.
+- Application image builds compile the database package, API, and Astro web application. `SHADOWCOOK_BUILD_COMMIT` and `PUBLIC_WEB_ORIGIN` are passed as Docker build arguments; the commit is compiled into the web footer and the public origin configures Astro's allowed forwarded domain. Changes to `PUBLIC_WEB_ORIGIN` require an image build.
 - The Dockerfile has one build stage and separate API and web runtime targets. The runtime targets contain compiled application output and production dependencies.
 - `deployments/package/compose.yaml` starts API, web, and a persistent bundled PostgreSQL service. `deployments/package/compose.external-postgres.yaml` starts API and web only and requires `DATABASE_URL` for an existing PostgreSQL service.
 - `deployments/package/compose.yaml` derives the API database connection URL from the bundled PostgreSQL service credentials. `deployments/package/compose.external-postgres.yaml` passes the explicit `DATABASE_URL` deployment value to the API process.
@@ -321,7 +329,22 @@ shadowcook/
 - Secrets required before the API can access PostgreSQL data remain outside the database. `INSTANCE_SECRET_KEY` is supplied as a base64-encoded 32-byte value or as the path named by `INSTANCE_SECRET_KEY_FILE`.
 - Docker deployments provide `INSTANCE_SECRET_KEY_FILE=/run/secrets/instance_secret_key` and mount the secret at that path.
 - Database connection configuration and operational encryption keys are deployment configuration. SMTP server details, SMTP credentials, sender identity, and other settings an instance administrator can change at runtime are stored in the database and managed through the administration UI.
-- Stored operational secrets are encrypted with the instance encryption key and are excluded from backups.
+- Stored operational secrets are encrypted with the instance encryption key and are excluded from portable tenant backups.
+
+### 4.5.1 Operational database backups
+
+- `scripts/backup-database.sh` and `pnpm backup:db` create full PostgreSQL custom-format database dumps. The deployment tarball includes `backup-database.sh`.
+- The script reads literal single-line connection values from the selected `.env`, with `DATABASE_URL` taking precedence over bundled PostgreSQL settings.
+- Bundled Compose deployments execute `pg_dump` and `pg_restore` inside the running `postgres` service using the selected `.env` and its `COMPOSE_FILE`, defaulting to `compose.yaml`. Dumps stream to the host and archive validation reads through standard input. Backup execution does not start or recreate containers and does not require host PostgreSQL client tools.
+- External databases and standalone bundled credentials without a Compose file use host PostgreSQL client tools. Standalone bundled credentials use the published host port.
+- Each run creates a private `backups/YYYYmmddTHHMMSSZ` directory using UTC beside the selected `.env`, or under an explicit output directory. Existing timestamp directories are not overwritten.
+- Successful backups contain `database.dump`, `SHA256SUMS`, `contents.list`, and diagnostic logs. Archive validation uses `pg_restore --list`. Failed dumps retain the `.partial` suffix.
+- Operational database dumps contain database schema, data, and stored encrypted secrets. Instance encryption keys, filesystem media, and PostgreSQL cluster roles are stored separately. Portable tenant archives follow section 27.
+- `scripts/restore-database.sh` and `pnpm restore:db` validate a selected completed `database.dump` against its `SHA256SUMS` and archive contents. Database writes require `--execute`.
+- Restore uses `pg_restore --clean --if-exists --single-transaction --exit-on-error --no-owner --no-acl` against the database configured by the selected `.env`. Objects represented in the archive are replaced; additional objects outside the archive are retained. Restore failures abort the restore transaction.
+- `--create-database` creates a missing database using `POSTGRES_*` credentials before the restore transaction. Database creation is separate from the restore transaction; a failed restore can leave the newly created database empty.
+- API and web services are stopped by the operator before restore and started by the operator after success. Restore does not start or stop containers. Restore diagnostics use private UTC timestamp directories under `restore-logs` beside the selected `.env`.
+- Backup and restore share dotenv parsing and database-tool execution in `scripts/database-tools.sh`; the deployment package includes all three shell files.
 
 ### 4.6 Instance administration
 

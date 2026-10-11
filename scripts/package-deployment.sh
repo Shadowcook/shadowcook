@@ -24,7 +24,12 @@ cp "${repository_root}/deployments/package/compose.yaml" "${temporary_directory}
 cp "${repository_root}/deployments/package/compose.external-postgres.yaml" "${temporary_directory}/${package_name}/compose.external-postgres.yaml"
 cp "${repository_root}/deployments/package/README.md" "${temporary_directory}/${package_name}/README.md"
 cp "${repository_root}/deployments/package/upgrade.sh" "${temporary_directory}/${package_name}/upgrade.sh"
+cp "${repository_root}/scripts/backup-database.sh" "${temporary_directory}/${package_name}/backup-database.sh"
+cp "${repository_root}/scripts/restore-database.sh" "${temporary_directory}/${package_name}/restore-database.sh"
+cp "${repository_root}/scripts/database-tools.sh" "${temporary_directory}/${package_name}/database-tools.sh"
 chmod 755 "${temporary_directory}/${package_name}/upgrade.sh"
+chmod 755 "${temporary_directory}/${package_name}/backup-database.sh"
+chmod 755 "${temporary_directory}/${package_name}/restore-database.sh"
 
 archive_path="${output_directory}/${package_name}.tar.gz"
 tar -C "${temporary_directory}" -czf "${archive_path}" "${package_name}"

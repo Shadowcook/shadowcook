@@ -25,7 +25,9 @@
     "ingest:ingredient-cleanup-csv": "npm --prefix apps/migration run ingest-ingredient-cleanup-csv --",
     "reset:dev-db": "npm --prefix apps/api run reset:dev-db",
     "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
-    "package:deployment": "sh scripts/package-deployment.sh"
+    "package:deployment": "sh scripts/package-deployment.sh",
+    "backup:db": "bash scripts/backup-database.sh",
+    "restore:db": "bash scripts/restore-database.sh"
   },
   "devDependencies": {
     "prettier": "^3.9.8",
