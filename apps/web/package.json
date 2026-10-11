@@ -7,6 +7,7 @@
     "build": "astro build",
     "check": "astro check",
     "test:unit": "node --test test/unit/*.test.ts",
+    "test:proxy": "npm run build && node --test test/integration/*.test.ts",
     "test:e2e": "node --input-type=module -e \"console.error('Browser end-to-end tests have not been implemented yet.'); process.exit(1);\"",
     "dev": "astro dev --host 0.0.0.0 --port 4321",
     "start": "node ./dist/server/entry.mjs"

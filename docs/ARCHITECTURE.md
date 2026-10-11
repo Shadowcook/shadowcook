@@ -199,6 +199,7 @@ shadowcook/
 - API tests construct Fastify with `createApi` and execute requests through Fastify injection without binding an HTTP port.
 - Unit tests use the Node.js test runner through `tsx` and cover deterministic API functions without PostgreSQL or HTTP transport.
 - Web proxy unit tests use the Node.js test runner with native TypeScript support and mocked upstream responses. `pnpm test:unit` runs both API and web unit tests.
+- `pnpm --filter @shadowcook/web test:proxy` builds the web runtime and runs HTTP proxy integration tests with an isolated web listener and mock API listener on randomly assigned loopback ports.
 - Priority-0 API integration tests cover login validation, HttpOnly session creation, logout revocation, disabled and expired sessions, password-change-required access restrictions, and the separation of tenant roles from instance permissions.
 - Priority-0 API integration tests verify category tenant isolation for tenant-slug and category-public-ID routes, including cross-tenant list, create, and update attempts.
 - `pnpm test:e2e` is reserved for the browser test suite and currently reports that browser end-to-end tests have not been implemented.
@@ -1167,6 +1168,7 @@ created_at
 - Service-account credentials use the same tenant-scoped authorization checks and recipe draft endpoints as browser sessions.
 - `POST /mcp` is a remote Model Context Protocol endpoint for active service-account bearer tokens and OAuth access tokens.
 - The public web proxy forwards `/mcp` directly to the API's `/mcp` endpoint. `/api/mcp` remains the canonical public resource URL with the default `PUBLIC_API_ORIGIN`. The `mcp` cookbook slug is reserved.
+- Astro's built-in Origin check is disabled. The web middleware checks request origins before API forwarding, session validation, and page rendering. Cross-origin or Origin-less unsafe requests with a form content type or no content type receive HTTP 403 with an empty body. `POST /api/oauth/token` with `application/x-www-form-urlencoded` is exempt from this check. Safe HTTP methods, same-origin requests, and non-form content types retain Astro's previous Origin-check behavior.
 - The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
 - MCP tools do not publish or delete recipes.
 - MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.

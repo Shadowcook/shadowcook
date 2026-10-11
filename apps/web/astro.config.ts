@@ -43,6 +43,7 @@ export default defineConfig({
   publicDir: './src/assets',
   integrations: [react()],
   security: {
+    checkOrigin: false,
     allowedDomains: allowedPublicDomain(process.env.PUBLIC_WEB_ORIGIN),
   },
   vite: {

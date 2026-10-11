@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from 'astro';
+import { isAllowedRequestOrigin } from './lib/server/request-origin.ts';
 
 const apiPrefix: string = '/api';
 const defaultApiOrigin: string = 'http://localhost:3000';
@@ -6,6 +7,9 @@ const protectedResourceMetadataPath: string = '/.well-known/oauth-protected-reso
 const authorizationServerMetadataPath: string = '/.well-known/oauth-authorization-server';
 
 export const onRequest: MiddlewareHandler = async (context, next): Promise<Response> => {
+  if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url))
+    return new Response(null, { status: 403 });
+
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
   if (requiresAuthentication(context.url.pathname)) {
     let sessionIsValid: boolean = false;

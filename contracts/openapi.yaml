@@ -1659,6 +1659,7 @@ paths:
     post:
       operationId: exchangeMcpOAuthToken
       summary: Exchanges an OAuth authorization code or refresh token for an MCP access token.
+      description: The public /api/oauth/token proxy accepts application/x-www-form-urlencoded POSTs from external OAuth clients, including requests with a different Origin or no Origin header. Token exchange validates the authorization code, client ID, exact callback URI, and S256 PKCE verifier; refresh exchange validates and rotates the refresh token.
       requestBody:
         required: true
         content:
