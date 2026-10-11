@@ -1172,6 +1172,8 @@ created_at
 - MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.
 - MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, dynamic client registration, and the `shadowcook:recipes` scope.
 - OAuth authorization requests that omit `scope` receive `shadowcook:recipes` as their default scope.
+- OAuth redirect URIs use HTTPS or HTTP with the literal loopback address `127.0.0.1` or `[::1]`. Redirect URIs cannot contain credentials or fragments. Registration, authorization, and Client ID Metadata Documents use the same redirect URI validation. Authorization requires a registered redirect URI, and token exchange matches the authorization code's exact redirect URI.
+- Dynamic client registration returns `client_id`, `client_name`, `redirect_uris`, and `token_endpoint_auth_method: none`. Additional client metadata fields are accepted and are not persisted.
 - `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp`, and `/.well-known/oauth-protected-resource/api/mcp` publish the MCP resource metadata. `/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/api` publish authorization-server metadata.
 - OAuth authorization responses return the authorization code and state to the registered callback URI without an `iss` parameter.
 - OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.

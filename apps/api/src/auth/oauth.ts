@@ -4,6 +4,7 @@ import { isIP } from 'node:net';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentSessionUser } from './session.js';
+import { isAllowedOAuthRedirectUri } from './oauth-redirect-uri.js';
 
 const scope: string = 'shadowcook:recipes';
 const authorizationCodeLifetimeMilliseconds: number = 5 * 60 * 1000;
@@ -80,7 +81,12 @@ export function registerOAuthRoutes(
           [inserted.rows[0]!.id, redirectUri],
         );
       await client.query('COMMIT');
-      return reply.code(201).send({ client_id: clientId, token_endpoint_auth_method: 'none' });
+      return reply.code(201).send({
+        client_id: clientId,
+        client_name: input.clientName,
+        redirect_uris: input.redirectUris,
+        token_endpoint_auth_method: 'none',
+      });
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       throw error;
@@ -323,7 +329,7 @@ function parseAuthorizationRequest(
     resource !== `${publicApiOrigin}/mcp` ||
     requestedScope.split(' ').some((value: string): boolean => value !== scope) ||
     codeChallengeMethod !== 'S256' ||
-    !isHttpsUrl(redirectUri)
+    !isAllowedOAuthRedirectUri(redirectUri)
   )
     return null;
   return {
@@ -370,7 +376,7 @@ async function clientMetadataRedirectUris(clientId: string): Promise<string[] | 
       !Array.isArray(redirectUris) ||
       redirectUris.length === 0 ||
       !redirectUris.every((uri: unknown): uri is string =>
-        typeof uri === 'string' ? isHttpsUrl(uri) : false,
+        typeof uri === 'string' ? isAllowedOAuthRedirectUri(uri) : false,
       )
     )
       return null;
@@ -432,7 +438,9 @@ function parseRegistration(value: unknown): { redirectUris: string[]; clientName
   if (
     !Array.isArray(redirectUris) ||
     redirectUris.length === 0 ||
-    !redirectUris.every((uri: unknown): boolean => typeof uri === 'string' && isHttpsUrl(uri)) ||
+    !redirectUris.every(
+      (uri: unknown): boolean => typeof uri === 'string' && isAllowedOAuthRedirectUri(uri),
+    ) ||
     typeof clientName !== 'string' ||
     clientName.trim().length === 0 ||
     clientName.trim().length > 160
@@ -447,13 +455,6 @@ function loginUrl(publicWebOrigin: string, requestUrl: string): string {
   return target.toString();
 }
 
-function isHttpsUrl(value: string): boolean {
-  try {
-    return new URL(value).protocol === 'https:';
-  } catch (_error: unknown) {
-    return false;
-  }
-}
 async function isPublicHttpsUrl(value: string): Promise<boolean> {
   let url: URL;
   try {

@@ -1605,18 +1605,20 @@ paths:
     post:
       operationId: registerOAuthClient
       summary: Registers a public OAuth client for the Shadowcook MCP authorization server.
+      description: Redirect URIs use HTTPS or HTTP with the literal loopback address 127.0.0.1 or [::1], without credentials or fragments. Additional client metadata fields are accepted but not persisted. All registered clients use token_endpoint_auth_method none.
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              additionalProperties: false
+              additionalProperties: true
               required: [redirect_uris, client_name]
               properties:
                 redirect_uris:
                   type: array
                   minItems: 1
+                  description: Callback URIs accepted during authorization. Each URI uses HTTPS or HTTP on literal IPv4 or IPv6 loopback and contains no credentials or fragment.
                   items: { type: string, format: uri }
                 client_name: { type: string, minLength: 1, maxLength: 160 }
       responses:
@@ -1630,6 +1632,7 @@ paths:
     get:
       operationId: authorizeMcpOAuthClient
       summary: Authenticates a Shadowcook user and issues an OAuth authorization code.
+      description: The redirect_uri must exactly match a registered callback URI and use HTTPS or HTTP on literal IPv4 or IPv6 loopback, without credentials or fragments.
       parameters:
         - { name: response_type, in: query, required: true, schema: { type: string, const: code } }
         - { name: client_id, in: query, required: true, schema: { type: string } }
@@ -3122,9 +3125,14 @@ components:
     OAuthClientRegistrationResponse:
       type: object
       additionalProperties: false
-      required: [client_id, token_endpoint_auth_method]
+      required: [client_id, client_name, redirect_uris, token_endpoint_auth_method]
       properties:
         client_id: { type: string }
+        client_name: { type: string }
+        redirect_uris:
+          type: array
+          minItems: 1
+          items: { type: string, format: uri }
         token_endpoint_auth_method: { type: string, const: none }
     OAuthTokenRequest:
       oneOf:
