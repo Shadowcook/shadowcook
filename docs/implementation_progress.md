@@ -26,6 +26,8 @@
 
 ### Cookbook, public web, and localization
 
+- Shared application dialogs provide localized information, error, and confirmation variants with Font Awesome pictograms, modal focus containment, Escape cancellation, focus restoration, and busy-state handling. Request errors, recipe-draft discards, ingredient merges, administrator deletion and password-reset confirmations, and service-account token information use the shared component. A source guard prevents native browser dialogs (architecture section 3.4, Application dialogs).
+
 - The Astro application provides server-rendered, deep-linkable tenant selection, category, recipe, variant, sign-in, and administration routes, with same-origin API forwarding.
 - Cookbook overview and recipe-detail APIs provide tenant-scoped published content, category trees, ordered steps, ingredient usages, reader capabilities, and variant resolution.
 - New and imported recipes are featured by default.
@@ -48,6 +50,9 @@
 - Server-rendered recipe pages render the resolved `CookbookScreen`; JavaScript-capable browsers hydrate the same component and non-JavaScript clients retain its semantic HTML recipe page.
 
 ### Recipe authoring, revisions, and variants
+
+- Recipe editors provide a sticky top action bar with separated save and publish actions, compact secondary controls, and coordinated busy states during step saving.
+- Recipe drafts can be discarded from the editor and draft list after localized confirmation. The tenant-scoped transactional API requires `recipe:update`, retains published history and recipe metadata, and removes never-published recipes completely.
 
 - Recipe-step editors append steps and insert new steps immediately after any existing step.
 - Recipe-step instruction line breaks and other authored whitespace are retained when drafts are saved and rendered in recipe details.

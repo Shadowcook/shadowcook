@@ -2254,6 +2254,23 @@ paths:
         '404': { description: The recipe does not exist. }
         '409': { description: The recipe URL name is already in use. }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft:
+    delete:
+      operationId: discardRecipeDraft
+      summary: Discards the active recipe draft.
+      description: Requires recipe:update in the selected tenant. Deletes the draft and dependent content in one transaction. Published and archived revisions and immediate recipe metadata are retained. A recipe that has never been published is deleted completely. A recipe without an active draft is not modified.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - { $ref: '#/components/parameters/TenantSlug' }
+        - { $ref: '#/components/parameters/RecipePublicId' }
+      responses:
+        '204': { description: Draft discarded. No response body. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: The tenant is unavailable, or the recipe or active draft was not found. Error code is TENANT_NOT_FOUND or RECIPE_DRAFT_NOT_FOUND.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
     get:
       operationId: getRecipeDraft
       summary: Returns the current editable revision or published revision.

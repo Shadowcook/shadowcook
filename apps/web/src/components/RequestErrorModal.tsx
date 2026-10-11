@@ -1,20 +1,22 @@
 import type { JSX } from 'react';
+import type { Translation } from '../i18n';
+import MessageDialog from './MessageDialog';
 
 export default function RequestErrorModal(properties: {
+  text: Translation['dialog'];
   title: string;
   message: string;
   dismiss: string;
   onClose: () => void;
 }): JSX.Element {
   return (
-    <div className="modal-backdrop modal-backdrop--error">
-      <section className="modal" role="alertdialog" aria-labelledby="request-error-title">
-        <h2 id="request-error-title">{properties.title}</h2>
-        <p>{properties.message}</p>
-        <button type="button" onClick={properties.onClose} autoFocus>
-          {properties.dismiss}
-        </button>
-      </section>
-    </div>
+    <MessageDialog
+      kind="error"
+      text={properties.text}
+      title={properties.title}
+      message={properties.message}
+      dismissLabel={properties.dismiss}
+      onClose={properties.onClose}
+    />
   );
 }

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
+import type { Translation } from '../../../i18n';
+import MessageDialog from '../../../components/MessageDialog';
 
 export interface ConsolidatableIngredient {
   publicId: string;
@@ -39,6 +41,7 @@ export default function IngredientConsolidationModal(properties: {
   ingredients: ConsolidatableIngredient[];
   aliases: ConsolidatableIngredientAlias[];
   text: IngredientConsolidationText;
+  dialogText: Translation['dialog'];
   ingredientName: (publicId: string) => string;
   onSubmit: (action: IngredientManagementAction, targetPublicId: string | null) => Promise<void>;
   onSeparateAlias: (aliasPublicId: string) => Promise<void>;
@@ -51,6 +54,7 @@ export default function IngredientConsolidationModal(properties: {
   const [action, setAction] = useState<IngredientManagementAction>('merge');
   const [targetPublicId, setTargetPublicId] = useState<string>(targets[0]?.publicId ?? '');
   const [confirmingMerge, setConfirmingMerge] = useState<boolean>(false);
+  const [isMerging, setIsMerging] = useState<boolean>(false);
   const requiresTarget: boolean = action !== 'convert-to-note';
 
   async function submit(event: SubmitEvent<HTMLFormElement>): Promise<void> {
@@ -63,40 +67,40 @@ export default function IngredientConsolidationModal(properties: {
     await properties.onSubmit(action, requiresTarget ? targetPublicId : null);
   }
 
-  async function confirmMerge(event: SubmitEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (targetPublicId.length === 0) return;
-    await properties.onSubmit('merge', targetPublicId);
+  async function confirmMerge(): Promise<void> {
+    if (targetPublicId.length === 0 || isMerging) return;
+    setIsMerging(true);
+    try {
+      await properties.onSubmit('merge', targetPublicId);
+    } finally {
+      setIsMerging(false);
+    }
   }
 
   if (confirmingMerge) {
     return (
-      <div className="modal-backdrop">
-        <section className="modal" aria-labelledby="ingredient-merge-confirmation-title">
-          <h2 id="ingredient-merge-confirmation-title">{properties.text.mergeConfirmationTitle}</h2>
-          <p>{properties.text.mergeIrreversible}</p>
-          <dl className="ingredient-consolidation__merge-summary">
-            <div>
-              <dt>{properties.text.sourceIngredient}</dt>
-              <dd>{properties.ingredientName(properties.source.publicId)}</dd>
-            </div>
-            <div>
-              <dt>{properties.text.targetIngredient}</dt>
-              <dd>{properties.ingredientName(targetPublicId)}</dd>
-            </div>
-          </dl>
-          <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void confirmMerge(event)}>
-            <button type="submit">{properties.text.confirmMerge}</button>
-            <button
-              type="button"
-              className="button--secondary"
-              onClick={(): void => setConfirmingMerge(false)}
-            >
-              {properties.text.back}
-            </button>
-          </form>
-        </section>
-      </div>
+      <MessageDialog
+        kind="confirmation"
+        text={properties.dialogText}
+        title={properties.text.mergeConfirmationTitle}
+        message={properties.text.mergeIrreversible}
+        confirmLabel={properties.text.confirmMerge}
+        cancelLabel={properties.text.back}
+        busy={isMerging}
+        onClose={(): void => setConfirmingMerge(false)}
+        onConfirm={(): void => void confirmMerge()}
+      >
+        <dl className="ingredient-consolidation__merge-summary">
+          <div>
+            <dt>{properties.text.sourceIngredient}</dt>
+            <dd>{properties.ingredientName(properties.source.publicId)}</dd>
+          </div>
+          <div>
+            <dt>{properties.text.targetIngredient}</dt>
+            <dd>{properties.ingredientName(targetPublicId)}</dd>
+          </div>
+        </dl>
+      </MessageDialog>
     );
   }
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
+import MessageDialog from '../../../components/MessageDialog';
 
 interface TenantRole {
   id: string;
@@ -208,49 +209,44 @@ export default function ServiceAccountManagement({
           </tbody>
         </table>
       </div>
-      {tokenAccount === null ? null : (
+      {tokenAccount === null ? null : createdToken !== null ? (
+        <MessageDialog
+          kind="information"
+          text={text.dialog}
+          title={text.serviceAccounts.createToken}
+          message={`${text.serviceAccounts.tokenCreated} ${text.serviceAccounts.tokenWarning}`}
+          onClose={(): void => {
+            setTokenAccount(null);
+            setCreatedToken(null);
+          }}
+        >
+          <textarea readOnly value={createdToken} aria-label={text.serviceAccounts.createToken} />
+        </MessageDialog>
+      ) : (
         <div className="modal-backdrop">
           <section className="modal" aria-labelledby="service-account-token-title">
             <h2 id="service-account-token-title">{text.serviceAccounts.createToken}</h2>
-            {createdToken === null ? (
-              <form
-                onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void createToken(event)}
-              >
-                <label>
-                  {text.serviceAccounts.tokenName}
-                  <input
-                    autoFocus
-                    required
-                    value={tokenName}
-                    onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                      setTokenName(event.currentTarget.value)
-                    }
-                  />
-                </label>
-                <button type="submit">{text.serviceAccounts.createToken}</button>
-                <button
-                  type="button"
-                  className="button--secondary"
-                  onClick={(): void => setTokenAccount(null)}
-                >
-                  {text.admin.cancel}
-                </button>
-              </form>
-            ) : (
-              <>
-                <p>
-                  {text.serviceAccounts.tokenCreated} {text.serviceAccounts.tokenWarning}
-                </p>
-                <textarea
-                  readOnly
-                  value={createdToken}
-                  aria-label={text.serviceAccounts.createToken}
+            <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void createToken(event)}>
+              <label>
+                {text.serviceAccounts.tokenName}
+                <input
+                  autoFocus
+                  required
+                  value={tokenName}
+                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                    setTokenName(event.currentTarget.value)
+                  }
                 />
-                <button type="button" onClick={(): void => setTokenAccount(null)}>
-                  {text.admin.cancel}
-                </button>
-              </>
-            )}
+              </label>
+              <button type="submit">{text.serviceAccounts.createToken}</button>
+              <button
+                type="button"
+                className="button--secondary"
+                onClick={(): void => setTokenAccount(null)}
+              >
+                {text.admin.cancel}
+              </button>
+            </form>
           </section>
         </div>
       )}

@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantPermission } from '../admin/authorization.js';
+import { registerRecipeDraftDiscardRoutes } from './recipe-draft-discard-routes.js';
 
 interface RecipeDraftInput {
   title: string;
@@ -148,6 +149,8 @@ function parseManagedRecipeFilter(value: unknown): string {
 }
 
 export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): void {
+  registerRecipeDraftDiscardRoutes(api, pool);
+
   api.get('/cookbook/tenants/:tenantSlug/editor-catalogue', async (request, reply) => {
     const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
     const tenantId: string | null = await requireTenantPermission(

@@ -598,6 +598,7 @@ export default function CookbookScreen({
               <DraftRecipeList
                 locale={locale}
                 tenantSlug={tenantSlug}
+                onChanged={loadCookbook}
                 onEdit={openRecipeEditor}
                 onCreate={(): void => openRecipeEditor(null)}
               />
@@ -616,6 +617,10 @@ export default function CookbookScreen({
                 categories={cookbook.categories}
                 onChanged={loadCookbook}
                 onCreated={(publicId: string): void => openRecipeEditor(publicId)}
+                onDiscarded={(): void => {
+                  window.history.pushState(null, '', `/${tenantSlug}/drafts`);
+                  setEditorPath('drafts');
+                }}
               />
             ) : (
               <>

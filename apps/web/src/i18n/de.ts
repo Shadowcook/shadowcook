@@ -26,6 +26,14 @@ export const de: Translation = {
     unavailable: 'Dieses Dokument wurde noch nicht veröffentlicht.',
   },
   loading: 'Wird geladen …',
+  dialog: {
+    informationTitle: 'Information',
+    errorTitle: 'Fehler',
+    confirmationTitle: 'Aktion bestätigen',
+    acknowledge: 'OK',
+    cancel: 'Abbrechen',
+    confirm: 'Bestätigen',
+  },
   accessDenied: {
     title: 'Zugriff verweigert',
     description: 'Dein Konto hat keine Berechtigung für diese Seite.',
@@ -430,6 +438,13 @@ export const de: Translation = {
     unlisted: 'Nicht gelistet',
     inheritDiscoverability: 'Kochbuch-Standard verwenden',
     saveDraft: 'Entwurf speichern',
+    discardDraft: 'Entwurf verwerfen',
+    discardingDraft: 'Entwurf wird verworfen …',
+    discardChangesConfirmation:
+      'Alle unveröffentlichten Änderungen an „{title}“ verwerfen? Das veröffentlichte Rezept und sein Revisionsverlauf bleiben erhalten. Gespeicherte Rezepteinstellungen bleiben erhalten. Dies kann nicht rückgängig gemacht werden.',
+    discardNewRecipeConfirmation:
+      'Den Entwurf „{title}“ verwerfen? Dieses Rezept wurde noch nie veröffentlicht und wird vollständig gelöscht. Dies kann nicht rückgängig gemacht werden.',
+    draftDiscarded: 'Entwurf verworfen.',
     saveMetadata: 'Einstellungen speichern',
     saving: 'Wird gespeichert …',
     publish: 'Veröffentlichen',

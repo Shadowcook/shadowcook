@@ -129,6 +129,15 @@ No separate "agent API" should be implemented unless there is a compelling trans
 - `PUBLIC_DEFAULT_LOCALE` selects the Astro web build locale. Supported initial locales are `en` and `de`.
 - Recipe text remains authored content and is not translated by the UI locale system.
 
+#### Application dialogs
+
+- `apps/web/src/components/Dialog.tsx` provides the shared modal shell. It renders a styled HTML `dialog` through a portal into the document body and uses `showModal()` for modal focus containment and background interaction blocking.
+- `MessageDialog.tsx` provides `information`, `error`, and `confirmation` variants with Font Awesome pictograms, locale-resolved default titles and buttons, and optional additional content and action labels.
+- Dialogs have unique accessible title and description identifiers. Information uses the `dialog` role; errors and confirmations use `alertdialog`.
+- Escape dismisses a dialog or cancels a confirmation. Confirmations initially focus the cancel action. Busy dialogs disable their actions and Escape dismissal. Backdrop clicks do not dismiss dialogs. Closing restores focus to the previously focused element when it remains in the document.
+- Application code does not call browser-native `alert()`, `confirm()`, or `prompt()`. A web unit test checks application sources for native-dialog references.
+- Request-error popups, recipe-draft discard confirmations, ingredient-merge confirmations, administrator deletion and password-reset confirmations, and newly created service-account token information use `MessageDialog`.
+
 ### 3.4 Persistence
 
 - PostgreSQL 15 or later
@@ -256,6 +265,7 @@ shadowcook/
 - A future draft view will list recipes with an active draft revision separately from published cookbook navigation.
 - `GET /cookbook/recipes/{publicId}` returns one accessible published recipe with ordered preparation steps and the ingredient usages assigned to each step.
 - The recipe-step editor can append a step and insert a step directly after every existing step.
+- Recipe-editor save, publish, discard, and share actions appear above the active editor content in a sticky action bar below the site header. A resize observer updates the bar's offset when the header height changes. The bar gains a border and shadow when its original position scrolls above that offset. Draft saving submits its associated form; the step editor renders its save action into the bar through a React portal. Step saving blocks publication and draft discard until the request completes.
 - Recipe-step instructions support `{recipe:<recipe-public-UUID>}` references. Recipe details resolve accessible referenced recipes to root cookbook URLs. The recipe editor inserts this syntax through an `@` recipe search that returns at most one hundred current-tenant recipes.
 - The web client separates cookbook orchestration, cookbook dashboard rendering, category tree rendering, public tenant selection, tenant management, sign-in, password change, status messages, and browser API requests into dedicated components or modules.
 - `apps/web/src/features/cookbook` contains cookbook orchestration, cookbook UI components, routing, and cookbook model types. `apps/web/src/features/admin` contains instance-administration orchestration and UI components. `apps/web/src/lib` contains shared browser-session and API-request infrastructure.
@@ -871,6 +881,10 @@ Variant visibility controls whether a non-default variant is offered to recipe r
 ### 13.1 Draft vs published state
 
 Each recipe has at most one mutable draft.
+
+Principals with `recipe:update` can discard the active draft through `DELETE /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft`. The operation locks the recipe and deletes the draft and its dependent content in one transaction. Published and archived revisions and immediate recipe metadata are retained. A recipe without a published revision is deleted together with its draft. The endpoint returns `204` without a response body, or `404` when the recipe or active draft is absent.
+
+The recipe editor and draft list provide a localized discard action with confirmation. After discarding changes to a published recipe, the editor reloads the published content. After discarding a never-published recipe, the editor navigates to the tenant draft list.
 
 Published revisions are immutable.
 

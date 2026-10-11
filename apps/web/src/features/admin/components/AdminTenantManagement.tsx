@@ -4,6 +4,7 @@ import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import AdminTenantCreate from './AdminTenantCreate';
 import AdminIcon from '../../../components/AdminIcon';
+import MessageDialog from '../../../components/MessageDialog';
 import type { CookbookTenant } from '../../cookbook/model/types';
 
 interface AdminTenantManagementProperties {
@@ -224,21 +225,19 @@ export default function AdminTenantManagement({
         </div>
       )}
       {deleteTenant === null ? null : (
-        <div className="modal-backdrop">
-          <section className="modal" aria-labelledby="delete-tenant-title">
-            <h2 id="delete-tenant-title">{text.admin.deleteTenant}</h2>
-            <p>{text.admin.deleteTenantDescription}</p>
-            <p>
-              <strong>{deleteTenant.display_name}</strong>
-            </p>
-            <button type="button" onClick={(): void => void remove()}>
-              {text.dashboard.confirmDelete}
-            </button>
-            <button type="button" className="button--secondary" onClick={closeDelete}>
-              {text.admin.cancel}
-            </button>
-          </section>
-        </div>
+        <MessageDialog
+          kind="confirmation"
+          text={text.dialog}
+          title={text.admin.deleteTenant}
+          message={text.admin.deleteTenantDescription}
+          confirmLabel={text.dashboard.confirmDelete}
+          onConfirm={(): void => void remove()}
+          onClose={closeDelete}
+        >
+          <p>
+            <strong>{deleteTenant.display_name}</strong>
+          </p>
+        </MessageDialog>
       )}
     </section>
   );

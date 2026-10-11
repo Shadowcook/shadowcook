@@ -337,7 +337,9 @@ select {
 .account-settings-panel__cookbook-count {
   margin: 0.5rem 0 0;
   color: #75675d;
-  font: 0.82rem/1.5 Arial, sans-serif;
+  font:
+    0.82rem/1.5 Arial,
+    sans-serif;
 }
 .account-settings-panel__add-cookbook,
 .modal__actions {
@@ -914,9 +916,6 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
   padding: 1.5rem;
   background: #18202799;
 }
-.modal-backdrop--error {
-  z-index: 30;
-}
 .modal {
   width: min(100%, 680px);
   max-height: calc(100vh - 3rem);
@@ -924,6 +923,56 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
   padding: 2rem;
   border-radius: 0.5rem;
   background: #fffaf0;
+}
+body:has(.application-dialog[open]) {
+  overflow: hidden;
+}
+.application-dialog {
+  width: min(32rem, calc(100% - 2rem));
+  max-height: calc(100dvh - 2rem);
+  box-sizing: border-box;
+  margin: auto;
+  overflow: auto;
+  padding: 1.5rem;
+  border: 1px solid #d9cfc1;
+  border-radius: 0.5rem;
+  background: #fffaf0;
+  color: #182027;
+  box-shadow: 0 1rem 3rem #18202740;
+}
+.application-dialog::backdrop {
+  background: #18202799;
+}
+.application-dialog__heading {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.application-dialog__heading h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.application-dialog__icon {
+  flex-shrink: 0;
+  font-size: 1.5rem;
+  color: #314d42;
+}
+.application-dialog--error .application-dialog__icon {
+  color: #a7472e;
+}
+.application-dialog--confirmation .application-dialog__icon {
+  color: #946119;
+}
+.application-dialog__message {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.application-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
 }
 @media (max-width: 520px) {
   .account-settings-panel__cookbook-heading {

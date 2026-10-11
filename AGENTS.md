@@ -22,6 +22,7 @@
 - Radio buttons must always be displayed to the left of their caption.
 - Use the `@fortawesome/fontawesome-svg-core`, `@fortawesome/free-solid-svg-icons`, and `@fortawesome/react-fontawesome` packages for Font Awesome pictograms in the web application. Do not copy Font Awesome SVG files into application assets.
 - `/assets/fontawesome` is a local reference library for finding icon candidates. If no matching icon exists, create a custom SVG.
+- Alert/Confirmation popups must never be browser-native `alert()`. Always use Project native dialog box
 
 ## Personal developer preferences
 

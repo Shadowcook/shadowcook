@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX, MouseEvent } from 'react';
+import { createPortal } from 'react-dom';
 import type { Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
 import AdminIcon from '../../../components/AdminIcon';
@@ -58,6 +59,9 @@ interface RecipeStepsEditorProperties {
   recipePublicId: string;
   text: Translation;
   onDraftChanged: () => Promise<void>;
+  actionsContainer: HTMLDivElement | null;
+  isBusy: boolean;
+  onBusyChanged: (isBusy: boolean) => void;
 }
 const emptyUsage: Usage = {
   ingredientPublicId: '',
@@ -225,7 +229,9 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     }
   }
   async function save(): Promise<void> {
+    if (isLoading || isSaving || properties.isBusy) return;
     setIsSaving(true);
+    properties.onBusyChanged(true);
     setMessage('');
     try {
       await request<void>(`${base}/steps`, {
@@ -241,29 +247,26 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
       setMessage(properties.text.errors.requestFailed);
     } finally {
       setIsSaving(false);
+      properties.onBusyChanged(false);
     }
   }
   function savedSteps(): SavedStep[] {
     return steps
       .filter((step: Step): boolean => step.instruction.trim().length > 0)
-      .map(
-        (step: Step): SavedStep => ({
-          id: step.id,
-          instruction: step.instruction,
-          ingredients: step.ingredients.map(
-            (usage: Usage): SavedUsage => ({
-              ingredientPublicId: usage.ingredientPublicId,
-              ingredientAliasPublicId: usage.ingredientAliasPublicId,
-              textOverride: usage.textOverride,
-              specialKind: usage.specialKind,
-              amount: usage.amount,
-              unitPublicId: usage.unitPublicId,
-              note: usage.note,
-              isOptional: usage.isOptional,
-            }),
-          ),
-        }),
-      );
+      .map((step: Step): SavedStep => ({
+        id: step.id,
+        instruction: step.instruction,
+        ingredients: step.ingredients.map((usage: Usage): SavedUsage => ({
+          ingredientPublicId: usage.ingredientPublicId,
+          ingredientAliasPublicId: usage.ingredientAliasPublicId,
+          textOverride: usage.textOverride,
+          specialKind: usage.specialKind,
+          amount: usage.amount,
+          unitPublicId: usage.unitPublicId,
+          note: usage.note,
+          isOptional: usage.isOptional,
+        })),
+      }));
   }
   if (isLoading) return <p className="empty-state">{properties.text.loading}</p>;
   return (
@@ -530,9 +533,21 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
           {message}
         </p>
       ) : null}
-      <button type="button" disabled={isSaving} onClick={(): void => void save()}>
-        {isSaving ? properties.text.recipeEditor.saving : properties.text.recipeEditor.saveSteps}
-      </button>
+      {properties.actionsContainer === null
+        ? null
+        : createPortal(
+            <button
+              type="button"
+              className="recipe-editor__save-button button--secondary"
+              disabled={isSaving || properties.isBusy}
+              onClick={(): void => void save()}
+            >
+              {isSaving
+                ? properties.text.recipeEditor.saving
+                : properties.text.recipeEditor.saveSteps}
+            </button>,
+            properties.actionsContainer,
+          )}
     </section>
   );
 }

@@ -93,6 +93,7 @@ export default function RecipeShareDialog(properties: RecipeShareDialogPropertie
           ) : null}
           <button
             type="button"
+            className="recipe-share-dialog__create-button"
             disabled={properties.isSaving || (hasExpiry && expiryDate.length === 0)}
             onClick={(): void => void createLink()}
           >

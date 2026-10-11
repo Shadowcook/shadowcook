@@ -3,6 +3,7 @@ import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
+import MessageDialog from '../../../components/MessageDialog';
 
 interface UserTenant {
   publicId: string;
@@ -121,8 +122,7 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
     setMessage(response.ok ? text.admin.userStatusUpdated : text.errors.requestFailed);
     if (response.ok) refresh();
   }
-  async function resetPassword(event: SubmitEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
+  async function resetPassword(): Promise<void> {
     if (resettingPasswordFor === null) return;
     const response: Response = await fetch(
       `/api/admin/users/${resettingPasswordFor.public_id}/reset-password`,
@@ -371,41 +371,30 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
         </div>
       )}
       {resettingPasswordFor === null ? null : (
-        <div className="modal-backdrop">
-          <section className="modal" aria-labelledby="reset-user-password-title">
-            <h2 id="reset-user-password-title">{text.admin.resetUserPassword}</h2>
-            <p>{text.admin.resetUserPasswordDescription}</p>
-            <form
-              onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void resetPassword(event)}
-            >
-              <button type="submit">{text.admin.resetUserPassword}</button>
-              <button type="button" className="button--secondary" onClick={closePasswordReset}>
-                {text.admin.cancel}
-              </button>
-            </form>
-          </section>
-        </div>
+        <MessageDialog
+          kind="confirmation"
+          text={text.dialog}
+          title={text.admin.resetUserPassword}
+          message={text.admin.resetUserPasswordDescription}
+          confirmLabel={text.admin.resetUserPassword}
+          onConfirm={(): void => void resetPassword()}
+          onClose={closePasswordReset}
+        />
       )}
       {deletingUser === null ? null : (
-        <div className="modal-backdrop">
-          <section className="modal" aria-labelledby="delete-user-title">
-            <h2 id="delete-user-title">{text.admin.deleteUser}</h2>
-            <p>{text.admin.deleteUserDescription}</p>
-            <p>
-              <strong>{deletingUser.display_name}</strong>
-            </p>
-            <button type="button" onClick={(): void => void remove()}>
-              {text.dashboard.confirmDelete}
-            </button>
-            <button
-              type="button"
-              className="button--secondary"
-              onClick={(): void => setDeletingUser(null)}
-            >
-              {text.admin.cancel}
-            </button>
-          </section>
-        </div>
+        <MessageDialog
+          kind="confirmation"
+          text={text.dialog}
+          title={text.admin.deleteUser}
+          message={text.admin.deleteUserDescription}
+          confirmLabel={text.dashboard.confirmDelete}
+          onConfirm={(): void => void remove()}
+          onClose={(): void => setDeletingUser(null)}
+        >
+          <p>
+            <strong>{deletingUser.display_name}</strong>
+          </p>
+        </MessageDialog>
       )}
     </section>
   );

@@ -26,6 +26,14 @@ export interface Translation {
     unavailable: string;
   };
   loading: string;
+  dialog: {
+    informationTitle: string;
+    errorTitle: string;
+    confirmationTitle: string;
+    acknowledge: string;
+    cancel: string;
+    confirm: string;
+  };
   accessDenied: {
     title: string;
     description: string;
@@ -374,6 +382,11 @@ export interface Translation {
     unlisted: string;
     inheritDiscoverability: string;
     saveDraft: string;
+    discardDraft: string;
+    discardingDraft: string;
+    discardChangesConfirmation: string;
+    discardNewRecipeConfirmation: string;
+    draftDiscarded: string;
     saveMetadata: string;
     saving: string;
     publish: string;

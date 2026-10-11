@@ -26,6 +26,14 @@ export const en: Translation = {
     unavailable: 'This document has not been published yet.',
   },
   loading: 'Loading …',
+  dialog: {
+    informationTitle: 'Information',
+    errorTitle: 'Error',
+    confirmationTitle: 'Confirm action',
+    acknowledge: 'OK',
+    cancel: 'Cancel',
+    confirm: 'Confirm',
+  },
   accessDenied: {
     title: 'Access denied',
     description: 'Your account does not have permission to access this page.',
@@ -418,6 +426,13 @@ export const en: Translation = {
     unlisted: 'Unlisted',
     inheritDiscoverability: 'Use cookbook default',
     saveDraft: 'Save draft',
+    discardDraft: 'Discard draft',
+    discardingDraft: 'Discarding draft …',
+    discardChangesConfirmation:
+      'Discard all unpublished changes to “{title}”? The published recipe and its revision history will be kept. Saved recipe settings will be kept. This cannot be undone.',
+    discardNewRecipeConfirmation:
+      'Discard the draft “{title}”? This recipe has never been published and will be deleted completely. This cannot be undone.',
+    draftDiscarded: 'Draft discarded.',
     saveMetadata: 'Save settings',
     saving: 'Saving …',
     publish: 'Publish',

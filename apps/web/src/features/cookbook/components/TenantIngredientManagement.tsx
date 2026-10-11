@@ -217,6 +217,7 @@ export default function TenantIngredientManagement({
       ) : null}
       {errorMessage.length > 0 ? (
         <RequestErrorModal
+          text={text.dialog}
           title={text.errors.title}
           message={errorMessage}
           dismiss={text.errors.dismiss}
@@ -354,6 +355,7 @@ export default function TenantIngredientManagement({
       )}
       {consolidation === null ? null : (
         <IngredientConsolidationModal
+          dialogText={text.dialog}
           source={consolidation.source}
           ingredients={ingredients}
           aliases={consolidation.source.aliases}

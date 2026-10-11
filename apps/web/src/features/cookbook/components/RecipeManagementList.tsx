@@ -57,7 +57,11 @@ export default function RecipeManagementList(
     <section className="recipe-editor">
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <h1>{text.dashboard.recipes}</h1>
-      <button type="button" onClick={properties.onCreate}>
+      <button
+        type="button"
+        className="recipe-management__create-button"
+        onClick={properties.onCreate}
+      >
         {text.recipeEditor.create}
       </button>
       <label className="recipe-filter">

@@ -5,12 +5,14 @@ import type { Locale, Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
 import AdminIcon from '../../../components/AdminIcon';
 import type { EditableRecipe } from '../model/types';
+import RecipeDraftDiscardButton from './RecipeDraftDiscardButton';
 
 interface DraftRecipeListProperties {
   locale: Locale;
   tenantSlug: string;
   onEdit: (publicId: string) => void;
   onCreate: () => void;
+  onChanged: () => Promise<unknown>;
 }
 export default function DraftRecipeList(properties: DraftRecipeListProperties): JSX.Element {
   const text: Translation = translations[properties.locale];
@@ -28,7 +30,11 @@ export default function DraftRecipeList(properties: DraftRecipeListProperties): 
       <p className="eyebrow">{text.recipeEditor.drafts}</p>
       <h1>{text.recipeEditor.draftsTitle}</h1>
       <p className="lede">{text.recipeEditor.draftsDescription}</p>
-      <button type="button" onClick={properties.onCreate}>
+      <button
+        type="button"
+        className="recipe-management__create-button"
+        onClick={properties.onCreate}
+      >
         {text.recipeEditor.create}
       </button>
       {isLoading ? (
@@ -47,6 +53,19 @@ export default function DraftRecipeList(properties: DraftRecipeListProperties): 
                     : text.recipeEditor.create}
                 </span>
               </div>
+              <RecipeDraftDiscardButton
+                text={text}
+                tenantSlug={properties.tenantSlug}
+                recipe={recipe}
+                onDiscarded={async (): Promise<void> => {
+                  setRecipes((current: EditableRecipe[]): EditableRecipe[] =>
+                    current.filter(
+                      (item: EditableRecipe): boolean => item.publicId !== recipe.publicId,
+                    ),
+                  );
+                  await properties.onChanged();
+                }}
+              />
               <button
                 type="button"
                 className="button--secondary"

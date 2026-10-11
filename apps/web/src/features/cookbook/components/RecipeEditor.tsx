@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
@@ -11,6 +11,8 @@ import RecipeVariantsEditor from './RecipeVariantsEditor';
 import RecipeShareDialog from './RecipeShareDialog';
 import type { RecipeShareLink } from './RecipeShareDialog';
 import RecipeRevisionHistory from './RecipeRevisionHistory';
+import RecipeDraftDiscardButton from './RecipeDraftDiscardButton';
+import RecipeEditorActionBar from './RecipeEditorActionBar';
 
 interface RecipeEditorProperties {
   locale: Locale;
@@ -19,6 +21,7 @@ interface RecipeEditorProperties {
   categories: Category[];
   onChanged: () => Promise<unknown>;
   onCreated: (publicId: string) => void;
+  onDiscarded: () => void;
 }
 
 interface RecipeForm {
@@ -60,6 +63,10 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [message, setMessage] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(properties.recipePublicId !== null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [isSavingSteps, setIsSavingSteps] = useState<boolean>(false);
+  const [stepsActionsContainer, setStepsActionsContainer] = useState<HTMLDivElement | null>(null);
+  const draftFormId: string = useId();
+  const isBusy: boolean = isSaving || isSavingSteps;
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants' | 'revisions'>('recipe');
   const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
@@ -69,8 +76,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
     void loadRecipe();
   }, [properties.recipePublicId, properties.tenantSlug]);
 
-  async function loadRecipe(): Promise<void> {
-    if (properties.recipePublicId === null) return;
+  async function loadRecipe(): Promise<boolean> {
+    if (properties.recipePublicId === null) return false;
     setIsLoading(true);
     try {
       const loaded: EditableRecipe = await request<EditableRecipe>(
@@ -80,8 +87,10 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       setForm(formFromRecipe(loaded));
       if (loaded.hasPublishedRevision && loaded.canChangeVisibility)
         await loadShareLinks(loaded.publicId);
+      return true;
     } catch (_error: unknown) {
       setMessage(text.errors.requestFailed);
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -113,6 +122,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
     }));
   }
   async function saveRecipeDraft(): Promise<void> {
+    if (isBusy) return;
     setMessage('');
     setIsSaving(true);
     try {
@@ -143,7 +153,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   }
 
   async function saveRecipeMetadata(): Promise<void> {
-    if (recipe === null) return;
+    if (recipe === null || isBusy) return;
     setMessage('');
     setIsSaving(true);
     try {
@@ -171,8 +181,18 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       current === null ? null : { ...current, isDraft: true },
     );
   }
-  async function publish(): Promise<void> {
+  async function draftDiscarded(): Promise<void> {
     if (recipe === null) return;
+    if (recipe.hasPublishedRevision) {
+      const hasLoaded: boolean = await loadRecipe();
+      if (hasLoaded) setMessage(text.recipeEditor.draftDiscarded);
+    } else {
+      properties.onDiscarded();
+    }
+    await properties.onChanged();
+  }
+  async function publish(): Promise<void> {
+    if (recipe === null || isBusy) return;
     setMessage('');
     setIsSaving(true);
     try {
@@ -284,8 +304,62 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           ) : null}
         </nav>
       )}
+      <RecipeEditorActionBar>
+        <div className="recipe-editor-action-bar__primary">
+          {tab === 'recipe' ? (
+            <button
+              type="submit"
+              form={draftFormId}
+              className="recipe-editor__save-button button--secondary"
+              disabled={isBusy}
+            >
+              {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
+            </button>
+          ) : null}
+          <div ref={setStepsActionsContainer} hidden={tab !== 'steps'} />
+          {recipe === null ? null : (
+            <button
+              type="button"
+              disabled={isBusy || !recipe.isDraft || form.categoryPublicIds.length === 0}
+              onClick={(): void => void publish()}
+            >
+              {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
+            </button>
+          )}
+        </div>
+        {recipe === null ? null : (
+          <div className="recipe-editor-action-bar__secondary">
+            {recipe.isDraft ? (
+              <RecipeDraftDiscardButton
+                text={text}
+                tenantSlug={properties.tenantSlug}
+                recipe={recipe}
+                disabled={isBusy}
+                onBusyChanged={setIsSaving}
+                onDiscarded={draftDiscarded}
+              />
+            ) : null}
+            {recipe.hasPublishedRevision && recipe.canChangeVisibility ? (
+              <button
+                type="button"
+                className="button--secondary"
+                disabled={isBusy}
+                onClick={(): void => setIsShareDialogOpen(true)}
+                aria-label={text.recipeEditor.share}
+                title={text.recipeEditor.share}
+              >
+                <AdminIcon name="share" />
+              </button>
+            ) : null}
+          </div>
+        )}
+      </RecipeEditorActionBar>
+      {recipe !== null && recipe.isDraft && form.categoryPublicIds.length === 0 ? (
+        <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
+      ) : null}
       {tab === 'recipe' ? (
         <form
+          id={draftFormId}
           onSubmit={(event: SubmitEvent<HTMLFormElement>): void => {
             event.preventDefault();
             void saveRecipeDraft();
@@ -381,21 +455,14 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
             {recipe === null ? null : (
               <button
                 type="button"
-                disabled={isSaving}
+                className="recipe-editor__save-button button--secondary"
+                disabled={isBusy}
                 onClick={(): void => void saveRecipeMetadata()}
               >
                 {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveMetadata}
               </button>
             )}
           </fieldset>
-          {message.length > 0 ? (
-            <p className="message" role="status">
-              {message}
-            </p>
-          ) : null}
-          <button type="submit" disabled={isSaving}>
-            {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
-          </button>
         </form>
       ) : null}
       {recipe === null ? null : (
@@ -405,6 +472,9 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
             recipePublicId={recipe.publicId}
             text={text}
             onDraftChanged={markDraftChanged}
+            actionsContainer={stepsActionsContainer}
+            isBusy={isSaving}
+            onBusyChanged={setIsSavingSteps}
           />
         </div>
       )}
@@ -423,45 +493,22 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           text={text}
         />
       )}
-      {recipe === null ? null : (
-        <>
-          <div className="recipe-editor__actions">
-            <button
-              type="button"
-              disabled={isSaving || !recipe.isDraft || form.categoryPublicIds.length === 0}
-              onClick={(): void => void publish()}
-            >
-              {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
-            </button>
-            {recipe.hasPublishedRevision && recipe.canChangeVisibility ? (
-              <button
-                type="button"
-                className="button--secondary"
-                disabled={isSaving}
-                onClick={(): void => setIsShareDialogOpen(true)}
-                aria-label={text.recipeEditor.share}
-                title={text.recipeEditor.share}
-              >
-                <AdminIcon name="share" />
-              </button>
-            ) : null}
-          </div>
-          {recipe.isDraft && form.categoryPublicIds.length === 0 ? (
-            <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
-          ) : null}
-          {isShareDialogOpen ? (
-            <RecipeShareDialog
-              text={text}
-              links={shareLinks}
-              isSaving={isSaving}
-              onClose={(): void => setIsShareDialogOpen(false)}
-              onCreate={createShareLink}
-              onCopy={copyShareLink}
-              onRevoke={revokeShareLink}
-            />
-          ) : null}
-        </>
-      )}
+      {recipe !== null && isShareDialogOpen ? (
+        <RecipeShareDialog
+          text={text}
+          links={shareLinks}
+          isSaving={isSaving}
+          onClose={(): void => setIsShareDialogOpen(false)}
+          onCreate={createShareLink}
+          onCopy={copyShareLink}
+          onRevoke={revokeShareLink}
+        />
+      ) : null}
+      {message.length > 0 ? (
+        <p className="message" role="status">
+          {message}
+        </p>
+      ) : null}
     </section>
   );
 }
