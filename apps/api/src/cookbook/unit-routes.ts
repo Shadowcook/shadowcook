@@ -1,7 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
 import { requireTenantPermission } from '../admin/authorization.js';
 import { decimal, displayDecimal, type UnitDimension } from '../unit-domain.js';
+import {
+  parseUnitTranslations,
+  replaceUnitTranslations,
+  unitTranslationsSql,
+  type UnitTranslations,
+} from '../unit-translations.js';
 
 interface UnitRow {
   public_id: string;
@@ -12,6 +18,7 @@ interface UnitRow {
   base_factor: string | null;
   base_offset: string | null;
   usage_count: number;
+  translations: UnitTranslations;
 }
 interface UnitInput {
   name: string;
@@ -19,6 +26,7 @@ interface UnitInput {
   equivalenceAmount: string | null;
   referenceUnitPublicId: string | null;
   conversionProvided: boolean;
+  translations: UnitTranslations | undefined;
 }
 
 export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void {
@@ -48,8 +56,10 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
     if (conversion === 'invalid') return invalidReference(reply);
     if (!(await namesAvailable(pool, tenantId, input.name, input.symbol)))
       return duplicateUnit(reply);
+    const client: PoolClient = await pool.connect();
     try {
-      const result = await pool.query<UnitRow>(
+      await client.query('BEGIN');
+      const result: QueryResult<UnitRow> = await client.query<UnitRow>(
         `INSERT INTO unit (owner_tenant_id, name, symbol, dimension, base_factor, base_offset) VALUES ($1, $2, $3, $4, $5, $6) RETURNING public_id, name, symbol, localization_key, dimension, base_factor::text, base_offset::text, 0::integer AS usage_count`,
         [
           tenantId,
@@ -60,11 +70,18 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
           conversion === null ? null : '0',
         ],
       );
-      return reply.code(201).send(unitResponse(result.rows[0]!));
+      await replaceUnitTranslations(client, result.rows[0]!.public_id, input.translations);
+      await client.query('COMMIT');
+      return reply
+        .code(201)
+        .send(unitResponse({ ...result.rows[0]!, translations: input.translations ?? {} }));
     } catch (error: unknown) {
+      await client.query('ROLLBACK');
       if (isUnique(error)) return duplicateUnit(reply);
       if (isNumeric(error)) return invalidUnit(reply);
       throw error;
+    } finally {
+      client.release();
     }
   });
   api.patch('/cookbook/tenants/:tenantSlug/units/:publicId', async (request, reply) => {
@@ -94,8 +111,10 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
       });
     if (!(await namesAvailable(pool, tenantId, input.name, input.symbol, publicId)))
       return duplicateUnit(reply);
+    const client: PoolClient = await pool.connect();
     try {
-      await pool.query(
+      await client.query('BEGIN');
+      const updated: QueryResult = await client.query(
         'UPDATE unit SET name = $1, symbol = $2, dimension = $3, base_factor = $4, base_offset = $5 WHERE owner_tenant_id = $6 AND public_id = $7',
         [
           input.name,
@@ -107,10 +126,20 @@ export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void
           publicId,
         ],
       );
+      if (updated.rowCount !== 1) {
+        await client.query('ROLLBACK');
+        return unitNotFound(reply);
+      }
+      await replaceUnitTranslations(client, publicId, input.translations);
+      await client.query('COMMIT');
       return reply.code(204).send();
     } catch (error: unknown) {
+      await client.query('ROLLBACK');
       if (isNumeric(error)) return invalidUnit(reply);
+      if (isUnique(error)) return duplicateUnit(reply);
       throw error;
+    } finally {
+      client.release();
     }
   });
   api.delete('/cookbook/tenants/:tenantSlug/units/:publicId', async (request, reply) => {
@@ -140,8 +169,8 @@ async function listUnits(
   const usage = withUsage ? 'count(ingredient_usage.id)::integer' : '0::integer';
   const join = withUsage ? 'LEFT JOIN ingredient_usage ON ingredient_usage.unit_id = unit.id' : '';
   const group = withUsage ? 'GROUP BY unit.id' : '';
-  const result = await pool.query<UnitRow>(
-    `SELECT unit.public_id, unit.name, unit.symbol, unit.localization_key, unit.dimension, unit.base_factor::text, unit.base_offset::text, ${usage} AS usage_count FROM unit ${join} WHERE ${where} ${group} ORDER BY unit.name`,
+  const result: QueryResult<UnitRow> = await pool.query<UnitRow>(
+    `SELECT unit.public_id, unit.name, unit.symbol, unit.localization_key, unit.dimension, unit.base_factor::text, unit.base_offset::text, ${usage} AS usage_count, ${unitTranslationsSql()} AS translations FROM unit ${join} WHERE ${where} ${group} ORDER BY unit.name`,
     values,
   );
   return result.rows;
@@ -188,6 +217,9 @@ function parseUnitInput(value: unknown): UnitInput | null {
   const input = value as Record<string, unknown>;
   const name = trimmed(input.name);
   const symbol = trimmed(input.symbol);
+  const translations: UnitTranslations | null | undefined = parseUnitTranslations(
+    input.translations,
+  );
   const conversionProvided =
     Object.hasOwn(input, 'equivalenceAmount') || Object.hasOwn(input, 'referenceUnitPublicId');
   const rawAmount = input.equivalenceAmount;
@@ -200,6 +232,7 @@ function parseUnitInput(value: unknown): UnitInput | null {
         : null;
   return name === null ||
     symbol === null ||
+    translations === null ||
     (rawAmount !== undefined && rawAmount !== null && amount === null) ||
     (amount === null) !== (reference === null)
     ? null
@@ -209,6 +242,7 @@ function parseUnitInput(value: unknown): UnitInput | null {
         equivalenceAmount: amount,
         referenceUnitPublicId: reference,
         conversionProvided,
+        translations,
       };
 }
 function trimmed(value: unknown): string | null {
@@ -222,6 +256,7 @@ function unitResponse(unit: UnitRow): object {
     name: unit.name,
     symbol: unit.symbol,
     localizationKey: unit.localization_key,
+    translations: unit.translations,
     convertible: unit.dimension !== null,
     dimension: unit.dimension,
     baseFactor: unit.base_factor === null ? null : displayDecimal(unit.base_factor),

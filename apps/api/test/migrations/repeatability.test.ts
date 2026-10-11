@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { migrateDatabase } from '@shadowcook/db';
+import type { PoolClient, QueryResult } from 'pg';
 import { seedInitialDeployment } from '../../src/initial-deployment-seed.js';
 import {
   createDisposablePostgresDatabase,
@@ -8,6 +10,13 @@ import {
 } from '../helpers/disposable-postgres.js';
 
 let database: DisposablePostgresDatabase;
+
+interface MigratedUnitRow {
+  name: string;
+  symbol: string;
+  translated_name: string;
+  translated_symbol: string;
+}
 
 before(async (): Promise<void> => {
   database = await createDisposablePostgresDatabase();
@@ -74,4 +83,41 @@ test('normalized recipe search transliterates text, separates words, and ranks m
     summary_phrase_rank: 3,
     summary_token_rank: 4,
   });
+});
+
+test('unit translation migration preserves existing default edits and populates German versions', async (): Promise<void> => {
+  const client: PoolClient = await database.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('DROP TABLE unit_translation');
+    await client.query(
+      "UPDATE unit SET name = 'custom teaspoon', symbol = 'custom tsp' WHERE localization_key = 'unit.volume.teaspoon.metric'",
+    );
+    const sql: string = readFileSync(
+      new URL(
+        '../../../../packages/db/src/migrations/sql/20261011191926_beta_2_unit_translations.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await client.query(sql);
+    const result: QueryResult<MigratedUnitRow> = await client.query<MigratedUnitRow>(
+      `SELECT unit.name, unit.symbol, translation.name AS translated_name, translation.symbol AS translated_symbol
+       FROM unit INNER JOIN unit_translation AS translation ON translation.unit_id = unit.id
+       WHERE unit.localization_key = 'unit.volume.teaspoon.metric' AND translation.locale = 'de'`,
+    );
+    assert.deepEqual(result.rows[0], {
+      name: 'custom teaspoon',
+      symbol: 'custom tsp',
+      translated_name: 'Teelöffel',
+      translated_symbol: 'TL',
+    });
+    const count: QueryResult<{ count: number }> = await client.query<{ count: number }>(
+      'SELECT count(*)::integer AS count FROM unit_translation',
+    );
+    assert.equal(count.rows[0]?.count, 19);
+  } finally {
+    await client.query('ROLLBACK');
+    client.release();
+  }
 });

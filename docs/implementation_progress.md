@@ -74,9 +74,10 @@
 ### Catalogues and units
 
 - Instance administration manages instance-owned units with same-dimension conversion validation and usage-aware deletion protection.
+- Instance and tenant unit editors provide modal creation and editing through the shared application dialog, with cancellation, busy-state protection, and save errors inside the dialog (architecture section 4.6).
 - Units of measure support non-convertible cookbook units and human-readable one-unit equivalences to visible non-temperature units.
 - Tenant Owner roles receive all tenant-scoped permissions, including permissions added before the migration.
-- Standard units use localization keys; tenant ingredients and aliases retain their stored presentation.
+- Unit names and symbols use database language versions with an English default. Instance and tenant unit dialogs edit all stored languages; tables, conversion selectors, recipe editors, recipe output, shopping lists, and recipe metadata select the active UI locale. Standard-unit German versions are migrated and seeded. Tenant ingredients and aliases retain their stored presentation (architecture section 11.1).
 - Tenant management provides deep-linkable ingredient, alias, and unit CRUD.
 - Tenant ingredient management provides one action dialog for transactional merging, alias conversion, alias separation into independent ingredients for exact alias usages, and conversion of catalogue ingredients into free-text recipe entries with recipe-usage reassignment. Merges require a source-and-target confirmation that states their irreversible effect. Ingredient-management API failures open a localized error dialog with a response-code-specific message.
 - Recipe ingredient usages retain the selected alias for recipe output while sharing the normalized ingredient identity for search and aggregation.

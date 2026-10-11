@@ -1,6 +1,7 @@
 import type { Translation } from './types';
 
 export const en: Translation = {
+  locale: 'en',
   brandName: 'shadowcook',
   metadata: {
     title: 'Shadowcook',
@@ -38,27 +39,6 @@ export const en: Translation = {
     title: 'Access denied',
     description: 'Your account does not have permission to access this page.',
     backToCookbook: 'Back to cookbooks',
-  },
-  units: {
-    'unit.mass.gram': { name: 'gram', symbol: 'g' },
-    'unit.mass.kilogram': { name: 'kilogram', symbol: 'kg' },
-    'unit.mass.milligram': { name: 'milligram', symbol: 'mg' },
-    'unit.mass.ounce': { name: 'ounce', symbol: 'oz' },
-    'unit.mass.pound': { name: 'pound', symbol: 'lb' },
-    'unit.volume.millilitre': { name: 'millilitre', symbol: 'ml' },
-    'unit.volume.litre': { name: 'litre', symbol: 'l' },
-    'unit.volume.teaspoon.metric': { name: 'teaspoon (metric)', symbol: 'tsp' },
-    'unit.volume.tablespoon.metric': { name: 'tablespoon (metric)', symbol: 'tbsp' },
-    'unit.volume.cup.us': { name: 'cup (US)', symbol: 'cup' },
-    'unit.volume.fluid.ounce.us': { name: 'fluid ounce (US)', symbol: 'fl oz' },
-    'unit.volume.pint.us': { name: 'pint (US)', symbol: 'pt' },
-    'unit.volume.quart.us': { name: 'quart (US)', symbol: 'qt' },
-    'unit.volume.gallon.us': { name: 'gallon (US)', symbol: 'gal' },
-    'unit.count.piece': { name: 'piece', symbol: 'pc' },
-    'unit.count.dozen': { name: 'dozen', symbol: 'doz' },
-    'unit.temperature.kelvin': { name: 'kelvin', symbol: 'K' },
-    'unit.temperature.celsius': { name: 'degree Celsius', symbol: '°C' },
-    'unit.temperature.fahrenheit': { name: 'degree Fahrenheit', symbol: '°F' },
   },
   login: {
     emailLabel: 'Email address',
@@ -357,6 +337,12 @@ export const en: Translation = {
     unitCannotDelete: 'Units used in recipes cannot be deleted.',
     unitName: 'Name',
     unitSymbol: 'Symbol',
+    unitTranslations: 'Names and symbols by language',
+    unitLanguage: 'Language code',
+    unitAddLanguage: 'Add language',
+    unitRemoveLanguage: 'Remove language',
+    unitLanguageHint: 'Use a language code such as de or fr. Each language can be added once.',
+    unitDefaultLanguage: 'Default language',
     unitDimension: 'Dimension',
     unitBaseFactor: 'Base factor',
     unitBaseOffset: 'Base offset',

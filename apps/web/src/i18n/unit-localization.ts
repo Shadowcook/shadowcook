@@ -1,17 +1,24 @@
 import type { Translation } from './types';
 
+export interface UnitTranslation {
+  name: string;
+  symbol: string;
+}
+
+export type UnitTranslations = Record<string, UnitTranslation>;
+
 export function localizedUnitName(
   text: Translation,
-  localizationKey: string | null,
+  translations: UnitTranslations,
   fallback: string,
 ): string {
-  return localizationKey === null ? fallback : (text.units[localizationKey]?.name ?? fallback);
+  return translations[text.locale]?.name ?? fallback;
 }
 
 export function localizedUnitSymbol(
   text: Translation,
-  localizationKey: string | null,
+  translations: UnitTranslations,
   fallback: string,
 ): string {
-  return localizationKey === null ? fallback : (text.units[localizationKey]?.symbol ?? fallback);
+  return translations[text.locale]?.symbol ?? fallback;
 }

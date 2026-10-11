@@ -4,6 +4,7 @@ import type { Pool, PoolClient } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantPermission } from '../admin/authorization.js';
 import { registerRecipeDraftDiscardRoutes } from './recipe-draft-discard-routes.js';
+import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
 
 interface RecipeDraftInput {
   title: string;
@@ -123,6 +124,7 @@ interface SharedIngredientUsageRow {
   unit_public_id: string | null;
   unit_symbol: string | null;
   unit_localization_key: string | null;
+  unit_translations: UnitTranslations;
   ingredient_public_id: string | null;
   ingredient_name: string;
   is_catalog_ingredient: boolean;
@@ -161,12 +163,20 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       'recipe:update',
     );
     if (tenantId === null) return;
-    const units = await pool.query<{ public_id: string; symbol: string }>(
-      'SELECT public_id, symbol FROM unit WHERE owner_tenant_id IS NULL OR owner_tenant_id = $1 ORDER BY symbol',
+    const units = await pool.query<{
+      public_id: string;
+      symbol: string;
+      translations: UnitTranslations;
+    }>(
+      `SELECT public_id, symbol, ${unitTranslationsSql()} AS translations FROM unit WHERE owner_tenant_id IS NULL OR owner_tenant_id = $1 ORDER BY symbol`,
       [tenantId],
     );
     return reply.send({
-      units: units.rows.map((row) => ({ publicId: row.public_id, symbol: row.symbol })),
+      units: units.rows.map((row) => ({
+        publicId: row.public_id,
+        symbol: row.symbol,
+        translations: row.translations,
+      })),
     });
   });
   api.get('/cookbook/tenants/:tenantSlug/editor-catalogue/ingredients', async (request, reply) => {
@@ -448,6 +458,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       `SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text,
         unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
         unit.localization_key AS unit_localization_key, ingredient.public_id AS ingredient_public_id,
+        ${unitTranslationsSql()} AS unit_translations,
         COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
         (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
         ingredient_usage.special_kind, ingredient_usage.note, ingredient_usage.is_optional

@@ -1,6 +1,7 @@
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  locale: Locale;
   brandName: string;
   metadata: {
     description: string;
@@ -39,7 +40,6 @@ export interface Translation {
     description: string;
     backToCookbook: string;
   };
-  units: Record<string, { name: string; symbol: string }>;
   login: {
     emailLabel: string;
     passwordLabel: string;
@@ -313,6 +313,12 @@ export interface Translation {
     unitCannotDelete: string;
     unitName: string;
     unitSymbol: string;
+    unitTranslations: string;
+    unitLanguage: string;
+    unitAddLanguage: string;
+    unitRemoveLanguage: string;
+    unitLanguageHint: string;
+    unitDefaultLanguage: string;
     unitDimension: string;
     unitBaseFactor: string;
     unitBaseOffset: string;

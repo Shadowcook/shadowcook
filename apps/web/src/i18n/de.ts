@@ -1,6 +1,7 @@
 import type { Translation } from './types';
 
 export const de: Translation = {
+  locale: 'de',
   brandName: 'shadowcook',
   metadata: {
     title: 'Shadowcook',
@@ -38,27 +39,6 @@ export const de: Translation = {
     title: 'Zugriff verweigert',
     description: 'Dein Konto hat keine Berechtigung für diese Seite.',
     backToCookbook: 'Zurück zu den Kochbüchern',
-  },
-  units: {
-    'unit.mass.gram': { name: 'Gramm', symbol: 'g' },
-    'unit.mass.kilogram': { name: 'Kilogramm', symbol: 'kg' },
-    'unit.mass.milligram': { name: 'Milligramm', symbol: 'mg' },
-    'unit.mass.ounce': { name: 'Unze', symbol: 'oz' },
-    'unit.mass.pound': { name: 'Pfund', symbol: 'lb' },
-    'unit.volume.millilitre': { name: 'Milliliter', symbol: 'ml' },
-    'unit.volume.litre': { name: 'Liter', symbol: 'l' },
-    'unit.volume.teaspoon.metric': { name: 'Teelöffel', symbol: 'TL' },
-    'unit.volume.tablespoon.metric': { name: 'Esslöffel', symbol: 'EL' },
-    'unit.volume.cup.us': { name: 'US-Cup', symbol: 'Cup' },
-    'unit.volume.fluid.ounce.us': { name: 'US-Flüssigunze', symbol: 'fl oz' },
-    'unit.volume.pint.us': { name: 'US-Pint', symbol: 'pt' },
-    'unit.volume.quart.us': { name: 'US-Quart', symbol: 'qt' },
-    'unit.volume.gallon.us': { name: 'US-Gallone', symbol: 'gal' },
-    'unit.count.piece': { name: 'Stück', symbol: 'Stk.' },
-    'unit.count.dozen': { name: 'Dutzend', symbol: 'Dtz.' },
-    'unit.temperature.kelvin': { name: 'Kelvin', symbol: 'K' },
-    'unit.temperature.celsius': { name: 'Grad Celsius', symbol: '°C' },
-    'unit.temperature.fahrenheit': { name: 'Grad Fahrenheit', symbol: '°F' },
   },
   login: {
     emailLabel: 'E-Mail-Adresse',
@@ -364,6 +344,13 @@ export const de: Translation = {
     unitCannotDelete: 'In Rezepten verwendete Maßeinheiten können nicht gelöscht werden.',
     unitName: 'Name',
     unitSymbol: 'Symbol',
+    unitTranslations: 'Bezeichnungen und Kürzel nach Sprache',
+    unitLanguage: 'Sprachcode',
+    unitAddLanguage: 'Sprache hinzufügen',
+    unitRemoveLanguage: 'Sprache entfernen',
+    unitLanguageHint:
+      'Verwende einen Sprachcode wie de oder fr. Jede Sprache kann einmal hinzugefügt werden.',
+    unitDefaultLanguage: 'Standardsprache',
     unitDimension: 'Dimension',
     unitBaseFactor: 'Basisfaktor',
     unitBaseOffset: 'Basisoffset',

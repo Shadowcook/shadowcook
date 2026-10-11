@@ -3,7 +3,10 @@ import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import { localizedUnitName, localizedUnitSymbol } from '../../../i18n/unit-localization';
+import type { UnitTranslations } from '../../../i18n/unit-localization';
 import AdminIcon from '../../../components/AdminIcon';
+import UnitEditorDialog from '../../../components/UnitEditorDialog';
+import UnitTranslationFields from '../../../components/UnitTranslationFields';
 
 type UnitDimension = 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE';
 
@@ -12,6 +15,7 @@ interface Unit {
   name: string;
   symbol: string;
   localizationKey: string | null;
+  translations: UnitTranslations;
   dimension: UnitDimension;
   baseFactor: string;
   baseOffset: string;
@@ -19,6 +23,7 @@ interface Unit {
 }
 
 interface UnitForm {
+  translations: UnitTranslations;
   name: string;
   symbol: string;
   dimension: UnitDimension;
@@ -27,6 +32,7 @@ interface UnitForm {
 }
 
 const emptyUnit: UnitForm = {
+  translations: {},
   name: '',
   symbol: '',
   dimension: 'MASS',
@@ -41,6 +47,9 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
   const [units, setUnits] = useState<Unit[]>([]);
   const [form, setForm] = useState<UnitForm>(emptyUnit);
   const [editing, setEditing] = useState<Unit | null>(null);
+  const [showForm, setShowForm] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
+  const [formError, setFormError] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [sourceId, setSourceId] = useState<string>('');
   const [targetId, setTargetId] = useState<string>('');
@@ -50,16 +59,24 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
   function refresh(): void {
     void loadUnits(setUnits);
   }
-  function update(field: keyof UnitForm, value: string): void {
+  function update(field: Exclude<keyof UnitForm, 'translations'>, value: string): void {
     setForm((current: UnitForm): UnitForm => ({ ...current, [field]: value }));
   }
   function closeForm(): void {
     setEditing(null);
     setForm(emptyUnit);
+    setFormError('');
+    setShowForm(false);
+  }
+  function openCreate(): void {
+    closeForm();
+    setMessage('');
+    setShowForm(true);
   }
   function openEdit(unit: Unit): void {
     setEditing(unit);
     setForm({
+      translations: unit.translations,
       name: unit.name,
       symbol: unit.symbol,
       dimension: unit.dimension,
@@ -67,25 +84,36 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
       baseOffset: unit.baseOffset,
     });
     setMessage('');
+    setFormError('');
+    setShowForm(true);
   }
   async function save(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const response: Response = await fetch(
-      editing === null ? '/api/admin/units' : `/api/admin/units/${editing.publicId}`,
-      {
-        method: editing === null ? 'POST' : 'PATCH',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
-      },
-    );
-    if (!response.ok) {
-      setMessage(text.errors.requestFailed);
-      return;
+    if (saving) return;
+    setSaving(true);
+    setFormError('');
+    try {
+      const response: Response = await fetch(
+        editing === null ? '/api/admin/units' : `/api/admin/units/${editing.publicId}`,
+        {
+          method: editing === null ? 'POST' : 'PATCH',
+          credentials: 'same-origin',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(form),
+        },
+      );
+      if (!response.ok) {
+        setFormError(text.errors.requestFailed);
+        return;
+      }
+      setMessage(editing === null ? text.admin.unitCreated : text.admin.unitUpdated);
+      closeForm();
+      refresh();
+    } catch (_error: unknown) {
+      setFormError(text.errors.requestFailed);
+    } finally {
+      setSaving(false);
     }
-    setMessage(editing === null ? text.admin.unitCreated : text.admin.unitUpdated);
-    closeForm();
-    refresh();
   }
   async function remove(unit: Unit): Promise<void> {
     const response: Response = await fetch(`/api/admin/units/${unit.publicId}`, {
@@ -111,7 +139,7 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
     const target = units.find((unit: Unit): boolean => unit.publicId === targetId);
     setConversion(
       `${result.amount} ${
-        target === undefined ? '' : localizedUnitSymbol(text, target.localizationKey, target.symbol)
+        target === undefined ? '' : localizedUnitSymbol(text, target.translations, target.symbol)
       }`.trim(),
     );
   }
@@ -128,7 +156,9 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
           <p className="eyebrow">{text.admin.units}</p>
           <h1>{text.admin.unitsTitle}</h1>
         </div>
-        <button onClick={closeForm}>{text.admin.createUnit}</button>
+        <button type="button" onClick={openCreate}>
+          {text.admin.createUnit}
+        </button>
       </div>
       <p className="lede">{text.admin.unitsDescription}</p>
       {message.length > 0 ? (
@@ -136,80 +166,68 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
           {message}
         </p>
       ) : null}
-      <form
-        className="unit-form"
-        onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}
-      >
-        <h2>{editing === null ? text.admin.createUnit : text.admin.editUnit}</h2>
-        <label>
-          {text.admin.unitName}
-          <input
-            value={form.name}
-            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-              update('name', event.currentTarget.value)
+      {showForm ? (
+        <UnitEditorDialog
+          text={text}
+          title={editing === null ? text.admin.createUnit : text.admin.editUnit}
+          description={text.admin.unitsDescription}
+          busy={saving}
+          error={formError}
+          onClose={closeForm}
+          onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}
+        >
+          <UnitTranslationFields
+            text={text}
+            name={form.name}
+            symbol={form.symbol}
+            translations={form.translations}
+            onDefaultChange={update}
+            onTranslationsChange={(translations: UnitTranslations): void =>
+              setForm((current: UnitForm): UnitForm => ({ ...current, translations }))
             }
-            required
           />
-        </label>
-        <label>
-          {text.admin.unitSymbol}
-          <input
-            value={form.symbol}
-            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-              update('symbol', event.currentTarget.value)
-            }
-            required
-          />
-        </label>
-        <label>
-          {text.admin.unitDimension}
-          <select
-            value={form.dimension}
-            onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-              update('dimension', event.currentTarget.value)
-            }
-          >
-            {dimensions.map((dimension: UnitDimension): JSX.Element => (
-              <option key={dimension} value={dimension}>
-                {text.admin.unitDimensions[dimension]}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
-          {text.admin.unitBaseFactor}
-          <input
-            value={form.baseFactor}
-            inputMode="decimal"
-            pattern="(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?"
-            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-              update('baseFactor', event.currentTarget.value)
-            }
-            required
-          />
-        </label>
-        <label>
-          {text.admin.unitBaseOffset}
-          <input
-            value={form.baseOffset}
-            inputMode="decimal"
-            pattern="-?(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?"
-            disabled={form.dimension !== 'TEMPERATURE'}
-            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-              update('baseOffset', event.currentTarget.value)
-            }
-            required
-          />
-        </label>
-        <div>
-          <button type="submit">{text.admin.save}</button>
-          {editing === null ? null : (
-            <button type="button" className="button--secondary" onClick={closeForm}>
-              {text.admin.cancel}
-            </button>
-          )}
-        </div>
-      </form>
+          <label>
+            {text.admin.unitDimension}
+            <select
+              value={form.dimension}
+              onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                update('dimension', event.currentTarget.value)
+              }
+            >
+              {dimensions.map((dimension: UnitDimension): JSX.Element => (
+                <option key={dimension} value={dimension}>
+                  {text.admin.unitDimensions[dimension]}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            {text.admin.unitBaseFactor}
+            <input
+              value={form.baseFactor}
+              inputMode="decimal"
+              pattern="(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?"
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                update('baseFactor', event.currentTarget.value)
+              }
+              required
+            />
+          </label>
+          <label>
+            {text.admin.unitBaseOffset}
+            <input
+              value={form.baseOffset}
+              inputMode="decimal"
+              pattern="-?(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?"
+              disabled={form.dimension !== 'TEMPERATURE'}
+              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+                update('baseOffset', event.currentTarget.value)
+              }
+              required
+            />
+          </label>
+        </UnitEditorDialog>
+      ) : null}
       <div className="unit-table-container">
         <table className="tenant-table unit-table">
           <thead>
@@ -226,8 +244,8 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
           <tbody>
             {units.map((unit: Unit): JSX.Element => (
               <tr key={unit.publicId}>
-                <td>{localizedUnitName(text, unit.localizationKey, unit.name)}</td>
-                <td>{localizedUnitSymbol(text, unit.localizationKey, unit.symbol)}</td>
+                <td>{localizedUnitName(text, unit.translations, unit.name)}</td>
+                <td>{localizedUnitSymbol(text, unit.translations, unit.symbol)}</td>
                 <td>{text.admin.unitDimensions[unit.dimension]}</td>
                 <td>{unit.baseFactor}</td>
                 <td>{unit.baseOffset}</td>
@@ -235,8 +253,8 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
                 <td>
                   <div className="tenant-actions">
                     <button
-                      aria-label={text.dashboard.rename}
-                      title={text.dashboard.rename}
+                      aria-label={text.admin.editUnit}
+                      title={text.admin.editUnit}
                       onClick={(): void => openEdit(unit)}
                     >
                       <AdminIcon name="edit" />
@@ -286,8 +304,8 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
               <option value="">{text.admin.selectUnit}</option>
               {units.map((unit: Unit): JSX.Element => (
                 <option key={unit.publicId} value={unit.publicId}>
-                  {localizedUnitName(text, unit.localizationKey, unit.name)} (
-                  {localizedUnitSymbol(text, unit.localizationKey, unit.symbol)})
+                  {localizedUnitName(text, unit.translations, unit.name)} (
+                  {localizedUnitSymbol(text, unit.translations, unit.symbol)})
                 </option>
               ))}
             </select>
@@ -305,8 +323,8 @@ export default function AdminUnitManagement({ locale }: { locale: Locale }): JSX
               <option value="">{text.admin.selectUnit}</option>
               {conversionTargets.map((unit: Unit): JSX.Element => (
                 <option key={unit.publicId} value={unit.publicId}>
-                  {localizedUnitName(text, unit.localizationKey, unit.name)} (
-                  {localizedUnitSymbol(text, unit.localizationKey, unit.symbol)})
+                  {localizedUnitName(text, unit.translations, unit.name)} (
+                  {localizedUnitSymbol(text, unit.translations, unit.symbol)})
                 </option>
               ))}
             </select>

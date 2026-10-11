@@ -159,8 +159,7 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
   return (
     <span>
       {ingredient.special_kind === null ? <strong>{ingredientName}</strong> : ingredientName}
-      {ingredient.note !== null &&
-      ingredient.note.length > 0 ? (
+      {ingredient.note !== null && ingredient.note.length > 0 ? (
         <em className="recipe-ingredient-note"> {ingredient.note}</em>
       ) : null}
     </span>
@@ -172,7 +171,7 @@ function ingredientAmountText(ingredient: IngredientUsage, text: Translation): s
   const unit: string | null =
     ingredient.unit_symbol === null
       ? null
-      : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol);
+      : localizedUnitSymbol(text, ingredient.unit_translations, ingredient.unit_symbol);
   return [amount, unit]
     .filter((value: string | null): value is string => value !== null && value.length > 0)
     .join(' ');

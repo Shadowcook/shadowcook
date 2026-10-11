@@ -11,6 +11,7 @@ interface ContentSeed {
   ingredient: SeedRow[];
   ingredient_alias: SeedRow[];
   unit: SeedRow[];
+  unit_translation: SeedRow[];
   category: SeedRow[];
   recipe: SeedRow[];
   recipe_revision: SeedRow[];
@@ -152,6 +153,24 @@ async function readContentSeed(pool: Pool, tenantSlug: string): Promise<ContentS
               WHERE recipe.tenant_id = $1 AND ingredient_usage.unit_id IS NOT NULL
             )
          ORDER BY unit.id
+       ) AS content_row`,
+      tenantId,
+    ),
+    unit_translation: await readRows(
+      pool,
+      `SELECT row_to_json(content_row)::text AS value
+       FROM (
+         SELECT translation.* FROM unit_translation AS translation
+         INNER JOIN unit ON unit.id = translation.unit_id
+         WHERE unit.owner_tenant_id = $1
+            OR unit.id IN (
+              SELECT ingredient_usage.unit_id FROM ingredient_usage
+              INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
+              INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
+              INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
+              WHERE recipe.tenant_id = $1 AND ingredient_usage.unit_id IS NOT NULL
+            )
+         ORDER BY translation.unit_id, translation.locale
        ) AS content_row`,
       tenantId,
     ),

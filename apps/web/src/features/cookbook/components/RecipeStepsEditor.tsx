@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX, MouseEvent } from 'react';
 import { createPortal } from 'react-dom';
 import type { Translation } from '../../../i18n';
+import { localizedUnitSymbol, type UnitTranslations } from '../../../i18n/unit-localization';
 import { request } from '../../../lib/api/client';
 import AdminIcon from '../../../components/AdminIcon';
 import IngredientPicker from './IngredientPicker';
@@ -11,6 +12,7 @@ import type { DraftVariant } from './RecipeVariantsEditor';
 interface Unit {
   publicId: string;
   symbol: string;
+  translations: UnitTranslations;
 }
 interface Usage {
   ingredientPublicId: string;
@@ -363,7 +365,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
                   <option value="">{properties.text.recipeEditor.noUnit}</option>
                   {units.map((unit): JSX.Element => (
                     <option value={unit.publicId} key={unit.publicId}>
-                      {unit.symbol}
+                      {localizedUnitSymbol(properties.text, unit.translations, unit.symbol)}
                     </option>
                   ))}
                 </select>

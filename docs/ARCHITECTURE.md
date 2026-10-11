@@ -368,6 +368,7 @@ shadowcook/
 - `/admin/settings/cookbook-slug-blocked-terms` manages instance-specific blocked terms for cookbook URL slugs.
 - Cookbook URL slugs are rejected when they exactly match the hardcoded reserved-slug dictionary or contain an instance-administered blocked term. The checks apply to cookbook URL previews, public-registration cookbook creation, account cookbook creation, and instance-administrator slug changes. Category slugs do not use this policy.
 - `/admin/units` manages instance-owned units of measure and provides same-dimension conversion checks.
+- Instance and tenant unit creation and editing use `UnitEditorDialog.tsx` with the shared application dialog shell. Save errors appear inside the dialog. Saving disables form controls, actions, and Escape dismissal. Successful saves close the dialog and refresh the unit list; cancellation discards the form.
 - A unit is convertible only when `dimension`, `base_factor`, and `base_offset` are all set. A non-convertible unit has all three fields set to `NULL`.
 - Tenant unit creation stores a derived base factor from one explicit equivalence to a visible, non-temperature convertible unit. The derived value is the conversion source of truth.
 - A tenant unit referenced by recipe ingredient usages permits name and symbol changes only; changes to its conversion state or conversion values return a conflict.
@@ -757,7 +758,9 @@ Unit
 
 Instance-owned units have no owner tenant. The server converts an amount to its dimension base value as `amount × base factor + base offset`, then converts that base value to the target unit. Only temperature units may have a non-zero base offset.
 
-Seeded standard units have a stable `localization_key`. Web clients resolve their localized names and symbols from that key. Units without a `localization_key` are administrator-defined and use their stored name and symbol without translation. Recipe ingredient usages store a unit reference and receive the unit localization key with the recipe detail response.
+Unit names and symbols are database content. `unit.name` and `unit.symbol` store the English default version. `unit_translation` stores additional language versions under the composite primary key `(unit_id, locale)` with a cascading unit foreign key. English is not duplicated in `unit_translation`. Language codes use lowercase language tags with optional script and region subtags. Each version stores a name and symbol. Seeded standard units retain a stable `localization_key` as a seed identifier; display does not resolve this key through static UI translations.
+
+Unit API responses, editor catalogues, and recipe ingredient usages include database language versions. Web clients resolve the active UI locale and fall back to the English default version. Unit tables and conversion selectors display the active UI language. Instance and tenant unit dialogs list all stored language versions, including English, with editable name and symbol fields. Additional versions can be added and removed. The English default cannot be removed. Unit data and supplied language versions are written in one transaction. Omitting the `translations` request field preserves existing versions; supplying it replaces all additional versions. Authored recipe content remains unchanged.
 
 Ingredients and their aliases are tenant-authored content. Web clients render their stored names without localization. Recipe ingredient usages continue to reference ingredient identities rather than translated names.
 

@@ -1,7 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
 import { requireInstancePermission } from './authorization.js';
 import { convertAmount, decimal, displayDecimal } from '../unit-domain.js';
+import {
+  parseUnitTranslations,
+  replaceUnitTranslations,
+  unitTranslationsSql,
+  type UnitTranslations,
+} from '../unit-translations.js';
 
 type UnitDimension = 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE';
 
@@ -11,6 +17,7 @@ interface UnitInput {
   dimension: UnitDimension;
   baseFactor: string;
   baseOffset: string;
+  translations: UnitTranslations | undefined;
 }
 
 interface UnitRow {
@@ -22,6 +29,7 @@ interface UnitRow {
   base_factor: string;
   base_offset: string;
   usage_count: number;
+  translations: UnitTranslations;
 }
 
 const dimensions: ReadonlySet<string> = new Set(['MASS', 'VOLUME', 'COUNT', 'TEMPERATURE']);
@@ -30,9 +38,10 @@ export function registerUnitRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/admin/units', async (request, reply) => {
     if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
       return;
-    const result = await pool.query<UnitRow>(`
+    const result: QueryResult<UnitRow> = await pool.query<UnitRow>(`
       SELECT unit.public_id, unit.name, unit.symbol, unit.localization_key, unit.dimension, unit.base_factor::text,
-        unit.base_offset::text, count(ingredient_usage.id)::integer AS usage_count
+        unit.base_offset::text, count(ingredient_usage.id)::integer AS usage_count,
+        ${unitTranslationsSql()} AS translations
       FROM unit
       LEFT JOIN ingredient_usage ON ingredient_usage.unit_id = unit.id
       WHERE unit.owner_tenant_id IS NULL
@@ -46,17 +55,26 @@ export function registerUnitRoutes(api: FastifyInstance, pool: Pool): void {
       return;
     const unit = parseUnitInput(request.body);
     if (unit === null) return invalidUnit(reply);
+    const client: PoolClient = await pool.connect();
     try {
-      const result = await pool.query<UnitRow>(
+      await client.query('BEGIN');
+      const result: QueryResult<UnitRow> = await client.query<UnitRow>(
         `INSERT INTO unit (name, symbol, dimension, base_factor, base_offset)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING public_id, name, symbol, localization_key, dimension, base_factor::text, base_offset::text, 0::integer AS usage_count`,
         [unit.name, unit.symbol, unit.dimension, unit.baseFactor, unit.baseOffset],
       );
-      return reply.code(201).send(unitResponse(result.rows[0]!));
+      await replaceUnitTranslations(client, result.rows[0]!.public_id, unit.translations);
+      await client.query('COMMIT');
+      return reply
+        .code(201)
+        .send(unitResponse({ ...result.rows[0]!, translations: unit.translations ?? {} }));
     } catch (error: unknown) {
+      await client.query('ROLLBACK');
       if (isUniqueViolation(error)) return duplicateUnit(reply);
       throw error;
+    } finally {
+      client.release();
     }
   });
 
@@ -66,19 +84,28 @@ export function registerUnitRoutes(api: FastifyInstance, pool: Pool): void {
     const unit = parseUnitInput(request.body);
     if (unit === null) return invalidUnit(reply);
     const publicId = (request.params as { publicId: string }).publicId;
+    const client: PoolClient = await pool.connect();
     try {
-      const result = await pool.query<UnitRow>(
+      await client.query('BEGIN');
+      const result: QueryResult<UnitRow> = await client.query<UnitRow>(
         `UPDATE unit SET name = $1, symbol = $2, dimension = $3, base_factor = $4, base_offset = $5
          WHERE public_id = $6 AND owner_tenant_id IS NULL
          RETURNING public_id, name, symbol, localization_key, dimension, base_factor::text, base_offset::text, 0::integer AS usage_count`,
         [unit.name, unit.symbol, unit.dimension, unit.baseFactor, unit.baseOffset, publicId],
       );
-      if (result.rowCount !== 1)
+      if (result.rowCount !== 1) {
+        await client.query('ROLLBACK');
         return reply.code(404).send({ code: 'UNIT_NOT_FOUND', error: 'The unit was not found.' });
+      }
+      await replaceUnitTranslations(client, publicId, unit.translations);
+      await client.query('COMMIT');
       return reply.code(204).send();
     } catch (error: unknown) {
+      await client.query('ROLLBACK');
       if (isUniqueViolation(error)) return duplicateUnit(reply);
       throw error;
+    } finally {
+      client.release();
     }
   });
 
@@ -149,16 +176,27 @@ function parseUnitInput(value: unknown): UnitInput | null {
   const dimension = input.dimension;
   const baseFactor = decimal(input.baseFactor, true);
   const baseOffset = decimal(input.baseOffset, false);
+  const translations: UnitTranslations | null | undefined = parseUnitTranslations(
+    input.translations,
+  );
   if (
     name === null ||
     symbol === null ||
     !dimensions.has(String(dimension)) ||
     baseFactor === null ||
     baseOffset === null ||
+    translations === null ||
     (dimension !== 'TEMPERATURE' && Number(baseOffset) !== 0)
   )
     return null;
-  return { name, symbol, dimension: dimension as UnitDimension, baseFactor, baseOffset };
+  return {
+    name,
+    symbol,
+    dimension: dimension as UnitDimension,
+    baseFactor,
+    baseOffset,
+    translations,
+  };
 }
 
 function trimmed(value: unknown): string | null {
@@ -173,6 +211,7 @@ function unitResponse(unit: UnitRow): object {
     name: unit.name,
     symbol: unit.symbol,
     localizationKey: unit.localization_key,
+    translations: unit.translations,
     dimension: unit.dimension,
     baseFactor: displayDecimal(unit.base_factor),
     baseOffset: displayDecimal(unit.base_offset),

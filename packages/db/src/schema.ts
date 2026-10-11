@@ -245,6 +245,13 @@ export interface UnitTable {
   created_at: Generated<Timestamp>;
 }
 
+export interface UnitTranslationTable {
+  unit_id: string;
+  locale: string;
+  name: string;
+  symbol: string;
+}
+
 export interface IngredientTable {
   id: Generated<Uuid>;
   owner_tenant_id: string;
@@ -292,6 +299,7 @@ export interface Database {
   oauth_access_token: OAuthAccessTokenTable;
   oauth_refresh_token: OAuthRefreshTokenTable;
   unit: UnitTable;
+  unit_translation: UnitTranslationTable;
   ingredient: IngredientTable;
   ingredient_alias: IngredientAliasTable;
   application_seed: ApplicationSeedTable;

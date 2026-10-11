@@ -7,6 +7,7 @@ import {
   refreshFrontpageShuffleSeed,
 } from '../auth/session.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
+import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
 
 interface CategoryRow {
   public_id: string;
@@ -53,6 +54,7 @@ interface IngredientUsageRow {
   unit_public_id: string | null;
   unit_symbol: string | null;
   unit_localization_key: string | null;
+  unit_translations: UnitTranslations;
   ingredient_public_id: string | null;
   ingredient_name: string;
   is_catalog_ingredient: boolean;
@@ -532,6 +534,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text,
         unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
         unit.localization_key AS unit_localization_key,
+        ${unitTranslationsSql()} AS unit_translations,
         ingredient.public_id AS ingredient_public_id,
         COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
         (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,

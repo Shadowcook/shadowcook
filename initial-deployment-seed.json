@@ -190,5 +190,121 @@
       "base_factor": 0.555555555556,
       "base_offset": 255.372222222222
     }
+  ],
+  "unit_translation": [
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000001",
+      "locale": "de",
+      "name": "Gramm",
+      "symbol": "g"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000101",
+      "locale": "de",
+      "name": "Kilogramm",
+      "symbol": "kg"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000102",
+      "locale": "de",
+      "name": "Milligramm",
+      "symbol": "mg"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000103",
+      "locale": "de",
+      "name": "Unze",
+      "symbol": "oz"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000104",
+      "locale": "de",
+      "name": "Pfund",
+      "symbol": "lb"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000002",
+      "locale": "de",
+      "name": "Milliliter",
+      "symbol": "ml"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000201",
+      "locale": "de",
+      "name": "Liter",
+      "symbol": "l"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000202",
+      "locale": "de",
+      "name": "Teelöffel",
+      "symbol": "TL"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000203",
+      "locale": "de",
+      "name": "Esslöffel",
+      "symbol": "EL"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000204",
+      "locale": "de",
+      "name": "US-Cup",
+      "symbol": "Cup"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000205",
+      "locale": "de",
+      "name": "US-Flüssigunze",
+      "symbol": "fl oz"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000206",
+      "locale": "de",
+      "name": "US-Pint",
+      "symbol": "pt"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000207",
+      "locale": "de",
+      "name": "US-Quart",
+      "symbol": "qt"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000208",
+      "locale": "de",
+      "name": "US-Gallone",
+      "symbol": "gal"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000301",
+      "locale": "de",
+      "name": "Stück",
+      "symbol": "Stk."
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000302",
+      "locale": "de",
+      "name": "Dutzend",
+      "symbol": "Dtz."
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000401",
+      "locale": "de",
+      "name": "Kelvin",
+      "symbol": "K"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000402",
+      "locale": "de",
+      "name": "Grad Celsius",
+      "symbol": "°C"
+    },
+    {
+      "unit_id": "40000000-0000-4000-8000-000000000403",
+      "locale": "de",
+      "name": "Grad Fahrenheit",
+      "symbol": "°F"
+    }
   ]
 }

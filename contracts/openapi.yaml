@@ -3592,12 +3592,24 @@ components:
     TenantUnit:
       type: object
       additionalProperties: false
-      required: [publicId, name, symbol, convertible, dimension, baseFactor, baseOffset, usageCount]
+      required:
+        [
+          publicId,
+          name,
+          symbol,
+          translations,
+          convertible,
+          dimension,
+          baseFactor,
+          baseOffset,
+          usageCount,
+        ]
       properties:
         publicId: { type: string, format: uuid }
         name: { type: string }
         symbol: { type: string }
         localizationKey: { type: [string, 'null'] }
+        translations: { $ref: '#/components/schemas/UnitTranslations' }
         convertible: { type: boolean }
         dimension: { type: [string, 'null'], enum: [MASS, VOLUME, COUNT, TEMPERATURE, null] }
         baseFactor: { type: [string, 'null'] }
@@ -3606,10 +3618,11 @@ components:
     TenantUnitInput:
       type: object
       additionalProperties: false
-      required: [name, symbol, equivalenceAmount, referenceUnitPublicId]
+      required: [name, symbol]
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
         symbol: { type: string, minLength: 1, maxLength: 100 }
+        translations: { $ref: '#/components/schemas/UnitTranslations' }
         equivalenceAmount:
           { type: [string, 'null'], pattern: '^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' }
         referenceUnitPublicId: { type: [string, 'null'], format: uuid }
@@ -3620,6 +3633,7 @@ components:
       properties:
         name: { type: string, minLength: 1, maxLength: 100 }
         symbol: { type: string, minLength: 1, maxLength: 100 }
+        translations: { $ref: '#/components/schemas/UnitTranslations' }
         dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] }
         baseFactor: { type: string, pattern: '^(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' }
         baseOffset: { type: string, pattern: '^-?(?:0|[1-9][0-9]*)(?:\\.[0-9]{1,12})?$' }
@@ -3627,16 +3641,45 @@ components:
       type: object
       additionalProperties: false
       required:
-        [publicId, name, symbol, localizationKey, dimension, baseFactor, baseOffset, usageCount]
+        [
+          publicId,
+          name,
+          symbol,
+          localizationKey,
+          translations,
+          dimension,
+          baseFactor,
+          baseOffset,
+          usageCount,
+        ]
       properties:
         publicId: { type: string, format: uuid }
         name: { type: string }
         symbol: { type: string }
         localizationKey: { type: [string, 'null'] }
+        translations: { $ref: '#/components/schemas/UnitTranslations' }
         dimension: { type: string, enum: [MASS, VOLUME, COUNT, TEMPERATURE] }
         baseFactor: { type: string }
         baseOffset: { type: string }
         usageCount: { type: integer, minimum: 0 }
+    UnitTranslations:
+      type: object
+      description: >-
+        Additional language versions keyed by lowercase language code. English is stored in the
+        unit's top-level name and symbol, and must not be included here. On writes, supplying this
+        object replaces all additional language versions atomically with the unit update. Omitting
+        it preserves existing versions; an empty object removes them. Web clients select their UI
+        locale and fall back to the top-level English name and symbol.
+      maxProperties: 50
+      propertyNames:
+        pattern: '^(?!en$)[a-z]{2,3}(?:-[a-z]{4})?(?:-(?:[a-z]{2}|[0-9]{3}))?$'
+      additionalProperties:
+        type: object
+        additionalProperties: false
+        required: [name, symbol]
+        properties:
+          name: { type: string, minLength: 1, maxLength: 100 }
+          symbol: { type: string, minLength: 1, maxLength: 100 }
     CookbookCategory:
       type: object
       additionalProperties: false
@@ -3767,6 +3810,7 @@ components:
           unit_public_id,
           unit_symbol,
           unit_localization_key,
+          unit_translations,
           ingredient_public_id,
           ingredient_name,
           is_catalog_ingredient,
@@ -3787,6 +3831,8 @@ components:
           type: [string, 'null']
         unit_localization_key:
           type: [string, 'null']
+        unit_translations:
+          $ref: '#/components/schemas/UnitTranslations'
         ingredient_public_id:
           type: [string, 'null']
           format: uuid
@@ -3873,10 +3919,11 @@ components:
     EditorUnit:
       type: object
       additionalProperties: false
-      required: [publicId, symbol]
+      required: [publicId, symbol, translations]
       properties:
         publicId: { type: string, format: uuid }
         symbol: { type: string }
+        translations: { $ref: '#/components/schemas/UnitTranslations' }
     EditorIngredient:
       type: object
       additionalProperties: false

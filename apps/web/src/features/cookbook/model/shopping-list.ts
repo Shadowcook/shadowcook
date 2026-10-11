@@ -1,5 +1,6 @@
 import type { Translation } from '../../../i18n';
 import { localizedUnitSymbol } from '../../../i18n/unit-localization';
+import type { UnitTranslations } from '../../../i18n/unit-localization';
 import type { IngredientUsage, RecipeDetail } from './types';
 
 export interface ShoppingListItem {
@@ -11,7 +12,7 @@ export interface ShoppingListItem {
 export interface AggregatedAmount {
   amount: string | null;
   unitSymbol: string | null;
-  unitLocalizationKey: string | null;
+  unitTranslations: UnitTranslations;
 }
 
 export function aggregateShoppingList(recipe: RecipeDetail): ShoppingListItem[] {
@@ -37,7 +38,7 @@ export function aggregateShoppingList(recipe: RecipeDetail): ShoppingListItem[] 
       item.amountsByUnit.set(unitKey, {
         amount: combineAmounts(current?.amount ?? null, ingredient.amount),
         unitSymbol: ingredient.unit_symbol,
-        unitLocalizationKey: ingredient.unit_localization_key,
+        unitTranslations: ingredient.unit_translations,
       });
     }
   }
@@ -54,7 +55,7 @@ export function formatShoppingListAmount(amount: AggregatedAmount, text: Transla
   const unit: string | null =
     amount.unitSymbol === null
       ? null
-      : localizedUnitSymbol(text, amount.unitLocalizationKey, amount.unitSymbol);
+      : localizedUnitSymbol(text, amount.unitTranslations, amount.unitSymbol);
   return unit === null ? displayAmount : `${displayAmount} ${unit}`;
 }
 

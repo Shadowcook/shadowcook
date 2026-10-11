@@ -471,6 +471,19 @@ button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
+.auth-panel__password-reset {
+  justify-self: center;
+  padding: 0.35rem 0.5rem;
+  color: #77402e;
+  background: transparent;
+  font-weight: 400;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+.auth-panel__password-reset:hover {
+  color: #a53d25;
+  background: transparent;
+}
 .message,
 .hint,
 .field-hint {
@@ -790,7 +803,6 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
     sans-serif;
   text-align: center;
 }
-.unit-form,
 .unit-converter form,
 .ingredient-form {
   display: grid;
@@ -833,14 +845,12 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
 .unit-table th:nth-child(7) {
   width: 14%;
 }
-.unit-form h2,
-.unit-form > div,
 .ingredient-form h2,
 .ingredient-form > div,
 .unit-converter form > button {
   grid-column: 1 / -1;
 }
-.unit-form label,
+.unit-editor-form > label,
 .unit-converter label,
 .ingredient-form label {
   display: grid;
@@ -897,11 +907,60 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
     700 1.25rem Arial,
     sans-serif;
 }
+.unit-editor-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.unit-editor-form__conversion {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+.unit-translation-fields {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.unit-translation-fields__row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  min-width: 0;
+  padding: 1rem;
+  border: 1px solid #d7cabb;
+  border-radius: 0.35rem;
+}
+.unit-translation-fields label {
+  display: grid;
+  gap: 0.4rem;
+  font:
+    700 0.8rem Arial,
+    sans-serif;
+}
+.unit-translation-fields__row > button {
+  grid-column: 1 / -1;
+  justify-self: end;
+}
+.unit-translation-fields__add {
+  display: flex;
+  align-items: end;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
 @media (max-width: 760px) {
   .user-table-container {
     overflow-x: auto;
   }
-  .unit-form,
+  .unit-editor-form,
+  .unit-translation-fields__row,
   .unit-converter form,
   .ingredient-form {
     grid-template-columns: 1fr;

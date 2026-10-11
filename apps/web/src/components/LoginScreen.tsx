@@ -127,13 +127,6 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
               required
               autoFocus
             />
-            <button
-              className="button--secondary"
-              type="button"
-              onClick={(): void => void onRequestPasswordReset()}
-            >
-              {text.login.resetPassword}
-            </button>
           </>
         ) : null}
         {step !== 'code' ? (
@@ -143,6 +136,16 @@ export default function LoginScreen(properties: LoginScreenProperties): JSX.Elem
               : isSubmitting
                 ? text.login.submitting
                 : text.login.submit}
+          </button>
+        ) : null}
+        {step === 'password' ? (
+          <button
+            className="auth-panel__password-reset"
+            type="button"
+            disabled={isSubmitting}
+            onClick={(): void => void onRequestPasswordReset()}
+          >
+            {text.login.resetPassword}
           </button>
         ) : null}
       </form>

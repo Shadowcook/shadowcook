@@ -1,9 +1,12 @@
+import type { UnitTranslations } from '../../../i18n/unit-localization';
+
 export interface IngredientUsage {
   sort_order: number;
   amount: string | null;
   unit_public_id: string | null;
   unit_symbol: string | null;
   unit_localization_key: string | null;
+  unit_translations: UnitTranslations;
   ingredient_public_id: string | null;
   ingredient_name: string;
   is_catalog_ingredient: boolean;

@@ -70,7 +70,7 @@ export function recipeIngredientText(ingredient: IngredientUsage, text: Translat
   const unit: string | null =
     ingredient.unit_symbol === null
       ? null
-      : localizedUnitSymbol(text, ingredient.unit_localization_key, ingredient.unit_symbol);
+      : localizedUnitSymbol(text, ingredient.unit_translations, ingredient.unit_symbol);
   const name: string = ingredient.ingredient_name;
   const parts: string[] = [amount, unit, name].filter(
     (value: string | null): value is string => value !== null && value.length > 0,
