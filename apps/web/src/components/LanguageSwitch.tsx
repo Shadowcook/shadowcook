@@ -1,7 +1,9 @@
-import type { ChangeEvent, JSX } from 'react';
+import type { JSX } from 'react';
+import { faLanguage } from '@fortawesome/free-solid-svg-icons';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { isLocale, localePreferenceCookie } from '../i18n/locale-preference';
+import HeadBarDropdown from './HeadBarDropdown';
 
 interface Properties {
   locale: Locale;
@@ -10,8 +12,7 @@ interface Properties {
 export default function LanguageSwitch({ locale }: Properties): JSX.Element {
   const text: Translation = translations[locale];
 
-  function changeLanguage(event: ChangeEvent<HTMLSelectElement>): void {
-    const selectedLocale: string = event.currentTarget.value;
+  function changeLanguage(selectedLocale: string): void {
     if (!isLocale(selectedLocale) || selectedLocale === locale) return;
 
     document.cookie = localePreferenceCookie(selectedLocale, window.location.protocol === 'https:');
@@ -19,18 +20,23 @@ export default function LanguageSwitch({ locale }: Properties): JSX.Element {
   }
 
   return (
-    <select
-      className="head-bar__language-switch"
-      aria-label={text.languageSwitch.label}
-      value={locale}
-      onChange={changeLanguage}
-    >
-      <option value="en" lang="en">
+    <HeadBarDropdown label={text.languageSwitch.label} icon={faLanguage}>
+      <button
+        type="button"
+        lang="en"
+        aria-pressed={locale === 'en'}
+        onClick={(): void => changeLanguage('en')}
+      >
         {text.languageSwitch.english}
-      </option>
-      <option value="de" lang="de">
+      </button>
+      <button
+        type="button"
+        lang="de"
+        aria-pressed={locale === 'de'}
+        onClick={(): void => changeLanguage('de')}
+      >
         {text.languageSwitch.german}
-      </option>
-    </select>
+      </button>
+    </HeadBarDropdown>
   );
 }

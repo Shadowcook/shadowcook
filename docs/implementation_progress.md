@@ -42,7 +42,7 @@
 - Mobile cookbook navigation provides the category tree in a header-adjacent left-side drawer with a fixed close control and a scrollable category list.
 - Category management supports hierarchical creation, renaming, reparenting, guarded deletion, and adjacent sibling ordering.
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.
-- The global head bar switches between English and German. A 365-day cookie retains the selected language for anonymous and authenticated visitors, including after sign-out. All Astro pages resolve the preference before server rendering; switching preserves the current URL (architecture section 3.4).
+- The global head bar switches between English and German through a language-icon dropdown with the active language marked. A 365-day cookie retains the selected language for anonymous and authenticated visitors, including after sign-out. All Astro pages resolve the preference before server rendering; switching preserves the current URL (architecture section 3.4).
 - Web UI pictograms are bundled from the Font Awesome core, solid-icon, and React packages.
 - Cookbook code is organized under `apps/web/src/features/cookbook`; shared browser-session and API infrastructure is under `apps/web/src/lib`.
 - Direct recipe URLs render semantic recipe content on the Astro server without requiring JavaScript and include canonical Schema.org Recipe JSON-LD with author, categories, ingredients, and ordered steps.
@@ -97,6 +97,7 @@
 - Middleware protects administration and tenant-management routes, preserves validated post-login navigation, and the web client validates restored sessions with the API.
 - Protected tenant-management and instance-administration pages server-resolve their access state before rendering without a session-check loading screen.
 - A sticky global head bar is server-seeded with the current session on every web route, then client-validated, and provides localized sign-in, authenticated-user, authorized administration, and sign-out actions, including invitation acceptance routes.
+- The global head bar displays only its logo and icons with localized tooltips and accessible names. The user dropdown shows the account display name and email before its options; the session API supplies `displayName`. Shared dropdowns support outside-click dismissal and Escape with focus restoration (architecture section 4.2).
 - Instance-administration UI code is organized under `apps/web/src/features/admin`.
 - Tenant owners can create service accounts, assign existing tenant roles, issue one-time-view opaque bearer tokens, inspect token lifecycle metadata, revoke tokens, and disable service accounts.
 - Bearer-token authentication resolves service accounts through their active tenant membership and permissions; recipe and recipe-draft APIs therefore support AI and automation clients without a separate agent API.

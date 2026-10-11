@@ -127,7 +127,7 @@ No separate "agent API" should be implemented unless there is a compelling trans
 - English is the default web application language.
 - UI strings, metadata, accessibility labels, and client-side API error messages are resolved through the web application's locale dictionary.
 - Supported UI locales are `en` and `de`. `PUBLIC_DEFAULT_LOCALE` selects the fallback locale at build time; an unset or unsupported value falls back to English.
-- The global head bar provides a language selector for authenticated and anonymous users.
+- The global head bar provides a language-icon dropdown with English and German choices for authenticated and anonymous users. The active language is marked in the dropdown.
 - The selected locale is stored in the host-only `shadowcook_locale` cookie with `Path=/`, a 365-day maximum age, `SameSite=Lax`, and `Secure` on HTTPS. The preference is independent of the authentication session and remains after sign-out.
 - Astro resolves the locale from the request cookie before rendering every web page, including metadata and HTML language attributes. Missing, malformed, and unsupported preferences use the configured fallback locale.
 - Changing the language reloads the current URL, preserving its path, query parameters, and fragment.
@@ -251,6 +251,8 @@ shadowcook/
 - The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
 - A sticky global head bar is rendered on application, public cookbook, and public recipe pages. The Astro server resolves the current session before rendering it; the hydrated client validates that state after load. It provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
+- The head bar displays only the application logo and icons. Registration, sign-in, language, and user controls have locale-resolved accessible names and tooltips. The user dropdown begins with the account display name and email address, followed by account settings, authorized administration, and sign-out actions. Dropdowns close on outside pointer interaction or Escape; Escape restores focus to the dropdown control.
+- `GET /auth/session` returns `email`, `displayName`, `hasPassword`, and `passwordChangeRequired`. The display name is read from the current user account.
 - Protected tenant-management and instance-administration pages server-resolve their access state before rendering. Client-side validation does not introduce a session-check loading screen.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`; it forwards API redirects without following them and requests uncompressed upstream API responses. At image build time, `PUBLIC_WEB_ORIGIN` configures Astro's allowed forwarded domain for SSR origin checks.

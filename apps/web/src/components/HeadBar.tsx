@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
+import { faRightToBracket, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
 import type { HeadBarSession } from '../lib/server/head-bar-session';
-import AdminIcon from './AdminIcon';
+import HeadBarDropdown from './HeadBarDropdown';
 import LanguageSwitch from './LanguageSwitch';
 
 const signedOut: HeadBarSession = {
   authenticated: false,
   email: '',
+  displayName: '',
   canAccessAdministration: false,
 };
 
@@ -64,49 +67,50 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
 
   return (
     <header className="head-bar">
-      <a className="head-bar__home" href="/" aria-label={text.accessibility.applicationName}>
+      <a
+        className="head-bar__home"
+        href="/"
+        aria-label={text.accessibility.applicationName}
+        title={text.accessibility.applicationName}
+      >
         <img className="head-bar__logo" src="/shadowcook-logo.png" alt="" aria-hidden="true" />
-        {text.brandName}
       </a>
       <div className="head-bar__controls">
         <LanguageSwitch locale={locale} />
         {session.authenticated ? (
-          <details className="head-bar__user-menu">
-            <summary aria-label={text.headBar.userMenu}>
-              {session.email}
-              <AdminIcon name="expand" />
-            </summary>
-            <div className="head-bar__menu" role="menu">
-              <a href="/settings" role="menuitem">
-                {text.headBar.accountSettings}
-              </a>
-              {session.canAccessAdministration ? (
-                <a href="/admin" role="menuitem">
-                  {text.admin.title}
-                </a>
-              ) : null}
-              <button
-                type="button"
-                role="menuitem"
-                disabled={signingOut}
-                onClick={(): void => void signOut()}
-              >
-                {text.dashboard.logout}
-              </button>
-              {signOutError.length === 0 ? null : (
-                <p className="head-bar__menu-message" role="alert">
-                  {signOutError}
-                </p>
-              )}
+          <HeadBarDropdown label={text.headBar.userMenu} icon={faUser}>
+            <div className="head-bar__user-identity">
+              <strong>{session.displayName}</strong>
+              <span>{session.email}</span>
             </div>
-          </details>
+            <a href="/settings">{text.headBar.accountSettings}</a>
+            {session.canAccessAdministration ? <a href="/admin">{text.admin.title}</a> : null}
+            <button type="button" disabled={signingOut} onClick={(): void => void signOut()}>
+              {text.dashboard.logout}
+            </button>
+            {signOutError.length === 0 ? null : (
+              <p className="head-bar__menu-message" role="alert">
+                {signOutError}
+              </p>
+            )}
+          </HeadBarDropdown>
         ) : (
           <div className="head-bar__actions">
-            <a className="button--secondary" href="/register">
-              {text.headBar.register}
+            <a
+              className="head-bar__icon-button"
+              href="/register"
+              aria-label={text.headBar.register}
+              title={text.headBar.register}
+            >
+              <FontAwesomeIcon icon={faUserPlus} aria-hidden="true" />
             </a>
-            <a className="button--secondary" href={signInHref}>
-              {text.dashboard.login}
+            <a
+              className="head-bar__icon-button"
+              href={signInHref}
+              aria-label={text.dashboard.login}
+              title={text.dashboard.login}
+            >
+              <FontAwesomeIcon icon={faRightToBracket} aria-hidden="true" />
             </a>
           </div>
         )}
@@ -127,7 +131,10 @@ async function restoreSession(setSession: (session: HeadBarSession) => void): Pr
     setSession(signedOut);
     return;
   }
-  const body: { email: string } = (await response.json()) as { email: string };
+  const body: { email: string; displayName: string } = (await response.json()) as {
+    email: string;
+    displayName: string;
+  };
   let canAccessAdministration: boolean = false;
   try {
     const administrationResponse: Response = await fetch('/api/admin/tenants', {
@@ -140,6 +147,7 @@ async function restoreSession(setSession: (session: HeadBarSession) => void): Pr
   setSession({
     authenticated: true,
     email: body.email,
+    displayName: body.displayName,
     canAccessAdministration,
   });
 }

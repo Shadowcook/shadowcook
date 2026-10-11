@@ -184,11 +184,7 @@ select {
 .head-bar__home {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
   color: #28211d;
-  font-size: 1.1rem;
-  font-weight: 700;
-  letter-spacing: -0.04em;
   text-decoration: none;
 }
 .head-bar__logo {
@@ -203,38 +199,44 @@ select {
   justify-content: flex-end;
   gap: 0.8rem;
 }
-.head-bar__language-switch {
-  width: auto;
-  flex: 0 0 auto;
-  margin: 0;
-  padding: 0.5rem;
-  font:
-    0.85rem Arial,
-    sans-serif;
-}
-.head-bar__user-menu {
+.head-bar__dropdown {
   position: relative;
   color: #4d4037;
   font:
     0.85rem Arial,
     sans-serif;
 }
-.head-bar__user-menu summary {
+.head-bar__icon-button {
   display: inline-flex;
+  justify-content: center;
   align-items: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 0.3rem;
+  color: #4d4037;
+  background: transparent;
+  font-size: 1.2rem;
+  text-decoration: none;
   cursor: pointer;
   list-style: none;
 }
-.head-bar__user-menu summary::-webkit-details-marker {
+.head-bar__icon-button::-webkit-details-marker {
   display: none;
 }
-.head-bar__user-menu .admin-icon {
-  margin-left: 0.45rem;
-  width: 0.75rem;
-  height: 0.75rem;
+.head-bar__icon-button:hover,
+.head-bar__dropdown[open] > summary {
+  background: #f3e5d7;
 }
-.head-bar__user-menu[open] .admin-icon {
-  transform: rotate(180deg);
+.head-bar__icon-button:focus-visible,
+.head-bar__home:focus-visible {
+  outline: 2px solid #bf4c2d;
+  outline-offset: 2px;
+}
+.head-bar__icon-button svg {
+  width: 1.25rem;
+  height: 1.25rem;
 }
 .head-bar__menu {
   position: absolute;
@@ -242,11 +244,24 @@ select {
   right: 0;
   display: grid;
   min-width: 11rem;
+  width: max-content;
+  max-width: min(24rem, calc(100vw - 1.5rem));
   padding: 0.35rem;
   border: 1px solid #d7cabb;
   border-radius: 0.3rem;
   background: #fffaf0;
   box-shadow: 0 0.75rem 1.5rem #3c211522;
+}
+.head-bar__user-identity {
+  display: grid;
+  gap: 0.35rem;
+  margin-bottom: 0.35rem;
+  padding: 0.65rem 0.7rem 1rem;
+  border-bottom: 1px solid #d7cabb;
+  overflow-wrap: anywhere;
+}
+.head-bar__user-identity span {
+  color: #75675d;
 }
 .head-bar__menu a,
 .head-bar__menu button {
@@ -263,6 +278,11 @@ select {
 .head-bar__menu a:hover,
 .head-bar__menu button:hover {
   background: #f3e5d7;
+}
+.head-bar__menu button[aria-pressed='true'] {
+  color: #77402e;
+  background: #f3e5d7;
+  box-shadow: inset 3px 0 #bf4c2d;
 }
 .head-bar__menu button:disabled {
   cursor: wait;
@@ -641,7 +661,6 @@ code {
   }
   .head-bar {
     gap: 0.5rem;
-    flex-wrap: wrap;
     padding-right: 0.75rem;
     padding-left: 0.75rem;
   }
@@ -655,25 +674,14 @@ code {
   }
   .head-bar__controls {
     margin-left: auto;
-    flex-wrap: wrap;
     gap: 0.35rem;
   }
   .head-bar__actions {
     flex: 0 0 auto;
     gap: 0.35rem;
   }
-  .head-bar__actions .button--secondary {
-    padding: 0.55rem 0.6rem;
-    white-space: nowrap;
-  }
 }
 @media (max-width: 600px) {
-  body.cookbook-page .head-bar {
-    padding-left: 3.4rem;
-  }
-  body.cookbook-page .head-bar__home {
-    display: none;
-  }
   .application-shell {
     width: min(100% - 2rem, 1080px);
     padding-top: 1.5rem;

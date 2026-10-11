@@ -6,6 +6,7 @@ export interface AuthenticatedSessionUser {
   id: string;
   principal_id: string;
   email: string;
+  display_name: string;
   password_hash: string | null;
   password_change_required: boolean;
   disabled_at: Date | null;
@@ -69,7 +70,8 @@ export async function currentSessionUser(
 
   const result = await pool.query<AuthenticatedSessionUser>(
     `
-    SELECT user_account.id, user_account.principal_id, user_account.email, user_account.password_hash,
+    SELECT user_account.id, user_account.principal_id, user_account.email, user_account.display_name,
+      user_account.password_hash,
       user_account.password_change_required, user_account.disabled_at
     FROM user_session
     INNER JOIN user_account ON user_account.id = user_session.user_account_id

@@ -463,11 +463,13 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [email, hasPassword, passwordChangeRequired]
+                required: [email, displayName, hasPassword, passwordChangeRequired]
                 properties:
                   email:
                     type: string
                     format: email
+                  displayName:
+                    type: string
                   hasPassword:
                     type: boolean
                   passwordChangeRequired:

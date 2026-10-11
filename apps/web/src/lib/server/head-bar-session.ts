@@ -3,6 +3,7 @@ const defaultApiOrigin: string = 'http://localhost:3000';
 export interface HeadBarSession {
   authenticated: boolean;
   email: string;
+  displayName: string;
   canAccessAdministration: boolean;
 }
 
@@ -13,11 +14,13 @@ export interface AdminAreaState {
 
 interface SessionResponse {
   email: string;
+  displayName: string;
 }
 
 const signedOutSession: HeadBarSession = {
   authenticated: false,
   email: '',
+  displayName: '',
   canAccessAdministration: false,
 };
 
@@ -29,6 +32,7 @@ export async function loadHeadBarSession(cookie: string | null): Promise<HeadBar
   return {
     authenticated: true,
     email: session.email,
+    displayName: session.displayName,
     canAccessAdministration: administrationResponse?.ok === true,
   };
 }

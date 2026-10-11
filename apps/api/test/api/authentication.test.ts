@@ -68,6 +68,7 @@ test('login creates an HttpOnly session and logout revokes it', async (): Promis
   assert.equal(sessionResponse.statusCode, 200);
   assert.deepEqual(sessionResponse.json(), {
     email: user.email,
+    displayName: 'Test user',
     passwordChangeRequired: false,
     hasPassword: true,
   });

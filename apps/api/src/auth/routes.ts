@@ -273,6 +273,7 @@ export function registerAuthenticationRoutes(
       return sendError(reply, 401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
     return reply.send({
       email: user.email,
+      displayName: user.display_name,
       passwordChangeRequired: user.password_change_required,
       hasPassword: user.password_hash !== null,
     });
