@@ -95,7 +95,7 @@
 - The authenticated remote MCP endpoint exposes provider-neutral recipe search and draft-editing tools for compatible AI clients. It cannot publish or delete recipes.
 - The MCP endpoint supports OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, protected-resource metadata, authorization-server metadata, dynamic public-client registration, rotating refresh tokens, and human-principal authorization.
 - MCP recipe assistants can search and create tenant-owned ingredients and units when the authenticated tenant role grants the respective permissions. Instance-owned catalogue records remain unavailable to MCP writes.
-- The public web proxy exposes both root and path-specific OAuth discovery URLs for the `/api/mcp` resource.
+- The public web proxy forwards `/mcp` and `/api/mcp` to the MCP API, preserves bearer headers and OAuth challenges, and exposes root and path-specific OAuth discovery URLs for the canonical MCP resource. Proxy unit tests cover request forwarding, authentication challenges, discovery aliases, and ordinary web routes.
 - OAuth authorization defaults an omitted scope to the MCP recipe scope.
 - Private recipes, category subtrees, and complete cookbooks can be shared with an AI through one-time 30-minute context links. Exchanging a link returns a scoped read-only bearer token valid for 4, 8, or 24 hours and a machine-readable reader endpoint manifest.
 - AI context reader endpoints expose published recipes, immutable published and archived recipe revisions, current drafts, and categories within the selected scope. They do not expose management resources or write operations.

@@ -10,6 +10,7 @@ export const reservedCookbookSlugs: ReadonlySet<string> = new Set([
   'imprint',
   'login',
   'logout',
+  'mcp',
   'privacy',
   'recipes',
   'register',

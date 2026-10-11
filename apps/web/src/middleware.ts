@@ -20,10 +20,9 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
     }
     if (!sessionIsValid) return Response.redirect(loginUrl(context.url), 302);
   }
-  const apiPath: string | null = oauthDiscoveryApiPath(context.url.pathname);
-  if (apiPath === null && !context.url.pathname.startsWith(`${apiPrefix}/`)) return next();
-  const resolvedApiPath: string = apiPath ?? context.url.pathname.slice(apiPrefix.length);
-  const apiUrl: URL = new URL(`${resolvedApiPath}${context.url.search}`, apiOrigin);
+  const apiPath: string | null = apiProxyPath(context.url.pathname);
+  if (apiPath === null) return next();
+  const apiUrl: URL = new URL(`${apiPath}${context.url.search}`, apiOrigin);
   const requestBody: ArrayBuffer | undefined =
     context.request.method === 'GET' || context.request.method === 'HEAD'
       ? undefined
@@ -90,13 +89,19 @@ function isLoggedAuthenticationPath(pathname: string): boolean {
   );
 }
 
-function oauthDiscoveryApiPath(pathname: string): string | null {
+function apiProxyPath(pathname: string): string | null {
+  if (pathname.startsWith(`${apiPrefix}/`)) return pathname.slice(apiPrefix.length);
+  if (pathname === '/mcp') return '/mcp';
   if (
     pathname === protectedResourceMetadataPath ||
+    pathname === `${protectedResourceMetadataPath}/mcp` ||
     pathname === `${protectedResourceMetadataPath}${apiPrefix}/mcp`
   )
     return protectedResourceMetadataPath;
-  if (pathname === `${authorizationServerMetadataPath}${apiPrefix}`)
+  if (
+    pathname === authorizationServerMetadataPath ||
+    pathname === `${authorizationServerMetadataPath}${apiPrefix}`
+  )
     return authorizationServerMetadataPath;
   return null;
 }

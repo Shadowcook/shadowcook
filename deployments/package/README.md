@@ -24,6 +24,13 @@ listener. Enable Apache's `headers`, `proxy`, `proxy_http`, `rewrite`, and
 `PUBLIC_WEB_ORIGIN` to the same HTTPS origin in `.env`. The HTTPS virtual host
 must forward `X-Forwarded-Proto`, `X-Forwarded-Port`, and `X-Forwarded-Host`.
 
+The web listener forwards `/api/*`, `/mcp`, and MCP OAuth discovery requests to
+the internal API. With the default `PUBLIC_API_ORIGIN`, configure MCP clients
+with `https://<public-host>/api/mcp`. `/mcp` is also forwarded directly and uses
+the same canonical OAuth resource metadata. An unauthenticated MCP initialize
+request returns HTTP 401 with a `WWW-Authenticate` header pointing to OAuth
+metadata.
+
 ## Bundled PostgreSQL
 
 Copy `.env.example` to `.env`, replace the PostgreSQL password, and set the

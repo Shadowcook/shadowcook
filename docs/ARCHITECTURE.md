@@ -198,6 +198,7 @@ shadowcook/
 - Test database migrations run through `migrateDatabase`; test execution does not read or modify `DATABASE_URL`, development databases, production databases, or configured development ports.
 - API tests construct Fastify with `createApi` and execute requests through Fastify injection without binding an HTTP port.
 - Unit tests use the Node.js test runner through `tsx` and cover deterministic API functions without PostgreSQL or HTTP transport.
+- Web proxy unit tests use the Node.js test runner with native TypeScript support and mocked upstream responses. `pnpm test:unit` runs both API and web unit tests.
 - Priority-0 API integration tests cover login validation, HttpOnly session creation, logout revocation, disabled and expired sessions, password-change-required access restrictions, and the separation of tenant roles from instance permissions.
 - Priority-0 API integration tests verify category tenant isolation for tenant-slug and category-public-ID routes, including cross-tenant list, create, and update attempts.
 - `pnpm test:e2e` is reserved for the browser test suite and currently reports that browser end-to-end tests have not been implemented.
@@ -1164,12 +1165,13 @@ created_at
 - Disabling a service account disables its principal and revokes all of its active API tokens.
 - Service-account credentials use the same tenant-scoped authorization checks and recipe draft endpoints as browser sessions.
 - `POST /mcp` is a remote Model Context Protocol endpoint for active service-account bearer tokens and OAuth access tokens.
+- The public web proxy forwards `/mcp` directly to the API's `/mcp` endpoint. `/api/mcp` remains the canonical public resource URL with the default `PUBLIC_API_ORIGIN`. The `mcp` cookbook slug is reserved.
 - The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
 - MCP tools do not publish or delete recipes.
 - MCP ingredient and unit creation tools create records owned by the authenticated tenant. They cannot create or modify instance-owned catalogue records.
 - MCP user connections use OAuth 2.1 authorization-code flow with S256 PKCE, Client ID Metadata Documents, dynamic client registration, and the `shadowcook:recipes` scope.
 - OAuth authorization requests that omit `scope` receive `shadowcook:recipes` as their default scope.
-- `/.well-known/oauth-protected-resource` and `/.well-known/oauth-protected-resource/api/mcp` publish the MCP resource metadata. `/.well-known/oauth-authorization-server/api` publishes authorization-server metadata for the `/api` issuer.
+- `/.well-known/oauth-protected-resource`, `/.well-known/oauth-protected-resource/mcp`, and `/.well-known/oauth-protected-resource/api/mcp` publish the MCP resource metadata. `/.well-known/oauth-authorization-server` and `/.well-known/oauth-authorization-server/api` publish authorization-server metadata.
 - OAuth authorization responses return the authorization code and state to the registered callback URI without an `iss` parameter.
 - OAuth authorization codes expire after five minutes and have one-time use. Access tokens expire after one hour. Refresh tokens expire after thirty days and rotate on use.
 - OAuth authorization codes, access tokens, and refresh tokens are stored only as SHA-256 hashes. Their plaintext values and PKCE verifiers are not written to application logs.
