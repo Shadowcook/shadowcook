@@ -26,6 +26,8 @@
 
 ### Cookbook, public web, and localization
 
+- The global head bar displays the localized application wordmark beside the logo above the 700-pixel mobile breakpoint (architecture section 4.2).
+
 - Shared application dialogs provide localized information, error, and confirmation variants with Font Awesome pictograms, modal focus containment, Escape cancellation, focus restoration, and busy-state handling. Request errors, recipe-draft discards, ingredient merges, administrator deletion and password-reset confirmations, and service-account token information use the shared component. A source guard prevents native browser dialogs (architecture section 3.4, Application dialogs).
 
 - The Astro application provides server-rendered, deep-linkable tenant selection, category, recipe, variant, sign-in, and administration routes, with same-origin API forwarding.
@@ -85,6 +87,10 @@
 - Recipe ingredient usages retain the selected alias for recipe output while sharing the normalized ingredient identity for search and aggregation.
 
 ### Authentication, authorization, and administration
+
+- Instance-user, cookbook-user, and cookbook-owner invitations collect first name, last name, and display name from the invited person when creating an account. Inviter forms require only the recipient email address as personal information. Existing-account acceptance preserves the profile; cookbook-owner profile validation preserves the email code on invalid names (architecture sections 4.6 and 15.2.2).
+
+- Public registration requires first name, last name, and display name, stores them until email verification, and transfers them to the account. Account settings provide localized editing of all three names through authenticated profile endpoints, including immediate display-name updates in the header (architecture section 4.5).
 
 - Human password authentication, email-code authentication, opaque HttpOnly sessions, password-change enforcement, password resets, and bootstrap administration are implemented. Instance administrators configure a 1-to-256-bit minimum estimated password entropy, with a local threshold-centred progress test; the default is 60 bits. The zxcvbn-ts estimate recognizes common words, sequences, repetitions, l33t substitutions, and keyboard patterns, while fully random character sequences use character-pool entropy. Browser indicator calculations are debounced by 200 milliseconds and analyze at most the first 64 characters. Registration, password-change, password-reset, and account-invitation forms show the same local threshold-centred progress indicator. All password-entry fields provide a localized show-or-hide control, and password-change completion does not require repeated entry. Entropy validation applies outside development only.
 - Tenant invitation acceptance starts an invited account session, directs it to the assigned cookbook, and supports first-password completion without a current-password field and with localized repeated-password validation. Tenant-user invitations support invited existing accounts through an authenticated email-match check and add their existing principal to the selected cookbook membership.

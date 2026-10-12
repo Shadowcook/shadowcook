@@ -393,14 +393,14 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
-           AND tenant_role_permission.permission_code IN ('ingredient:read', 'ingredient:create', 'ingredient:update')
+           AND tenant_role_permission.permission_code IN ('ingredient:create', 'ingredient:update')
        ) AS can_manage_ingredients,
        EXISTS (
          SELECT 1 FROM tenant_membership_role
          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
          WHERE tenant_membership_role.tenant_id = $1
            AND tenant_membership_role.principal_id = $2
-           AND tenant_role_permission.permission_code IN ('unit:read', 'unit:create', 'unit:update', 'unit:delete')
+           AND tenant_role_permission.permission_code IN ('unit:create', 'unit:update', 'unit:delete')
        ) AS can_manage_units,
        EXISTS (
          SELECT 1 FROM tenant_membership_role

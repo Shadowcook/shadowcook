@@ -52,6 +52,8 @@ export interface UserAccountTable {
   public_id: Generated<Uuid>;
   email: string;
   display_name: string;
+  first_name: Generated<string | null>;
+  last_name: Generated<string | null>;
   password_hash: string | null;
   created_at: Generated<Timestamp>;
   updated_at: Generated<Timestamp>;
@@ -84,6 +86,9 @@ export interface PasswordResetTokenTable {
 }
 
 export interface PendingRegistrationTable {
+  first_name: Generated<string | null>;
+  last_name: Generated<string | null>;
+  display_name: Generated<string | null>;
   id: Generated<Uuid>;
   email: string;
   password_hash: string;

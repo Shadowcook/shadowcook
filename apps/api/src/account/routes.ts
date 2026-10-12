@@ -10,12 +10,14 @@ import {
   isValidCookbookName,
 } from '../cookbook/owned-cookbook.js';
 import { cookbookSlugIsBlocked } from '../cookbook/slug-policy.js';
+import { registerAccountProfileRoutes } from './profile-routes.js';
 
 interface CreateCookbookBody {
   cookbookName: string;
 }
 
 export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
+  registerAccountProfileRoutes(api, pool);
   api.get('/account/cookbooks', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await currentSessionUser(pool, request);
     if (user === null)

@@ -5,6 +5,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
+import { subscribeToProfileUpdates } from '../lib/browser/profile-events';
 import type { HeadBarSession } from '../lib/server/head-bar-session';
 import HeadBarDropdown from './HeadBarDropdown';
 import LanguageSwitch from './LanguageSwitch';
@@ -31,6 +32,12 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
   useEffect((): void => {
     void restoreSession(setSession);
     setSignInHref(loginHref());
+  }, []);
+
+  useEffect((): (() => void) => {
+    return subscribeToProfileUpdates((displayName: string): void => {
+      setSession((current: HeadBarSession): HeadBarSession => ({ ...current, displayName }));
+    });
   }, []);
 
   async function signOut(): Promise<void> {
@@ -74,6 +81,7 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
         title={text.accessibility.applicationName}
       >
         <img className="head-bar__logo" src="/shadowcook-logo.png" alt="" aria-hidden="true" />
+        <span className="head-bar__wordmark">{text.brandName}</span>
       </a>
       <div className="head-bar__controls">
         <LanguageSwitch locale={locale} />

@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
-import { requireTenantPermission } from '../admin/authorization.js';
+import { requireTenantAnyPermission, requireTenantPermission } from '../admin/authorization.js';
 import { registerRecipeDraftDiscardRoutes } from './recipe-draft-discard-routes.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
 
@@ -585,12 +585,12 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
 
   api.get('/cookbook/tenants/:tenantSlug/drafts', async (request, reply) => {
     const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
-    const tenantId: string | null = await requireTenantPermission(
+    const tenantId: string | null = await requireTenantAnyPermission(
       pool,
       request,
       reply,
       tenantSlug,
-      'recipe:read',
+      ['recipe:create', 'recipe:update'],
     );
     if (tenantId === null) return;
     const user = await currentAuthenticatedPrincipal(pool, request);

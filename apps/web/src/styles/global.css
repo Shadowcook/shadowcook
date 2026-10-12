@@ -184,13 +184,20 @@ select {
 .head-bar__home {
   display: inline-flex;
   align-items: center;
+  gap: 0.5rem;
   color: #28211d;
+  font-size: 1.1rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
   text-decoration: none;
 }
 .head-bar__logo {
   width: 2.25rem;
   height: 2.25rem;
   object-fit: contain;
+}
+.head-bar__wordmark {
+  transform: translateY(7px);
 }
 .head-bar__controls {
   display: flex;
@@ -421,6 +428,20 @@ h1 {
   margin: 1.4rem 0 2rem;
   color: #685b52;
   line-height: 1.55;
+}
+.account-profile-settings {
+  margin-bottom: 2rem;
+}
+.account-profile-settings__fields {
+  display: grid;
+  gap: 1.1rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.account-profile-settings__fields legend {
+  margin-bottom: 1.1rem;
 }
 form {
   display: grid;
@@ -671,6 +692,9 @@ code {
   }
   .head-bar__logo {
     flex: 0 0 auto;
+  }
+  .head-bar__wordmark {
+    display: none;
   }
   .head-bar__controls {
     margin-left: auto;

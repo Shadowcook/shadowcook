@@ -15,6 +15,10 @@ import { cookbookPath, resolveCookbookLocation } from './model/routing';
 import type { CookbookLocation } from './model/routing';
 import { managementRoute } from './model/management-routing';
 import type { EditorPath, ManagementRoute } from './model/management-routing';
+import {
+  cookbookManagementPath,
+  isCookbookManagementAccessDenied,
+} from './model/management-access';
 import type { CookbookResponse, Recipe, RecipeDetail } from './model/types';
 import RecipeEditor from './components/RecipeEditor';
 import DraftRecipeList from './components/DraftRecipeList';
@@ -123,28 +127,11 @@ export default function CookbookScreen({
     name: string;
   } | null>(null);
   const hasCookbookManagementAccess: boolean =
-    cookbook.canManageCategories ||
-    cookbook.canManageRecipes ||
-    cookbook.canManageUsers ||
-    cookbook.canManageIngredients ||
-    cookbook.canManageUnits ||
-    cookbook.canManageServiceAccounts;
-  const isManagementAccessDenied: boolean =
-    (editorPath === 'manage' && !hasCookbookManagementAccess) ||
-    (editorPath === 'manage-users' && !cookbook.canManageUsers) ||
-    (editorPath === 'manage-ingredients' && !cookbook.canManageIngredients) ||
-    (editorPath === 'manage-units' && !cookbook.canManageUnits) ||
-    (editorPath === 'manage-recipe-policy' && !cookbook.canManageUsers) ||
-    (editorPath === 'manage-service-accounts' && !cookbook.canManageServiceAccounts) ||
-    (isCategoryEditor && !cookbook.canManageCategories) ||
-    (editorPath !== null &&
-      editorPath !== 'manage' &&
-      editorPath !== 'manage-users' &&
-      editorPath !== 'manage-ingredients' &&
-      editorPath !== 'manage-units' &&
-      editorPath !== 'manage-recipe-policy' &&
-      editorPath !== 'manage-service-accounts' &&
-      !cookbook.canManageRecipes);
+    cookbookManagementPath(cookbook, tenantSlug) !== null;
+  const isManagementAccessDenied: boolean = isCookbookManagementAccessDenied(cookbook, {
+    editorPath,
+    isCategoryEditor,
+  });
 
   useEffect((): void => {
     const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
@@ -540,8 +527,14 @@ export default function CookbookScreen({
             {text.tenantNavigation.backToCookbook}
           </a>
         ) : null}
-        <div className={isCategoryEditor || editorPath !== null ? 'tenant-area' : undefined}>
-          {isCategoryEditor || editorPath !== null ? (
+        <div
+          className={
+            (isCategoryEditor || editorPath !== null) && hasCookbookManagementAccess
+              ? 'tenant-area'
+              : undefined
+          }
+        >
+          {(isCategoryEditor || editorPath !== null) && hasCookbookManagementAccess ? (
             <TenantNavigation
               text={text}
               cookbook={cookbook}

@@ -6,6 +6,7 @@ import type { Translation } from '../i18n';
 import { jsonRequest, request } from '../lib/api/client';
 import CreateCookbookModal from './CreateCookbookModal';
 import StatusMessage from './StatusMessage';
+import AccountProfileSettings from './AccountProfileSettings';
 
 export default function AccountSettingsScreen({ text }: { text: Translation }): JSX.Element {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
@@ -53,6 +54,7 @@ export default function AccountSettingsScreen({ text }: { text: Translation }): 
         <StatusMessage message={text.accountSettings.signInRequired} />
       ) : authenticated === true ? (
         <>
+          <AccountProfileSettings text={text} />
           <div className="account-settings-panel__cookbook-heading">
             <div>
               <h2>{text.accountSettings.ownedCookbooks}</h2>

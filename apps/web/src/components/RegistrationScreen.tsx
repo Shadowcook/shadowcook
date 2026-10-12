@@ -7,6 +7,7 @@ import StatusMessage from './StatusMessage';
 import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
 import CookbookUrlPreview from './CookbookUrlPreview';
+import ProfileNameFields, { hasValidProfileNames, type ProfileNames } from './ProfileNameFields';
 
 interface TurnstileApi {
   render: (
@@ -23,6 +24,11 @@ declare global {
 
 export default function RegistrationScreen({ text }: { text: Translation }): JSX.Element {
   const [email, setEmail] = useState<string>('');
+  const [names, setNames] = useState<ProfileNames>({
+    firstName: '',
+    lastName: '',
+    displayName: '',
+  });
   const [password, setPassword] = useState<string>('');
   const [tenantName, setTenantName] = useState<string>('');
   const [createCookbook, setCreateCookbook] = useState<boolean>(true);
@@ -81,12 +87,17 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
 
   async function submit(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (!hasValidProfileNames(names)) {
+      setMessage(text.accountProfile.nameRequirements);
+      return;
+    }
     setSubmitting(true);
     setMessage('');
     try {
       await request(
         '/registration',
         jsonRequest({
+          ...names,
           email,
           password,
           tenantName: createCookbook ? tenantName.trim() : null,
@@ -126,6 +137,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
         </>
       ) : (
         <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void submit(event)}>
+          <ProfileNameFields text={text} value={names} onChange={setNames} />
           <label>
             {text.registration.email}
             <input
@@ -181,7 +193,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
           ) : null}
           <div className="registration-honeypot" aria-hidden="true">
             <label>
-              Website
+              {text.registration.website}
               <input
                 name="website"
                 type="text"
@@ -197,6 +209,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
             type="submit"
             disabled={
               submitting ||
+              !hasValidProfileNames(names) ||
               (createCookbook && !validCookbookName) ||
               (turnstileRequired && turnstileToken.length === 0)
             }

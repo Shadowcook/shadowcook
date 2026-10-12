@@ -73,6 +73,7 @@ export const en: Translation = {
     invalid: 'This password-reset link is invalid or has expired.',
   },
   registration: {
+    website: 'Website',
     title: 'Create your account',
     subtitle: 'Create an account first. You can create a cookbook now or later after signing in.',
     email: 'Email address',
@@ -96,7 +97,7 @@ export const en: Translation = {
   },
   accountSettings: {
     title: 'Account settings',
-    subtitle: 'Create a cookbook when you are ready to publish or organize recipes.',
+    subtitle: 'Update your names and manage your cookbooks.',
     cookbookName: 'Cookbook name',
     addCookbook: 'Add cookbook',
     createCookbook: 'Create cookbook',
@@ -115,14 +116,30 @@ export const en: Translation = {
     yes: 'Yes',
     no: 'No',
   },
+  accountProfile: {
+    title: 'Profile',
+    names: 'Your names',
+    firstName: 'First name',
+    lastName: 'Last name',
+    displayName: 'Display name',
+    nameRequirements:
+      'First name, last name, and display name are required (1–120 characters each).',
+    save: 'Save names',
+    saving: 'Saving names …',
+    saved: 'Your names have been updated.',
+    loadFailed: 'Your profile could not be loaded. Please reload the page.',
+    saveFailed: 'Your names could not be saved. Please try again.',
+  },
   cookbookUrlPreview: {
     label: 'Cookbook URL',
     invalidName: 'Please enter at least 3 characters',
     collision: 'This URL is already in use. Choose a different cookbook name to avoid a suffix.',
   },
   userInvitation: {
+    invalidPassword: 'Please choose a password that meets the password requirements.',
     title: 'Create your account',
-    subtitle: 'Choose the display name and sign-in details for your Shadowcook account.',
+    subtitle:
+      'Enter your first name, last name, display name, and sign-in details for your Shadowcook account.',
     existingAccountTitle: 'Join cookbook',
     existingAccountSubtitle: 'Sign in with the invited email address to join this cookbook.',
     signInToAccept: 'Sign in to accept invitation',

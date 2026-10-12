@@ -4,8 +4,6 @@ import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 
 interface TenantFormData {
-  firstName: string;
-  lastName: string;
   email: string;
   cookbookName: string;
   slug: string;
@@ -22,8 +20,6 @@ export default function AdminTenantCreate({
 }: AdminTenantCreateProperties): JSX.Element {
   const text: Translation = translations[locale];
   const [data, setData] = useState<TenantFormData>({
-    firstName: '',
-    lastName: '',
     email: '',
     cookbookName: '',
     slug: '',
@@ -73,14 +69,6 @@ export default function AdminTenantCreate({
       <p className="eyebrow">{text.admin.tenants}</p>
       <h1>{text.admin.tenantsNew}</h1>
       <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void submit(event)}>
-        <label>
-          {text.admin.firstName}
-          <input value={data.firstName} onChange={update('firstName')} required />
-        </label>
-        <label>
-          {text.admin.lastName}
-          <input value={data.lastName} onChange={update('lastName')} required />
-        </label>
         <label>
           {text.login.emailLabel}
           <input value={data.email} onChange={update('email')} type="email" required />

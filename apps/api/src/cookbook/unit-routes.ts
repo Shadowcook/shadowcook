@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient, QueryResult } from 'pg';
-import { requireTenantPermission } from '../admin/authorization.js';
+import { requireTenantAnyPermission, requireTenantPermission } from '../admin/authorization.js';
 import { decimal, displayDecimal, type UnitDimension } from '../unit-domain.js';
 import {
   parseUnitTranslations,
@@ -37,7 +37,13 @@ interface UnitConversion {
 
 export function registerTenantUnitRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants/:tenantSlug/units', async (request, reply) => {
-    const tenantId: string | null = await tenantIdFor(pool, request, reply, 'unit:read');
+    const tenantId: string | null = await requireTenantAnyPermission(
+      pool,
+      request,
+      reply,
+      (request.params as { tenantSlug: string }).tenantSlug,
+      ['unit:create', 'unit:update', 'unit:delete'],
+    );
     if (tenantId === null) return;
     const [units, referenceUnits] = await Promise.all([
       listUnits(pool, 'owner_tenant_id = $1', [tenantId], true),

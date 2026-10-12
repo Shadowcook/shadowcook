@@ -54,6 +54,16 @@ export async function requireTenantPermission(
   tenantSlug: string,
   permissionCode: string,
 ): Promise<string | null> {
+  return requireTenantAnyPermission(pool, request, reply, tenantSlug, [permissionCode]);
+}
+
+export async function requireTenantAnyPermission(
+  pool: Pool,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  tenantSlug: string,
+  permissionCodes: readonly string[],
+): Promise<string | null> {
   const principal = await currentAuthenticatedPrincipal(pool, request);
   if (principal === null || principal.disabled_at !== null) {
     reply.code(401).send({ code: 'AUTHENTICATION_REQUIRED', error: 'Authentication is required.' });
@@ -68,12 +78,12 @@ export async function requireTenantPermission(
           ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
         WHERE tenant_membership_role.tenant_id = tenant.id
           AND tenant_membership_role.principal_id = $1
-          AND tenant_role_permission.permission_code = $2
+          AND tenant_role_permission.permission_code = ANY($2::text[])
       ) AS permitted
       FROM tenant
       WHERE tenant.slug = $3 AND tenant.disabled_at IS NULL
     `,
-    [principal.principal_id, permissionCode, tenantSlug],
+    [principal.principal_id, permissionCodes, tenantSlug],
   );
   const tenant: TenantPermissionRow | undefined = result.rows[0];
   if (tenant === undefined) {

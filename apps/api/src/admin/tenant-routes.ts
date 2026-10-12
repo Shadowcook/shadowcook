@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
 import { currentSessionUser } from '../auth/session.js';
 import { createSession } from '../auth/routes.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from '../auth/email-code.js';
@@ -10,10 +10,10 @@ import { sendTemplatedInstanceMail } from '../mail/service.js';
 import { isSmtpConfigured } from './mail-routes.js';
 import { requireInstancePermission, requireTenantPermission } from './authorization.js';
 import { cookbookSlugIsBlocked, normalizeCookbookSlug } from '../cookbook/slug-policy.js';
+import { parseAccountProfile, type AccountProfile } from '../account/profile.js';
+import { invalidInvitationProfile, invitationAccountExists } from './invitation-profile.js';
 
 interface CreateTenantBody {
-  firstName: string;
-  lastName: string;
   email: string;
   cookbookName: string;
   slug: string;
@@ -32,8 +32,15 @@ interface CreateUserInvitationBody {
   roleCode: string;
 }
 interface AcceptUserInvitationBody {
-  displayName?: string;
   password?: string;
+}
+interface TenantInvitation {
+  id: string;
+  invited_email: string;
+  tenant_id: string;
+  tenant_role_id: string;
+  display_name: string;
+  slug: string;
 }
 interface UpdateInstanceRolesBody {
   roleCodes: string[];
@@ -527,12 +534,10 @@ export function registerTenantRoutes(
       );
       const token = randomBytes(32).toString('base64url');
       await client.query(
-        'INSERT INTO tenant_invitation (tenant_id, invited_email, first_name, last_name, tenant_role_id, token_hash, expires_at, created_by_principal_id) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        'INSERT INTO tenant_invitation (tenant_id, invited_email, tenant_role_id, token_hash, expires_at, created_by_principal_id) VALUES ($1, $2, $3, $4, $5, $6)',
         [
           tenant.id,
           email,
-          body.firstName.trim(),
-          body.lastName.trim(),
           roleResult.rows[0]!.id,
           hashToken(token),
           new Date(Date.now() + invitationLifetime),
@@ -583,27 +588,29 @@ export function registerTenantRoutes(
       client.release();
     }
   });
-  api.get('/invitations/:token', async (request, reply) => {
-    const invitation = await invitationForToken(pool, (request.params as { token: string }).token);
+  api.get('/invitations/:token', async (request: FastifyRequest, reply: FastifyReply) => {
+    const invitation: TenantInvitation | null = await invitationForToken(
+      pool,
+      (request.params as { token: string }).token,
+    );
     if (invitation === null)
       return reply
         .code(404)
         .send({ code: 'INVITATION_NOT_FOUND', error: 'The invitation is invalid or expired.' });
     return reply.send({
       email: invitation.invited_email,
-      firstName: invitation.first_name,
-      lastName: invitation.last_name,
       cookbookName: invitation.display_name,
+      existingAccount: await invitationAccountExists(pool, invitation.invited_email),
     });
   });
   api.post('/invitations/:token/accept', async (request: FastifyRequest, reply: FastifyReply) => {
-    const token = (request.params as { token: string }).token;
-    const body = request.body as { code?: unknown };
+    const token: string = (request.params as { token: string }).token;
+    const body: { code?: unknown } | null = request.body as { code?: unknown } | null;
     if (typeof body?.code !== 'string')
       return reply
         .code(400)
         .send({ code: 'INVALID_EMAIL_CODE', error: 'A valid email code is required.' });
-    const invitation = await invitationForToken(pool, token);
+    const invitation: TenantInvitation | null = await invitationForToken(pool, token);
     if (invitation === null)
       return reply
         .code(404)
@@ -614,6 +621,9 @@ export function registerTenantRoutes(
         code: 'INVITATION_EMAIL_MISMATCH',
         error: 'The active session belongs to another email address.',
       });
+    const profile: AccountProfile | null = parseAccountProfile(request.body);
+    if (profile === null && !(await invitationAccountExists(pool, invitation.invited_email)))
+      return invalidInvitationProfile(reply);
     const context = await consumeEmailCode(
       pool,
       invitation.invited_email,
@@ -641,16 +651,22 @@ export function registerTenantRoutes(
       let hasPassword: boolean;
       let passwordChangeRequired: boolean;
       if (existing.rows[0] === undefined) {
+        if (profile === null) {
+          await client.query('ROLLBACK');
+          return invalidInvitationProfile(reply);
+        }
         const principal = await client.query<{ id: string }>(
           "INSERT INTO principal (principal_type) VALUES ('USER') RETURNING id",
         );
         principalId = principal.rows[0]!.id;
         const account = await client.query<{ id: string }>(
-          'INSERT INTO user_account (principal_id, email, display_name, password_change_required) VALUES ($1, $2, $3, true) RETURNING id',
+          'INSERT INTO user_account (principal_id, email, display_name, first_name, last_name, password_change_required) VALUES ($1, $2, $3, $4, $5, true) RETURNING id',
           [
             principalId,
             invitation.invited_email,
-            `${invitation.first_name} ${invitation.last_name}`,
+            profile.displayName,
+            profile.firstName,
+            profile.lastName,
           ],
         );
         userId = account.rows[0]!.id;
@@ -790,12 +806,10 @@ export function registerTenantRoutes(
           await client.query('COMMIT');
           return reply.code(204).send();
         }
-        if (body.displayName === undefined) {
+        const profile: AccountProfile | null = parseAccountProfile(request.body);
+        if (profile === null) {
           await client.query('ROLLBACK');
-          return reply.code(400).send({
-            code: 'INVALID_USER_INVITATION',
-            error: 'The invitation details are invalid.',
-          });
+          return invalidInvitationProfile(reply);
         }
         const settings: AuthenticationSettingsRow = await authenticationSettings(pool);
         if (settings.login_mode !== 'EMAIL_CODE_ONLY' && body.password === undefined) {
@@ -820,8 +834,15 @@ export function registerTenantRoutes(
           "INSERT INTO principal (principal_type) VALUES ('USER') RETURNING id",
         );
         await client.query(
-          'INSERT INTO user_account (principal_id, email, display_name, password_hash) VALUES ($1, $2, $3, $4)',
-          [principal.rows[0]!.id, claim.invited_email, body.displayName, passwordHash],
+          'INSERT INTO user_account (principal_id, email, display_name, password_hash, first_name, last_name) VALUES ($1, $2, $3, $4, $5, $6)',
+          [
+            principal.rows[0]!.id,
+            claim.invited_email,
+            profile.displayName,
+            passwordHash,
+            profile.firstName,
+            profile.lastName,
+          ],
         );
         const globalRoleId: string =
           claim.instance_role_id ??
@@ -854,18 +875,12 @@ export function registerTenantRoutes(
 }
 function parseCreateTenant(value: unknown): CreateTenantBody | null {
   if (typeof value !== 'object' || value === null) return null;
-  const v = value as Record<string, unknown>;
-  return typeof v.firstName === 'string' &&
-    typeof v.lastName === 'string' &&
-    typeof v.email === 'string' &&
+  const v: Record<string, unknown> = value as Record<string, unknown>;
+  return typeof v.email === 'string' &&
     typeof v.cookbookName === 'string' &&
     typeof v.slug === 'string' &&
-    v.firstName.trim() &&
-    v.lastName.trim() &&
     v.cookbookName.trim()
     ? {
-        firstName: v.firstName,
-        lastName: v.lastName,
         email: v.email,
         cookbookName: v.cookbookName,
         slug: v.slug,
@@ -908,14 +923,8 @@ function parseCreateTenantUserInvitation(value: unknown): CreateTenantUserInvita
 function parseAcceptUserInvitation(value: unknown): AcceptUserInvitationBody | null {
   if (typeof value !== 'object' || value === null) return null;
   const body: Record<string, unknown> = value as Record<string, unknown>;
-  if (
-    body.displayName !== undefined &&
-    (typeof body.displayName !== 'string' || body.displayName.trim().length === 0)
-  )
-    return null;
   if (body.password !== undefined && typeof body.password !== 'string') return null;
   return {
-    displayName: typeof body.displayName === 'string' ? body.displayName.trim() : undefined,
     password:
       typeof body.password === 'string' && body.password.length > 0 ? body.password : undefined,
   };
@@ -944,9 +953,12 @@ class InvitationDeliveryError extends Error {
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === '23505';
 }
-async function invitationForToken(pool: Pool, token: string): Promise<any | null> {
-  const result = await pool.query(
-    `SELECT tenant_invitation.*, tenant.display_name, tenant.slug FROM tenant_invitation INNER JOIN tenant ON tenant.id = tenant_invitation.tenant_id WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > now() AND tenant.disabled_at IS NULL`,
+async function invitationForToken(pool: Pool, token: string): Promise<TenantInvitation | null> {
+  const result: QueryResult<TenantInvitation> = await pool.query<TenantInvitation>(
+    `SELECT tenant_invitation.id, tenant_invitation.invited_email, tenant_invitation.tenant_id,
+      tenant_invitation.tenant_role_id, tenant.display_name, tenant.slug
+     FROM tenant_invitation INNER JOIN tenant ON tenant.id = tenant_invitation.tenant_id
+     WHERE token_hash = $1 AND accepted_at IS NULL AND expires_at > now() AND tenant.disabled_at IS NULL`,
     [hashToken(token)],
   );
   return result.rows[0] ?? null;

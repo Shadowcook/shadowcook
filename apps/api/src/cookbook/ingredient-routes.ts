@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
-import { requireTenantPermission } from '../admin/authorization.js';
+import { requireTenantAnyPermission, requireTenantPermission } from '../admin/authorization.js';
 import {
   consolidateIngredient,
   convertIngredientToTextOverride,
@@ -26,7 +26,13 @@ interface IngredientInput {
 
 export function registerTenantIngredientRoutes(api: FastifyInstance, pool: Pool): void {
   api.get('/cookbook/tenants/:tenantSlug/ingredients', async (request, reply) => {
-    const tenantId: string | null = await tenantIdFor(pool, request, reply, 'ingredient:read');
+    const tenantId: string | null = await requireTenantAnyPermission(
+      pool,
+      request,
+      reply,
+      (request.params as { tenantSlug: string }).tenantSlug,
+      ['ingredient:create', 'ingredient:update'],
+    );
     if (tenantId === null) return;
     const ingredients = await pool.query<IngredientRow>(
       `SELECT ingredient.public_id, ingredient.canonical_name,

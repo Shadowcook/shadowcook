@@ -8,6 +8,7 @@ import MobileCategoryDrawer from './MobileCategoryDrawer';
 import RecipeDetailView from './RecipeDetailView';
 import RecipePagination from './RecipePagination';
 import { cookbookPath } from '../model/routing';
+import { cookbookManagementPath } from '../model/management-access';
 import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/types';
 
 interface CookbookDashboardProperties {
@@ -248,15 +249,4 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
       )}
     </section>
   );
-}
-
-function cookbookManagementPath(cookbook: CookbookResponse, tenantSlug: string): string | null {
-  const tenantPath: string = `/${encodeURIComponent(tenantSlug)}`;
-  if (cookbook.canManageRecipes) return `${tenantPath}/manage/recipes`;
-  if (cookbook.canManageCategories) return `${tenantPath}/categories`;
-  if (cookbook.canManageUsers) return `${tenantPath}/manage/settings`;
-  if (cookbook.canManageServiceAccounts) return `${tenantPath}/manage/service-accounts`;
-  if (cookbook.canManageIngredients) return `${tenantPath}/manage/ingredients`;
-  if (cookbook.canManageUnits) return `${tenantPath}/manage/units`;
-  return null;
 }

@@ -36,6 +36,7 @@ const isAdministrationPath: boolean = path === '/admin' || path.startsWith('/adm
 const isTenantManagementPath: boolean =
   path.endsWith('/drafts') ||
   path.endsWith('/categories') ||
+  path.endsWith('/manage') ||
   path.includes('/manage/') ||
   path.endsWith('/recipes/new') ||
   /\/recipes\/[^/]+\/edit$/.test(path);

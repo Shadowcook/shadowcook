@@ -73,6 +73,7 @@ export const de: Translation = {
     invalid: 'Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.',
   },
   registration: {
+    website: 'Website',
     title: 'Konto erstellen',
     subtitle:
       'Erstelle zuerst ein Konto. Ein Kochbuch kannst du jetzt oder später nach der Anmeldung anlegen.',
@@ -97,8 +98,7 @@ export const de: Translation = {
   },
   accountSettings: {
     title: 'Kontoeinstellungen',
-    subtitle:
-      'Lege ein Kochbuch an, wenn du bereit bist, Rezepte zu veröffentlichen oder zu organisieren.',
+    subtitle: 'Ändere deine Namen und verwalte deine Kochbücher.',
     cookbookName: 'Name des Kochbuchs',
     addCookbook: 'Kochbuch hinzufügen',
     createCookbook: 'Kochbuch anlegen',
@@ -117,6 +117,19 @@ export const de: Translation = {
     yes: 'Ja',
     no: 'Nein',
   },
+  accountProfile: {
+    title: 'Profil',
+    names: 'Deine Namen',
+    firstName: 'Vorname',
+    lastName: 'Nachname',
+    displayName: 'Anzeigename',
+    nameRequirements: 'Vorname, Nachname und Anzeigename sind Pflichtfelder (je 1–120 Zeichen).',
+    save: 'Namen speichern',
+    saving: 'Namen werden gespeichert …',
+    saved: 'Deine Namen wurden aktualisiert.',
+    loadFailed: 'Dein Profil konnte nicht geladen werden. Bitte lade die Seite erneut.',
+    saveFailed: 'Deine Namen konnten nicht gespeichert werden. Bitte versuche es erneut.',
+  },
   cookbookUrlPreview: {
     label: 'Kochbuch-URL',
     invalidName: 'Bitte gib mindestens 3 Zeichen ein.',
@@ -124,8 +137,9 @@ export const de: Translation = {
       'Diese URL wird bereits verwendet. Wähle einen anderen Kochbuchnamen, um einen Suffix zu vermeiden.',
   },
   userInvitation: {
+    invalidPassword: 'Bitte wähle ein Passwort, das die Passwortanforderungen erfüllt.',
     title: 'Konto anlegen',
-    subtitle: 'Lege Anzeigename und Anmeldedaten für dein Shadowcook-Konto fest.',
+    subtitle: 'Gib Vorname, Nachname, Anzeigename und Anmeldedaten für dein Shadowcook-Konto ein.',
     existingAccountTitle: 'Kochbuch beitreten',
     existingAccountSubtitle:
       'Melde dich mit der eingeladenen E-Mail-Adresse an, um diesem Kochbuch beizutreten.',

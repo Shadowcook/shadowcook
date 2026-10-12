@@ -174,8 +174,21 @@ paths:
             schema:
               type: object
               additionalProperties: false
-              required: [email, password, tenantName, turnstileToken, website]
+              required:
+                [
+                  firstName,
+                  lastName,
+                  displayName,
+                  email,
+                  password,
+                  tenantName,
+                  turnstileToken,
+                  website,
+                ]
               properties:
+                firstName: { $ref: '#/components/schemas/ProfileName' }
+                lastName: { $ref: '#/components/schemas/ProfileName' }
+                displayName: { $ref: '#/components/schemas/ProfileName' }
                 email: { type: string, format: email }
                 password:
                   {
@@ -243,6 +256,65 @@ paths:
                 properties:
                   tenantSlug: { type: [string, 'null'] }
         '400': { description: Verification token is invalid, expired, or already consumed. }
+  /account/profile:
+    get:
+      operationId: getAccountProfile
+      summary: Returns the authenticated account's first name, last name, and display name.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Account profile. Existing accounts can have unset first and last names.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [firstName, lastName, displayName]
+                properties:
+                  firstName: { type: [string, 'null'] }
+                  lastName: { type: [string, 'null'] }
+                  displayName: { type: string }
+        '401':
+          description: Authentication is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          description: PASSWORD_CHANGE_REQUIRED. The account must change its password first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+    put:
+      operationId: updateAccountProfile
+      summary: Updates all three names of the authenticated account.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AccountProfile'
+      responses:
+        '200':
+          description: Updated account profile with trimmed names.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountProfile' }
+        '400':
+          description: INVALID_ACCOUNT_PROFILE. Each trimmed name must contain 1 to 120 characters.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401':
+          description: Authentication is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          description: PASSWORD_CHANGE_REQUIRED. The account must change its password first.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /account/cookbooks:
     get:
       operationId: getAccountCookbooks
@@ -852,11 +924,9 @@ paths:
                 schema:
                   {
                     type: object,
-                    required: [firstName, lastName, email, cookbookName, slug],
+                    required: [email, cookbookName, slug],
                     properties:
                       {
-                        firstName: { type: string },
-                        lastName: { type: string },
                         email: { type: string, format: email },
                         cookbookName: { type: string },
                         slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' },
@@ -1333,6 +1403,7 @@ paths:
   /user-invitations/{token}/accept:
     post:
       operationId: acceptUserInvitation
+      summary: Accepts an instance or cookbook user invitation and completes the profile of a new account.
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       requestBody:
         required: true
@@ -1341,8 +1412,11 @@ paths:
             schema:
               type: object
               additionalProperties: false
+              description: New accounts require firstName, lastName, and displayName. Existing invited cookbook accounts accept with an empty object and a matching authenticated session; their profile is unchanged. A new account also requires a password unless the login mode is EMAIL_CODE_ONLY.
               properties:
-                displayName: { type: string, minLength: 1 }
+                firstName: { $ref: '#/components/schemas/ProfileName' }
+                lastName: { $ref: '#/components/schemas/ProfileName' }
+                displayName: { $ref: '#/components/schemas/ProfileName' }
                 password:
                   {
                     type: string,
@@ -1351,7 +1425,9 @@ paths:
                   }
       responses:
         '204': { description: Account created or an existing account joined the invited cookbook. }
-        '400': { description: Invalid invitation details or password. }
+        '400':
+          description: Invalid invitation details, INVALID_ACCOUNT_PROFILE for missing or invalid names, or INVALID_PASSWORD.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { description: Existing invited account must sign in before accepting. }
         '403': { description: Signed-in email address does not match the invitation. }
         '404': { description: Invitation unavailable. }
@@ -1362,32 +1438,40 @@ paths:
       operationId: getTenantInvitation
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       responses:
-        {
-          '200': { description: Invitation details. },
-          '404':
-            {
-              description: Invitation unavailable,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
-            },
-        }
+        '200':
+          description: Cookbook-owner invitation details and invited account state.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [email, cookbookName, existingAccount]
+                properties:
+                  email: { type: string, format: email }
+                  cookbookName: { type: string }
+                  existingAccount: { type: boolean }
+        '404':
+          description: Invitation unavailable.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   /invitations/{token}/accept:
     post:
       operationId: acceptTenantInvitation
+      summary: Accepts a cookbook-owner invitation and completes the profile of a new account.
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       requestBody:
         required: true
         content:
-          {
-            application/json:
-              {
-                schema:
-                  {
-                    type: object,
-                    required: [code],
-                    properties: { code: { type: string, pattern: '^[0-9]{6}$' } },
-                  },
-              },
-          }
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              description: New accounts require firstName, lastName, and displayName in addition to the email code. Existing accounts require only the email code; their profile is unchanged.
+              required: [code]
+              properties:
+                code: { type: string, pattern: '^[0-9]{6}$' }
+                firstName: { $ref: '#/components/schemas/ProfileName' }
+                lastName: { $ref: '#/components/schemas/ProfileName' }
+                displayName: { $ref: '#/components/schemas/ProfileName' }
       responses:
         '200':
           description: Invitation accepted and browser session started.
@@ -1404,6 +1488,9 @@ paths:
                   cookbookSlug: { type: string }
                   hasPassword: { type: boolean }
                   passwordChangeRequired: { type: boolean }
+        '400':
+          description: INVALID_EMAIL_CODE for malformed code input or INVALID_ACCOUNT_PROFILE for missing or invalid names on a new account. Profile validation does not consume the email code.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401':
           description: Invalid email code.
           content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
@@ -1906,8 +1993,10 @@ paths:
                     type: boolean
                   canManageIngredients:
                     type: boolean
+                    description: Granted by ingredient:create or ingredient:update; ingredient:read alone does not grant management access.
                   canManageUnits:
                     type: boolean
+                    description: Granted by unit:create, unit:update, or unit:delete; unit:read alone does not grant management access.
         '403':
           description: A password change is required before accessing the cookbook.
           content:
@@ -2175,7 +2264,8 @@ paths:
     get:
       operationId: listRecipeDrafts
       summary: Lists editable recipe drafts for a tenant.
-      security: [{ sessionCookie: [] }]
+      description: Requires recipe:create or recipe:update in the requested cookbook. recipe:read alone does not grant access to drafts.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       responses:
@@ -2190,6 +2280,11 @@ paths:
                   recipes:
                     type: array
                     items: { $ref: '#/components/schemas/EditableRecipe' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: The requested cookbook is disabled or does not exist.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   /cookbook/tenants/{tenantSlug}/recipes:
     get:
       operationId: listManagedRecipes
@@ -2655,6 +2750,7 @@ paths:
     get:
       operationId: listTenantIngredients
       summary: Lists ingredients owned by a cookbook with aliases and recipe usage counts.
+      description: Requires ingredient:create or ingredient:update in the requested cookbook. ingredient:read alone does not grant management access.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
@@ -2670,6 +2766,11 @@ paths:
                   ingredients:
                     type: array
                     items: { $ref: '#/components/schemas/TenantIngredient' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: The requested cookbook is disabled or does not exist.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     post:
       operationId: createTenantIngredient
       summary: Creates a cookbook-owned ingredient and optional aliases.
@@ -2813,6 +2914,7 @@ paths:
     get:
       operationId: listTenantUnits
       summary: Lists units of measure owned by a cookbook.
+      description: Requires unit:create, unit:update, or unit:delete in the requested cookbook. unit:read alone does not grant management access.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
@@ -2831,6 +2933,11 @@ paths:
                   referenceUnits:
                     type: array
                     items: { $ref: '#/components/schemas/TenantUnit' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: The requested cookbook is disabled or does not exist.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     post:
       operationId: createTenantUnit
       summary: Creates a cookbook-owned unit of measure.
@@ -3112,6 +3219,20 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    ProfileName:
+      type: string
+      minLength: 1
+      maxLength: 120
+      pattern: '\S'
+      description: Leading and trailing whitespace is ignored. The trimmed name contains 1 to 120 characters.
+    AccountProfile:
+      type: object
+      additionalProperties: false
+      required: [firstName, lastName, displayName]
+      properties:
+        firstName: { $ref: '#/components/schemas/ProfileName' }
+        lastName: { $ref: '#/components/schemas/ProfileName' }
+        displayName: { $ref: '#/components/schemas/ProfileName' }
     OAuthProtectedResourceMetadata:
       type: object
       additionalProperties: false
@@ -4087,6 +4208,7 @@ components:
             - INVALID_AI_CONTEXT
             - INVALID_CREDENTIALS
             - INVALID_LOGIN_BODY
+            - INVALID_ACCOUNT_PROFILE
             - SMTP_REQUIRED
             - MAIL_NOT_CONFIGURED
             - MAIL_DELIVERY_FAILED

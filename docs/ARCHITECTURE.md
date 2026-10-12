@@ -251,9 +251,10 @@ shadowcook/
 - The root page website name and slogan use the tenant cookbook header's eyebrow and heading presentation dimensions.
 - Successful sign-in and sign-out navigate to `/` as full page transitions.
 - A sticky global head bar is rendered on application, public cookbook, and public recipe pages. The Astro server resolves the current session before rendering it; the hydrated client validates that state after load. It provides sign-in for unauthenticated visitors, and provides administration actions only to authorized users and sign-out actions to authenticated users.
-- The head bar displays only the application logo and icons. Registration, sign-in, language, and user controls have locale-resolved accessible names and tooltips. The user dropdown begins with the account display name and email address, followed by account settings, authorized administration, and sign-out actions. Dropdowns close on outside pointer interaction or Escape; Escape restores focus to the dropdown control.
+- The head bar displays the application logo, a locale-resolved wordmark at viewport widths above 700 pixels, and control icons. Registration, sign-in, language, and user controls have locale-resolved accessible names and tooltips. The user dropdown begins with the account display name and email address, followed by account settings, authorized administration, and sign-out actions. Dropdowns close on outside pointer interaction or Escape; Escape restores focus to the dropdown control.
 - `GET /auth/session` returns `email`, `displayName`, `hasPassword`, and `passwordChangeRequired`. The display name is read from the current user account.
 - Protected tenant-management and instance-administration pages server-resolve their access state before rendering. Client-side validation does not introduce a session-check loading screen.
+- Tenant-management pages use the two-column navigation layout only when the user has cookbook-management access. Access-denied panels render without a reserved navigation column.
 - A tenant has an optional description. The tenant-selection response includes the number of published recipes for each accessible tenant.
 - The Astro web application uses server rendering so category and recipe navigation paths are directly addressable. It proxies browser API requests with the `/api` prefix to `SHADOWCOOK_API_ORIGIN`, which defaults to `http://localhost:3000`; it forwards API redirects without following them and requests uncompressed upstream API responses. At image build time, `PUBLIC_WEB_ORIGIN` configures Astro's allowed forwarded domain for SSR origin checks.
 - Public cookbook overview and category navigation paths render their accessible category and recipe links as semantic server-rendered HTML without a client-side session check.
@@ -296,6 +297,10 @@ shadowcook/
 ### 4.5 Public self-service registration
 
 - Public registration is controlled by the instance-administration registration setting and defaults to enabled.
+- Public registration requires first name, last name, and display name. Each name is trimmed and contains 1 through 120 characters. Pending registrations store these names and verification transfers them to `user_account`.
+- `user_account.first_name` and `user_account.last_name` are nullable for existing accounts, bootstrap accounts, and seeded accounts. Pending registrations created before name fields were introduced retain verification support and their email-derived display-name fallback.
+- Authenticated accounts read their names through `GET /account/profile` and update all three names through `PUT /account/profile`. Profile updates require all three names and update only the authenticated account.
+- The deep-linkable `/settings` page contains a localized profile form for first name, last name, and display name. Saving immediately updates the display name in the site header.
 - The API creates `pending_registration` records before email verification; these records store a password hash and a SHA-256 verification-token hash, never plaintext credentials or verification tokens.
 - Pending registrations expire after the configured `SHADOWCOOK_REGISTRATION_PENDING_LIFETIME`, defaulting to 24 hours. API-process cleanup runs every three hours.
 - `POST /registration` applies configurable IP limits, validates an empty honeypot and a Cloudflare Turnstile token, and sends the email-verification URL.
@@ -383,6 +388,8 @@ shadowcook/
 - Instance authentication uses `PASSWORD_ONLY`, `EMAIL_CODE_ONLY`, or `PASSWORD_OR_EMAIL_CODE`; the default is `PASSWORD_OR_EMAIL_CODE`.
 - Email one-time codes are SHA-256 hashed, expire after ten minutes, allow five failed verifications, and are limited per email address and client IP.
 - Tenant owners are assigned through a time-limited invitation, verified against the invited email address, and receive a tenant-scoped Owner role on acceptance.
+- Creating a cookbook-owner invitation requires only the owner's email address as recipient information. Cookbook name and slug remain cookbook configuration. Legacy `tenant_invitation.first_name` and `tenant_invitation.last_name` values remain stored; new invitations leave both columns null.
+- New accounts accepting a cookbook-owner invitation must provide their first name, last name, and display name. `GET /invitations/{token}` returns the invited email, cookbook name, and existing-account state. Profile validation precedes email-code consumption.
 - Accepting a tenant invitation starts a browser session for the invited account and returns the assigned cookbook slug.
 - A newly created tenant-invitation account has no password verifier, requires password completion, and does not require a current-password value.
 - Instance authentication settings store a minimum estimated password entropy from 1 through 256 bits. The default is 60 bits. Instance administrators configure the threshold and can test a password against it locally in Authentication settings.
@@ -1135,8 +1142,9 @@ Service accounts should normally receive least-privilege permissions.
 - A user-requested password reset sends the same reset-link type without changing `password_change_required`; its request endpoint returns no account-existence information and limits email delivery to one request per account in ten minutes.
 - Display names are not unique.
 - `user_invitation` stores a SHA-256 verifier of an opaque seven-day invitation token, the invited email address, the creator principal, and acceptance state.
-- Instance administrators invite a user by email only. The invitation acceptance page creates the account with the invited email address and the user-selected display name, then redirects to `/login`. It requires a password unless the instance login mode is `EMAIL_CODE_ONLY`.
+- Instance administrators and cookbook owners identify invited users by email only. New accounts accepting an instance-user or cookbook-user invitation must supply first name, last name, and display name, with 1 through 120 trimmed characters each. Acceptance stores all three names and redirects to `/login`. It requires a password unless the instance login mode is `EMAIL_CODE_ONLY`.
 - Tenant-user invitation acceptance creates a new account when the invited email address has no active account. When an active account exists, acceptance requires a session for the invited email address and adds its principal to the invited tenant membership with the selected role.
+- Existing accounts accepting cookbook-user or cookbook-owner invitations retain their stored names and do not submit profile fields. First name, last name, and display name remain editable through `/settings` after account creation.
 - `instance_role` is an instance-wide role. The seeded `administrator` role has every registered permission.
 - `principal_instance_role` assigns an instance role to a principal.
 - `tenant_role` is tenant-scoped. `tenant_membership` associates a principal with a tenant and `tenant_membership_role` assigns its tenant roles.
@@ -2719,6 +2727,8 @@ Tenant-owned ingredients and aliases are stored in the shared normalized ingredi
 Recipe-editor catalogue search returns instance-owned and current-tenant ingredients. It searches canonical names and aliases and returns an exact-match indicator for the submitted search value.
 
 Tenant ingredient administration and on-the-fly ingredient creation use tenant ingredient permissions. Tenant ingredient administration exposes only ingredients owned by the current tenant.
+
+Cookbook management navigation and direct management routes require a tenant management or content-write permission. Read permissions do not grant management access. The initial Viewer role cannot access cookbook management. Ingredient management lists require `ingredient:create` or `ingredient:update`. Unit management lists require `unit:create`, `unit:update`, or `unit:delete`. Recipe draft lists require `recipe:create` or `recipe:update`. Each mutation requires its operation-specific write permission.
 
 Tenant ingredient consolidation uses the tenant ingredient update permission.
 

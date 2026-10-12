@@ -17,8 +17,9 @@ import {
   isValidCookbookName,
 } from '../cookbook/owned-cookbook.js';
 import { cookbookSlugIsBlocked } from '../cookbook/slug-policy.js';
+import { parseAccountProfile, type AccountProfile } from '../account/profile.js';
 
-interface RegistrationBody {
+interface RegistrationBody extends AccountProfile {
   email: string;
   password: string;
   tenantName: string | null;
@@ -80,10 +81,7 @@ export function registerPublicRegistrationRoutes(
     }
     const email: string | null = normalizeEmail(body.email);
     const tenantName: string | null = body.tenantName === null ? null : body.tenantName.trim();
-    if (
-      email === null ||
-      (tenantName !== null && !isValidCookbookName(tenantName))
-    )
+    if (email === null || (tenantName !== null && !isValidCookbookName(tenantName)))
       return invalidRegistration(reply);
     if (tenantName !== null && (await cookbookSlugIsBlocked(pool, cookbookSlugBase(tenantName))))
       return invalidRegistration(reply);
@@ -112,9 +110,10 @@ export function registerPublicRegistrationRoutes(
     }
     const token: string = randomBytes(32).toString('base64url');
     await pool.query(
-      `INSERT INTO pending_registration (email, password_hash, tenant_name, verification_token_hash, expires_at)
-       VALUES ($1, $2, $3, $4, $5)
+      `INSERT INTO pending_registration (email, password_hash, tenant_name, verification_token_hash, expires_at, first_name, last_name, display_name)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, tenant_name = EXCLUDED.tenant_name,
+         first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name, display_name = EXCLUDED.display_name,
          verification_token_hash = EXCLUDED.verification_token_hash, created_at = now(), expires_at = EXCLUDED.expires_at`,
       [
         email,
@@ -122,6 +121,9 @@ export function registerPublicRegistrationRoutes(
         tenantName,
         hashToken(token),
         new Date(Date.now() + config.pendingLifetimeMilliseconds),
+        body.firstName,
+        body.lastName,
+        body.displayName,
       ],
     );
     try {
@@ -194,8 +196,11 @@ export function registerPublicRegistrationRoutes(
         email: string;
         password_hash: string;
         tenant_name: string | null;
+        first_name: string | null;
+        last_name: string | null;
+        display_name: string | null;
       }>(
-        'DELETE FROM pending_registration WHERE verification_token_hash = $1 AND expires_at > now() RETURNING id, email, password_hash, tenant_name',
+        'DELETE FROM pending_registration WHERE verification_token_hash = $1 AND expires_at > now() RETURNING id, email, password_hash, tenant_name, first_name, last_name, display_name',
         [hashToken(body.token)],
       );
       const registration = pending.rows[0];
@@ -216,12 +221,14 @@ export function registerPublicRegistrationRoutes(
         "INSERT INTO principal (principal_type) VALUES ('USER') RETURNING id",
       );
       const user = await client.query<{ id: string; principal_id: string }>(
-        'INSERT INTO user_account (principal_id, email, display_name, password_hash, password_changed_at) VALUES ($1, $2, $3, $4, now()) RETURNING id, principal_id',
+        'INSERT INTO user_account (principal_id, email, display_name, password_hash, password_changed_at, first_name, last_name) VALUES ($1, $2, $3, $4, now(), $5, $6) RETURNING id, principal_id',
         [
           principal.rows[0]!.id,
           registration.email,
-          displayName(registration.email),
+          registration.display_name ?? displayName(registration.email),
           registration.password_hash,
+          registration.first_name,
+          registration.last_name,
         ],
       );
       const tenant =
@@ -359,7 +366,9 @@ async function sendVerificationMail(
   });
 }
 function parseRegistrationBody(value: unknown): RegistrationBody | null {
+  const profile: AccountProfile | null = parseAccountProfile(value);
   if (
+    profile === null ||
     !isRecord(value) ||
     typeof value.email !== 'string' ||
     typeof value.password !== 'string' ||
@@ -369,6 +378,7 @@ function parseRegistrationBody(value: unknown): RegistrationBody | null {
   )
     return null;
   return {
+    ...profile,
     email: value.email,
     password: value.password,
     tenantName: value.tenantName,

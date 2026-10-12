@@ -72,6 +72,7 @@ export interface Translation {
     invalid: string;
   };
   registration: {
+    website: string;
     title: string;
     subtitle: string;
     email: string;
@@ -112,12 +113,26 @@ export interface Translation {
     yes: string;
     no: string;
   };
+  accountProfile: {
+    title: string;
+    names: string;
+    firstName: string;
+    lastName: string;
+    displayName: string;
+    nameRequirements: string;
+    save: string;
+    saving: string;
+    saved: string;
+    loadFailed: string;
+    saveFailed: string;
+  };
   cookbookUrlPreview: {
     label: string;
     invalidName: string;
     collision: string;
   };
   userInvitation: {
+    invalidPassword: string;
     title: string;
     subtitle: string;
     existingAccountTitle: string;

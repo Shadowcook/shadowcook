@@ -25,16 +25,18 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
     <aside className="tenant-navigation">
       <p className="eyebrow">{text.tenantNavigation.title}</p>
       <nav aria-label={text.tenantNavigation.title}>
-        <a
-          className={
-            activeView === 'recipes'
-              ? 'tenant-navigation__link tenant-navigation__link--active'
-              : 'tenant-navigation__link'
-          }
-          href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}
-        >
-          {text.tenantNavigation.recipes}
-        </a>
+        {cookbook.canManageRecipes ? (
+          <a
+            className={
+              activeView === 'recipes'
+                ? 'tenant-navigation__link tenant-navigation__link--active'
+                : 'tenant-navigation__link'
+            }
+            href={`/${encodeURIComponent(tenantSlug)}/manage/recipes`}
+          >
+            {text.tenantNavigation.recipes}
+          </a>
+        ) : null}
         {cookbook.canManageRecipes ? (
           <a
             className={

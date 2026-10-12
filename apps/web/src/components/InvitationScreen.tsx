@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
+import ProfileNameFields, { hasValidProfileNames, type ProfileNames } from './ProfileNameFields';
+import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 
 interface Properties {
   locale: Locale;
@@ -9,12 +11,8 @@ interface Properties {
 }
 interface Invitation {
   email: string;
-  firstName: string;
-  lastName: string;
   cookbookName: string;
-}
-interface ApiError {
-  code?: string;
+  existingAccount: boolean;
 }
 interface AcceptanceResponse {
   cookbookSlug: string;
@@ -27,6 +25,12 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [code, setCode] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [names, setNames] = useState<ProfileNames>({
+    firstName: '',
+    lastName: '',
+    displayName: '',
+  });
+  const [submitting, setSubmitting] = useState<boolean>(false);
 
   useEffect((): void => {
     void fetch(`/api/invitations/${encodeURIComponent(token)}`)
@@ -38,26 +42,36 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
   }, [token, text.invitation.unavailable]);
   async function accept(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (invitation === null || submitting) return;
+    if (!invitation.existingAccount && !hasValidProfileNames(names)) {
+      setMessage(text.accountProfile.nameRequirements);
+      return;
+    }
     const submittedCode: string = code;
     setCode('');
-    const response: Response = await fetch(`/api/invitations/${encodeURIComponent(token)}/accept`, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: submittedCode }),
-    });
-    if (response.ok) {
-      const accepted: AcceptanceResponse = (await response.json()) as AcceptanceResponse;
+    setSubmitting(true);
+    setMessage('');
+    try {
+      const accepted: AcceptanceResponse = await request<AcceptanceResponse>(
+        `/invitations/${encodeURIComponent(token)}/accept`,
+        jsonRequest(
+          invitation.existingAccount ? { code: submittedCode } : { ...names, code: submittedCode },
+        ),
+      );
       const destination: string = `/${encodeURIComponent(accepted.cookbookSlug)}`;
       window.location.replace(destination);
-      return;
+    } catch (error: unknown) {
+      const errorCode: string = error instanceof ApiRequestError ? error.code : '';
+      setMessage(
+        errorCode === 'INVALID_ACCOUNT_PROFILE'
+          ? text.accountProfile.nameRequirements
+          : errorCode === 'INVITATION_EMAIL_MISMATCH'
+            ? text.invitation.emailMismatch
+            : text.invitation.unavailable,
+      );
+    } finally {
+      setSubmitting(false);
     }
-    const body: ApiError | null = await response.json().catch((): null => null);
-    if (body?.code === 'INVITATION_EMAIL_MISMATCH') {
-      setMessage(text.invitation.emailMismatch);
-      return;
-    }
-    setMessage(text.invitation.unavailable);
   }
   if (invitation === null)
     return (
@@ -71,13 +85,14 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
       <p className="eyebrow">{invitation.cookbookName}</p>
       <h1>{text.invitation.title}</h1>
       <p className="lede">{text.invitation.subtitle}</p>
-      <p>
-        {invitation.firstName} {invitation.lastName} · {invitation.email}
-      </p>
+      <p>{invitation.email}</p>
       <form
         onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void accept(event)}
         autoComplete="off"
       >
+        {!invitation.existingAccount ? (
+          <ProfileNameFields text={text} value={names} onChange={setNames} />
+        ) : null}
         <label>
           {text.invitation.codeLabel}
           <input
@@ -91,7 +106,12 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
             required
           />
         </label>
-        <button type="submit">{text.invitation.accept}</button>
+        <button
+          type="submit"
+          disabled={submitting || (!invitation.existingAccount && !hasValidProfileNames(names))}
+        >
+          {text.invitation.accept}
+        </button>
       </form>
       {message.length === 0 ? null : (
         <p className="message" role="status">

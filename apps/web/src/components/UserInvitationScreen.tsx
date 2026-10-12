@@ -4,6 +4,8 @@ import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
+import ProfileNameFields, { hasValidProfileNames, type ProfileNames } from './ProfileNameFields';
+import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 
 interface Invitation {
   email: string;
@@ -24,7 +26,12 @@ export default function UserInvitationScreen({
 }): JSX.Element {
   const text: Translation = translations[locale];
   const [invitation, setInvitation] = useState<Invitation | null>(null);
-  const [displayName, setDisplayName] = useState<string>('');
+  const [names, setNames] = useState<ProfileNames>({
+    firstName: '',
+    lastName: '',
+    displayName: '',
+  });
+  const [submitting, setSubmitting] = useState<boolean>(false);
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [sessionEmail, setSessionEmail] = useState<string | null>(null);
@@ -44,29 +51,42 @@ export default function UserInvitationScreen({
   }, [text.userInvitation.unavailable, token]);
   async function accept(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    const response: Response = await fetch(
-      `/api/user-invitations/${encodeURIComponent(token)}/accept`,
-      {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(
-          invitation?.existingAccount
-            ? {}
-            : {
-                displayName,
-                password: invitation?.passwordRequired ? password : undefined,
-              },
-        ),
-      },
-    );
-    if (response.ok) {
-      window.location.replace(invitation?.existingAccount ? '/' : '/login');
+    if (invitation === null || submitting) return;
+    if (!invitation.existingAccount && !hasValidProfileNames(names)) {
+      setMessage(text.accountProfile.nameRequirements);
       return;
     }
-    if (response.status === 401) setMessage(text.userInvitation.existingAccountSubtitle);
-    else if (response.status === 403) setMessage(text.userInvitation.signedInWithDifferentEmail);
-    else setMessage(text.userInvitation.unavailable);
+    setSubmitting(true);
+    setMessage('');
+    try {
+      await request<void>(
+        `/user-invitations/${encodeURIComponent(token)}/accept`,
+        jsonRequest(
+          invitation.existingAccount
+            ? {}
+            : {
+                ...names,
+                password: invitation.passwordRequired ? password : undefined,
+              },
+        ),
+      );
+      window.location.replace(invitation?.existingAccount ? '/' : '/login');
+    } catch (error: unknown) {
+      const code: string = error instanceof ApiRequestError ? error.code : '';
+      setMessage(
+        code === 'INVALID_ACCOUNT_PROFILE'
+          ? text.accountProfile.nameRequirements
+          : code === 'INVALID_PASSWORD'
+            ? text.userInvitation.invalidPassword
+            : code === 'INVITATION_LOGIN_REQUIRED'
+              ? text.userInvitation.existingAccountSubtitle
+              : code === 'INVITATION_EMAIL_MISMATCH'
+                ? text.userInvitation.signedInWithDifferentEmail
+                : text.userInvitation.unavailable,
+      );
+    } finally {
+      setSubmitting(false);
+    }
   }
   if (invitation === null)
     return (
@@ -91,7 +111,9 @@ export default function UserInvitationScreen({
       {invitation.existingAccount ? (
         sessionEmail === invitation.email ? (
           <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void accept(event)}>
-            <button type="submit">{text.userInvitation.acceptCookbookInvitation}</button>
+            <button type="submit" disabled={submitting}>
+              {text.userInvitation.acceptCookbookInvitation}
+            </button>
           </form>
         ) : sessionEmail === null ? (
           <button
@@ -111,18 +133,7 @@ export default function UserInvitationScreen({
         )
       ) : (
         <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void accept(event)}>
-          <label>
-            {text.userInvitation.displayName}
-            <input
-              value={displayName}
-              autoComplete="name"
-              required
-              autoFocus
-              onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                setDisplayName(event.currentTarget.value)
-              }
-            />
-          </label>
+          <ProfileNameFields text={text} value={names} onChange={setNames} />
           {invitation.passwordRequired ? (
             <>
               <PasswordField
@@ -138,7 +149,9 @@ export default function UserInvitationScreen({
               <PasswordEntropyMeter text={text} password={password} />
             </>
           ) : null}
-          <button type="submit">{text.userInvitation.accept}</button>
+          <button type="submit" disabled={submitting || !hasValidProfileNames(names)}>
+            {text.userInvitation.accept}
+          </button>
         </form>
       )}
       {message.length > 0 ? (
