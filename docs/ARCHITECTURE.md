@@ -265,6 +265,7 @@ shadowcook/
 - Sibling categories have a non-negative tenant-scoped `sort_order` that is unique within their parent category.
 - Every published recipe revision has at least one category. Draft revisions may be uncategorized.
 - The tenant-scoped category editor is available at `/{tenant-slug}/categories`. It requires `category:update` and creates, updates, reparents, and deletes categories through `/cookbook/tenants/{tenantSlug}/categories`.
+- Category management displays a full-width category list. Category rows highlight across their full width on hover and while an action button has focus. Category creation, child-category creation, and editing open the form in the shared application dialog with initial name-field focus. Save errors appear inside the dialog. Saving disables form controls, actions, and Escape dismissal. Successful saves close the dialog and refresh the categories; cancellation discards the form. List messages appear outside the dialog.
 - `/{tenant-slug}/manage` is the deep-linkable cookbook-management entry route. It displays the tenant management navigation and an empty management-area placeholder until a concrete management route is selected.
 - The category editor changes a category's sibling order only by moving it one position up or down. The operation swaps `sort_order` with the adjacent category under the same parent.
 - A category deletion is rejected when the category or any of its descendants is assigned to a recipe revision. Category slugs reserve `categories` in addition to the other cookbook route segments.

@@ -132,13 +132,7 @@
 .category-editor > .button--secondary {
   margin-bottom: 2rem;
 }
-.category-editor__layout {
-  display: grid;
-  grid-template-columns: minmax(18rem, 1.4fr) minmax(15rem, 1fr);
-  gap: 1.25rem;
-}
-.category-editor__list,
-.category-editor__form {
+.category-editor__list {
   padding: 1.25rem;
   border: 1px solid #eadfd2;
   border-radius: 0.35rem;
@@ -150,8 +144,7 @@
 .category-editor__list-heading {
   justify-content: space-between;
 }
-.category-editor__list h2,
-.category-editor__form h2 {
+.category-editor__list h2 {
   margin-top: 0;
 }
 .category-editor__list ul {
@@ -163,7 +156,13 @@
 }
 .category-editor__list li {
   justify-content: space-between;
-  padding-left: calc(var(--category-depth) * 1.25rem);
+  padding: 0.25rem 0.35rem;
+  padding-left: calc(0.35rem + var(--category-depth) * 1.25rem);
+  border-radius: 0.35rem;
+}
+.category-editor__list li:hover,
+.category-editor__list li:focus-within {
+  background: #f0e7da;
 }
 .category-editor__list li > span {
   min-width: 0;
@@ -186,9 +185,13 @@
   height: 1.2rem;
   stroke-width: 2.8;
 }
-.category-editor__form form {
+.category-editor__form {
   display: grid;
   gap: 0.85rem;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
 }
 .category-editor__form label {
   display: grid;
@@ -1357,7 +1360,6 @@
   }
   .cookbook-layout,
   .recipe-grid,
-  .category-editor__layout,
   .recipe-detail__overview,
   .recipe-detail__heading,
   .recipe-steps > li {

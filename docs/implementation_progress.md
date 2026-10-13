@@ -50,6 +50,7 @@
 - Hydrated category navigation updates the selected cookbook category without remounting the category tree, retaining manually expanded branches.
 - Mobile cookbook navigation provides the category tree in a header-adjacent left-side drawer with a fixed close control and a scrollable category list.
 - Category management supports hierarchical creation, renaming, reparenting, guarded deletion, and adjacent sibling ordering.
+- Category and child-category creation and editing use the shared modal dialog with name-field focus, localized validation and save errors, busy-state handling, and cancellation. The category list occupies the available width and highlights rows on hover and action-button focus (architecture section 4.2).
 - The web client uses localized English and German UI dictionaries for UI text, metadata, accessibility labels, and API errors; authored recipe text remains unchanged.
 - The global head bar switches between English and German through a language-icon dropdown with the active language marked. A 365-day cookie retains the selected language for anonymous and authenticated visitors, including after sign-out. All Astro pages resolve the preference before server rendering; switching preserves the current URL (architecture section 3.4).
 - Web UI pictograms are bundled from the Font Awesome core, solid-icon, and React packages.

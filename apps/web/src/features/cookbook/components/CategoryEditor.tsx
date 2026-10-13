@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
-import type { ChangeEvent, CSSProperties, JSX, SubmitEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState } from 'react';
+import type { ChangeEvent, CSSProperties, JSX, RefObject, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
+import Dialog from '../../../components/Dialog';
 
 interface ManagedCategory {
   publicId: string;
@@ -40,7 +41,11 @@ export default function CategoryEditor({
   onChanged,
 }: CategoryEditorProperties): JSX.Element {
   const text: Translation = translations[locale];
+  const formId: string = useId();
+  const slugErrorId: string = useId();
+  const nameInputRef: RefObject<HTMLInputElement | null> = useRef<HTMLInputElement>(null);
   const [categories, setCategories] = useState<ManagedCategory[]>([]);
+  const [isEditorOpen, setIsEditorOpen] = useState<boolean>(false);
   const [editing, setEditing] = useState<ManagedCategory | null>(emptyCategory);
   const [name, setName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
@@ -66,6 +71,7 @@ export default function CategoryEditor({
     setSlugIsGenerated(true);
     setParentPublicId(parent?.publicId ?? '');
     setMessage('');
+    setIsEditorOpen(true);
   }
   function startEdit(category: ManagedCategory): void {
     setEditing(category);
@@ -74,13 +80,16 @@ export default function CategoryEditor({
     setSlugIsGenerated(false);
     setParentPublicId(category.parentPublicId ?? '');
     setMessage('');
+    setIsEditorOpen(true);
   }
   function cancelEdit(): void {
+    setIsEditorOpen(false);
     setEditing(emptyCategory);
     setName('');
     setSlug('');
     setSlugIsGenerated(true);
     setParentPublicId('');
+    setMessage('');
   }
   async function save(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -88,7 +97,7 @@ export default function CategoryEditor({
     if (slugError !== null) return;
     setIsSaving(true);
     try {
-      const target = editing === null ? '' : `/${editing.publicId}`;
+      const target: string = editing === null ? '' : `/${editing.publicId}`;
       const response: Response = await fetch(
         `/api/cookbook/tenants/${encodeURIComponent(tenantSlug)}/categories${target}`,
         {
@@ -109,6 +118,8 @@ export default function CategoryEditor({
       cancelEdit();
       await Promise.all([reloadCategories(tenantSlug, setCategories), onChanged()]);
       setMessage(editing === null ? text.categoryEditor.created : text.categoryEditor.updated);
+    } catch {
+      setMessage(text.errors.requestFailed);
     } finally {
       setIsSaving(false);
     }
@@ -162,141 +173,173 @@ export default function CategoryEditor({
       <p className="eyebrow">{text.dashboard.categories}</p>
       <h1>{text.categoryEditor.title}</h1>
       <p className="lede">{text.categoryEditor.description}</p>
-      <div className="category-editor__layout">
-        <section className="category-editor__list" aria-label={text.categoryEditor.title}>
-          <div className="category-editor__list-heading">
-            <h2>{text.categoryEditor.existing}</h2>
-            <button
-              type="button"
-              onClick={(): void => startCreate()}
-              aria-label={text.categoryEditor.create}
-              title={text.categoryEditor.create}
+      {message.length > 0 && !isEditorOpen ? (
+        <p className="message" role="status">
+          {message}
+        </p>
+      ) : null}
+      <section className="category-editor__list" aria-label={text.categoryEditor.title}>
+        <div className="category-editor__list-heading">
+          <h2>{text.categoryEditor.existing}</h2>
+          <button
+            type="button"
+            onClick={(): void => startCreate()}
+            aria-label={text.categoryEditor.create}
+            title={text.categoryEditor.create}
+          >
+            <AdminIcon name="add" />
+          </button>
+        </div>
+        {orderedCategories.length === 0 ? (
+          <p className="empty-state">{text.categoryEditor.empty}</p>
+        ) : null}
+        <ul>
+          {orderedCategories.map((category: ManagedCategory): JSX.Element => (
+            <li
+              key={category.publicId}
+              style={{ '--category-depth': categoryDepth(categories, category) } as CSSProperties}
             >
-              <AdminIcon name="add" />
-            </button>
-          </div>
-          {orderedCategories.length === 0 ? (
-            <p className="empty-state">{text.categoryEditor.empty}</p>
-          ) : null}
-          <ul>
-            {orderedCategories.map((category: ManagedCategory): JSX.Element => (
-              <li
-                key={category.publicId}
-                style={{ '--category-depth': categoryDepth(categories, category) } as CSSProperties}
+              <span>{category.name}</span>
+              <div>
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => void move(category, 'UP')}
+                  disabled={!canMove(categories, category, 'UP')}
+                  aria-label={text.categoryEditor.moveUp}
+                  title={text.categoryEditor.moveUp}
+                >
+                  <AdminIcon name="moveUp" />
+                </button>
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => void move(category, 'DOWN')}
+                  disabled={!canMove(categories, category, 'DOWN')}
+                  aria-label={text.categoryEditor.moveDown}
+                  title={text.categoryEditor.moveDown}
+                >
+                  <AdminIcon name="moveDown" />
+                </button>
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => startCreate(category)}
+                  aria-label={text.categoryEditor.addChild}
+                  title={text.categoryEditor.addChild}
+                >
+                  <AdminIcon name="add" />
+                </button>
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => startEdit(category)}
+                  aria-label={text.categoryEditor.edit}
+                  title={text.categoryEditor.edit}
+                >
+                  <AdminIcon name="edit" />
+                </button>
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => void remove(category)}
+                  disabled={!category.canDelete}
+                  aria-label={
+                    category.canDelete ? text.dashboard.delete : text.categoryEditor.cannotDelete
+                  }
+                  title={
+                    category.canDelete ? text.dashboard.delete : text.categoryEditor.cannotDelete
+                  }
+                >
+                  <AdminIcon name="delete" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
+      {isEditorOpen ? (
+        <Dialog
+          kind="information"
+          title={editing === null ? text.categoryEditor.create : text.categoryEditor.edit}
+          message={text.categoryEditor.description}
+          icon={null}
+          initialFocusRef={nameInputRef}
+          busy={isSaving}
+          onClose={cancelEdit}
+          actions={
+            <>
+              <button
+                type="button"
+                className="button--secondary"
+                onClick={cancelEdit}
+                disabled={isSaving}
               >
-                <span>{category.name}</span>
-                <div>
-                  <button
-                    type="button"
-                    className="button--secondary"
-                    onClick={(): void => void move(category, 'UP')}
-                    disabled={!canMove(categories, category, 'UP')}
-                    aria-label={text.categoryEditor.moveUp}
-                    title={text.categoryEditor.moveUp}
-                  >
-                    <AdminIcon name="moveUp" />
-                  </button>
-                  <button
-                    type="button"
-                    className="button--secondary"
-                    onClick={(): void => void move(category, 'DOWN')}
-                    disabled={!canMove(categories, category, 'DOWN')}
-                    aria-label={text.categoryEditor.moveDown}
-                    title={text.categoryEditor.moveDown}
-                  >
-                    <AdminIcon name="moveDown" />
-                  </button>
-                  <button
-                    type="button"
-                    className="button--secondary"
-                    onClick={(): void => startCreate(category)}
-                    aria-label={text.categoryEditor.addChild}
-                    title={text.categoryEditor.addChild}
-                  >
-                    <AdminIcon name="add" />
-                  </button>
-                  <button
-                    type="button"
-                    className="button--secondary"
-                    onClick={(): void => startEdit(category)}
-                    aria-label={text.dashboard.rename}
-                    title={text.dashboard.rename}
-                  >
-                    <AdminIcon name="edit" />
-                  </button>
-                  <button
-                    type="button"
-                    className="button--secondary"
-                    onClick={(): void => void remove(category)}
-                    disabled={!category.canDelete}
-                    aria-label={
-                      category.canDelete ? text.dashboard.delete : text.categoryEditor.cannotDelete
-                    }
-                    title={
-                      category.canDelete ? text.dashboard.delete : text.categoryEditor.cannotDelete
-                    }
-                  >
-                    <AdminIcon name="delete" />
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className="category-editor__form">
-          <h2>{editing === null ? text.categoryEditor.create : text.categoryEditor.edit}</h2>
-          <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}>
-            <label>
-              {text.categoryEditor.name}
-              <input value={name} onChange={changeName} required maxLength={160} autoFocus />
-            </label>
-            <label>
-              {text.categoryEditor.slug}
-              <input
-                value={slug}
-                onChange={changeSlug}
-                required
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                aria-invalid={slugError !== null}
-                aria-describedby={slugError === null ? undefined : 'category-slug-error'}
-              />
-            </label>
-            <p className="hint">{text.categoryEditor.slugHint}</p>
-            {slugError === null ? null : (
-              <p className="category-editor__slug-error" id="category-slug-error" role="alert">
-                {slugError}
-              </p>
-            )}
-            <label>
-              {text.categoryEditor.parent}
-              <select
-                value={parentPublicId}
-                onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
-                  setParentPublicId(event.currentTarget.value)
-                }
-              >
-                <option value="">{text.categoryEditor.noParent}</option>
-                {selectableParents.map((category: ManagedCategory): JSX.Element => (
-                  <option value={category.publicId} key={category.publicId}>
-                    {category.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+                {text.categoryEditor.cancel}
+              </button>
+              <button type="submit" form={formId} disabled={isSaving || slugError !== null}>
+                {isSaving ? text.categoryEditor.saving : text.categoryEditor.save}
+              </button>
+            </>
+          }
+        >
+          <form
+            id={formId}
+            onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}
+          >
+            <fieldset className="category-editor__form" disabled={isSaving}>
+              <label>
+                {text.categoryEditor.name}
+                <input
+                  ref={nameInputRef}
+                  value={name}
+                  onChange={changeName}
+                  required
+                  maxLength={160}
+                />
+              </label>
+              <label>
+                {text.categoryEditor.slug}
+                <input
+                  value={slug}
+                  onChange={changeSlug}
+                  required
+                  pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
+                  aria-invalid={slugError !== null}
+                  aria-describedby={slugError === null ? undefined : slugErrorId}
+                />
+              </label>
+              <p className="hint">{text.categoryEditor.slugHint}</p>
+              {slugError === null ? null : (
+                <p className="category-editor__slug-error" id={slugErrorId} role="alert">
+                  {slugError}
+                </p>
+              )}
+              <label>
+                {text.categoryEditor.parent}
+                <select
+                  value={parentPublicId}
+                  onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                    setParentPublicId(event.currentTarget.value)
+                  }
+                >
+                  <option value="">{text.categoryEditor.noParent}</option>
+                  {selectableParents.map((category: ManagedCategory): JSX.Element => (
+                    <option value={category.publicId} key={category.publicId}>
+                      {category.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </fieldset>
             {message.length > 0 ? (
               <p className="message" role="alert">
                 {message}
               </p>
             ) : null}
-            <button type="submit" disabled={isSaving || slugError !== null}>
-              {isSaving ? text.categoryEditor.saving : text.categoryEditor.save}
-            </button>
-            <button type="button" className="button--secondary" onClick={cancelEdit}>
-              {text.categoryEditor.cancel}
-            </button>
           </form>
-        </section>
-      </div>
+        </Dialog>
+      ) : null}
     </section>
   );
 }
