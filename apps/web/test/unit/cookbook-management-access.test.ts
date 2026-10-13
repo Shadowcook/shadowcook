@@ -8,7 +8,11 @@ import { managementRoute } from '../../src/features/cookbook/model/management-ro
 import type { CookbookResponse } from '../../src/features/cookbook/model/types.ts';
 
 const viewer: CookbookResponse = {
-  tenant: { display_name: 'Viewer cookbook', frontpage_heading: null },
+  tenant: {
+    public_id: '00000000-0000-4000-8000-000000000001',
+    display_name: 'Viewer cookbook',
+    frontpage_heading: null,
+  },
   categories: [],
   recipes: [],
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },

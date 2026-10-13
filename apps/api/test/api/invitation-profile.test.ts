@@ -18,7 +18,7 @@ interface StoredProfile extends AccountProfile {
   passwordHash: string | null;
 }
 interface UserInvitationDetails {
-  email: string;
+  email: string | null;
   passwordRequired: boolean;
   existingAccount: boolean;
 }
@@ -105,7 +105,7 @@ for (const path of ['INSTANCE', 'COOKBOOK'] as const) {
         url: `/user-invitations/${token}`,
       });
       assert.deepEqual(details.json<UserInvitationDetails>(), {
-        email,
+        email: null,
         existingAccount: false,
         passwordRequired: mode !== 'EMAIL_CODE_ONLY',
       });
@@ -211,8 +211,8 @@ test('cookbook-owner invitations are sent by email only and new owners complete 
     url: `/invitations/${token}`,
   });
   assert.deepEqual(details.json(), {
-    email,
-    cookbookName: 'Owner Kitchen',
+    email: null,
+    cookbookName: null,
     existingAccount: false,
   });
   const code: string = mailCode(email);

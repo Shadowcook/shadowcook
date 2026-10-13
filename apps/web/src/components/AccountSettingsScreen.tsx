@@ -1,138 +1,100 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { faPlus } from '@fortawesome/free-solid-svg-icons';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import type { Translation } from '../i18n';
-import { jsonRequest, request } from '../lib/api/client';
-import CreateCookbookModal from './CreateCookbookModal';
-import StatusMessage from './StatusMessage';
+import { request } from '../lib/api/client';
 import AccountProfileSettings from './AccountProfileSettings';
+import AccountEmailSettings from './AccountEmailSettings';
+import AccountCookbookSettings from './AccountCookbookSettings';
+import AccountPasswordSettings from './AccountPasswordSettings';
+import StatusMessage from './StatusMessage';
 
-export default function AccountSettingsScreen({ text }: { text: Translation }): JSX.Element {
+interface SettingsSection {
+  path: string;
+  label: string;
+}
+
+export default function AccountSettingsScreen({
+  text,
+  path,
+}: {
+  text: Translation;
+  path: string;
+}): JSX.Element {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
-  const [message, setMessage] = useState<string>('');
-  const [submitting, setSubmitting] = useState<boolean>(false);
-  const [isCreateCookbookModalOpen, setIsCreateCookbookModalOpen] = useState<boolean>(false);
-  const [cookbooks, setCookbooks] = useState<OwnedCookbook[]>([]);
-  const [maximumCookbooks, setMaximumCookbooks] = useState<number>(1);
+  const [hasPassword, setHasPassword] = useState<boolean>(false);
+  const section: string = path === '/settings' ? '/settings/profile' : path;
+  const sections: SettingsSection[] = [
+    { path: '/settings/profile', label: text.accountSettings.personalData },
+    { path: '/settings/email', label: text.accountEmail.title },
+    { path: '/settings/cookbooks', label: text.accountSettings.ownedCookbooks },
+  ];
 
   useEffect((): void => {
-    void request('/auth/session')
-      .then(async (): Promise<void> => {
+    void request<{ hasPassword: boolean }>('/auth/session')
+      .then((session: { hasPassword: boolean }): void => {
+        setHasPassword(session.hasPassword);
         setAuthenticated(true);
-        const result: {
-          cookbooks: OwnedCookbook[];
-          maxCookbooksPerOwner: number;
-        } = await request('/account/cookbooks');
-        setCookbooks(result.cookbooks);
-        setMaximumCookbooks(result.maxCookbooksPerOwner);
       })
       .catch((): void => setAuthenticated(false));
   }, []);
 
-  async function createCookbook(cookbookName: string): Promise<void> {
-    setSubmitting(true);
-    setMessage('');
-    try {
-      const result: { tenantSlug: string } = await request(
-        '/account/cookbooks',
-        jsonRequest({ cookbookName }),
-      );
-      window.location.assign(`/${encodeURIComponent(result.tenantSlug)}`);
-    } catch (error: unknown) {
-      setSubmitting(false);
-      throw error;
-    }
-  }
-
   return (
-    <section className="panel auth-panel account-settings-panel">
-      <p className="eyebrow">{text.accountSettings.title}</p>
-      <h1>{text.accountSettings.title}</h1>
-      <p className="lede">{text.accountSettings.subtitle}</p>
-      {authenticated === false ? (
-        <StatusMessage message={text.accountSettings.signInRequired} />
-      ) : authenticated === true ? (
-        <>
-          <AccountProfileSettings text={text} />
-          <div className="account-settings-panel__cookbook-heading">
-            <div>
-              <h2>{text.accountSettings.ownedCookbooks}</h2>
-              <p className="account-settings-panel__cookbook-count">
-                {text.accountSettings.cookbookCount
-                  .replace('{count}', String(cookbooks.length))
-                  .replace('{maximum}', String(maximumCookbooks))}
-              </p>
-            </div>
-            {cookbooks.length < maximumCookbooks ? (
-              <button
-                type="button"
-                className="account-settings-panel__add-cookbook"
-                onClick={(): void => setIsCreateCookbookModalOpen(true)}
-              >
-                <FontAwesomeIcon aria-hidden="true" icon={faPlus} />
-                <span>{text.accountSettings.addCookbook}</span>
-              </button>
-            ) : null}
-          </div>
-          <div className="user-table-container">
-            <table className="tenant-table account-settings-panel__cookbook-table">
-              <thead>
-                <tr>
-                  <th>{text.dashboard.tenantName}</th>
-                  <th>{text.accountSettings.cookbookRecipes}</th>
-                  <th>{text.accountSettings.cookbookUsers}</th>
-                  <th>{text.accountSettings.cookbookStartPage}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {cookbooks.length === 0 ? (
-                  <tr>
-                    <td className="account-settings-panel__empty-table" colSpan={4}>
-                      {text.accountSettings.noOwnedCookbooks}
-                    </td>
-                  </tr>
-                ) : (
-                  cookbooks.map((cookbook: OwnedCookbook): JSX.Element => (
-                    <tr key={cookbook.slug}>
-                      <td>
-                        <a href={`/${encodeURIComponent(cookbook.slug)}`}>{cookbook.name}</a>
-                      </td>
-                      <td>{cookbook.recipeCount}</td>
-                      <td>{cookbook.userCount}</td>
-                      <td>
-                        {cookbook.showOnStartPage
-                          ? text.accountSettings.yes
-                          : text.accountSettings.no}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-          {cookbooks.length >= maximumCookbooks ? (
-            <StatusMessage message={text.accountSettings.cookbookLimitReached} />
-          ) : null}
-          {isCreateCookbookModalOpen ? (
-            <CreateCookbookModal
+    <section className="account-settings-area">
+      <aside className="account-settings-navigation">
+        <p className="eyebrow">{text.accountSettings.title}</p>
+        <nav aria-label={text.accountSettings.title}>
+          {sections.map((item: SettingsSection): JSX.Element => (
+            <a
+              key={item.path}
+              href={item.path}
+              className={
+                section === item.path ||
+                (section === '/settings/password' && item.path === '/settings/profile')
+                  ? 'account-settings-navigation__link account-settings-navigation__link--active'
+                  : 'account-settings-navigation__link'
+              }
+              aria-current={
+                section === item.path ||
+                (section === '/settings/password' && item.path === '/settings/profile')
+                  ? 'page'
+                  : undefined
+              }
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </aside>
+      <div className="account-settings-content">
+        <section className="panel auth-panel account-settings-panel">
+          <h1>{text.accountSettings.title}</h1>
+          <p className="lede">{text.accountSettings.subtitle}</p>
+          {authenticated === null ? (
+            <StatusMessage message={text.loading} />
+          ) : authenticated === false ? (
+            <StatusMessage message={text.accountSettings.signInRequired} />
+          ) : section === '/settings/email' ? (
+            <AccountEmailSettings text={text} />
+          ) : section === '/settings/cookbooks' ? (
+            <AccountCookbookSettings text={text} />
+          ) : section === '/settings/password' ? (
+            <AccountPasswordSettings
               text={text}
-              submitting={submitting}
-              onSubmit={createCookbook}
-              onClose={(): void => setIsCreateCookbookModalOpen(false)}
+              hasPassword={hasPassword}
+              onPasswordChanged={(): void => setHasPassword(true)}
             />
-          ) : null}
-        </>
-      ) : null}
-      <StatusMessage message={message} />
+          ) : (
+            <>
+              <AccountProfileSettings text={text} />
+              <div className="account-settings-panel__password-action">
+                <a className="button-link" href="/settings/password">
+                  {text.accountPassword.title}
+                </a>
+              </div>
+            </>
+          )}
+        </section>
+      </div>
     </section>
   );
-}
-
-interface OwnedCookbook {
-  name: string;
-  slug: string;
-  recipeCount: number;
-  userCount: number;
-  showOnStartPage: boolean;
 }

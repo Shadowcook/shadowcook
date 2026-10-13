@@ -4,14 +4,15 @@ import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import ProfileNameFields, { hasValidProfileNames, type ProfileNames } from './ProfileNameFields';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
+import AccountMismatchNotice from './AccountMismatchNotice';
 
 interface Properties {
   locale: Locale;
   token: string;
 }
 interface Invitation {
-  email: string;
-  cookbookName: string;
+  email: string | null;
+  cookbookName: string | null;
   existingAccount: boolean;
 }
 interface AcceptanceResponse {
@@ -31,14 +32,18 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
     displayName: '',
   });
   const [submitting, setSubmitting] = useState<boolean>(false);
+  const [accountMismatch, setAccountMismatch] = useState<boolean>(false);
 
   useEffect((): void => {
-    void fetch(`/api/invitations/${encodeURIComponent(token)}`)
-      .then(async (response: Response): Promise<void> => {
-        if (response.ok) setInvitation((await response.json()) as Invitation);
-        else setMessage(text.invitation.unavailable);
+    void request<Invitation>(`/invitations/${encodeURIComponent(token)}`)
+      .then((result: Invitation): void => {
+        setInvitation(result);
       })
-      .catch((): void => setMessage(text.invitation.unavailable));
+      .catch((error: unknown): void => {
+        if (error instanceof ApiRequestError && error.code === 'INVITATION_EMAIL_MISMATCH')
+          setAccountMismatch(true);
+        else setMessage(text.invitation.unavailable);
+      });
   }, [token, text.invitation.unavailable]);
   async function accept(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -62,6 +67,7 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
       window.location.replace(destination);
     } catch (error: unknown) {
       const errorCode: string = error instanceof ApiRequestError ? error.code : '';
+      if (errorCode === 'INVITATION_EMAIL_MISMATCH') setAccountMismatch(true);
       setMessage(
         errorCode === 'INVALID_ACCOUNT_PROFILE'
           ? text.accountProfile.nameRequirements
@@ -73,6 +79,16 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
       setSubmitting(false);
     }
   }
+  if (accountMismatch)
+    return (
+      <section className="panel auth-panel">
+        <h1>{text.invitation.title}</h1>
+        <AccountMismatchNotice
+          text={text}
+          returnPath={`/invitations/${encodeURIComponent(token)}`}
+        />
+      </section>
+    );
   if (invitation === null)
     return (
       <section className="panel">
@@ -82,10 +98,12 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
     );
   return (
     <section className="panel auth-panel">
-      <p className="eyebrow">{invitation.cookbookName}</p>
+      {invitation.cookbookName === null ? null : (
+        <p className="eyebrow">{invitation.cookbookName}</p>
+      )}
       <h1>{text.invitation.title}</h1>
       <p className="lede">{text.invitation.subtitle}</p>
-      <p>{invitation.email}</p>
+      {invitation.email === null ? null : <p>{invitation.email}</p>}
       <form
         onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void accept(event)}
         autoComplete="off"

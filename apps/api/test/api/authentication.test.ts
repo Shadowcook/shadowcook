@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { estimatePasswordEntropy } from '../../src/auth/password.js';
 import { hashSessionToken } from '../../src/auth/session.js';
 import { createTestApi } from '../helpers/api.js';
 import { assignTenantRole, createTestUser, type TestUser } from '../helpers/actors.js';
@@ -315,7 +316,111 @@ test('cookbook URL preview reports a normalized available and unavailable slug',
   assert.deepEqual(unavailable.json(), { slug: 'my-preview', available: false });
 });
 
-async function login(user: TestUser) {
+test('password changes verify the current password and configured entropy before replacing credentials', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'self-service-password@example.test',
+    passwordChangeRequired: true,
+  });
+  const loginResponse: LightMyRequestResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+  const newPassword: string = 'm9!Rk4@Zt7#Qv2$Lp8%Wc5^Hs3&Yn6*Bx1(Gd0)Fe9+Ju4=Ao7?Si2/Vw5~Xq8';
+  assert.ok(estimatePasswordEntropy(newPassword) >= 256);
+  assert.ok(estimatePasswordEntropy(user.password) >= 60);
+  assert.ok(estimatePasswordEntropy(user.password) < 256);
+
+  const anonymous: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    payload: { currentPassword: user.password, newPassword },
+  });
+  assert.equal(anonymous.statusCode, 401);
+  assert.equal(anonymous.json<{ code: string }>().code, 'AUTHENTICATION_REQUIRED');
+  const incorrect: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    headers: { cookie },
+    payload: { currentPassword: 'incorrect-password', newPassword },
+  });
+  assert.equal(incorrect.statusCode, 401);
+  assert.equal(incorrect.json<{ code: string }>().code, 'AUTHENTICATION_FAILED');
+  const missingCurrent: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    headers: { cookie },
+    payload: { newPassword },
+  });
+  assert.equal(missingCurrent.statusCode, 401);
+
+  await database.pool.query(
+    `INSERT INTO instance_authentication_settings (minimum_password_entropy) VALUES (256)
+     ON CONFLICT (singleton) DO UPDATE SET minimum_password_entropy = EXCLUDED.minimum_password_entropy`,
+  );
+  try {
+    const weak: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/change-password',
+      headers: { cookie },
+      payload: { currentPassword: user.password, newPassword: user.password },
+    });
+    assert.equal(weak.statusCode, 400);
+    assert.equal(weak.json<{ code: string }>().code, 'INVALID_PASSWORD');
+    assert.equal((await login(user)).statusCode, 200);
+
+    const changed: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/change-password',
+      headers: { cookie },
+      payload: { currentPassword: user.password, newPassword },
+    });
+    assert.equal(changed.statusCode, 204);
+    const session: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie },
+    });
+    assert.equal(session.statusCode, 200);
+    assert.equal(session.json<{ passwordChangeRequired: boolean }>().passwordChangeRequired, false);
+    assert.equal((await login(user)).statusCode, 401);
+    const newLogin: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: user.email, password: newPassword },
+    });
+    assert.equal(newLogin.statusCode, 200);
+  } finally {
+    await database.pool.query(
+      'UPDATE instance_authentication_settings SET minimum_password_entropy = 60',
+    );
+  }
+});
+
+test('accounts without a password can set their first password through their existing session', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'first-self-service-password@example.test',
+  });
+  const loginResponse: LightMyRequestResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+  await database.pool.query('UPDATE user_account SET password_hash = NULL WHERE id = $1', [
+    user.userId,
+  ]);
+  const changed: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    headers: { cookie },
+    payload: { newPassword: user.password },
+  });
+  assert.equal(changed.statusCode, 204);
+  const session: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+  assert.equal(session.statusCode, 200);
+  assert.equal(session.json<{ hasPassword: boolean }>().hasPassword, true);
+  assert.equal((await login(user)).statusCode, 200);
+});
+
+async function login(user: TestUser): Promise<LightMyRequestResponse> {
   return await api.inject({
     method: 'POST',
     url: '/auth/login',

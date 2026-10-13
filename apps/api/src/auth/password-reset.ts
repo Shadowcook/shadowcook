@@ -1,12 +1,16 @@
-import { createHash, randomBytes } from 'node:crypto';
+import { randomBytes } from 'node:crypto';
 import type { Pool, PoolClient } from 'pg';
 import { hashPassword } from './password.js';
+import {
+  hashPasswordResetToken,
+  loadPasswordReset,
+  type PasswordResetRecord,
+} from './password-reset-verification.js';
+
+export { hashPasswordResetToken } from './password-reset-verification.js';
 
 const resetLifetimeMilliseconds: number = 60 * 60 * 1000;
 
-export function hashPasswordResetToken(token: string): Buffer {
-  return createHash('sha256').update(token, 'utf8').digest();
-}
 export async function createPasswordResetToken(
   pool: Pool,
   userAccountId: string,
@@ -33,27 +37,22 @@ export async function completePasswordReset(
   token: string,
   newPassword: string,
   minimumEntropy: number,
+  signedInUserId: string | null,
 ): Promise<boolean> {
-  const passwordHash: string = await hashPassword(newPassword, minimumEntropy);
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
-    const reset = await client.query<{ id: string; user_account_id: string }>(
-      `SELECT password_reset_token.id, password_reset_token.user_account_id
-       FROM password_reset_token
-       INNER JOIN user_account ON user_account.id = password_reset_token.user_account_id
-       WHERE password_reset_token.token_hash = $1
-         AND password_reset_token.consumed_at IS NULL
-         AND password_reset_token.expires_at > now()
-         AND user_account.deleted_at IS NULL
-       FOR UPDATE`,
-      [hashPasswordResetToken(token)],
+    const record: PasswordResetRecord | null = await loadPasswordReset(
+      client,
+      token,
+      signedInUserId,
+      true,
     );
-    const record: { id: string; user_account_id: string } | undefined = reset.rows[0];
-    if (record === undefined) {
+    if (record === null) {
       await client.query('ROLLBACK');
       return false;
     }
+    const passwordHash: string = await hashPassword(newPassword, minimumEntropy);
     await client.query(
       'UPDATE user_account SET password_hash = $1, password_change_required = false, password_changed_at = now(), updated_at = now() WHERE id = $2',
       [passwordHash, record.user_account_id],

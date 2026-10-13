@@ -3,6 +3,167 @@ info:
   title: Shadowcook API
   version: 0.1.0
 paths:
+  /reports:
+    post:
+      operationId: createContentReport
+      summary: Reports an accessible recipe, user, or cookbook to instance administrators.
+      description: Requires a signed-in human user without a required password change. Allows ten reports per user per hour. User targets must share a cookbook membership or be an owner or author in an accessible published cookbook. A valid recipe share token also authorizes a recipe target. Saving creates an open, unassigned ticket and a durable email notification. SMTP delivery failure does not discard the ticket.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContentReportInput' }
+      responses:
+        '201':
+          description: Report saved.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [publicId]
+                properties:
+                  publicId: { type: string, format: uuid }
+        '400': { $ref: '#/components/responses/ReportInvalid' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+        '404': { $ref: '#/components/responses/ReportNotFound' }
+        '429':
+          description: REPORT_RATE_LIMITED; ten reports have already been submitted in the last hour.
+          headers:
+            Retry-After: { schema: { type: integer }, description: Retry interval in seconds. }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /reports/users:
+    get:
+      operationId: listReportableCookbookUsers
+      summary: Returns public identifiers and display names of users that can be reported in a cookbook.
+      description: Cookbook members receive fellow members. Other authenticated visitors receive owners and published-recipe authors in accessible cookbooks. No email addresses are returned.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: tenantSlug
+          in: query
+          required: true
+          schema: { type: string, maxLength: 120 }
+      responses:
+        '200':
+          description: Reportable users; empty when the cookbook is unavailable.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [users]
+                properties:
+                  users: { type: array, items: { $ref: '#/components/schemas/ReportUser' } }
+        '400': { $ref: '#/components/responses/ReportInvalid' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+  /admin/report-settings:
+    get:
+      operationId: getReportSettings
+      summary: Returns the instance report notification email address.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      responses:
+        '200':
+          description: Report settings; requires instance administration permission.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ReportSettings' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+    put:
+      operationId: updateReportSettings
+      summary: Configures the notification address; null disables report email delivery.
+      description: Requires instance administration permission. Existing pending notifications use the current configured address.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReportSettings' }
+      responses:
+        '204': { description: Settings saved. }
+        '400': { $ref: '#/components/responses/ReportInvalid' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+  /admin/reports:
+    get:
+      operationId: listContentReports
+      summary: Lists reports and active assignable administrators.
+      description: Requires instance administration permission. Reports are ordered by creation time descending, then public ID; page size is 50.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/ReportStatus' }
+        - name: page
+          in: query
+          schema: { type: integer, minimum: 1, default: 1 }
+      responses:
+        '200':
+          description: Report page.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [reports, administrators, page, pageSize, totalReports]
+                properties:
+                  reports: { type: array, items: { $ref: '#/components/schemas/ContentReport' } }
+                  administrators:
+                    { type: array, items: { $ref: '#/components/schemas/ReportUser' } }
+                  page: { type: integer, minimum: 1 }
+                  pageSize: { type: integer, const: 50 }
+                  totalReports: { type: integer, minimum: 0 }
+        '400': { $ref: '#/components/responses/ReportInvalid' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+  /admin/reports/{publicId}:
+    parameters:
+      - name: publicId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      operationId: getContentReport
+      summary: Returns a report ticket and active assignable administrators.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      responses:
+        '200':
+          description: Report details; requires instance administration permission.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [report, administrators]
+                properties:
+                  report: { $ref: '#/components/schemas/ContentReport' }
+                  administrators:
+                    { type: array, items: { $ref: '#/components/schemas/ReportUser' } }
+        '400': { $ref: '#/components/responses/ReportInvalid' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+        '404': { $ref: '#/components/responses/ReportNotFound' }
+    put:
+      operationId: updateContentReport
+      summary: Updates ticket status, result, result note, and administrator assignment.
+      description: Requires instance administration permission. Closed tickets require a result; open and investigating tickets require a null result. Results record a decision and do not execute blocking or deletion. Assignment accepts an active administrator public ID or null. Reporter and target cannot be changed.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ContentReportUpdate' }
+      responses:
+        '204': { description: Ticket saved. }
+        '400': { $ref: '#/components/responses/ReportInvalid' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/ReportForbidden' }
+        '404': { $ref: '#/components/responses/ReportNotFound' }
   /account/cookbook-slug-preview:
     get:
       operationId: getCookbookSlugPreview
@@ -234,6 +395,8 @@ paths:
     post:
       operationId: verifyPendingRegistration
       summary: Consumes a registration verification token and atomically creates the user and an optional cookbook.
+      description: Supports anonymous verification. An active session with a different email address is rejected without consuming the token or creating an account.
+      security: [{}, { sessionCookie: [] }]
       requestBody:
         required: true
         content:
@@ -256,6 +419,159 @@ paths:
                 properties:
                   tenantSlug: { type: [string, 'null'] }
         '400': { description: Verification token is invalid, expired, or already consumed. }
+        '403':
+          description: REGISTRATION_ACCOUNT_MISMATCH. The active session belongs to another email address; the pending registration is preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /account/email-change:
+    get:
+      operationId: getAccountEmailChange
+      summary: Returns the current email address and pending change of the authenticated account.
+      security: [{ sessionCookie: [] }]
+      responses:
+        '200':
+          description: Email change status. Expired pending changes are omitted. Timestamps are UTC.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountEmailChangeStatus' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: PASSWORD_CHANGE_REQUIRED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+    post:
+      operationId: requestAccountEmailChange
+      summary: Sends a 24-hour confirmation link to a new email address without updating the account email.
+      description: Each successful send replaces the previous link. Sending is serialized per account and limited to waits of 1, 3, 10, 30, then 60 minutes, including requests with a different target address. The send count resets after 24 hours without a successful send. SMTP failures preserve the previous pending change.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email, maxLength: 254 }
+      responses:
+        '202':
+          description: Confirmation email sent; the current email remains unchanged.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountEmailChangeStatus' }
+        '400':
+          description: INVALID_EMAIL or EMAIL_UNCHANGED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: PASSWORD_CHANGE_REQUIRED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: EMAIL_UNAVAILABLE.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/EmailChangeRateLimited' }
+        '502': { $ref: '#/components/responses/EmailChangeDeliveryFailed' }
+        '503': { $ref: '#/components/responses/EmailChangeSmtpRequired' }
+  /account/email-change/resend:
+    post:
+      operationId: resendAccountEmailChange
+      summary: Replaces the active pending change link and sends a new 24-hour confirmation email.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object }
+      responses:
+        '202':
+          description: Confirmation email sent with a replacement token and a new expiration.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AccountEmailChangeStatus' }
+        '400':
+          description: EMAIL_UNCHANGED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: PASSWORD_CHANGE_REQUIRED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: NO_PENDING_EMAIL_CHANGE or EMAIL_UNAVAILABLE.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '429': { $ref: '#/components/responses/EmailChangeRateLimited' }
+        '502': { $ref: '#/components/responses/EmailChangeDeliveryFailed' }
+        '503': { $ref: '#/components/responses/EmailChangeSmtpRequired' }
+  /account/email-change/verification:
+    post:
+      operationId: getAccountEmailChangeVerification
+      summary: Validates a confirmation link against the signed-in account and returns confirmation details without consuming it.
+      description: Requires an active session for the account that requested the change. Returns only that account's current and proposed addresses and reports whether a fresh sign-in is required. Session creation through password or email-code authentication counts as fresh authentication for five minutes. Missing, mismatched, or stale authentication does not extend or consume the link. The token is sent in the JSON body.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailChangeVerificationToken' }
+      responses:
+        '200':
+          description: Confirmation details for the signed-in account. Reading does not consume the token.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EmailChangeVerification' }
+        '400':
+          description: INVALID_EMAIL_CHANGE_TOKEN. The token is malformed, expired, replaced, consumed, or belongs to a disabled or deleted account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: EMAIL_CHANGE_ACCOUNT_MISMATCH or PASSWORD_CHANGE_REQUIRED. No confirmation details are disclosed and the token is preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /account/email-change/verify:
+    post:
+      operationId: verifyAccountEmailChange
+      summary: Consumes a confirmation link and atomically changes the account email.
+      description: Requires an active session for the account that requested the change and authentication within the last five minutes, measured from session creation through password or email-code authentication. Missing authentication, another account's session, or required reauthentication preserves the token without extending its expiration. Links expire after 24 hours and cannot be reused. Disabled and deleted accounts cannot confirm. Email availability is checked again at confirmation. Account identity and memberships remain unchanged; existing password-reset tokens and login codes for the old address are consumed. Sessions remain valid.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/EmailChangeVerificationToken' }
+      responses:
+        '204': { description: Email address updated and pending change consumed. }
+        '400':
+          description: INVALID_EMAIL_CHANGE_TOKEN. The token is malformed, expired, replaced, consumed, or belongs to a disabled or deleted account.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '409':
+          description: EMAIL_UNAVAILABLE. The pending change is preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: EMAIL_CHANGE_ACCOUNT_MISMATCH, REAUTHENTICATION_REQUIRED, or PASSWORD_CHANGE_REQUIRED. The pending change is preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /account/profile:
     get:
       operationId: getAccountProfile
@@ -445,6 +761,7 @@ paths:
     post:
       operationId: changePassword
       summary: Changes the authenticated user's password.
+      description: Requires the current password when the account already has a password. Accounts without a password can omit currentPassword. Successful changes clear passwordChangeRequired and preserve the current session. The configured minimum entropy is enforced outside development.
       security:
         - sessionCookie: []
       requestBody:
@@ -457,8 +774,9 @@ paths:
               required: [newPassword]
               properties:
                 currentPassword:
-                  type: string
+                  type: [string, 'null']
                   format: password
+                  description: Required as a string for accounts with an existing password; verified before updating the password. Accounts without a password can omit it or supply null.
                 newPassword:
                   type: string
                   format: password
@@ -473,7 +791,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '401':
-          description: Authentication failed.
+          description: AUTHENTICATION_REQUIRED for a missing session credential or AUTHENTICATION_FAILED for an invalid session or incorrect current password.
           content:
             application/json:
               schema:
@@ -494,9 +812,47 @@ paths:
                 email: { type: string, format: email }
       responses:
         '204': { description: The request was accepted without account-existence disclosure. }
+  /auth/password-reset/verification:
+    post:
+      operationId: getPasswordResetVerification
+      summary: Validates a password-reset link and rejects an active session for another account without consuming the token.
+      description: Anonymous recovery remains supported. Matching sessions are checked by immutable account ID. The response contains only the expiration time, without an email address or other account details. Disabled and deleted target accounts are rejected.
+      security: [{}, { sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: { type: string, minLength: 1 }
+      responses:
+        '200':
+          description: Valid password-reset link. Reading does not consume or extend it.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [expiresAt]
+                properties:
+                  expiresAt: { type: string, format: date-time }
+        '400':
+          description: INVALID_PASSWORD_RESET. Invalid, expired, consumed, or inactive-account token.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          description: PASSWORD_RESET_ACCOUNT_MISMATCH. The active session belongs to another account; the token is preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /auth/password-reset/complete:
     post:
       operationId: completePasswordReset
+      description: Supports anonymous recovery and matching active sessions. An active session for another account is rejected inside the reset transaction without changing passwords, tokens, or sessions. Disabled and deleted accounts cannot reset. Successful recovery revokes all target-account sessions and clears the browser session cookie.
+      security: [{}, { sessionCookie: [] }]
       requestBody:
         required: true
         content:
@@ -514,13 +870,23 @@ paths:
                     description: Must meet the configured minimum estimated entropy.,
                   }
       responses:
-        '204': { description: The password was changed and the reset token was consumed. }
+        '204':
+          description: The password was changed, the reset token was consumed, target-account sessions were revoked, and the browser session cookie was cleared.
+          headers:
+            Set-Cookie:
+              description: Clears the browser session cookie.
+              schema: { type: string }
         '400':
           description: The reset token or password is invalid.
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: PASSWORD_RESET_ACCOUNT_MISMATCH. The active session belongs to another account; the token is preserved.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /auth/session:
     get:
       operationId: getCurrentSession
@@ -1385,6 +1751,8 @@ paths:
   /user-invitations/{token}:
     get:
       operationId: getUserInvitation
+      description: Anonymous callers receive only existing-account and password-requirement metadata; email is null. A session matching the invited email receives the email address. An active session for another address is rejected without disclosing invitation details.
+      security: [{}, { sessionCookie: [] }]
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       responses:
         '200':
@@ -1396,13 +1764,18 @@ paths:
                 additionalProperties: false
                 required: [email, passwordRequired, existingAccount]
                 properties:
-                  email: { type: string, format: email }
+                  email: { type: [string, 'null'], format: email }
                   passwordRequired: { type: boolean }
                   existingAccount: { type: boolean }
+        '403':
+          description: INVITATION_EMAIL_MISMATCH. The active session belongs to another email address.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '404': { description: Invitation unavailable. }
   /user-invitations/{token}/accept:
     post:
       operationId: acceptUserInvitation
+      description: An active session for another email address is rejected for both existing-account acceptance and new-account creation without consuming the invitation. Existing-account acceptance checks the signed-in account ID as well as the email address.
+      security: [{}, { sessionCookie: [] }]
       summary: Accepts an instance or cookbook user invitation and completes the profile of a new account.
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       requestBody:
@@ -1429,13 +1802,17 @@ paths:
           description: Invalid invitation details, INVALID_ACCOUNT_PROFILE for missing or invalid names, or INVALID_PASSWORD.
           content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { description: Existing invited account must sign in before accepting. }
-        '403': { description: Signed-in email address does not match the invitation. }
+        '403':
+          description: INVITATION_EMAIL_MISMATCH. The active session does not match the invited account or email; the invitation is preserved.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '404': { description: Invitation unavailable. }
         '409':
           { description: An instance-user invitation cannot be accepted for an existing account. }
   /invitations/{token}:
     get:
       operationId: getTenantInvitation
+      description: Anonymous callers receive existing-account metadata; email and cookbookName are null. A session matching the invited email receives full details. An active session for another address is rejected without disclosing invitation details.
+      security: [{}, { sessionCookie: [] }]
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       responses:
         '200':
@@ -1447,9 +1824,12 @@ paths:
                 additionalProperties: false
                 required: [email, cookbookName, existingAccount]
                 properties:
-                  email: { type: string, format: email }
-                  cookbookName: { type: string }
+                  email: { type: [string, 'null'], format: email }
+                  cookbookName: { type: [string, 'null'] }
                   existingAccount: { type: boolean }
+        '403':
+          description: INVITATION_EMAIL_MISMATCH. The active session belongs to another email address.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '404':
           description: Invitation unavailable.
           content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
@@ -1890,7 +2270,9 @@ paths:
           type: string
           enum:
             [
+              CONTENT_REPORT,
               REGISTRATION_VERIFICATION,
+              EMAIL_CHANGE_VERIFICATION,
               LOGIN_CODE,
               PASSWORD_RESET,
               ADMIN_PASSWORD_RESET,
@@ -1970,8 +2352,9 @@ paths:
                       - type: 'null'
                       - type: object
                         additionalProperties: false
-                        required: [display_name, frontpage_heading]
+                        required: [public_id, display_name, frontpage_heading]
                         properties:
+                          public_id: { type: string, format: uuid }
                           display_name: { type: string }
                           frontpage_heading: { type: [string, 'null'], maxLength: 80 }
                   categories:
@@ -3194,6 +3577,40 @@ components:
       required: true
       schema: { type: string, format: uuid }
   responses:
+    ReportInvalid:
+      description: Invalid report, ticket update, assignee, filter, or report settings. Codes are INVALID_REPORT, INVALID_REPORT_UPDATE, INVALID_REPORT_ASSIGNEE, INVALID_REPORT_FILTER, or INVALID_REPORT_SETTINGS.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ReportForbidden:
+      description: PASSWORD_CHANGE_REQUIRED or INSTANCE_PERMISSION_REQUIRED.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    ReportNotFound:
+      description: REPORT_TARGET_NOT_FOUND or REPORT_NOT_FOUND.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    EmailChangeRateLimited:
+      description: EMAIL_CHANGE_RATE_LIMITED. The account must wait before requesting another email.
+      headers:
+        Retry-After:
+          description: Whole seconds until the next allowed send.
+          schema: { type: integer, minimum: 1 }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    EmailChangeDeliveryFailed:
+      description: EMAIL_CHANGE_DELIVERY_FAILED. SMTP delivery failed; the previous pending change is preserved.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
+    EmailChangeSmtpRequired:
+      description: SMTP_REQUIRED. Instance email delivery is not configured; pending changes are preserved.
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ApiError' }
     AuthenticationRequired:
       description: Authentication is required.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
@@ -3219,6 +3636,137 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    ReportSettings:
+      type: object
+      additionalProperties: false
+      required: [recipientEmail]
+      properties:
+        recipientEmail: { type: [string, 'null'], format: email, maxLength: 254 }
+    ReportUser:
+      type: object
+      additionalProperties: false
+      required: [publicId, displayName]
+      properties:
+        publicId: { type: string, format: uuid }
+        displayName: { type: string }
+    ReportTargetType: { type: string, enum: [RECIPE, USER, COOKBOOK] }
+    ReportReason: { type: string, enum: [ILLEGAL_CONTENT, IMPROPER_NAME, HARASSMENT, SPAM, OTHER] }
+    ReportStatus: { type: string, enum: [OPEN, UNDER_INVESTIGATION, CLOSED] }
+    ReportResult:
+      {
+        type: [string, 'null'],
+        enum: [BLOCKED, UNFOUNDED, USER_DELETED, COOKBOOK_DELETED, RECIPE_DELETED, OTHER, null],
+      }
+    ContentReportInput:
+      type: object
+      additionalProperties: false
+      required: [targetType, targetPublicId, reason, description]
+      properties:
+        targetType: { $ref: '#/components/schemas/ReportTargetType' }
+        targetPublicId: { type: string, format: uuid }
+        reason: { $ref: '#/components/schemas/ReportReason' }
+        description: { type: string, minLength: 1, maxLength: 5000, pattern: '\S' }
+        shareToken: { type: string, maxLength: 200 }
+    ContentReportUpdate:
+      type: object
+      additionalProperties: false
+      required: [status, result, resultNote, assignedAdminPublicId]
+      properties:
+        status: { $ref: '#/components/schemas/ReportStatus' }
+        result: { $ref: '#/components/schemas/ReportResult' }
+        resultNote: { type: string, maxLength: 5000 }
+        assignedAdminPublicId: { type: [string, 'null'], format: uuid }
+      allOf:
+        - if:
+            properties:
+              status: { const: CLOSED }
+          then:
+            properties:
+              result: { type: string }
+          else:
+            properties:
+              result: { type: 'null' }
+    ContentReport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          publicId,
+          targetType,
+          targetPublicId,
+          targetName,
+          targetUrl,
+          reporterName,
+          reporterEmail,
+          reason,
+          description,
+          status,
+          result,
+          resultNote,
+          assignedAdminPublicId,
+          assignedAdminName,
+          createdAt,
+          updatedAt,
+          notificationSentAt,
+        ]
+      properties:
+        publicId: { type: string, format: uuid }
+        targetType: { $ref: '#/components/schemas/ReportTargetType' }
+        targetPublicId: { type: string, format: uuid }
+        targetName: { type: [string, 'null'] }
+        targetUrl:
+          {
+            type: [string, 'null'],
+            description: Relative target URL or null when the target no longer exists.,
+          }
+        reporterName: { type: string }
+        reporterEmail: { type: string, format: email }
+        reason: { $ref: '#/components/schemas/ReportReason' }
+        description: { type: string, minLength: 1, maxLength: 5000 }
+        status: { $ref: '#/components/schemas/ReportStatus' }
+        result: { $ref: '#/components/schemas/ReportResult' }
+        resultNote: { type: string, maxLength: 5000 }
+        assignedAdminPublicId: { type: [string, 'null'], format: uuid }
+        assignedAdminName: { type: [string, 'null'] }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        notificationSentAt: { type: [string, 'null'], format: date-time }
+    EmailChangeVerificationToken:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+    EmailChangeVerification:
+      type: object
+      additionalProperties: false
+      required: [currentEmail, email, expiresAt, reauthenticationRequired]
+      properties:
+        currentEmail: { type: string, format: email }
+        email: { type: string, format: email }
+        expiresAt: { type: string, format: date-time }
+        reauthenticationRequired:
+          type: boolean
+          description: True when the session was not created through authentication within the last five minutes. A new password or email-code sign-in is required before confirmation.
+    AccountEmailChangeStatus:
+      type: object
+      additionalProperties: false
+      required: [email, pending, nextResendAt, serverTime]
+      properties:
+        email: { type: string, format: email }
+        pending:
+          oneOf:
+            - type: 'null'
+            - type: object
+              additionalProperties: false
+              required: [email, expiresAt]
+              properties:
+                email: { type: string, format: email }
+                expiresAt: { type: string, format: date-time }
+        nextResendAt:
+          type: [string, 'null']
+          format: date-time
+          description: Earliest allowed send time, including when the requested target address changes. Null before any request.
+        serverTime: { type: string, format: date-time }
     ProfileName:
       type: string
       minLength: 1
@@ -3669,7 +4217,9 @@ components:
           type: string
           enum:
             [
+              CONTENT_REPORT,
               REGISTRATION_VERIFICATION,
+              EMAIL_CHANGE_VERIFICATION,
               LOGIN_CODE,
               PASSWORD_RESET,
               ADMIN_PASSWORD_RESET,
@@ -4203,6 +4753,15 @@ components:
           enum:
             - AUTHENTICATION_FAILED
             - AUTHENTICATION_REQUIRED
+            - INSTANCE_PERMISSION_REQUIRED
+            - INVALID_REPORT
+            - INVALID_REPORT_SETTINGS
+            - INVALID_REPORT_FILTER
+            - INVALID_REPORT_UPDATE
+            - INVALID_REPORT_ASSIGNEE
+            - REPORT_NOT_FOUND
+            - REPORT_TARGET_NOT_FOUND
+            - REPORT_RATE_LIMITED
             - AI_CONTEXT_UNAVAILABLE
             - AI_CONTEXT_SCOPE_NOT_FOUND
             - INVALID_AI_CONTEXT

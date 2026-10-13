@@ -3,6 +3,8 @@ import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
+import ReportButton from '../../reports/ReportButton';
+import ContentActions from '../../../components/ContentActions';
 
 interface TenantRole {
   id: string;
@@ -125,6 +127,14 @@ export default function TenantUserManagement({ locale, tenantSlug }: Properties)
                 <td>{user.email}</td>
                 <td>{user.roles.map((role: TenantRole): string => role.name).join(', ')}</td>
                 <td>
+                  <ContentActions label={`${text.reports.moreActions}: ${user.display_name}`}>
+                    <ReportButton
+                      text={text}
+                      targetType="USER"
+                      targetPublicId={user.public_id}
+                      targetName={user.display_name}
+                    />
+                  </ContentActions>
                   {user.roles.some((role: TenantRole): boolean => role.name === 'Owner') ? null : (
                     <button
                       type="button"

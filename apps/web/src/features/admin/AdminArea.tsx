@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
 import AdminMailSettings from './components/AdminMailSettings';
+import AdminReports from './components/AdminReports';
+import AdminReportSettings from './components/AdminReportSettings';
 import AdminEmailTemplates from './components/AdminEmailTemplates';
 import AdminAuthenticationSettings from './components/AdminAuthenticationSettings';
 import AdminRegistrationSettings from './components/AdminRegistrationSettings';
@@ -143,6 +145,21 @@ export default function AdminArea({
           {isAdministrator ? (
             <a
               className={
+                currentPath.startsWith('/admin/reports')
+                  ? 'admin-navigation__link admin-navigation__link--active'
+                  : 'admin-navigation__link'
+              }
+              href="/admin/reports"
+              onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                navigate(event, '/admin/reports')
+              }
+            >
+              {text.reports.dashboard}
+            </a>
+          ) : null}
+          {isAdministrator ? (
+            <a
+              className={
                 currentPath.startsWith('/admin/settings')
                   ? 'admin-navigation__link admin-navigation__link--active'
                   : 'admin-navigation__link'
@@ -157,6 +174,19 @@ export default function AdminArea({
           ) : null}
           {isAdministrator && currentPath.startsWith('/admin/settings') ? (
             <>
+              <a
+                className={
+                  currentPath === '/admin/settings/reports'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/reports"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/reports')
+                }
+              >
+                {text.reports.settings}
+              </a>
               <a
                 className={
                   currentPath === '/admin/settings/cookbook-slug-blocked-terms'
@@ -267,6 +297,15 @@ function page(
   text: Translation,
   navigate: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void,
 ): JSX.Element {
+  if (path === '/admin/reports' || path.startsWith('/admin/reports/'))
+    return (
+      <AdminReports
+        key={path}
+        locale={locale}
+        publicId={path === '/admin/reports' ? undefined : path.slice('/admin/reports/'.length)}
+      />
+    );
+  if (path === '/admin/settings/reports') return <AdminReportSettings locale={locale} />;
   if (path === '/admin/settings/smtp') return <AdminMailSettings locale={locale} />;
   if (path === '/admin/settings/email-templates') return <AdminEmailTemplates locale={locale} />;
   if (path === '/admin/settings/authentication')
@@ -286,6 +325,16 @@ function page(
         <p className="eyebrow">{text.admin.settings}</p>
         <h1>{text.admin.settingsTitle}</h1>
         <p className="lede">{text.admin.settingsDescription}</p>
+        <a
+          className="admin-card"
+          href="/admin/settings/reports"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/reports')
+          }
+        >
+          <span>{text.reports.settings}</span>
+          <strong>{text.reports.recipientEmail}</strong>
+        </a>
         <a
           className="admin-card"
           href="/admin/settings/cookbook-slug-blocked-terms"

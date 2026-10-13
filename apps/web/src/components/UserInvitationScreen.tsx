@@ -6,15 +6,13 @@ import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
 import ProfileNameFields, { hasValidProfileNames, type ProfileNames } from './ProfileNameFields';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
+import AccountMismatchNotice from './AccountMismatchNotice';
+import { reauthenticationLoginUrl } from '../lib/login-navigation';
 
 interface Invitation {
-  email: string;
+  email: string | null;
   passwordRequired: boolean;
   existingAccount: boolean;
-}
-
-interface SessionResponse {
-  email: string;
 }
 
 export default function UserInvitationScreen({
@@ -34,20 +32,18 @@ export default function UserInvitationScreen({
   const [submitting, setSubmitting] = useState<boolean>(false);
   const [password, setPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
-  const [sessionEmail, setSessionEmail] = useState<string | null>(null);
+  const [accountMismatch, setAccountMismatch] = useState<boolean>(false);
 
   useEffect((): void => {
-    void fetch(`/api/user-invitations/${encodeURIComponent(token)}`)
-      .then(async (response: Response): Promise<void> => {
-        if (response.ok) setInvitation((await response.json()) as Invitation);
+    void request<Invitation>(`/user-invitations/${encodeURIComponent(token)}`)
+      .then((result: Invitation): void => {
+        setInvitation(result);
+      })
+      .catch((error: unknown): void => {
+        if (error instanceof ApiRequestError && error.code === 'INVITATION_EMAIL_MISMATCH')
+          setAccountMismatch(true);
         else setMessage(text.userInvitation.unavailable);
-      })
-      .catch((): void => setMessage(text.userInvitation.unavailable));
-    void fetch('/api/auth/session', { credentials: 'same-origin' })
-      .then(async (response: Response): Promise<void> => {
-        if (response.ok) setSessionEmail(((await response.json()) as SessionResponse).email);
-      })
-      .catch((): void => undefined);
+      });
   }, [text.userInvitation.unavailable, token]);
   async function accept(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -70,9 +66,11 @@ export default function UserInvitationScreen({
               },
         ),
       );
-      window.location.replace(invitation?.existingAccount ? '/' : '/login');
+      window.location.replace(invitation.existingAccount ? '/' : reauthenticationLoginUrl('/'));
     } catch (error: unknown) {
       const code: string = error instanceof ApiRequestError ? error.code : '';
+      if (code === 'INVITATION_EMAIL_MISMATCH') setAccountMismatch(true);
+      if (code === 'INVITATION_LOGIN_REQUIRED') setInvitation({ ...invitation, email: null });
       setMessage(
         code === 'INVALID_ACCOUNT_PROFILE'
           ? text.accountProfile.nameRequirements
@@ -88,6 +86,16 @@ export default function UserInvitationScreen({
       setSubmitting(false);
     }
   }
+  if (accountMismatch)
+    return (
+      <section className="panel auth-panel">
+        <h1>{text.userInvitation.title}</h1>
+        <AccountMismatchNotice
+          text={text}
+          returnPath={`/user-invitations/${encodeURIComponent(token)}`}
+        />
+      </section>
+    );
   if (invitation === null)
     return (
       <section className="panel">
@@ -97,7 +105,7 @@ export default function UserInvitationScreen({
     );
   return (
     <section className="panel auth-panel">
-      <p className="eyebrow">{invitation.email}</p>
+      {invitation.email === null ? null : <p className="eyebrow">{invitation.email}</p>}
       <h1>
         {invitation.existingAccount
           ? text.userInvitation.existingAccountTitle
@@ -109,27 +117,23 @@ export default function UserInvitationScreen({
           : text.userInvitation.subtitle}
       </p>
       {invitation.existingAccount ? (
-        sessionEmail === invitation.email ? (
+        invitation.email !== null ? (
           <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void accept(event)}>
             <button type="submit" disabled={submitting}>
               {text.userInvitation.acceptCookbookInvitation}
             </button>
           </form>
-        ) : sessionEmail === null ? (
+        ) : (
           <button
             type="button"
             onClick={(): void =>
               window.location.assign(
-                `/login?next=${encodeURIComponent(`/user-invitations/${token}`)}`,
+                reauthenticationLoginUrl(`/user-invitations/${encodeURIComponent(token)}`),
               )
             }
           >
             {text.userInvitation.signInToAccept}
           </button>
-        ) : (
-          <p className="message" role="status">
-            {text.userInvitation.signedInWithDifferentEmail}
-          </p>
         )
       ) : (
         <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void accept(event)}>

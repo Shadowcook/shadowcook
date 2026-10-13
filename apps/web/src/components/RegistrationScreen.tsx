@@ -4,6 +4,8 @@ import type { Translation } from '../i18n';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 import { isValidCookbookName } from '../lib/cookbook-name';
 import StatusMessage from './StatusMessage';
+import AccountMismatchNotice from './AccountMismatchNotice';
+import { reauthenticationLoginUrl } from '../lib/login-navigation';
 import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
 import CookbookUrlPreview from './CookbookUrlPreview';
@@ -233,13 +235,19 @@ export function VerificationScreen({
   const [message, setMessage] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [completed, setCompleted] = useState<boolean>(false);
+  const [accountMismatch, setAccountMismatch] = useState<boolean>(false);
   useEffect((): void => {
     void request('/registration/verify', jsonRequest({ token }))
       .then((): void => {
         setCompleted(true);
         setMessage(text.registration.verificationSucceeded);
       })
-      .catch((): void => setMessage(text.registration.verificationInvalid));
+      .catch((error: unknown): void => {
+        if (error instanceof ApiRequestError && error.code === 'REGISTRATION_ACCOUNT_MISMATCH') {
+          setAccountMismatch(true);
+          setMessage('');
+        } else setMessage(text.registration.verificationInvalid);
+      });
   }, [text.registration.verificationInvalid, text.registration.verificationSucceeded, token]);
   async function resend(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -250,7 +258,12 @@ export function VerificationScreen({
     <section className="panel auth-panel">
       <h1>{text.registration.title}</h1>
       <StatusMessage message={message} />
-      {!completed ? (
+      {accountMismatch ? (
+        <AccountMismatchNotice
+          text={text}
+          returnPath={`/verify-email/${encodeURIComponent(token)}`}
+        />
+      ) : !completed ? (
         <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void resend(event)}>
           <label>
             {text.registration.email}
@@ -264,7 +277,7 @@ export function VerificationScreen({
           <button type="submit">{text.registration.resend}</button>
         </form>
       ) : (
-        <a className="button-link" href="/login">
+        <a className="button-link" href={reauthenticationLoginUrl('/')}>
           {text.login.title}
         </a>
       )}

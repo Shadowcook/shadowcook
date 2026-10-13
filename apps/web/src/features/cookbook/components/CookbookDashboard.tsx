@@ -7,6 +7,9 @@ import CategoryTree from './CategoryTree';
 import MobileCategoryDrawer from './MobileCategoryDrawer';
 import RecipeDetailView from './RecipeDetailView';
 import RecipePagination from './RecipePagination';
+import ReportButton from '../../reports/ReportButton';
+import ContentActions from '../../../components/ContentActions';
+import CopyLinkAction from '../../../components/CopyLinkAction';
 import { cookbookPath } from '../model/routing';
 import { cookbookManagementPath } from '../model/management-access';
 import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/types';
@@ -86,11 +89,24 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
           <p className="eyebrow dashboard__cookbook-name">{cookbookName}</p>
           <h1>{frontpageHeading}</h1>
         </div>
-        {managementHref !== null ? (
-          <a className="button--secondary" href={managementHref}>
-            {text.tenantNavigation.title}
-          </a>
-        ) : null}
+        <div className="content-actions-group">
+          {managementHref !== null ? (
+            <a className="button--secondary" href={managementHref}>
+              {text.tenantNavigation.title}
+            </a>
+          ) : null}
+          {cookbook.tenant?.public_id ? (
+            <ContentActions label={`${text.reports.moreActions}: ${cookbookName}`}>
+              <CopyLinkAction text={text} path={`/${encodeURIComponent(tenantSlug)}`} />
+              <ReportButton
+                text={text}
+                targetType="COOKBOOK"
+                targetPublicId={cookbook.tenant.public_id}
+                targetName={cookbookName}
+              />
+            </ContentActions>
+          ) : null}
+        </div>
       </header>
       <BreadcrumbBar
         categories={cookbook.categories}

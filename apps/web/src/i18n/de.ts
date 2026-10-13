@@ -1,6 +1,8 @@
 import type { Translation } from './types';
+import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  reports: reportGerman,
   locale: 'de',
   brandName: 'shadowcook',
   metadata: {
@@ -63,6 +65,11 @@ export const de: Translation = {
     passwordResetRequested:
       'Falls diese Adresse ein aktives Konto hat, wurde ein Link zum Zurücksetzen des Passworts gesendet.',
   },
+  accountLink: {
+    mismatch:
+      'Du bist mit einem anderen Konto angemeldet. Melde dich ab, um mit diesem Link fortzufahren. Der Link wurde nicht verbraucht.',
+    signOutAndContinue: 'Abmelden und fortfahren',
+  },
   passwordReset: {
     title: 'Passwort zurücksetzen',
     subtitle: 'Lege ein neues Passwort für dein Konto fest.',
@@ -98,7 +105,8 @@ export const de: Translation = {
   },
   accountSettings: {
     title: 'Kontoeinstellungen',
-    subtitle: 'Ändere deine Namen und verwalte deine Kochbücher.',
+    personalData: 'Persönliche Daten',
+    subtitle: 'Verwalte deine persönlichen Daten, E-Mail-Adresse und Kochbücher.',
     cookbookName: 'Name des Kochbuchs',
     addCookbook: 'Kochbuch hinzufügen',
     createCookbook: 'Kochbuch anlegen',
@@ -116,6 +124,52 @@ export const de: Translation = {
     noOwnedCookbooks: 'Du hast noch kein Kochbuch angelegt.',
     yes: 'Ja',
     no: 'Nein',
+  },
+  accountEmail: {
+    title: 'E-Mail-Adresse',
+    signInToConfirm:
+      'Melde dich mit der bisherigen E-Mail-Adresse bei dem Konto an, das diesen Wechsel angefordert hat. Danach kehrst du hierher zurück. Der Link gilt weiterhin 24 Stunden ab Versand.',
+    accountMismatch:
+      'Du bist mit einem anderen Konto angemeldet. Melde dich ab und mit der bisherigen E-Mail-Adresse bei dem Konto an, das diesen Wechsel angefordert hat. Der Link wurde nicht verbraucht.',
+    reauthenticationRequired:
+      'Melde dich erneut mit deiner bisherigen E-Mail-Adresse an, um diesen Wechsel zu bestätigen. Die Anmeldung darf höchstens fünf Minuten zurückliegen. Der Link wurde nicht verbraucht.',
+    signInAgain: 'Erneut anmelden',
+    switchAccount: 'Abmelden und Konto wechseln',
+    retry: 'Erneut versuchen',
+    description:
+      'Deine bisherige E-Mail-Adresse bleibt aktiv, bis du die neue Adresse über den zugesendeten Link bestätigst.',
+    currentEmail: 'Aktuelle E-Mail-Adresse',
+    newEmail: 'Neue E-Mail-Adresse',
+    submit: 'Bestätigungslink senden',
+    sending: 'Wird gesendet …',
+    sent: 'Bestätigungs-E-Mail gesendet. Prüfe das Postfach deiner neuen E-Mail-Adresse.',
+    pending: 'Bestätigung von {email} ausstehend.',
+    linkLifetime:
+      'Der Link ist 24 Stunden gültig. Jede neue E-Mail ersetzt den vorherigen Link. Ohne Bestätigung bleibt deine Adresse unverändert.',
+    resend: 'Bestätigungs-E-Mail erneut senden',
+    resendCountdown: 'Du kannst in {time} eine weitere E-Mail anfordern.',
+    rateLimited: 'Bitte warte, bevor du eine weitere Bestätigungs-E-Mail anforderst.',
+    invalidEmail: 'Gib eine gültige E-Mail-Adresse mit höchstens 254 Zeichen ein.',
+    unchanged: 'Gib eine andere als deine aktuelle E-Mail-Adresse ein.',
+    unavailable: 'Diese E-Mail-Adresse ist nicht verfügbar. Wähle eine andere Adresse.',
+    smtpRequired:
+      'Der E-Mail-Versand ist derzeit nicht verfügbar. Bitte versuche es später erneut.',
+    deliveryFailed:
+      'Die Bestätigungs-E-Mail konnte nicht zugestellt werden. Bitte versuche es erneut.',
+    noPending: 'Es gibt keinen aktiven E-Mail-Wechsel. Gib deine neue E-Mail-Adresse erneut ein.',
+    passwordChangeRequired: 'Ändere dein Passwort, bevor du deine E-Mail-Adresse aktualisierst.',
+    loadFailed:
+      'Deine E-Mail-Einstellungen konnten nicht geladen werden. Bitte lade die Seite erneut.',
+    failed: 'Der E-Mail-Wechsel konnte nicht abgeschlossen werden. Bitte versuche es erneut.',
+    confirmTitle: 'E-Mail-Adresse bestätigen',
+    confirmDescription:
+      'Bestätige, dass dir diese E-Mail-Adresse gehört, um sie für dein Konto zu verwenden.',
+    confirm: 'Neue E-Mail-Adresse bestätigen',
+    confirming: 'Wird bestätigt …',
+    confirmed:
+      'Deine E-Mail-Adresse wurde aktualisiert. Verwende die neue Adresse bei der Anmeldung.',
+    invalidLink:
+      'Dieser Link ist abgelaufen, wurde ersetzt oder bereits verwendet. Fordere in deinen Kontoeinstellungen einen neuen Link an.',
   },
   accountProfile: {
     title: 'Profil',
@@ -152,6 +206,18 @@ export const de: Translation = {
     accept: 'Konto anlegen',
     accepted: 'Dein Konto wurde angelegt. Du kannst dich jetzt anmelden.',
     unavailable: 'Diese Einladung ist nicht verfügbar.',
+  },
+  accountPassword: {
+    title: 'Passwort ändern',
+    successTitle: 'Passwort geändert',
+    description: 'Gib dein aktuelles Passwort ein und wähle ein neues Passwort.',
+    firstPasswordDescription: 'Wähle ein Passwort für dein Konto.',
+    saved: 'Dein Passwort wurde geändert.',
+    authenticationFailed:
+      'Dein aktuelles Passwort konnte nicht bestätigt werden. Prüfe dein Passwort und ob du noch angemeldet bist.',
+    invalidPassword:
+      'Dein neues Passwort muss den konfigurierten Entropie-Schwellwert erreichen und darf höchstens 1024 Zeichen enthalten.',
+    back: 'Zurück zu persönlichen Daten',
   },
   passwordChange: {
     currentPasswordLabel: 'Aktuelles Passwort',
@@ -222,7 +288,9 @@ export const de: Translation = {
     signInRequired: 'Melde dich als Instanzadministrator an, um E-Mail-Vorlagen zu verwalten.',
     accessDenied: 'Dein Konto darf keine E-Mail-Vorlagen verwalten.',
     templateNames: {
+      CONTENT_REPORT: 'Inhaltsmeldung',
       REGISTRATION_VERIFICATION: 'Registrierungsbestätigung',
+      EMAIL_CHANGE_VERIFICATION: 'E-Mail-Adresse ändern',
       LOGIN_CODE: 'Anmeldecode',
       PASSWORD_RESET: 'Passwort zurücksetzen',
       ADMIN_PASSWORD_RESET: 'Administrativ angefordertes Zurücksetzen des Passworts',

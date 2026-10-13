@@ -1,11 +1,11 @@
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { loadSmtpConfiguration } from '../admin/mail-routes.js';
 import { createSmtpTransport, senderAddress } from './smtp.js';
 import { emailTemplateDefinition, renderEmailTemplate } from './templates.js';
 import type { EmailTemplateKey } from './templates.js';
 
 export async function sendInstanceMail(
-  pool: Pool,
+  pool: Pool | PoolClient,
   instanceSecretKey: Buffer | null,
   recipient: string,
   subject: string,
@@ -20,7 +20,7 @@ export async function sendInstanceMail(
 }
 
 export async function sendTemplatedInstanceMail(
-  pool: Pool,
+  pool: Pool | PoolClient,
   instanceSecretKey: Buffer | null,
   recipient: string,
   templateKey: EmailTemplateKey,

@@ -19,10 +19,13 @@ import { registerAiContextRoutes } from './cookbook/ai-context-routes.js';
 import { registerPublicRegistrationRoutes } from './registration/routes.js';
 import { registerRegistrationSettingsRoutes } from './admin/registration-settings-routes.js';
 import { registerAccountRoutes } from './account/routes.js';
+import { registerEmailChangeRoutes } from './account/email-change-routes.js';
 import { registerCookbookSlugRoutes } from './admin/cookbook-slug-routes.js';
 import type { RegistrationConfig } from './config.js';
 import { registerOAuthRoutes } from './auth/oauth.js';
 import { registerMcpRoutes } from './mcp/routes.js';
+import { registerReportRoutes } from './reports/routes.js';
+import { registerAdminReportRoutes } from './reports/admin-routes.js';
 
 export function createApi(
   pool: Pool,
@@ -42,6 +45,9 @@ export function createApi(
   registerOAuthRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerAccountRoutes(api, pool);
+  registerReportRoutes(api, pool, instanceSecretKey, publicWebOrigin);
+  registerAdminReportRoutes(api, pool);
+  registerEmailChangeRoutes(api, pool, instanceSecretKey, publicWebOrigin);
   registerPublicRegistrationRoutes(
     api,
     pool,

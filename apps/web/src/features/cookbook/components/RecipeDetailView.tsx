@@ -7,6 +7,9 @@ import RecipeShoppingList from './RecipeShoppingList';
 import AiShareIcon from './AiShareIcon';
 import SpecialIngredientIcon from './SpecialIngredientIcon';
 import RecipeInstruction from './RecipeInstruction';
+import ReportButton from '../../reports/ReportButton';
+import ContentActions from '../../../components/ContentActions';
+import CopyLinkAction from '../../../components/CopyLinkAction';
 
 interface RecipeDetailViewProperties {
   text: Translation;
@@ -17,6 +20,7 @@ interface RecipeDetailViewProperties {
   onShareWithAi: () => void;
   onSelectVariant: (slug: string) => void;
   tenantSlug?: string;
+  shareToken?: string;
 }
 
 export default function RecipeDetailView({
@@ -28,6 +32,7 @@ export default function RecipeDetailView({
   onShareWithAi,
   onSelectVariant,
   tenantSlug,
+  shareToken,
 }: RecipeDetailViewProperties): JSX.Element {
   const hasVisibleAlternative: boolean = recipe.variants.some(
     (variant: RecipeVariant): boolean => !variant.is_default && variant.is_visible,
@@ -39,46 +44,57 @@ export default function RecipeDetailView({
         {text.dashboard.backToRecipes}
       </a>
       <p className="eyebrow">{text.dashboard.recipes}</p>
-      <h2>{recipe.title}</h2>
+      <div className="recipe-detail__title">
+        <h2>{recipe.title}</h2>
+        <ContentActions label={`${text.reports.moreActions}: ${recipe.title}`}>
+          <CopyLinkAction text={text} />
+          {recipe.can_edit ? (
+            <button
+              type="button"
+              className="content-actions__item"
+              onClick={onEdit}
+              aria-label={text.recipeEditor.edit}
+              title={text.recipeEditor.edit}
+            >
+              <AdminIcon name="edit" />
+              {text.recipeEditor.edit}
+            </button>
+          ) : null}
+          {recipe.can_share ? (
+            <button
+              type="button"
+              className="content-actions__item"
+              onClick={onShare}
+              aria-label={text.recipeEditor.share}
+              title={text.recipeEditor.share}
+            >
+              <AdminIcon name="share" />
+              {text.recipeEditor.share}
+            </button>
+          ) : null}
+          {recipe.can_share ? (
+            <button
+              type="button"
+              className="content-actions__item"
+              onClick={onShareWithAi}
+              aria-label={text.recipeEditor.aiContext}
+              title={text.recipeEditor.aiContext}
+            >
+              <AiShareIcon label={text.recipeEditor.aiShareIcon} />
+              {text.recipeEditor.aiContext}
+            </button>
+          ) : null}
+          <ReportButton
+            text={text}
+            targetType="RECIPE"
+            targetPublicId={recipe.public_id}
+            targetName={recipe.title}
+            shareToken={shareToken}
+          />
+        </ContentActions>
+      </div>
       <div className="recipe-detail__overview">
         <div className="recipe-detail__overview-content">
-          {recipe.can_edit || recipe.can_share ? (
-            <div className="recipe-detail__actions">
-              {recipe.can_edit ? (
-                <button
-                  type="button"
-                  className="button--secondary"
-                  onClick={onEdit}
-                  aria-label={text.recipeEditor.edit}
-                  title={text.recipeEditor.edit}
-                >
-                  <AdminIcon name="edit" />
-                </button>
-              ) : null}
-              {recipe.can_share ? (
-                <button
-                  type="button"
-                  className="button--secondary"
-                  onClick={onShare}
-                  aria-label={text.recipeEditor.share}
-                  title={text.recipeEditor.share}
-                >
-                  <AdminIcon name="share" />
-                </button>
-              ) : null}
-              {recipe.can_share ? (
-                <button
-                  type="button"
-                  className="button--secondary"
-                  onClick={onShareWithAi}
-                  aria-label={text.recipeEditor.aiContext}
-                  title={text.recipeEditor.aiContext}
-                >
-                  <AiShareIcon label={text.recipeEditor.aiShareIcon} />
-                </button>
-              ) : null}
-            </div>
-          ) : null}
           {recipe.summary === null ? null : (
             <p className="recipe-detail__summary">{recipe.summary}</p>
           )}

@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient, QueryResult } from 'pg';
-import { currentSessionUser } from '../auth/session.js';
+import { currentSessionUser, type AuthenticatedSessionUser } from '../auth/session.js';
 import { createSession } from '../auth/routes.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from '../auth/email-code.js';
 import { createPasswordResetToken } from '../auth/password-reset.js';
@@ -597,9 +597,12 @@ export function registerTenantRoutes(
       return reply
         .code(404)
         .send({ code: 'INVITATION_NOT_FOUND', error: 'The invitation is invalid or expired.' });
+    const session: AuthenticatedSessionUser | null = await currentSessionUser(pool, request);
+    if (session !== null && session.email !== invitation.invited_email)
+      return invitationEmailMismatch(reply);
     return reply.send({
-      email: invitation.invited_email,
-      cookbookName: invitation.display_name,
+      email: session === null ? null : invitation.invited_email,
+      cookbookName: session === null ? null : invitation.display_name,
       existingAccount: await invitationAccountExists(pool, invitation.invited_email),
     });
   });
@@ -720,13 +723,16 @@ export function registerTenantRoutes(
       return reply
         .code(404)
         .send({ code: 'USER_INVITATION_NOT_FOUND', error: 'The user invitation is unavailable.' });
+    const session: AuthenticatedSessionUser | null = await currentSessionUser(pool, request);
+    if (session !== null && session.email !== invitation.invited_email)
+      return invitationEmailMismatch(reply);
     const settings: AuthenticationSettingsRow = await authenticationSettings(pool);
     const existingAccount = await pool.query<{ exists: boolean }>(
       'SELECT EXISTS (SELECT 1 FROM user_account WHERE email = $1 AND deleted_at IS NULL) AS exists',
       [invitation.invited_email],
     );
     return reply.send({
-      email: invitation.invited_email,
+      email: session === null ? null : invitation.invited_email,
       passwordRequired: settings.login_mode !== 'EMAIL_CODE_ONLY',
       existingAccount: existingAccount.rows[0]?.exists === true,
     });
@@ -768,6 +774,11 @@ export function registerTenantRoutes(
             error: 'The user invitation is unavailable.',
           });
         }
+        const session: AuthenticatedSessionUser | null = await currentSessionUser(client, request);
+        if (session !== null && session.email !== claim.invited_email) {
+          await client.query('ROLLBACK');
+          return invitationEmailMismatch(reply);
+        }
         const existing = await client.query<{ id: string }>(
           'SELECT id FROM user_account WHERE email = $1 AND deleted_at IS NULL FOR UPDATE',
           [claim.invited_email],
@@ -780,7 +791,6 @@ export function registerTenantRoutes(
               error: 'An active user already uses this email address.',
             });
           }
-          const session = await currentSessionUser(pool, request);
           if (session === null || session.disabled_at !== null) {
             await client.query('ROLLBACK');
             return reply.code(401).send({
@@ -788,7 +798,7 @@ export function registerTenantRoutes(
               error: 'Sign in with the invited email address before accepting this invitation.',
             });
           }
-          if (session.email !== claim.invited_email) {
+          if (session.email !== claim.invited_email || session.id !== existing.rows[0].id) {
             await client.query('ROLLBACK');
             return reply.code(403).send({
               code: 'INVITATION_EMAIL_MISMATCH',
@@ -872,6 +882,12 @@ export function registerTenantRoutes(
       }
     },
   );
+}
+function invitationEmailMismatch(reply: FastifyReply): FastifyReply {
+  return reply.code(403).send({
+    code: 'INVITATION_EMAIL_MISMATCH',
+    error: 'The active session belongs to another email address.',
+  });
 }
 function parseCreateTenant(value: unknown): CreateTenantBody | null {
   if (typeof value !== 'object' || value === null) return null;

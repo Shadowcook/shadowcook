@@ -45,6 +45,7 @@ export default function SharedRecipeView({ token, text }: SharedRecipeViewProper
       onShareWithAi={(): void => undefined}
       onSelectVariant={(): void => undefined}
       tenantSlug={recipe.tenant_slug}
+      shareToken={token}
     />
   );
 }

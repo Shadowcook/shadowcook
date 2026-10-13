@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import type { RegistrationConfig } from '../config.js';
 import { normalizeEmail } from '../auth/email-code.js';
+import { currentSessionUser, type AuthenticatedSessionUser } from '../auth/session.js';
 import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
 import { sendTemplatedInstanceMail } from '../mail/service.js';
 import {
@@ -208,6 +209,14 @@ export function registerPublicRegistrationRoutes(
         await client.query('ROLLBACK');
         request.log.info('Registration verification failed');
         return invalidVerification(reply);
+      }
+      const session: AuthenticatedSessionUser | null = await currentSessionUser(client, request);
+      if (session !== null && session.email !== registration.email) {
+        await client.query('ROLLBACK');
+        return reply.code(403).send({
+          code: 'REGISTRATION_ACCOUNT_MISMATCH',
+          error: 'The active session belongs to another email address.',
+        });
       }
       const existing = await client.query<{ exists: boolean }>(
         'SELECT EXISTS (SELECT 1 FROM user_account WHERE email = $1 AND deleted_at IS NULL) AS exists',

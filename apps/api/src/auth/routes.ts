@@ -3,7 +3,17 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { hashPassword, minimumPasswordEntropy, verifyPassword } from './password.js';
 import { completePasswordReset, createPasswordResetToken } from './password-reset.js';
-import { currentSessionUser, hashSessionToken, sessionTokenFromRequest } from './session.js';
+import {
+  loadPasswordReset,
+  PasswordResetAccountMismatchError,
+  type PasswordResetRecord,
+} from './password-reset-verification.js';
+import {
+  currentSessionUser,
+  hashSessionToken,
+  sessionTokenFromRequest,
+  type AuthenticatedSessionUser,
+} from './session.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from './email-code.js';
 import { sendTemplatedInstanceMail } from '../mail/service.js';
 
@@ -51,6 +61,7 @@ export function registerAuthenticationRoutes(
       requestPath === '/auth/login' ||
       requestPath === '/auth/change-password' ||
       requestPath === '/auth/password-reset/request' ||
+      requestPath === '/auth/password-reset/verification' ||
       requestPath === '/auth/password-reset/complete' ||
       requestPath === '/auth/logout' ||
       requestPath === '/auth/session' ||
@@ -236,6 +247,30 @@ export function registerAuthenticationRoutes(
   });
 
   api.post(
+    '/auth/password-reset/verification',
+    async (request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> => {
+      const body: PasswordResetBody | null = parsePasswordResetBody(request.body);
+      if (body?.token === undefined || body.token.length === 0)
+        return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
+      const user: AuthenticatedSessionUser | null = await currentSessionUser(pool, request);
+      try {
+        const reset: PasswordResetRecord | null = await loadPasswordReset(
+          pool,
+          body.token,
+          user?.id ?? null,
+        );
+        if (reset === null)
+          return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
+        return reply.send({ expiresAt: reset.expires_at.toISOString() });
+      } catch (error: unknown) {
+        if (error instanceof PasswordResetAccountMismatchError)
+          return sendError(reply, 403, 'PASSWORD_RESET_ACCOUNT_MISMATCH', error.message);
+        throw error;
+      }
+    },
+  );
+
+  api.post(
     '/auth/password-reset/complete',
     async (request: FastifyRequest, reply: FastifyReply) => {
       const body: PasswordResetBody | null = parsePasswordResetBody(request.body);
@@ -247,16 +282,21 @@ export function registerAuthenticationRoutes(
       )
         return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
       try {
+        const user: AuthenticatedSessionUser | null = await currentSessionUser(pool, request);
         const completed: boolean = await completePasswordReset(
           pool,
           body.token,
           body.newPassword,
           await minimumPasswordEntropy(pool),
+          user?.id ?? null,
         );
         if (!completed)
           return sendError(reply, 400, 'INVALID_PASSWORD_RESET', 'The password reset is invalid.');
+        clearSessionCookie(reply, secureCookies);
         return reply.code(204).send();
       } catch (error: unknown) {
+        if (error instanceof PasswordResetAccountMismatchError)
+          return sendError(reply, 403, 'PASSWORD_RESET_ACCOUNT_MISMATCH', error.message);
         return sendError(
           reply,
           400,

@@ -28,6 +28,7 @@ import RecipeManagementList from './components/RecipeManagementList';
 import LoginScreen from '../../components/LoginScreen';
 import type { AuthenticationMethods } from '../../components/LoginScreen';
 import PasswordChangeScreen from '../../components/PasswordChangeScreen';
+import { isReauthenticationRequest } from '../../lib/login-navigation';
 import AccessDeniedScreen from '../../components/AccessDeniedScreen';
 import ManagementPlaceholder from './components/ManagementPlaceholder';
 import TenantUserManagement from './components/TenantUserManagement';
@@ -183,6 +184,10 @@ export default function CookbookScreen({
   }
 
   async function restoreCachedSession(session: BrowserSessionState): Promise<void> {
+    if (isReauthenticationRequest(window.location.pathname, window.location.search)) {
+      setScreen('login');
+      return;
+    }
     if (sharedRecipeToken() !== null) {
       setScreen('dashboard');
       return;

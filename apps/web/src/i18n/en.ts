@@ -1,6 +1,8 @@
 import type { Translation } from './types';
+import { reportEnglish } from '../features/reports/translations.ts';
 
 export const en: Translation = {
+  reports: reportEnglish,
   locale: 'en',
   brandName: 'shadowcook',
   metadata: {
@@ -63,6 +65,11 @@ export const en: Translation = {
     passwordResetRequested:
       'If this address has an active account, a password-reset link has been sent.',
   },
+  accountLink: {
+    mismatch:
+      'You are signed in to a different account. Sign out to continue with this link. The link has not been used.',
+    signOutAndContinue: 'Sign out and continue',
+  },
   passwordReset: {
     title: 'Reset your password',
     subtitle: 'Choose a new password for your account.',
@@ -97,7 +104,8 @@ export const en: Translation = {
   },
   accountSettings: {
     title: 'Account settings',
-    subtitle: 'Update your names and manage your cookbooks.',
+    personalData: 'Personal data',
+    subtitle: 'Manage your personal data, email address, and cookbooks.',
     cookbookName: 'Cookbook name',
     addCookbook: 'Add cookbook',
     createCookbook: 'Create cookbook',
@@ -115,6 +123,47 @@ export const en: Translation = {
     noOwnedCookbooks: 'You have not created a cookbook yet.',
     yes: 'Yes',
     no: 'No',
+  },
+  accountEmail: {
+    title: 'Email address',
+    signInToConfirm:
+      'Sign in to the account that requested this change using its current email address. You will return here after signing in. The link remains valid for 24 hours from sending.',
+    accountMismatch:
+      'You are signed in to a different account. Sign out and sign in to the account that requested this change using its current email address. The link has not been used.',
+    reauthenticationRequired:
+      'Sign in again with your current email address to confirm this change. Confirmation requires a sign-in within the last five minutes. The link has not been used.',
+    signInAgain: 'Sign in again',
+    switchAccount: 'Sign out and switch account',
+    retry: 'Try again',
+    description:
+      'Your current email address stays active until you confirm the new address using the link we send you.',
+    currentEmail: 'Current email address',
+    newEmail: 'New email address',
+    submit: 'Send confirmation link',
+    sending: 'Sending …',
+    sent: 'Confirmation email sent. Check the inbox of your new email address.',
+    pending: 'Waiting for confirmation of {email}.',
+    linkLifetime:
+      'The link is valid for 24 hours. Each new email replaces the previous link. If you do not confirm, your address stays unchanged.',
+    resend: 'Resend confirmation email',
+    resendCountdown: 'You can request another email in {time}.',
+    rateLimited: 'Please wait before requesting another confirmation email.',
+    invalidEmail: 'Enter a valid email address (at most 254 characters).',
+    unchanged: 'Enter an email address different from your current one.',
+    unavailable: 'This email address is unavailable. Choose a different address.',
+    smtpRequired: 'Email delivery is currently unavailable. Please try again later.',
+    deliveryFailed: 'The confirmation email could not be delivered. Please try again.',
+    noPending: 'There is no active email change. Enter your new email address again.',
+    passwordChangeRequired: 'Change your password before updating your email address.',
+    loadFailed: 'Your email settings could not be loaded. Please reload the page.',
+    failed: 'The email change could not be completed. Please try again.',
+    confirmTitle: 'Confirm email address',
+    confirmDescription: 'Confirm that you own this email address to use it for your account.',
+    confirm: 'Confirm new email address',
+    confirming: 'Confirming …',
+    confirmed: 'Your email address has been updated. Use the new address when signing in.',
+    invalidLink:
+      'This link has expired, has been replaced, or has already been used. Request a new link in your account settings.',
   },
   accountProfile: {
     title: 'Profile',
@@ -151,6 +200,18 @@ export const en: Translation = {
     accept: 'Create account',
     accepted: 'Your account has been created. You can now sign in.',
     unavailable: 'This invitation is unavailable.',
+  },
+  accountPassword: {
+    title: 'Change password',
+    successTitle: 'Password changed',
+    description: 'Enter your current password and choose a new password.',
+    firstPasswordDescription: 'Choose a password for your account.',
+    saved: 'Your password has been changed.',
+    authenticationFailed:
+      'Your current password could not be verified. Check your password and make sure you are still signed in.',
+    invalidPassword:
+      'Your new password must meet the configured entropy threshold and contain at most 1024 characters.',
+    back: 'Back to personal data',
   },
   passwordChange: {
     currentPasswordLabel: 'Current password',
@@ -220,7 +281,9 @@ export const en: Translation = {
     signInRequired: 'Sign in as an instance administrator to manage email templates.',
     accessDenied: 'Your account cannot manage email templates.',
     templateNames: {
+      CONTENT_REPORT: 'Content report',
       REGISTRATION_VERIFICATION: 'Registration verification',
+      EMAIL_CHANGE_VERIFICATION: 'Email address change',
       LOGIN_CODE: 'Sign-in code',
       PASSWORD_RESET: 'Password reset',
       ADMIN_PASSWORD_RESET: 'Administrator-required password reset',

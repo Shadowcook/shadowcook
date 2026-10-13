@@ -1,5 +1,7 @@
 export const emailTemplateKeys = [
+  'CONTENT_REPORT',
   'REGISTRATION_VERIFICATION',
+  'EMAIL_CHANGE_VERIFICATION',
   'LOGIN_CODE',
   'PASSWORD_RESET',
   'ADMIN_PASSWORD_RESET',
@@ -26,6 +28,28 @@ const commonPlaceholders: readonly string[] = [
 ];
 
 export const emailTemplateDefinitions: readonly EmailTemplateDefinition[] = [
+  {
+    key: 'CONTENT_REPORT',
+    subject: 'New {{instance_name}} report: {{reason}}',
+    body: 'A new content report was submitted.\n\nTicket: {{report_id}}\nTarget: {{target_type}} {{target_id}}\nReason: {{reason}}\n\n{{description}}\n\nReview: {{action_url}}',
+    placeholders: [
+      'instance_name',
+      'recipient_name',
+      'recipient_email',
+      'action_url',
+      'report_id',
+      'target_type',
+      'target_id',
+      'reason',
+      'description',
+    ],
+  },
+  {
+    key: 'EMAIL_CHANGE_VERIFICATION',
+    subject: 'Confirm your new {{instance_name}} email address',
+    body: 'Hello {{recipient_name}},\n\nConfirm this email address for your {{instance_name}} account: {{action_url}}\n\nYour current address remains unchanged until you confirm. This link expires in {{expires_in}}. If you did not request this change, ignore this email.',
+    placeholders: commonPlaceholders,
+  },
   {
     key: 'REGISTRATION_VERIFICATION',
     subject: 'Verify your {{instance_name}} email address',

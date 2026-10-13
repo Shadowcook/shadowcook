@@ -72,7 +72,7 @@ export interface RecipeManagementResponse {
 }
 
 export interface CookbookResponse {
-  tenant: { display_name: string; frontpage_heading: string | null } | null;
+  tenant: { public_id: string; display_name: string; frontpage_heading: string | null } | null;
   categories: Category[];
   recipes: Recipe[];
   frontpage: CookbookFrontpage;

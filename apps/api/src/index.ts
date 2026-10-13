@@ -8,6 +8,7 @@ import { seedDevelopmentCookbook } from './development-seed.js';
 import { loadLocalEnvironment } from './environment.js';
 import { seedInitialDeployment } from './initial-deployment-seed.js';
 import { cleanupExpiredPendingRegistrations } from './registration/routes.js';
+import { deliverReportNotifications } from './reports/notifications.js';
 
 async function start(): Promise<void> {
   loadLocalEnvironment();
@@ -56,9 +57,29 @@ async function start(): Promise<void> {
     3 * 60 * 60 * 1000,
   );
   api.addHook('onClose', async () => {
+    clearInterval(reportNotificationTimer);
+    await reportNotificationRun;
     clearInterval(cleanupTimer);
     await closeDatabaseConnection(connection);
   });
+
+  let reportNotificationRun: Promise<void> = Promise.resolve();
+  let reportNotificationsRunning: boolean = false;
+  const reportNotificationTimer: NodeJS.Timeout = setInterval((): void => {
+    if (reportNotificationsRunning) return;
+    reportNotificationsRunning = true;
+    reportNotificationRun = deliverReportNotifications(
+      connection.pool,
+      config.instanceSecretKey,
+      config.publicWebOrigin,
+    )
+      .catch((error: unknown): void => {
+        api.log.warn({ error }, 'Report notification delivery failed');
+      })
+      .finally((): void => {
+        reportNotificationsRunning = false;
+      });
+  }, 60_000);
 
   await api.listen({ host: config.host, port: config.port });
 }

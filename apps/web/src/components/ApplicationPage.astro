@@ -7,6 +7,7 @@ import PasswordResetScreen from './PasswordResetScreen';
 import UserInvitationScreen from './UserInvitationScreen';
 import RegistrationScreen, { VerificationScreen } from './RegistrationScreen';
 import AccountSettingsScreen from './AccountSettingsScreen';
+import EmailChangeVerificationScreen from './EmailChangeVerificationScreen';
 import BuildFooter from './BuildFooter.astro';
 import Favicon from './Favicon.astro';
 import HeadBar from './HeadBar';
@@ -33,6 +34,9 @@ interface Properties {
 }
 const { path } = Astro.props;
 const isAdministrationPath: boolean = path === '/admin' || path.startsWith('/admin/');
+const isAccountSettingsPath: boolean =
+  (path === '/settings' || path.startsWith('/settings/')) &&
+  !path.startsWith('/settings/email/verify/');
 const isTenantManagementPath: boolean =
   path.endsWith('/drafts') ||
   path.endsWith('/categories') ||
@@ -46,6 +50,7 @@ const isCookbookPath: boolean =
   !path.startsWith('/password-reset/') &&
   path !== '/register' &&
   path !== '/settings' &&
+  !path.startsWith('/settings/') &&
   !path.startsWith('/verify-email/') &&
   !path.startsWith('/user-invitations/') &&
   !isAdministrationPath;
@@ -74,7 +79,7 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
   <body class={isCookbookPath ? 'cookbook-page' : undefined}>
     <HeadBar client:load initialSession={headBarSession} locale={locale} />
     <main
-      class={isAdministrationPath || isTenantManagementPath
+      class={isAdministrationPath || isTenantManagementPath || isAccountSettingsPath
         ? 'application-shell application-shell--admin'
         : 'application-shell'}
     >
@@ -95,8 +100,14 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
           />
         ) : path === '/register' ? (
           <RegistrationScreen client:load text={text} />
-        ) : path === '/settings' ? (
-          <AccountSettingsScreen client:load text={text} />
+        ) : path.startsWith('/settings/email/verify/') ? (
+          <EmailChangeVerificationScreen
+            client:load
+            text={text}
+            token={path.slice('/settings/email/verify/'.length)}
+          />
+        ) : path === '/settings' || path.startsWith('/settings/') ? (
+          <AccountSettingsScreen client:load text={text} path={path} />
         ) : path.startsWith('/verify-email/') ? (
           <VerificationScreen client:load text={text} token={path.slice('/verify-email/'.length)} />
         ) : path.startsWith('/user-invitations/') ? (

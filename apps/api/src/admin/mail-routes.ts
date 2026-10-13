@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { requireInstancePermission } from './authorization.js';
 import { decryptSecret, encryptSecret } from '../security/encryption.js';
 import { createSmtpTransport, senderAddress } from '../mail/smtp.js';
@@ -150,7 +150,7 @@ export function registerAdminMailRoutes(
 }
 
 export async function loadSmtpConfiguration(
-  pool: Pool,
+  pool: Pool | PoolClient,
   key: Buffer,
 ): Promise<SmtpConfiguration | null> {
   const result = await pool.query<MailSettingsRow>(

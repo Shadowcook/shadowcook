@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import type { FastifyRequest } from 'fastify';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 
 export interface AuthenticatedSessionUser {
   id: string;
@@ -62,7 +62,7 @@ export async function frontpageShuffleSeed(
 }
 
 export async function currentSessionUser(
-  pool: Pool,
+  pool: Pool | PoolClient,
   request: FastifyRequest,
 ): Promise<AuthenticatedSessionUser | null> {
   const token: string | null = sessionTokenFromRequest(request);

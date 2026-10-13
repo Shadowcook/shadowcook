@@ -41,6 +41,13 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
   const [roleUser, setRoleUser] = useState<ManagedUser | null>(null);
   const [selectedRoleCodes, setSelectedRoleCodes] = useState<string[]>([]);
 
+  useEffect((): void => {
+    const targetId: string = window.location.hash.slice(1);
+    if (users.some((user: ManagedUser): boolean => targetId === `user-${user.public_id}`)) {
+      document.getElementById(targetId)?.scrollIntoView({ block: 'center' });
+    }
+  }, [users]);
+
   function refresh(): void {
     void loadUsers(setUsers);
   }
@@ -202,7 +209,7 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
           </thead>
           <tbody>
             {visibleUsers.map((user: ManagedUser): JSX.Element => (
-              <tr key={user.public_id}>
+              <tr key={user.public_id} id={`user-${user.public_id}`}>
                 <td>{user.display_name}</td>
                 <td>{user.email}</td>
                 <td>{user.tenants.map((tenant: UserTenant): string => tenant.name).join(', ')}</td>

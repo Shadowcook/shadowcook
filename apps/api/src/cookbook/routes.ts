@@ -65,6 +65,7 @@ interface IngredientUsageRow {
 
 interface TenantRow {
   id: string;
+  public_id: string;
   display_name: string;
   frontpage_recipe_count: number;
   frontpage_heading: string | null;
@@ -203,7 +204,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         canCreateAiContexts: false,
       });
     const tenantResult = await pool.query<TenantRow>(
-      'SELECT id, display_name, frontpage_recipe_count, frontpage_heading FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
+      'SELECT id, public_id, display_name, frontpage_recipe_count, frontpage_heading FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
       [tenantSlug],
     );
     const tenant: TenantRow | undefined = tenantResult.rows[0];
@@ -420,6 +421,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     return reply.send({
       tenant: {
+        public_id: tenant.public_id,
         display_name: tenant.display_name,
         frontpage_heading: tenant.frontpage_heading,
       },

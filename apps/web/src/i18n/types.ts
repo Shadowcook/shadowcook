@@ -1,6 +1,9 @@
+import type { ReportTranslation } from '../features/reports/types';
+
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  reports: ReportTranslation;
   locale: Locale;
   brandName: string;
   metadata: {
@@ -62,6 +65,10 @@ export interface Translation {
     resetPassword: string;
     passwordResetRequested: string;
   };
+  accountLink: {
+    mismatch: string;
+    signOutAndContinue: string;
+  };
   passwordReset: {
     title: string;
     subtitle: string;
@@ -94,6 +101,7 @@ export interface Translation {
   };
   accountSettings: {
     title: string;
+    personalData: string;
     subtitle: string;
     cookbookName: string;
     addCookbook: string;
@@ -112,6 +120,41 @@ export interface Translation {
     noOwnedCookbooks: string;
     yes: string;
     no: string;
+  };
+  accountEmail: {
+    title: string;
+    signInToConfirm: string;
+    accountMismatch: string;
+    reauthenticationRequired: string;
+    signInAgain: string;
+    switchAccount: string;
+    retry: string;
+    description: string;
+    currentEmail: string;
+    newEmail: string;
+    submit: string;
+    sending: string;
+    sent: string;
+    pending: string;
+    linkLifetime: string;
+    resend: string;
+    resendCountdown: string;
+    rateLimited: string;
+    invalidEmail: string;
+    unchanged: string;
+    unavailable: string;
+    smtpRequired: string;
+    deliveryFailed: string;
+    noPending: string;
+    passwordChangeRequired: string;
+    loadFailed: string;
+    failed: string;
+    confirmTitle: string;
+    confirmDescription: string;
+    confirm: string;
+    confirming: string;
+    confirmed: string;
+    invalidLink: string;
   };
   accountProfile: {
     title: string;
@@ -145,6 +188,16 @@ export interface Translation {
     accept: string;
     accepted: string;
     unavailable: string;
+  };
+  accountPassword: {
+    title: string;
+    successTitle: string;
+    description: string;
+    firstPasswordDescription: string;
+    saved: string;
+    authenticationFailed: string;
+    invalidPassword: string;
+    back: string;
   };
   passwordChange: {
     currentPasswordLabel: string;

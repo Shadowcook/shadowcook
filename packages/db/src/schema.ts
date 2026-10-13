@@ -46,6 +46,40 @@ export interface InstanceEmailTemplateTable {
   updated_at: Generated<Timestamp>;
 }
 
+export interface InstanceReportSettingsTable {
+  singleton: Generated<boolean>;
+  recipient_email: string | null;
+  updated_at: Generated<Timestamp>;
+  updated_by_principal_id: string | null;
+}
+export interface ContentReportTable {
+  public_id: Generated<Uuid>;
+  reporter_user_id: string;
+  target_type: 'RECIPE' | 'USER' | 'COOKBOOK';
+  target_public_id: string;
+  reason: 'ILLEGAL_CONTENT' | 'IMPROPER_NAME' | 'HARASSMENT' | 'SPAM' | 'OTHER';
+  description: string;
+  status: Generated<'OPEN' | 'UNDER_INVESTIGATION' | 'CLOSED'>;
+  result:
+    | 'BLOCKED'
+    | 'UNFOUNDED'
+    | 'USER_DELETED'
+    | 'COOKBOOK_DELETED'
+    | 'RECIPE_DELETED'
+    | 'OTHER'
+    | null;
+  result_note: Generated<string>;
+  assigned_admin_user_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+export interface ContentReportNotificationTable {
+  report_public_id: string;
+  sent_at: Timestamp | null;
+  attempts: Generated<number>;
+  next_attempt_at: Generated<Timestamp>;
+}
+
 export interface UserAccountTable {
   id: Generated<Uuid>;
   principal_id: string;
@@ -83,6 +117,15 @@ export interface PasswordResetTokenTable {
   expires_at: Timestamp;
   consumed_at: Timestamp | null;
   created_at: Generated<Timestamp>;
+}
+
+export interface AccountEmailChangeTable {
+  user_account_id: string;
+  new_email: string;
+  token_hash: Buffer;
+  expires_at: Timestamp;
+  last_sent_at: Timestamp;
+  send_count: number;
 }
 
 export interface PendingRegistrationTable {
@@ -283,6 +326,9 @@ export interface ApplicationSeedTable {
  * first persistence boundary used by the API.
  */
 export interface Database {
+  instance_report_settings: InstanceReportSettingsTable;
+  content_report: ContentReportTable;
+  content_report_notification: ContentReportNotificationTable;
   instance_frontpage_settings: InstanceFrontpageSettingsTable;
   instance_legal_documents: InstanceLegalDocumentsTable;
   instance_email_template: InstanceEmailTemplateTable;
@@ -290,6 +336,7 @@ export interface Database {
   user_account: UserAccountTable;
   user_session: UserSessionTable;
   password_reset_token: PasswordResetTokenTable;
+  account_email_change: AccountEmailChangeTable;
   pending_registration: PendingRegistrationTable;
   registration_rate_event: RegistrationRateEventTable;
   instance_registration_settings: InstanceRegistrationSettingsTable;
