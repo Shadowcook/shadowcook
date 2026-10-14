@@ -15,13 +15,17 @@ const testRegistrationConfig: RegistrationConfig = {
   turnstileSecret: '',
 };
 
-export function createTestApi(pool: Pool, trustedProxies: string[] = []): FastifyInstance {
+export function createTestApi(
+  pool: Pool,
+  trustedProxies: string[] = [],
+  publicApiOrigin: string = 'http://test-api.invalid',
+): FastifyInstance {
   return createApi(
     pool,
     false,
     Buffer.alloc(32, 7),
     'http://test-web.invalid',
-    'http://test-api.invalid',
+    publicApiOrigin,
     testRegistrationConfig,
     trustedProxies,
   );

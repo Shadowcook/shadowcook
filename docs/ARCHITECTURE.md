@@ -1271,6 +1271,8 @@ created_at
 - The one-time bootstrap URL expires after 30 minutes. Its GET response is `no-store`, has `Referrer-Policy: no-referrer`, and returns a read-only bearer token and a reader endpoint manifest.
 - The AI context manifest includes the bound tenant's public ID, slug, and display name for resource identification and deep-link construction.
 - The AI context manifest includes the public web origin and route templates for cookbook, category, root-recipe, category-recipe, and variant URLs. Category paths are formed from the category slug and ancestor slugs.
+- Each AI reader endpoint manifest entry includes its GET method, internal API path, and absolute public URL template with the complete `PUBLIC_API_ORIGIN` path prefix. Reader clients substitute public IDs in the absolute URL template and send the issued access token in the `Authorization: Bearer` header on every request.
+- AI context manifest restrictions are read-only, no administration, and scope-limited. Current draft reads are permitted inside the selected grant scope.
 - AI context bearer tokens are accepted only by the `/ai-context/reader` endpoints. They expose published recipes, immutable published and archived revisions, and the current recipe draft within the grant scope. They do not expose management data or write operations.
 - Expired, consumed bootstrap links and expired or revoked AI context bearer tokens are unavailable. Accepted AI context bearer tokens update `last_used_at` in UTC.
 

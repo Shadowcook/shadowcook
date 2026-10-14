@@ -20,6 +20,12 @@ interface GrantRow {
   expires_at: Date;
 }
 
+interface ReaderEndpoint {
+  method: 'GET';
+  path: string;
+  url: string;
+}
+
 export function registerAiContextRoutes(
   api: FastifyInstance,
   pool: Pool,
@@ -132,17 +138,22 @@ export function registerAiContextRoutes(
         },
         scope: { type: context.scope_type, publicId: context.scope_public_id },
         endpoints: {
-          overview: { method: 'GET', path: '/ai-context/reader' },
-          recipe: { method: 'GET', path: '/ai-context/reader/recipes/{publicId}' },
-          revisions: { method: 'GET', path: '/ai-context/reader/recipes/{publicId}/revisions' },
-          revision: {
-            method: 'GET',
-            path: '/ai-context/reader/recipes/{publicId}/revisions/{revisionPublicId}',
-          },
-          draft: { method: 'GET', path: '/ai-context/reader/recipes/{publicId}/draft' },
+          overview: readerEndpoint(publicApiOrigin, '/ai-context/reader'),
+          recipe: readerEndpoint(publicApiOrigin, '/ai-context/reader/recipes/{publicId}'),
+          revisions: readerEndpoint(
+            publicApiOrigin,
+            '/ai-context/reader/recipes/{publicId}/revisions',
+          ),
+          revision: readerEndpoint(
+            publicApiOrigin,
+            '/ai-context/reader/recipes/{publicId}/revisions/{revisionPublicId}',
+          ),
+          draft: readerEndpoint(publicApiOrigin, '/ai-context/reader/recipes/{publicId}/draft'),
         },
+        requestInstructions:
+          'Use the absolute endpoints.*.url templates, replace placeholders with public IDs, and send the accessToken in the Authorization header on every reader request. The endpoints.*.path values are internal API paths; resolving them against baseUrl can discard its public path prefix. The bootstrap URL is single-use and cannot authenticate reader requests.',
         authentication: { type: 'bearer', header: 'Authorization: Bearer {accessToken}' },
-        restrictions: ['read-only', 'no administration', 'no draft access'],
+        restrictions: ['read-only', 'no administration', 'scope-limited'],
       });
   });
 
@@ -216,6 +227,10 @@ export function registerAiContextRoutes(
       .header('cache-control', 'no-store')
       .send(await revisionContents(pool, recipe.draft_revision_id));
   });
+}
+
+function readerEndpoint(publicApiOrigin: string, path: string): ReaderEndpoint {
+  return { method: 'GET', path, url: `${publicApiOrigin.replace(/\/$/, '')}${path}` };
 }
 
 async function creatorPrincipalId(pool: Pool, request: FastifyRequest): Promise<string | null> {

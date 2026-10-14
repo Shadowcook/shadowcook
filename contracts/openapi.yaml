@@ -1922,7 +1922,7 @@ paths:
   /cookbook/tenants/{tenantSlug}/ai-contexts:
     post:
       operationId: createAiContext
-      summary: Creates a one-time AI context link for a private recipe or category subtree.
+      summary: Creates a one-time AI context link for a recipe, category subtree, or complete cookbook.
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       requestBody:
@@ -1939,7 +1939,7 @@ paths:
                 durationHours: { type: integer, enum: [4, 8, 24] }
       responses:
         '201':
-          description: The one-time access URL. It expires in thirty minutes.
+          description: The one-time access URL expires in thirty minutes; expiresAt is the reader grant expiry.
           content:
             application/json:
               schema:
@@ -1950,50 +1950,89 @@ paths:
                   expiresAt: { type: string, format: date-time }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '400':
+          description: INVALID_AI_CONTEXT. Invalid scope type, scope identifier, or duration.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '404':
+          description: TENANT_NOT_FOUND or AI_CONTEXT_SCOPE_NOT_FOUND.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   /ai-context/{bootstrapToken}:
     get:
       operationId: exchangeAiContextLink
       summary: Exchanges a one-time AI context URL for a scoped read-only bearer token, tenant identity, web route templates, and endpoint manifest.
+      description: Each endpoint includes an absolute public URL template preserving the PUBLIC_API_ORIGIN path prefix. Replace template placeholders with public IDs and send Authorization Bearer credentials on every request. The path field is an internal API path, not a URL to resolve against baseUrl. Bootstrap tokens are single-use and cannot authenticate reader requests. AI reader tokens cannot authenticate ordinary API or MCP endpoints.
       parameters:
         - { name: bootstrapToken, in: path, required: true, schema: { type: string } }
       responses:
-        '200': { description: AI context manifest and bearer token. }
-        '404': { description: The context link is expired, consumed, or revoked. }
+        '200':
+          description: AI context manifest and bearer token.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiContextManifest' }
+        '404': { $ref: '#/components/responses/AiContextBootstrapUnavailable' }
   /ai-context/reader:
     get:
       operationId: getAiContextOverview
-      summary: Returns the categories and published recipes inside an AI context scope.
-      security: [{ bearerAuth: [] }]
+      summary: Returns categories and recipes inside an AI context scope, preferring current draft metadata.
+      security: [{ aiContextBearerAuth: [] }]
       responses:
-        '200': { description: Scoped reader overview. }
-        '401': { description: AI context authentication is required. }
+        '200':
+          description: Scoped reader overview.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiContextOverview' }
+        '401': { $ref: '#/components/responses/AiContextReaderUnavailable' }
   /ai-context/reader/recipes/{publicId}:
     get:
       operationId: getAiContextRecipe
       summary: Returns a published recipe inside an AI context scope.
-      security: [{ bearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
-        '200': { description: Scoped published recipe. }
-        '401': { description: AI context authentication is required. }
-        '404': { description: Recipe outside the context scope or unavailable. }
+        '200':
+          description: Scoped published recipe with visible variants and the default variant's steps.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiContextRecipe' }
+        '401': { $ref: '#/components/responses/AiContextReaderUnavailable' }
+        '404': { $ref: '#/components/responses/AiContextRecipeUnavailable' }
   /ai-context/reader/recipes/{publicId}/revisions:
     get:
       operationId: listAiContextRecipeRevisions
       summary: Lists published and archived revisions for a recipe inside an AI context scope.
-      security: [{ bearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
-        '200': { description: Scoped immutable recipe revisions. }
-        '401': { description: AI context authentication is required. }
-        '404': { description: Recipe outside the context scope or unavailable. }
+        '200':
+          description: Scoped immutable recipe revisions, newest version first.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [revisions]
+                properties:
+                  revisions:
+                    type: array
+                    items: { $ref: '#/components/schemas/AiContextRevisionSummary' }
+        '401': { $ref: '#/components/responses/AiContextReaderUnavailable' }
+        '404': { $ref: '#/components/responses/AiContextRecipeUnavailable' }
   /ai-context/reader/recipes/{publicId}/revisions/{revisionPublicId}:
     get:
       operationId: getAiContextRecipeRevision
       summary: Returns an immutable published or archived recipe revision inside an AI context scope.
-      security: [{ bearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
         - {
@@ -2003,21 +2042,32 @@ paths:
             schema: { type: string, format: uuid },
           }
       responses:
-        '200': { description: Scoped immutable recipe revision. }
-        '401': { description: AI context authentication is required. }
-        '404': { description: Recipe or revision outside the context scope or unavailable. }
+        '200':
+          description: Scoped immutable recipe revision.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiContextRevision' }
+        '401': { $ref: '#/components/responses/AiContextReaderUnavailable' }
+        '404': { $ref: '#/components/responses/AiContextRecipeUnavailable' }
   /ai-context/reader/recipes/{publicId}/draft:
     get:
       operationId: getAiContextRecipeDraft
       summary: Returns the current draft for a recipe inside an AI context scope.
-      security: [{ bearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
-        '200': { description: Scoped current recipe draft. }
-        '401': { description: AI context authentication is required. }
-        '404':
-          { description: Recipe outside the context scope has no current draft or is unavailable. }
+        '200':
+          description: Scoped current recipe draft.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AiContextRevision' }
+        '401': { $ref: '#/components/responses/AiContextReaderUnavailable' }
+        '404': { $ref: '#/components/responses/AiContextRecipeUnavailable' }
   /mcp:
     post:
       operationId: modelContextProtocol
@@ -3636,6 +3686,15 @@ components:
       required: true
       schema: { type: string, format: uuid }
   responses:
+    AiContextBootstrapUnavailable:
+      description: AI_CONTEXT_UNAVAILABLE. The bootstrap link is unknown, expired, consumed, revoked, or its cookbook is disabled.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    AiContextReaderUnavailable:
+      description: AI_CONTEXT_UNAVAILABLE. The AI reader bearer token is missing, malformed, unknown, expired, or revoked.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    AiContextRecipeUnavailable:
+      description: RECIPE_NOT_FOUND. The recipe or requested revision is outside the grant scope or unavailable; the draft endpoint also returns this response when no current draft exists.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     ReportInvalid:
       description: Invalid report, ticket update, assignee, filter, or report settings. Codes are INVALID_REPORT, INVALID_REPORT_UPDATE, INVALID_REPORT_ASSIGNEE, INVALID_REPORT_FILTER, or INVALID_REPORT_SETTINGS.
       content:
@@ -3695,6 +3754,297 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    AiContextScope:
+      type: object
+      additionalProperties: false
+      required: [type, publicId]
+      properties:
+        type: { type: string, enum: [TENANT, CATEGORY, RECIPE] }
+        publicId: { type: string, format: uuid }
+    AiContextEndpoint:
+      type: object
+      additionalProperties: false
+      required: [method, path, url]
+      properties:
+        method: { type: string, const: GET }
+        path: { type: string, description: Internal API route template. }
+        url:
+          {
+            type: string,
+            description: Absolute public URL template including the API path prefix. Replace placeholders before requesting.,
+          }
+    AiContextManifest:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          version,
+          baseUrl,
+          accessToken,
+          expiresAt,
+          tenant,
+          web,
+          scope,
+          endpoints,
+          requestInstructions,
+          authentication,
+          restrictions,
+        ]
+      properties:
+        version: { type: string, const: '1' }
+        baseUrl: { type: string, format: uri }
+        accessToken: { type: string, pattern: '^[A-Za-z0-9_-]{43}$' }
+        expiresAt: { type: string, format: date-time }
+        tenant:
+          type: object
+          additionalProperties: false
+          required: [publicId, slug, displayName]
+          properties:
+            publicId: { type: string, format: uuid }
+            slug: { type: string }
+            displayName: { type: string }
+        web:
+          type: object
+          additionalProperties: false
+          required: [baseUrl, routes, categorySlugPath, recipeLinkRule]
+          properties:
+            baseUrl: { type: string, format: uri }
+            routes:
+              type: object
+              additionalProperties: false
+              required: [cookbook, category, rootRecipe, categoryRecipe, variantSuffix]
+              properties:
+                cookbook: { type: string }
+                category: { type: string }
+                rootRecipe: { type: string }
+                categoryRecipe: { type: string }
+                variantSuffix: { type: string }
+            categorySlugPath: { type: string }
+            recipeLinkRule: { type: string }
+        scope: { $ref: '#/components/schemas/AiContextScope' }
+        endpoints:
+          type: object
+          additionalProperties: false
+          required: [overview, recipe, revisions, revision, draft]
+          properties:
+            overview: { $ref: '#/components/schemas/AiContextEndpoint' }
+            recipe: { $ref: '#/components/schemas/AiContextEndpoint' }
+            revisions: { $ref: '#/components/schemas/AiContextEndpoint' }
+            revision: { $ref: '#/components/schemas/AiContextEndpoint' }
+            draft: { $ref: '#/components/schemas/AiContextEndpoint' }
+        requestInstructions: { type: string }
+        authentication:
+          type: object
+          additionalProperties: false
+          required: [type, header]
+          properties:
+            type: { type: string, const: bearer }
+            header: { type: string, const: 'Authorization: Bearer {accessToken}' }
+        restrictions:
+          type: array
+          items: { type: string, enum: [read-only, no administration, scope-limited] }
+    AiContextOverview:
+      type: object
+      additionalProperties: false
+      required: [tenant, scope, categories, recipes]
+      properties:
+        tenant:
+          type: object
+          additionalProperties: false
+          required: [displayName, slug]
+          properties:
+            displayName: { type: string }
+            slug: { type: string }
+        scope:
+          type: object
+          additionalProperties: false
+          properties:
+            type: { type: string, enum: [TENANT, CATEGORY, RECIPE] }
+            publicId: { type: string, format: uuid }
+            name: { type: [string, 'null'] }
+          required: [type, publicId, name]
+        categories:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [public_id, parent_public_id, name, slug, sort_order]
+            properties:
+              public_id: { type: string, format: uuid }
+              parent_public_id: { type: [string, 'null'], format: uuid }
+              name: { type: string }
+              slug: { type: string }
+              sort_order: { type: integer }
+        recipes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [public_id, slug, title, summary]
+            properties:
+              public_id: { type: string, format: uuid }
+              slug: { type: string }
+              title: { type: string }
+              summary: { type: [string, 'null'] }
+    AiContextVariant:
+      type: object
+      additionalProperties: false
+      required: [variant_key, name, slug, is_default, is_visible]
+      properties:
+        variant_key: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        is_default: { type: boolean }
+        is_visible: { type: boolean }
+    AiContextRecipe:
+      type: object
+      additionalProperties: false
+      required: [publicId, slug, title, summary, variants, steps]
+      properties:
+        publicId: { type: string, format: uuid }
+        slug: { type: string }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/AiContextVariant' }
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [public_id, sort_order, instruction, ingredients]
+            properties:
+              public_id: { type: string, format: uuid }
+              sort_order: { type: integer }
+              instruction: { type: string }
+              ingredients:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    [
+                      sort_order,
+                      amount,
+                      unit_symbol,
+                      ingredient_name,
+                      special_kind,
+                      note,
+                      is_optional,
+                    ]
+                  properties:
+                    sort_order: { type: integer }
+                    amount: { type: [string, 'null'] }
+                    unit_symbol: { type: [string, 'null'] }
+                    ingredient_name: { type: [string, 'null'] }
+                    special_kind:
+                      {
+                        type: [string, 'null'],
+                        enum:
+                          [
+                            NO_ICON,
+                            REMOVE,
+                            ADD,
+                            INFO,
+                            IMPORTANT,
+                            COOK,
+                            COOL,
+                            HEAT,
+                            WAIT,
+                            WORK_STEP,
+                            null,
+                          ],
+                      }
+                    note: { type: [string, 'null'] }
+                    is_optional: { type: boolean }
+    AiContextRevisionSummary:
+      type: object
+      additionalProperties: false
+      required: [public_id, version, status, published_at, title]
+      properties:
+        public_id: { type: string, format: uuid }
+        version: { type: integer }
+        status: { type: string, enum: [PUBLISHED, ARCHIVED] }
+        published_at: { type: string, format: date-time }
+        title: { type: string }
+    AiContextRevision:
+      type: object
+      additionalProperties: false
+      required:
+        [public_id, version, status, published_at, title, summary, categories, steps, variants]
+      properties:
+        public_id: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        published_at: { type: [string, 'null'], format: date-time }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        categories:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [public_id, name]
+            properties:
+              public_id: { type: string, format: uuid }
+              name: { type: string }
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/AiContextVariant' }
+        steps:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [public_id, step_key, sort_order, instruction, ingredients]
+            properties:
+              public_id: { type: string, format: uuid }
+              step_key: { type: string, format: uuid }
+              sort_order: { type: integer }
+              instruction: { type: string }
+              ingredients:
+                type: array
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                    [
+                      usageKey,
+                      ingredientName,
+                      amount,
+                      unitSymbol,
+                      specialKind,
+                      note,
+                      isOptional,
+                      sortOrder,
+                    ]
+                  properties:
+                    usageKey: { type: string, format: uuid }
+                    ingredientName: { type: [string, 'null'] }
+                    amount: { type: [string, 'null'] }
+                    unitSymbol: { type: [string, 'null'] }
+                    specialKind:
+                      {
+                        type: [string, 'null'],
+                        enum:
+                          [
+                            NO_ICON,
+                            REMOVE,
+                            ADD,
+                            INFO,
+                            IMPORTANT,
+                            COOK,
+                            COOL,
+                            HEAT,
+                            WAIT,
+                            WORK_STEP,
+                            null,
+                          ],
+                      }
+                    note: { type: [string, 'null'] }
+                    isOptional: { type: boolean }
+                    sortOrder: { type: integer }
     CookbookExport:
       type: object
       additionalProperties: false
@@ -5183,3 +5533,8 @@ components:
       type: http
       scheme: bearer
       bearerFormat: opaque service-account or OAuth access token
+    aiContextBearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: opaque AI context reader access token
+      description: Issued by the single-use AI context bootstrap endpoint. Accepted only on AI context reader routes while the grant is active.
