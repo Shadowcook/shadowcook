@@ -206,7 +206,11 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         frontpage: emptyFrontpage(),
         canManageCategories: false,
         canManageRecipes: false,
+        canCreateRecipes: false,
         canManageUsers: false,
+        canManageIngredients: false,
+        canManageUnits: false,
+        canManageServiceAccounts: false,
         canCreateAiContexts: false,
       });
     const tenantResult = await pool.query<TenantRow>(
@@ -368,6 +372,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     const permissions = await pool.query<{
       can_manage_categories: boolean;
       can_manage_recipes: boolean;
+      can_create_recipes: boolean;
       can_manage_users: boolean;
       can_manage_ingredients: boolean;
       can_manage_units: boolean;
@@ -388,6 +393,13 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
            AND tenant_membership_role.principal_id = $2
            AND tenant_role_permission.permission_code IN ('recipe:create', 'recipe:update')
        ) AS can_manage_recipes,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'recipe:create'
+       ) AS can_create_recipes,
        EXISTS (
          SELECT 1 FROM tenant_membership_role
          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
@@ -442,6 +454,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       },
       canManageCategories: permissions.rows[0]?.can_manage_categories === true,
       canManageRecipes: permissions.rows[0]?.can_manage_recipes === true,
+      canCreateRecipes: permissions.rows[0]?.can_create_recipes === true,
       canManageUsers: permissions.rows[0]?.can_manage_users === true,
       canManageIngredients: permissions.rows[0]?.can_manage_ingredients === true,
       canManageUnits: permissions.rows[0]?.can_manage_units === true,

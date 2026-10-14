@@ -18,6 +18,7 @@ const viewer: CookbookResponse = {
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
+  canCreateRecipes: false,
   canManageUsers: false,
   canManageIngredients: false,
   canManageUnits: false,
@@ -67,5 +68,24 @@ test('ingredient managers can enter their section while unrelated sections remai
   assert.equal(
     isCookbookManagementAccessDenied(manager, managementRoute('/my-cookbook/manage/units')),
     true,
+  );
+});
+
+test('recipe update permission alone cannot open the creation editor', (): void => {
+  const editor: CookbookResponse = { ...viewer, canManageRecipes: true };
+  assert.equal(
+    isCookbookManagementAccessDenied(editor, managementRoute('/cookbook/recipes/new')),
+    true,
+  );
+  assert.equal(
+    isCookbookManagementAccessDenied(editor, managementRoute('/cookbook/recipes/recipe-id/edit')),
+    false,
+  );
+  assert.equal(
+    isCookbookManagementAccessDenied(
+      { ...editor, canCreateRecipes: true },
+      managementRoute('/cookbook/recipes/new'),
+    ),
+    false,
   );
 });

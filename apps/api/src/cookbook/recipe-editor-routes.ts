@@ -10,6 +10,7 @@ import {
   type RecipeContributor,
 } from './recipe-contributors.js';
 import { registerRecipeDraftDiscardRoutes } from './recipe-draft-discard-routes.js';
+import { registerRecipeSlugRoutes } from './recipe-slug-routes.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
 
 interface RecipeDraftInput {
@@ -162,6 +163,7 @@ function parseManagedRecipeFilter(value: unknown): string {
 
 export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): void {
   registerRecipeDraftDiscardRoutes(api, pool);
+  registerRecipeSlugRoutes(api, pool);
 
   api.get('/cookbook/tenants/:tenantSlug/editor-catalogue', async (request, reply) => {
     const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;

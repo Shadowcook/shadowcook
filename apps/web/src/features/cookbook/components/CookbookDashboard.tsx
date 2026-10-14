@@ -12,6 +12,7 @@ import ContentActions from '../../../components/ContentActions';
 import CopyLinkAction from '../../../components/CopyLinkAction';
 import { cookbookPath } from '../model/routing';
 import { cookbookManagementPath } from '../model/management-access';
+import { recipeCreationPath } from '../model/recipe-creation';
 import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/types';
 
 interface CookbookDashboardProperties {
@@ -166,6 +167,14 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
               <p className="eyebrow">
                 {isGlobalSearch ? text.dashboard.searchResults : text.dashboard.recipes}
               </p>
+              {cookbook.canCreateRecipes ? (
+                <a
+                  className="button-link recipes-panel__create"
+                  href={recipeCreationPath(tenantSlug, cookbook.categories, selectedCategoryId)}
+                >
+                  {text.recipeEditor.create}
+                </a>
+              ) : null}
               <div className="recipes-panel__actions">
                 <strong>
                   {selectedCategoryId === null && !isGlobalSearch

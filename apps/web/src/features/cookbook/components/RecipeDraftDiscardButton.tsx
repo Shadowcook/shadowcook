@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
 import MessageDialog from '../../../components/MessageDialog';
+import AdminIcon from '../../../components/AdminIcon';
 import { request } from '../../../lib/api/client';
 import type { EditableRecipe } from '../model/types';
 
@@ -10,6 +11,7 @@ interface RecipeDraftDiscardButtonProperties {
   tenantSlug: string;
   recipe: EditableRecipe;
   disabled?: boolean;
+  compactOnMobile?: boolean;
   onBusyChanged?: (isBusy: boolean) => void;
   onDiscarded: () => Promise<void>;
 }
@@ -20,6 +22,9 @@ export default function RecipeDraftDiscardButton(
   const [isDiscarding, setIsDiscarding] = useState<boolean>(false);
   const [hasFailed, setHasFailed] = useState<boolean>(false);
   const [isConfirming, setIsConfirming] = useState<boolean>(false);
+  const label: string = isDiscarding
+    ? properties.text.recipeEditor.discardingDraft
+    : properties.text.recipeEditor.discardDraft;
   const confirmation: string = properties.recipe.hasPublishedRevision
     ? properties.text.recipeEditor.discardChangesConfirmation
     : properties.text.recipeEditor.discardNewRecipeConfirmation;
@@ -51,10 +56,19 @@ export default function RecipeDraftDiscardButton(
         className="button--secondary"
         disabled={properties.disabled === true || isDiscarding}
         onClick={(): void => setIsConfirming(true)}
+        aria-label={label}
+        title={label}
       >
-        {isDiscarding
-          ? properties.text.recipeEditor.discardingDraft
-          : properties.text.recipeEditor.discardDraft}
+        {properties.compactOnMobile === true ? (
+          <>
+            <span className="recipe-editor-action-bar__button-icon">
+              <AdminIcon name="delete" />
+            </span>
+            <span className="recipe-editor-action-bar__button-label">{label}</span>
+          </>
+        ) : (
+          label
+        )}
       </button>
       {isConfirming ? (
         <MessageDialog

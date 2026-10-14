@@ -790,13 +790,20 @@ code {
     justify-content: space-between;
   }
 }
+.email-code-field {
+  min-width: 0;
+  margin-inline: 0;
+}
 .code-boxes {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 0.5rem;
+  max-width: 19rem;
 }
 
 .code-boxes input {
-  width: 2.75rem;
+  min-width: 0;
+  padding-inline: 0;
   text-align: center;
   font-size: 1.25rem;
 }

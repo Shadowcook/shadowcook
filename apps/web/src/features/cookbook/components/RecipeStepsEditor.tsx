@@ -4,10 +4,14 @@ import { createPortal } from 'react-dom';
 import type { Translation } from '../../../i18n';
 import { localizedUnitSymbol, type UnitTranslations } from '../../../i18n/unit-localization';
 import { request } from '../../../lib/api/client';
+import { createBrowserUuid } from '../../../lib/browser/uuid';
 import AdminIcon from '../../../components/AdminIcon';
+import MessageDialog from '../../../components/MessageDialog';
+import RecipeEditorSaveButton from './RecipeEditorSaveButton';
 import IngredientPicker from './IngredientPicker';
 import RecipeLinkPicker from './RecipeLinkPicker';
 import type { DraftVariant } from './RecipeVariantsEditor';
+import { recipeRequestError } from '../model/recipe-request-error';
 
 interface Unit {
   publicId: string;
@@ -85,6 +89,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
   const [variants, setVariants] = useState<DraftVariant[]>([]);
   const [recipeLinkSelection, setRecipeLinkSelection] = useState<RecipeLinkSelection | null>(null);
   const base: string = `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${properties.recipePublicId}/draft`;
@@ -170,7 +175,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     setSteps((current): Step[] => move(current, index, direction));
   }
   function addStep(afterIndex?: number): void {
-    const newStep: Step = { id: crypto.randomUUID(), instruction: '', ingredients: [] };
+    const newStep: Step = { id: createBrowserUuid(), instruction: '', ingredients: [] };
     setRecipeLinkSelection(null);
     setSteps((current: Step[]): Step[] => {
       const insertionIndex: number = afterIndex === undefined ? current.length : afterIndex + 1;
@@ -226,8 +231,8 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
         ),
       );
       await properties.onDraftChanged();
-    } catch {
-      setMessage(properties.text.errors.requestFailed);
+    } catch (error: unknown) {
+      setErrorMessage(recipeRequestError(error, properties.text));
     }
   }
   async function save(): Promise<void> {
@@ -245,8 +250,8 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
       });
       setMessage(properties.text.recipeEditor.stepsSaved);
       await properties.onDraftChanged();
-    } catch {
-      setMessage(properties.text.errors.requestFailed);
+    } catch (error: unknown) {
+      setErrorMessage(recipeRequestError(error, properties.text));
     } finally {
       setIsSaving(false);
       properties.onBusyChanged(false);
@@ -535,19 +540,26 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
           {message}
         </p>
       ) : null}
+      {errorMessage.length > 0 ? (
+        <MessageDialog
+          kind="error"
+          text={properties.text.dialog}
+          message={errorMessage}
+          onClose={(): void => setErrorMessage('')}
+        />
+      ) : null}
       {properties.actionsContainer === null
         ? null
         : createPortal(
-            <button
-              type="button"
-              className="recipe-editor__save-button button--secondary"
+            <RecipeEditorSaveButton
               disabled={isSaving || properties.isBusy}
               onClick={(): void => void save()}
-            >
-              {isSaving
-                ? properties.text.recipeEditor.saving
-                : properties.text.recipeEditor.saveSteps}
-            </button>,
+              label={
+                isSaving
+                  ? properties.text.recipeEditor.saving
+                  : properties.text.recipeEditor.saveSteps
+              }
+            />,
             properties.actionsContainer,
           )}
     </section>

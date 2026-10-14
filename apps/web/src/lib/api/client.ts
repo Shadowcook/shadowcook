@@ -5,7 +5,7 @@ export async function request<ResponseBody>(
   const response: Response = await fetch(`/api${path}`, { credentials: 'same-origin', ...options });
   if (response.status === 204) return undefined as ResponseBody;
   const body: unknown = await response.json().catch((): null => null);
-  if (!response.ok) throw new ApiRequestError(errorCodeFromBody(body));
+  if (!response.ok) throw new ApiRequestError(errorCodeFromBody(body), response.status);
   return body as ResponseBody;
 }
 
@@ -19,10 +19,12 @@ export function jsonRequest(body: object): RequestInit {
 
 export class ApiRequestError extends Error {
   public readonly code: string;
+  public readonly status: number | undefined;
 
-  public constructor(code: string) {
+  public constructor(code: string, status?: number) {
     super(code);
     this.code = code;
+    this.status = status;
   }
 }
 

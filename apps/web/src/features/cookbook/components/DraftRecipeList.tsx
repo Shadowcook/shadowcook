@@ -10,6 +10,7 @@ import RecipeDraftDiscardButton from './RecipeDraftDiscardButton';
 interface DraftRecipeListProperties {
   locale: Locale;
   tenantSlug: string;
+  canCreateRecipes: boolean;
   onEdit: (publicId: string) => void;
   onCreate: () => void;
   onChanged: () => Promise<unknown>;
@@ -30,13 +31,15 @@ export default function DraftRecipeList(properties: DraftRecipeListProperties): 
       <p className="eyebrow">{text.recipeEditor.drafts}</p>
       <h1>{text.recipeEditor.draftsTitle}</h1>
       <p className="lede">{text.recipeEditor.draftsDescription}</p>
-      <button
-        type="button"
-        className="recipe-management__create-button"
-        onClick={properties.onCreate}
-      >
-        {text.recipeEditor.create}
-      </button>
+      {properties.canCreateRecipes ? (
+        <button
+          type="button"
+          className="recipe-management__create-button"
+          onClick={properties.onCreate}
+        >
+          {text.recipeEditor.create}
+        </button>
+      ) : null}
       {isLoading ? (
         <p className="empty-state">{text.loading}</p>
       ) : recipes.length === 0 ? (

@@ -2413,9 +2413,12 @@ paths:
                     frontpage,
                     canManageCategories,
                     canManageRecipes,
+                    canCreateRecipes,
                     canManageUsers,
                     canManageIngredients,
                     canManageUnits,
+                    canManageServiceAccounts,
+                    canCreateAiContexts,
                   ]
                 properties:
                   tenant:
@@ -2443,6 +2446,9 @@ paths:
                     type: boolean
                   canManageRecipes:
                     type: boolean
+                  canCreateRecipes:
+                    type: boolean
+                    description: Granted only by the tenant recipe:create permission.
                   canManageUsers:
                     type: boolean
                   canManageIngredients:
@@ -2451,6 +2457,12 @@ paths:
                   canManageUnits:
                     type: boolean
                     description: Granted by unit:create, unit:update, or unit:delete; unit:read alone does not grant management access.
+                  canManageServiceAccounts:
+                    type: boolean
+                    description: Granted by the tenant service-account:manage permission.
+                  canCreateAiContexts:
+                    type: boolean
+                    description: Granted by the tenant recipe:visibility-update permission.
         '403':
           description: A password change is required before accessing the cookbook.
           content:
@@ -2818,6 +2830,49 @@ paths:
         '201':
           description: Draft created.
           content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
+        '400':
+          description: INVALID_RECIPE or INVALID_RECIPE_CATEGORY. The recipe data or selected categories are invalid.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/TenantNotFound' }
+        '409': { $ref: '#/components/responses/RecipeSlugConflict' }
+  /cookbook/tenants/{tenantSlug}/recipes/slug-availability:
+    get:
+      operationId: checkRecipeSlugAvailability
+      summary: Checks whether a recipe URL name is available in a cookbook.
+      description: Requires recipe:create or recipe:update. Includes published and draft-only recipes. The optional excluded recipe public ID permits keeping an existing recipe's own slug. Returns no matching recipe identifiers or content. Availability is advisory; writes enforce uniqueness transactionally.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/TenantSlug'
+        - name: slug
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        - name: excludePublicId
+          in: query
+          required: false
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Whether the supplied URL name is available in this cookbook.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [available]
+                properties:
+                  available: { type: boolean }
+        '400':
+          description: INVALID_RECIPE_SLUG_QUERY. The slug or excluded recipe identifier is invalid.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/TenantNotFound' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}:
     patch:
       operationId: updateRecipeMetadata
@@ -2837,11 +2892,15 @@ paths:
         '200':
           description: Recipe metadata saved.
           content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
-        '400': { description: The recipe metadata is invalid. }
+        '400':
+          description: INVALID_RECIPE. The recipe metadata is invalid.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
-        '404': { description: The recipe does not exist. }
-        '409': { description: The recipe URL name is already in use. }
+        '404':
+          description: RECIPE_NOT_FOUND or TENANT_NOT_FOUND. The recipe or cookbook is unavailable.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '409': { $ref: '#/components/responses/RecipeSlugConflict' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft:
     delete:
       operationId: discardRecipeDraft
@@ -2898,6 +2957,15 @@ paths:
             content:
               { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } },
           }
+        '400':
+          description: INVALID_RECIPE or INVALID_RECIPE_CATEGORY. The draft data or selected categories are invalid.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: RECIPE_NOT_FOUND or TENANT_NOT_FOUND. The recipe or cookbook is unavailable.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '409': { $ref: '#/components/responses/RecipeSlugConflict' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/publish:
     post:
       operationId: publishRecipeDraft
@@ -2915,6 +2983,12 @@ paths:
             content:
               { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } },
           }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404': { $ref: '#/components/responses/RecipeUnavailable' }
+        '409':
+          description: PUBLISH_CATEGORY_REQUIRED. Assign at least one category before publishing.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/revisions:
     get:
       operationId: listRecipeRevisions
@@ -3011,10 +3085,12 @@ paths:
                   items: { $ref: '#/components/schemas/RecipeDraftStepInput' }
       responses:
         '204': { description: Preparation steps saved. }
-        '400': { description: The recipe step input is invalid. }
+        '400':
+          description: INVALID_RECIPE_STEPS. The recipe steps, ingredient references, units, or amounts are invalid.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
-        '404': { description: The recipe does not exist. }
+        '404': { $ref: '#/components/responses/RecipeUnavailable' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/variants:
     get:
       operationId: listRecipeDraftVariants
@@ -3074,10 +3150,11 @@ paths:
                 required: [variantKey]
                 properties:
                   variantKey: { type: string, format: uuid }
-        '400': { description: The variant input is invalid. }
+        '400': { $ref: '#/components/responses/RecipeVariantInvalid' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
-        '404': { description: The recipe does not exist. }
+        '404': { $ref: '#/components/responses/RecipeUnavailable' }
+        '409': { $ref: '#/components/responses/RecipeVariantConflict' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft/variants/{variantKey}:
     put:
       operationId: updateRecipeDraftVariant
@@ -3097,10 +3174,11 @@ paths:
         }
       responses:
         '204': { description: Variant updated. }
-        '400': { description: The variant input is invalid. }
+        '400': { $ref: '#/components/responses/RecipeVariantInvalid' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
-        '404': { description: The recipe does not exist. }
+        '404': { $ref: '#/components/responses/RecipeUnavailable' }
+        '409': { $ref: '#/components/responses/RecipeVariantConflict' }
     delete:
       operationId: deleteRecipeDraftVariant
       summary: Deletes a variant when no recipe steps are assigned to it.
@@ -3686,6 +3764,18 @@ components:
       required: true
       schema: { type: string, format: uuid }
   responses:
+    RecipeSlugConflict:
+      description: RECIPE_CONFLICT. The recipe URL name is already used by another recipe in this cookbook.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    RecipeUnavailable:
+      description: RECIPE_NOT_FOUND or TENANT_NOT_FOUND. The recipe, editable revision, or cookbook is unavailable.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    RecipeVariantInvalid:
+      description: INVALID_RECIPE_VARIANT. The variant identifier, name, URL name, or settings are invalid.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+    RecipeVariantConflict:
+      description: RECIPE_VARIANT_CONFLICT. Another variant in this recipe already uses the URL name.
+      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     AiContextBootstrapUnavailable:
       description: AI_CONTEXT_UNAVAILABLE. The bootstrap link is unknown, expired, consumed, revoked, or its cookbook is disabled.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
@@ -5482,6 +5572,8 @@ components:
             - AUTHENTICATION_FAILED
             - AUTHENTICATION_REQUIRED
             - INSTANCE_PERMISSION_REQUIRED
+            - TENANT_PERMISSION_REQUIRED
+            - TENANT_NOT_FOUND
             - INVALID_REPORT
             - INVALID_REPORT_SETTINGS
             - INVALID_REPORT_FILTER
@@ -5502,9 +5594,15 @@ components:
             - INVALID_PASSWORD
             - PASSWORD_CHANGE_REQUIRED
             - RECIPE_NOT_FOUND
+            - RECIPE_DRAFT_NOT_FOUND
             - RECIPE_CONFLICT
             - INVALID_RECIPE
             - INVALID_RECIPE_CATEGORY
+            - INVALID_RECIPE_SLUG_QUERY
+            - INVALID_RECIPE_STEPS
+            - INVALID_RECIPE_VARIANT
+            - RECIPE_VARIANT_CONFLICT
+            - RECIPE_VARIANT_HAS_STEPS
             - PUBLISH_CATEGORY_REQUIRED
             - RECIPE_NOT_PUBLISHED
             - INVALID_UNIT

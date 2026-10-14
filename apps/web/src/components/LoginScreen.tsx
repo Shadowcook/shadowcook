@@ -196,7 +196,7 @@ function CodeBoxes({ value, label, onChange }: CodeBoxesProperties): JSX.Element
     fillFrom(index, event.clipboardData.getData('text'));
   }
   return (
-    <fieldset>
+    <fieldset className="email-code-field">
       <legend>{label}</legend>
       <div className="code-boxes">
         {digits.map((digit: string, index: number): JSX.Element => (

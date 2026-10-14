@@ -85,6 +85,7 @@ export interface CookbookResponse {
   frontpage: CookbookFrontpage;
   canManageCategories: boolean;
   canManageRecipes: boolean;
+  canCreateRecipes: boolean;
   canManageUsers: boolean;
   canManageIngredients: boolean;
   canManageUnits: boolean;

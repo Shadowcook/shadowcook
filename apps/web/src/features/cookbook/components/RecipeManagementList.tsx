@@ -10,6 +10,7 @@ import RecipePagination from './RecipePagination';
 interface RecipeManagementListProperties {
   locale: Locale;
   tenantSlug: string;
+  canCreateRecipes: boolean;
   onEdit: (publicId: string) => void;
   onCreate: () => void;
 }
@@ -57,13 +58,15 @@ export default function RecipeManagementList(
     <section className="recipe-editor">
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <h1>{text.dashboard.recipes}</h1>
-      <button
-        type="button"
-        className="recipe-management__create-button"
-        onClick={properties.onCreate}
-      >
-        {text.recipeEditor.create}
-      </button>
+      {properties.canCreateRecipes ? (
+        <button
+          type="button"
+          className="recipe-management__create-button"
+          onClick={properties.onCreate}
+        >
+          {text.recipeEditor.create}
+        </button>
+      ) : null}
       <label className="recipe-filter">
         <span>{text.dashboard.filterRecipes}</span>
         <input type="search" value={filter} onChange={changeFilter} />

@@ -358,6 +358,103 @@ function recipePath(publicId: string): string {
   return `/cookbook/tenants/${tenant.slug}/recipes/${publicId}`;
 }
 
+test('slug availability covers drafts and published recipes and excludes the current recipe', async (): Promise<void> => {
+  const publicId: string = await createRecipe('slug-availability');
+  const path: string = `/cookbook/tenants/${tenant.slug}/recipes/slug-availability`;
+  for (const published of [false, true]) {
+    if (published) await publish(publicId);
+    for (const entry of [
+      { query: 'slug=unused-slug', available: true },
+      { query: 'slug=slug-availability', available: false },
+      { query: `slug=slug-availability&excludePublicId=${publicId}`, available: true },
+      {
+        query: 'slug=slug-availability&excludePublicId=10000000-0000-4000-8000-000000000099',
+        available: false,
+      },
+    ]) {
+      const response: LightMyRequestResponse = await api.inject({
+        method: 'GET',
+        url: `${path}?${entry.query}`,
+        headers: { cookie },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      assert.deepEqual(response.json(), { available: entry.available });
+      assert.equal(response.headers['cache-control'], 'no-store');
+    }
+  }
+});
+
+test('slug availability validates query input and requires authentication', async (): Promise<void> => {
+  const path: string = `/cookbook/tenants/${tenant.slug}/recipes/slug-availability`;
+  for (const query of ['', '?slug=', '?slug=Invalid', '?slug=valid&excludePublicId=invalid']) {
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: `${path}${query}`,
+      headers: { cookie },
+    });
+    assert.equal(response.statusCode, 400, response.body);
+    assert.equal(response.json<{ code: string }>().code, 'INVALID_RECIPE_SLUG_QUERY');
+  }
+  const anonymous: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: `${path}?slug=test`,
+  });
+  assert.equal(anonymous.statusCode, 401, anonymous.body);
+});
+
+test('create-only principals can check slugs and names are scoped to their cookbook', async (): Promise<void> => {
+  await createRecipe('other-cookbook-slug');
+  const otherTenant: TestTenant = await assignTenantRole(
+    database.pool,
+    creator.principalId,
+    'create-only-slugs',
+    ['recipe:create'],
+  );
+  const response: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: `/cookbook/tenants/${otherTenant.slug}/recipes/slug-availability?slug=other-cookbook-slug`,
+    headers: { cookie },
+  });
+  assert.equal(response.statusCode, 200, response.body);
+  assert.deepEqual(response.json(), { available: true });
+});
+
+test('creation and metadata saves still report slug conflicts after an advisory availability check', async (): Promise<void> => {
+  const existingId: string = await createRecipe('reserved-save-slug');
+  const editableId: string = await createRecipe('editable-save-slug');
+  const metadata: object = {
+    slug: 'reserved-save-slug',
+    visibilityOverride: null,
+    discoverabilityOverride: null,
+    isFeatured: true,
+  };
+  const responses: LightMyRequestResponse[] = [
+    await api.inject({
+      method: 'POST',
+      url: `/cookbook/tenants/${tenant.slug}/recipes`,
+      headers: { cookie },
+      payload: { ...metadata, title: 'Duplicate', summary: '', categoryPublicIds: [] },
+    }),
+    await api.inject({
+      method: 'PATCH',
+      url: recipePath(editableId),
+      headers: { cookie },
+      payload: metadata,
+    }),
+  ];
+  for (const response of responses) {
+    assert.equal(response.statusCode, 409, response.body);
+    assert.equal(response.json<{ code: string }>().code, 'RECIPE_CONFLICT');
+  }
+  const unchanged: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: `${recipePath(editableId)}/draft`,
+    headers: { cookie },
+  });
+  assert.equal(unchanged.json<{ slug: string }>().slug, 'editable-save-slug');
+  assert.notEqual(existingId, editableId);
+});
+
 async function createRecipe(slug: string): Promise<string> {
   const response: LightMyRequestResponse = await api.inject({
     method: 'POST',

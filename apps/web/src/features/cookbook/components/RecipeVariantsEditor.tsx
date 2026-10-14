@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
-import { ApiRequestError, request } from '../../../lib/api/client';
+import MessageDialog from '../../../components/MessageDialog';
+import { request } from '../../../lib/api/client';
+import { recipeRequestError } from '../model/recipe-request-error';
 
 export interface DraftVariant {
   variantKey: string;
@@ -33,7 +35,7 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
   const [editing, setEditing] = useState<DraftVariant | null>(null);
   const [form, setForm] = useState<VariantForm | null>(null);
   const [slugEdited, setSlugEdited] = useState<boolean>(false);
-  const [message, setMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   async function load(): Promise<void> {
     try {
@@ -41,8 +43,8 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
         base,
       );
       setVariants(response.variants);
-    } catch {
-      setMessage(properties.text.errors.requestFailed);
+    } catch (error: unknown) {
+      setErrorMessage(recipeRequestError(error, properties.text));
     }
   }
 
@@ -107,8 +109,8 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
       closeDialog();
       await load();
       await properties.onDraftChanged();
-    } catch {
-      setMessage(properties.text.errors.requestFailed);
+    } catch (error: unknown) {
+      setErrorMessage(recipeRequestError(error, properties.text));
     }
   }
 
@@ -126,8 +128,8 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
       if (reload) await load();
       if (notifyDraftChange) await properties.onDraftChanged();
       return true;
-    } catch {
-      setMessage(properties.text.errors.requestFailed);
+    } catch (error: unknown) {
+      setErrorMessage(recipeRequestError(error, properties.text));
       return false;
     }
   }
@@ -145,11 +147,7 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
       await load();
       await properties.onDraftChanged();
     } catch (error: unknown) {
-      setMessage(
-        error instanceof ApiRequestError && error.code === 'RECIPE_VARIANT_HAS_STEPS'
-          ? properties.text.recipeEditor.variantHasSteps
-          : properties.text.errors.requestFailed,
-      );
+      setErrorMessage(recipeRequestError(error, properties.text));
     }
   }
 
@@ -274,10 +272,13 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
         </div>
       )}
 
-      {message.length > 0 ? (
-        <p className="message" role="status">
-          {message}
-        </p>
+      {errorMessage.length > 0 ? (
+        <MessageDialog
+          kind="error"
+          text={properties.text.dialog}
+          message={errorMessage}
+          onClose={(): void => setErrorMessage('')}
+        />
       ) : null}
     </section>
   );

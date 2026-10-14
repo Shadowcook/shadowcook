@@ -45,6 +45,7 @@ interface CookbookScreenProperties {
   locale: Locale;
   initialCookbook?: CookbookResponse;
   initialCategoryId?: string | null;
+  initialRecipeCategoryId?: string | null;
   initialRecipe?: RecipeDetail | null;
   initialTenantSlug?: string;
   initialManagementRoute?: ManagementRoute;
@@ -70,6 +71,7 @@ const emptyCookbook: CookbookResponse = {
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
+  canCreateRecipes: false,
   canManageUsers: false,
   canManageIngredients: false,
   canManageUnits: false,
@@ -81,6 +83,7 @@ export default function CookbookScreen({
   locale,
   initialCookbook,
   initialCategoryId = null,
+  initialRecipeCategoryId = null,
   initialRecipe = null,
   initialTenantSlug,
   initialManagementRoute,
@@ -109,6 +112,7 @@ export default function CookbookScreen({
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [cookbook, setCookbook] = useState<CookbookResponse>(initialCookbook ?? emptyCookbook);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId);
+  const [recipeCategoryId, setRecipeCategoryId] = useState<string | null>(initialRecipeCategoryId);
   const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(initialRecipe);
   const isRecipeLoading: boolean = false;
   const [recipeError, setRecipeError] = useState<string>('');
@@ -149,6 +153,7 @@ export default function CookbookScreen({
       const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
       setIsCategoryEditor(currentManagementRoute.isCategoryEditor);
       setEditorPath(currentManagementRoute.editorPath);
+      setRecipeCategoryId(new URLSearchParams(window.location.search).get('categoryPublicId'));
       setShareToken(sharedRecipeToken());
       void applyBrowserLocation(cookbook);
     }
@@ -417,6 +422,7 @@ export default function CookbookScreen({
       recipePublicId === null ? `/${slug}/recipes/new` : `/${slug}/recipes/${recipePublicId}/edit`,
     );
     setIsCategoryEditor(false);
+    setRecipeCategoryId(null);
     setEditorPath(recipePublicId === null ? 'new' : recipePublicId);
   }
   async function loadCookbook(
@@ -595,6 +601,7 @@ export default function CookbookScreen({
             ) : editorPath === 'drafts' && tenantSlug.length > 0 ? (
               <DraftRecipeList
                 locale={locale}
+                canCreateRecipes={cookbook.canCreateRecipes}
                 tenantSlug={tenantSlug}
                 onChanged={loadCookbook}
                 onEdit={openRecipeEditor}
@@ -603,6 +610,7 @@ export default function CookbookScreen({
             ) : editorPath === 'manage-recipes' ? (
               <RecipeManagementList
                 locale={locale}
+                canCreateRecipes={cookbook.canCreateRecipes}
                 tenantSlug={tenantSlug}
                 onEdit={openRecipeEditor}
                 onCreate={(): void => openRecipeEditor(null)}
@@ -613,6 +621,7 @@ export default function CookbookScreen({
                 tenantSlug={tenantSlug}
                 recipePublicId={editorPath === 'new' ? null : editorPath}
                 categories={cookbook.categories}
+                initialCategoryId={editorPath === 'new' ? recipeCategoryId : null}
                 onChanged={loadCookbook}
                 onCreated={(publicId: string): void => openRecipeEditor(publicId)}
                 onDiscarded={(): void => {

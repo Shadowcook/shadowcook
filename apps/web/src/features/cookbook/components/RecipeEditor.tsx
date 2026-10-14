@@ -5,6 +5,7 @@ import type { Locale, Translation } from '../../../i18n';
 import { ApiRequestError, jsonRequest, request } from '../../../lib/api/client';
 import type { Category, EditableRecipe } from '../model/types';
 import AdminIcon from '../../../components/AdminIcon';
+import MessageDialog from '../../../components/MessageDialog';
 import RecipeCategorySelector from './RecipeCategorySelector';
 import RecipeStepsEditor from './RecipeStepsEditor';
 import RecipeVariantsEditor from './RecipeVariantsEditor';
@@ -13,12 +14,19 @@ import type { RecipeShareLink } from './RecipeShareDialog';
 import RecipeRevisionHistory from './RecipeRevisionHistory';
 import RecipeDraftDiscardButton from './RecipeDraftDiscardButton';
 import RecipeEditorActionBar from './RecipeEditorActionBar';
+import RecipeEditorSaveButton from './RecipeEditorSaveButton';
+import RecipeSlugField from './RecipeSlugField';
+import { recipeCreationCategoryId } from '../model/recipe-creation';
+import { recipeRequestError } from '../model/recipe-request-error';
+import { useRecipeSlugAvailability } from '../model/use-recipe-slug-availability';
+import type { RecipeSlugStatus } from '../model/use-recipe-slug-availability';
 
 interface RecipeEditorProperties {
   locale: Locale;
   tenantSlug: string;
   recipePublicId: string | null;
   categories: Category[];
+  initialCategoryId?: string | null;
   onChanged: () => Promise<unknown>;
   onCreated: (publicId: string) => void;
   onDiscarded: () => void;
@@ -58,9 +66,17 @@ const emptyForm: RecipeForm = {
 
 export default function RecipeEditor(properties: RecipeEditorProperties): JSX.Element {
   const text: Translation = translations[properties.locale];
-  const [form, setForm] = useState<RecipeForm>(emptyForm);
+  const [form, setForm] = useState<RecipeForm>((): RecipeForm => {
+    const categoryId: string | null =
+      properties.recipePublicId === null
+        ? recipeCreationCategoryId(properties.categories, properties.initialCategoryId ?? null)
+        : null;
+    return { ...emptyForm, categoryPublicIds: categoryId === null ? [] : [categoryId] };
+  });
   const [recipe, setRecipe] = useState<EditableRecipe | null>(null);
   const [message, setMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
+  const [conflictingSlug, setConflictingSlug] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(properties.recipePublicId !== null);
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [isSavingSteps, setIsSavingSteps] = useState<boolean>(false);
@@ -70,6 +86,22 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants' | 'revisions'>('recipe');
   const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
+  const checkedSlugStatus: RecipeSlugStatus = useRecipeSlugAvailability(
+    properties.tenantSlug,
+    form.slug,
+    recipe?.publicId ?? null,
+    recipe?.slug ?? null,
+  );
+  const slugStatus: RecipeSlugStatus =
+    conflictingSlug === form.slug ? 'conflict' : checkedSlugStatus;
+  const slugBlocksSave: boolean =
+    slugStatus === 'conflict' || slugStatus === 'invalid' || slugStatus === 'checking';
+
+  function showError(error: unknown): void {
+    setErrorMessage(recipeRequestError(error, text));
+    if (error instanceof ApiRequestError && error.code === 'RECIPE_CONFLICT')
+      setConflictingSlug(form.slug);
+  }
 
   useEffect((): void => {
     if (properties.recipePublicId === null) return;
@@ -88,8 +120,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       if (loaded.hasPublishedRevision && loaded.canChangeVisibility)
         await loadShareLinks(loaded.publicId);
       return true;
-    } catch (_error: unknown) {
-      setMessage(text.errors.requestFailed);
+    } catch (error: unknown) {
+      showError(error);
       return false;
     } finally {
       setIsLoading(false);
@@ -123,6 +155,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   }
   async function saveRecipeDraft(): Promise<void> {
     if (isBusy) return;
+    if (recipe === null && slugBlocksSave) return;
     setMessage('');
     setIsSaving(true);
     try {
@@ -146,7 +179,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       setMessage(text.recipeEditor.saved);
       await properties.onChanged();
     } catch (error: unknown) {
-      setMessage(editorError(error, text));
+      showError(error);
     } finally {
       setIsSaving(false);
     }
@@ -154,6 +187,11 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
 
   async function saveRecipeMetadata(): Promise<void> {
     if (recipe === null || isBusy) return;
+    if (form.slug.length === 0 || slugStatus === 'invalid') {
+      setErrorMessage(text.recipeEditor.invalidSlug);
+      return;
+    }
+    if (slugBlocksSave) return;
     setMessage('');
     setIsSaving(true);
     try {
@@ -170,7 +208,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       setMessage(text.recipeEditor.metadataSaved);
       await properties.onChanged();
     } catch (error: unknown) {
-      setMessage(editorError(error, text));
+      showError(error);
     } finally {
       setIsSaving(false);
     }
@@ -206,7 +244,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       setMessage(text.recipeEditor.published);
       await properties.onChanged();
     } catch (error: unknown) {
-      setMessage(editorError(error, text));
+      showError(error);
     } finally {
       setIsSaving(false);
     }
@@ -224,8 +262,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       );
       await loadShareLinks(recipe.publicId);
       return link.path;
-    } catch (_error: unknown) {
-      setMessage(text.errors.requestFailed);
+    } catch (error: unknown) {
+      showError(error);
       return null;
     } finally {
       setIsSaving(false);
@@ -247,8 +285,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
         current.filter((candidate: RecipeShareLink): boolean => candidate.id !== link.id),
       );
       setMessage(text.recipeEditor.shareRevoked);
-    } catch (_error: unknown) {
-      setMessage(text.errors.requestFailed);
+    } catch (error: unknown) {
+      showError(error);
     } finally {
       setIsSaving(false);
     }
@@ -307,23 +345,26 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       <RecipeEditorActionBar>
         <div className="recipe-editor-action-bar__primary">
           {tab === 'recipe' ? (
-            <button
-              type="submit"
+            <RecipeEditorSaveButton
               form={draftFormId}
-              className="recipe-editor__save-button button--secondary"
-              disabled={isBusy}
-            >
-              {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
-            </button>
+              disabled={isBusy || (recipe === null && slugBlocksSave)}
+              label={isSaving ? text.recipeEditor.saving : text.recipeEditor.saveDraft}
+            />
           ) : null}
           <div ref={setStepsActionsContainer} hidden={tab !== 'steps'} />
           {recipe === null ? null : (
             <button
               type="button"
               disabled={isBusy || !recipe.isDraft || form.categoryPublicIds.length === 0}
+              aria-busy={isSaving}
               onClick={(): void => void publish()}
             >
-              {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
+              <span className="recipe-editor-action-bar__mobile-label">
+                {text.recipeEditor.publish}
+              </span>
+              <span className="recipe-editor-action-bar__button-label">
+                {isSaving ? text.recipeEditor.publishing : text.recipeEditor.publish}
+              </span>
             </button>
           )}
         </div>
@@ -334,6 +375,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
                 text={text}
                 tenantSlug={properties.tenantSlug}
                 recipe={recipe}
+                compactOnMobile
                 disabled={isBusy}
                 onBusyChanged={setIsSaving}
                 onDiscarded={draftDiscarded}
@@ -390,17 +432,15 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           </fieldset>
           <fieldset>
             <legend>{text.recipeEditor.metadata}</legend>
-            <label>
-              {text.recipeEditor.slug}
-              <input
-                value={form.slug}
-                onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                  setForm({ ...form, slug: event.currentTarget.value.toLowerCase() })
-                }
-                pattern="[a-z0-9]+(?:-[a-z0-9]+)*"
-                required
-              />
-            </label>
+            <RecipeSlugField
+              value={form.slug}
+              status={slugStatus}
+              text={text}
+              onChange={(slug: string): void => {
+                setConflictingSlug(null);
+                setForm({ ...form, slug });
+              }}
+            />
             <label className="recipe-editor__check" title={text.recipeEditor.featuredHint}>
               <input
                 type="checkbox"
@@ -456,7 +496,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
               <button
                 type="button"
                 className="recipe-editor__save-button button--secondary"
-                disabled={isBusy}
+                disabled={isBusy || slugBlocksSave}
                 onClick={(): void => void saveRecipeMetadata()}
               >
                 {isSaving ? text.recipeEditor.saving : text.recipeEditor.saveMetadata}
@@ -509,6 +549,14 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           {message}
         </p>
       ) : null}
+      {errorMessage.length > 0 ? (
+        <MessageDialog
+          kind="error"
+          text={text.dialog}
+          message={errorMessage}
+          onClose={(): void => setErrorMessage('')}
+        />
+      ) : null}
     </section>
   );
 }
@@ -546,9 +594,4 @@ function slugFromTitle(title: string): string {
     .trim()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/(^-|-$)/g, '');
-}
-function editorError(error: unknown, text: Translation): string {
-  return error instanceof ApiRequestError && error.code === 'PUBLISH_CATEGORY_REQUIRED'
-    ? text.recipeEditor.publishNeedsCategory
-    : text.errors.requestFailed;
 }

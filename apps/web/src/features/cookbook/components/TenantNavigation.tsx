@@ -123,7 +123,7 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
           </a>
         ) : null}
       </nav>
-      {cookbook.canManageRecipes ? (
+      {cookbook.canCreateRecipes ? (
         <a className="button-link" href={`/${encodeURIComponent(tenantSlug)}/recipes/new`}>
           {text.recipeEditor.create}
         </a>

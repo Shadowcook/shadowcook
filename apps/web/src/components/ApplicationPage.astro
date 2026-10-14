@@ -130,6 +130,11 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
             initialCookbook={initialTenantCookbook ?? undefined}
             initialLogin={path === '/login'}
             initialManagementRoute={initialManagementRoute}
+            initialRecipeCategoryId={
+              initialManagementRoute?.editorPath === 'new'
+                ? Astro.url.searchParams.get('categoryPublicId')
+                : null
+            }
             initialTenantSlug={tenantSlug}
             locale={locale}
           />

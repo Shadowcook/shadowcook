@@ -9,6 +9,7 @@ import {
   faChevronRight,
   faCodeMerge,
   faCopy,
+  faFloppyDisk,
   faKey,
   faPause,
   faPen,
@@ -44,6 +45,7 @@ type IconName =
   | 'previous'
   | 'roles'
   | 'resetPassword'
+  | 'save'
   | 'share';
 
 const iconByName: Readonly<Record<IconName, IconDefinition>> = {
@@ -67,6 +69,7 @@ const iconByName: Readonly<Record<IconName, IconDefinition>> = {
   previous: faChevronLeft,
   resetPassword: faKey,
   roles: faUsers,
+  save: faFloppyDisk,
   share: faShareNodes,
 };
 

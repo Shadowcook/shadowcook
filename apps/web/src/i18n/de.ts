@@ -499,6 +499,31 @@ export const de: Translation = {
     summary: 'Kurzbeschreibung',
     slug: 'URL-Name',
     categories: 'Kategorien',
+    slugConflict:
+      'Dieser URL-Name wird bereits von einem anderen Rezept verwendet. Wähle einen anderen URL-Namen.',
+    invalidSlug:
+      'Verwende für den URL-Namen Kleinbuchstaben, Ziffern und einzelne Bindestriche zwischen Wörtern.',
+    slugChecking: 'Der URL-Name wird auf Verfügbarkeit geprüft …',
+    slugCheckFailed:
+      'Der URL-Name konnte nicht geprüft werden. Beim Speichern wird er erneut geprüft.',
+    invalidRecipe:
+      'Die Rezeptdaten sind ungültig. Prüfe Titel, Kurzbeschreibung und Rezepteinstellungen.',
+    invalidCategory:
+      'Eine ausgewählte Kategorie ist in diesem Kochbuch nicht mehr verfügbar. Wähle sie erneut aus.',
+    invalidSteps:
+      'Die Zubereitungsschritte sind ungültig. Prüfe Zutaten, Einheiten und Mengen. Mengen müssen nichtnegative Zahlen mit einem Dezimalpunkt und höchstens 12 Nachkommastellen sein.',
+    invalidVariant: 'Die Variantendaten sind ungültig. Prüfe Name, URL-Name und Einstellungen.',
+    recipeNotFound:
+      'Dieses Rezept existiert nicht mehr oder ist in diesem Kochbuch nicht verfügbar.',
+    draftNotFound: 'Dieses Rezept hat keinen bearbeitbaren Entwurf mehr.',
+    authenticationRequired:
+      'Deine Sitzung ist abgelaufen. Melde dich erneut an und versuche es noch einmal.',
+    permissionRequired: 'Du hast keine Berechtigung für diese Aktion in diesem Kochbuch.',
+    tenantNotFound: 'Dieses Kochbuch existiert nicht mehr oder wurde deaktiviert.',
+    connectionFailed:
+      'Der Server ist nicht erreichbar. Prüfe deine Verbindung und versuche es erneut.',
+    serverError: 'Ein Serverfehler hat diese Aktion verhindert. Bitte versuche es erneut.',
+    unknownApiError: 'Die Anfrage ist mit dem Fehlercode {code} fehlgeschlagen.',
     featured: 'Hervorgehoben',
     featuredHint: 'Dieses Rezept auf der Kochbuch-Startseite anzeigen.',
     metadata: 'Rezepteinstellungen',

@@ -23,6 +23,8 @@ export function isCookbookManagementAccessDenied(
   switch (route.editorPath) {
     case null:
       return false;
+    case 'new':
+      return !cookbook.canCreateRecipes;
     case 'manage':
       return cookbookManagementPath(cookbook, '') === null;
     case 'manage-users':

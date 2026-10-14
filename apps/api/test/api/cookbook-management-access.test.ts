@@ -18,6 +18,7 @@ import {
 interface ManagementAccess {
   canManageCategories: boolean;
   canManageRecipes: boolean;
+  canCreateRecipes: boolean;
   canManageUsers: boolean;
   canManageIngredients: boolean;
   canManageUnits: boolean;
@@ -120,6 +121,7 @@ test('the initial Viewer role has no cookbook management access flags', async ()
   for (const field of [
     'canManageCategories',
     'canManageRecipes',
+    'canCreateRecipes',
     'canManageUsers',
     'canManageIngredients',
     'canManageUnits',
@@ -135,6 +137,7 @@ test('Viewer cannot read any cookbook management section or editor catalogue', a
     'units',
     'categories',
     'recipes',
+    'recipes/slug-availability?slug=private-draft',
     'drafts',
     'recipe-policy',
     'service-accounts',
@@ -205,6 +208,7 @@ test('Owner and Editor retain ingredient, unit and draft management access', asy
     assert.equal(access.canManageIngredients, true);
     assert.equal(access.canManageUnits, true);
     assert.equal(access.canManageRecipes, true);
+    assert.equal(access.canCreateRecipes, true);
     for (const path of ['ingredients', 'units', 'drafts']) {
       const response: LightMyRequestResponse = await api.inject({
         method: 'GET',
@@ -223,6 +227,30 @@ test('management lists require authentication', async (): Promise<void> => {
       url: `${tenantPath()}/${path}`,
     });
     assert.equal(response.statusCode, 401);
+  }
+});
+
+test('recipe creation capability requires recipe:create rather than recipe:update', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'recipe-capabilities@example.test',
+  });
+  const cookie: string = await loginCookie(user);
+  for (const permission of ['recipe:create', 'recipe:update']) {
+    const tenant: TestTenant = await assignTenantRole(
+      database.pool,
+      user.principalId,
+      permission.replace(':', '-'),
+      [permission],
+    );
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: `/cookbook?tenantSlug=${tenant.slug}`,
+      headers: { cookie },
+    });
+    assert.equal(response.statusCode, 200, response.body);
+    const access: ManagementAccess = response.json<ManagementAccess>();
+    assert.equal(access.canManageRecipes, true);
+    assert.equal(access.canCreateRecipes, permission === 'recipe:create');
   }
 });
 
