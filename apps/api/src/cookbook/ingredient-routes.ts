@@ -41,7 +41,7 @@ export function registerTenantIngredientRoutes(api: FastifyInstance, pool: Pool)
        LEFT JOIN ingredient_usage ON ingredient_usage.ingredient_id = ingredient.id
        WHERE ingredient.owner_tenant_id = $1
        GROUP BY ingredient.id
-       ORDER BY ingredient.canonical_name`,
+       ORDER BY lower(ingredient.canonical_name), ingredient.public_id`,
       [tenantId],
     );
     const aliases = await pool.query<AliasRow>(
@@ -49,7 +49,7 @@ export function registerTenantIngredientRoutes(api: FastifyInstance, pool: Pool)
        FROM ingredient_alias
        INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
        WHERE ingredient.owner_tenant_id = $1
-       ORDER BY ingredient_alias.alias`,
+       ORDER BY lower(ingredient_alias.alias), ingredient_alias.public_id`,
       [tenantId],
     );
     return reply.send({

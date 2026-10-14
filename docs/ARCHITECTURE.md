@@ -2795,6 +2795,8 @@ Recipe-editor catalogue search returns instance-owned and current-tenant ingredi
 
 Tenant ingredient administration and on-the-fly ingredient creation use tenant ingredient permissions. Tenant ingredient administration exposes only ingredients owned by the current tenant.
 
+Tenant ingredient lists and alias lists sort names case-insensitively. Recipe-editor ingredient search places exact matches first and sorts names case-insensitively within each match group. Public IDs break ties between equal case-insensitive names.
+
 Cookbook management navigation and direct management routes require a tenant management or content-write permission. Read permissions do not grant management access. The initial Viewer role cannot access cookbook management. Ingredient management lists require `ingredient:create` or `ingredient:update`. Unit management lists require `unit:create`, `unit:update`, or `unit:delete`. Recipe draft lists require `recipe:create` or `recipe:update`. Each mutation requires its operation-specific write permission.
 
 Tenant ingredient consolidation uses the tenant ingredient update permission.

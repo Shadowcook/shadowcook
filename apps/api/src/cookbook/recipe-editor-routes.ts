@@ -208,19 +208,22 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       name: string;
       exact_match: boolean;
     }>(
-      `SELECT ingredient.public_id, NULL::uuid AS alias_public_id, ingredient.canonical_name AS name,
-         lower(ingredient.canonical_name) = lower($2) AS exact_match
-       FROM ingredient
-       WHERE ingredient.owner_tenant_id = $1
-         AND ingredient.canonical_name ILIKE '%' || $2 || '%'
-       UNION ALL
-       SELECT ingredient.public_id, ingredient_alias.public_id AS alias_public_id, ingredient_alias.alias AS name,
-         lower(ingredient_alias.alias) = lower($2) AS exact_match
-       FROM ingredient_alias
-       INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
-       WHERE ingredient.owner_tenant_id = $1
-         AND ingredient_alias.alias ILIKE '%' || $2 || '%'
-       ORDER BY exact_match DESC, name
+      `SELECT public_id, alias_public_id, name, exact_match
+       FROM (
+         SELECT ingredient.public_id, NULL::uuid AS alias_public_id, ingredient.canonical_name AS name,
+           lower(ingredient.canonical_name) = lower($2) AS exact_match
+         FROM ingredient
+         WHERE ingredient.owner_tenant_id = $1
+           AND ingredient.canonical_name ILIKE '%' || $2 || '%'
+         UNION ALL
+         SELECT ingredient.public_id, ingredient_alias.public_id AS alias_public_id, ingredient_alias.alias AS name,
+           lower(ingredient_alias.alias) = lower($2) AS exact_match
+         FROM ingredient_alias
+         INNER JOIN ingredient ON ingredient.id = ingredient_alias.ingredient_id
+         WHERE ingredient.owner_tenant_id = $1
+           AND ingredient_alias.alias ILIKE '%' || $2 || '%'
+       ) AS matching_ingredients
+       ORDER BY exact_match DESC, lower(name), public_id, alias_public_id
        LIMIT 20`,
       [tenantId, search],
     );

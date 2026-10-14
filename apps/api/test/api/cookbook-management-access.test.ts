@@ -30,6 +30,16 @@ interface ProtectedRequest {
   payload?: Record<string, unknown>;
 }
 
+interface ListedIngredient {
+  canonicalName: string;
+  aliases: { alias: string }[];
+}
+
+interface IngredientSearchMatch {
+  name: string;
+  exactMatch: boolean;
+}
+
 let database: DisposablePostgresDatabase;
 let api: FastifyInstance;
 let cookbook: OwnedCookbook;
@@ -259,6 +269,69 @@ test('each catalogue write permission grants only its own tenant management list
     });
     assert.equal(response.statusCode, 403);
   }
+});
+
+test('ingredient lists, aliases and editor search sort names case-insensitively', async (): Promise<void> => {
+  const names: string[] = ['Sort Banana', 'sort cherry', 'sort apple', 'sort', 'a sort'];
+  const aliases: string[] = ['Sort Blueberry', 'sort citrus', 'sort apricot'];
+  for (const name of names) {
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: `${tenantPath()}/ingredients`,
+      headers: { cookie: ownerCookie },
+      payload: { canonicalName: name, aliases: name === 'sort apple' ? aliases : [] },
+    });
+    assert.equal(response.statusCode, 201, response.body);
+  }
+
+  const list: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: `${tenantPath()}/ingredients`,
+    headers: { cookie: ownerCookie },
+  });
+  assert.equal(list.statusCode, 200, list.body);
+  const ingredients: ListedIngredient[] = list.json<{
+    ingredients: ListedIngredient[];
+  }>().ingredients;
+  assert.deepEqual(
+    ingredients
+      .filter((ingredient: ListedIngredient): boolean =>
+        ingredient.canonicalName.toLowerCase().includes('sort'),
+      )
+      .map((ingredient: ListedIngredient): string => ingredient.canonicalName),
+    ['a sort', 'sort', 'sort apple', 'Sort Banana', 'sort cherry'],
+  );
+  assert.deepEqual(
+    ingredients
+      .find((ingredient: ListedIngredient): boolean => ingredient.canonicalName === 'sort apple')!
+      .aliases.map((alias: { alias: string }): string => alias.alias),
+    ['sort apricot', 'Sort Blueberry', 'sort citrus'],
+  );
+
+  const search: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: `${tenantPath()}/editor-catalogue/ingredients?search=SORT`,
+    headers: { cookie: ownerCookie },
+  });
+  assert.equal(search.statusCode, 200, search.body);
+  assert.deepEqual(
+    search
+      .json<{ ingredients: IngredientSearchMatch[] }>()
+      .ingredients.map((ingredient: IngredientSearchMatch): IngredientSearchMatch => ({
+        name: ingredient.name,
+        exactMatch: ingredient.exactMatch,
+      })),
+    [
+      { name: 'sort', exactMatch: true },
+      { name: 'a sort', exactMatch: false },
+      { name: 'sort apple', exactMatch: false },
+      { name: 'sort apricot', exactMatch: false },
+      { name: 'Sort Banana', exactMatch: false },
+      { name: 'Sort Blueberry', exactMatch: false },
+      { name: 'sort cherry', exactMatch: false },
+      { name: 'sort citrus', exactMatch: false },
+    ],
+  );
 });
 
 function tenantPath(): string {

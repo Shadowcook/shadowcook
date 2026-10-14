@@ -3200,7 +3200,7 @@ paths:
           schema: { type: string }
       responses:
         '200':
-          description: Matching ingredients.
+          description: Matching ingredients, with exact matches first and names sorted case-insensitively within each match group. Public IDs break ties.
           content:
             application/json:
               schema:
@@ -3247,7 +3247,7 @@ paths:
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
         '200':
-          description: Tenant ingredients.
+          description: Tenant ingredients and their aliases sorted case-insensitively by name, with public IDs breaking ties.
           content:
             application/json:
               schema:
