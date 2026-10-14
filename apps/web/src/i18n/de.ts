@@ -671,6 +671,26 @@ export const de: Translation = {
     settings: 'Allgemeine Einstellungen',
     serviceAccounts: 'Service-Benutzer',
   },
+  recipePdf: {
+    cookbook: 'Kochbuch',
+    createdBy: 'Rezept von',
+    recipeLink: 'Rezept online',
+    download: 'Als PDF herunterladen',
+    downloading: 'PDF wird erstellt…',
+    errorTitle: 'PDF-Download fehlgeschlagen',
+    failed: 'Das Rezept-PDF konnte nicht erstellt werden. Bitte versuche es erneut.',
+  },
+  cookbookExport: {
+    download: 'Kochbuch herunterladen',
+    downloading: 'Download wird vorbereitet…',
+    description:
+      'Alle Rezepte, Entwürfe, Rezeptversionen, Kategorien, Zutaten, Einheiten und Kochbucheinstellungen als gezippte JSON-Datei herunterladen.',
+    errorTitle: 'Kochbuch-Download fehlgeschlagen',
+    failed: 'Das Kochbuch konnte nicht heruntergeladen werden. Bitte versuche es erneut.',
+    authenticationRequired: 'Bitte melde dich erneut an, um dein Kochbuch herunterzuladen.',
+    permissionRequired:
+      'Zum Herunterladen benötigst du die Berechtigung zur Kochbuchverwaltung und eine abgeschlossene Anmeldung.',
+  },
   tenantUnits: {
     title: 'Maßeinheiten',
     description: 'Verwalte Maßeinheiten für dieses Kochbuch.',
@@ -766,6 +786,7 @@ export const de: Translation = {
     deleted: 'Service-Benutzer deaktiviert.',
   },
   dashboard: {
+    contributors: 'Mitwirkende',
     accountRecipes: 'Rezepte',
     accountCategories: 'Kategorien',
     accountIngredients: 'Zutaten',

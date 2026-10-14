@@ -3,6 +3,12 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantAnyPermission, requireTenantPermission } from '../admin/authorization.js';
+import { recipeCreatorDisplayNameSql } from './recipe-creator.js';
+import {
+  recordRecipeContributor,
+  recipeContributorsSql,
+  type RecipeContributor,
+} from './recipe-contributors.js';
 import { registerRecipeDraftDiscardRoutes } from './recipe-draft-discard-routes.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
 
@@ -107,9 +113,13 @@ interface RevisionVariantRow {
 interface SharedRecipeRow {
   public_id: string;
   tenant_slug: string;
+  cookbook_name: string;
+  version: number;
   slug: string;
   title: string;
   summary: string | null;
+  creator_display_name: string | null;
+  contributors: RecipeContributor[];
   revision_id: string;
 }
 interface SharedRecipeStepRow {
@@ -410,6 +420,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
         [revisionId, current.id],
       );
+      await recordRecipeContributor(client, revisionId, user?.principal_id ?? null);
       await client.query('COMMIT');
       return reply.code(204).send();
     } catch (error: unknown) {
@@ -426,7 +437,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
   api.get('/cookbook/share-links/:token', async (request, reply) => {
     const token: string = (request.params as { token: string }).token;
     const result = await pool.query<SharedRecipeRow>(
-      `SELECT recipe.public_id, tenant.slug AS tenant_slug, recipe.slug, revision.title, revision.summary, revision.id AS revision_id
+      `SELECT recipe.public_id, tenant.slug AS tenant_slug, recipe.slug, revision.title, revision.summary, revision.id AS revision_id,
+        tenant.display_name AS cookbook_name, revision.version,
+        ${recipeCreatorDisplayNameSql()} AS creator_display_name,
+        ${recipeContributorsSql()} AS contributors
        FROM recipe_share_link
        INNER JOIN recipe ON recipe.id = recipe_share_link.recipe_id
        INNER JOIN tenant ON tenant.id = recipe.tenant_id
@@ -474,9 +488,13 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     return reply.send({
       public_id: recipe.public_id,
       tenant_slug: recipe.tenant_slug,
+      cookbook_name: recipe.cookbook_name,
+      version: recipe.version,
       slug: recipe.slug,
       title: recipe.title,
       summary: recipe.summary,
+      creator_display_name: recipe.creator_display_name,
+      contributors: recipe.contributors,
       can_edit: false,
       can_share: false,
       selectedVariant: selectedVariant.slug,
@@ -696,6 +714,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         [created.id, input.title, input.summary, user?.principal_id ?? null],
       );
       await createDefaultVariant(client, revision.rows[0]!.id);
+      await recordRecipeContributor(client, revision.rows[0]!.id, user?.principal_id ?? null);
       await replaceCategories(client, revision.rows[0]!.id, tenantId, input.categoryPublicIds);
       await client.query('UPDATE recipe SET draft_revision_id = $1 WHERE id = $2', [
         revision.rows[0]!.id,
@@ -971,6 +990,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
         [draftId, current.id],
       );
+      await recordRecipeContributor(client, draftId, user?.principal_id ?? null);
       await client.query('COMMIT');
       return reply.send(
         draftResponse(
@@ -1675,6 +1695,7 @@ async function createDraftFromPublished(
     [publishedId, principalId],
   );
   const draftId: string = revision.rows[0]!.id;
+  await recordRecipeContributor(client, draftId, principalId);
   await client.query(
     `INSERT INTO recipe_revision_category (recipe_revision_id, category_id)
      SELECT $1, category_id FROM recipe_revision_category WHERE recipe_revision_id = $2`,
@@ -1751,7 +1772,10 @@ async function ensureDraft(
   );
   const current = recipe.rows[0];
   if (current === undefined) return null;
-  if (current.draft_revision_id !== null) return current.draft_revision_id;
+  if (current.draft_revision_id !== null) {
+    await recordRecipeContributor(client, current.draft_revision_id, principalId);
+    return current.draft_revision_id;
+  }
   const draftId: string = await createDraftFromPublished(
     client,
     current.id,

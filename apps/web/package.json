@@ -24,11 +24,13 @@
     "@zxcvbn-ts/language-en": "^4.1.1",
     "astro": "^5.16.6",
     "markdown-it": "^15.0.2",
+    "pdfmake": "^0.3.11",
     "react": "^19.2.0",
     "react-dom": "^19.2.0"
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.4",
+    "@types/pdfmake": "^0.3.3",
     "@types/react": "^19.2.2",
     "@types/react-dom": "^19.2.2",
     "typescript": "^5.9.3"

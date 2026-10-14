@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
 import type { CookbookResponse } from '../model/types';
+import CookbookDownloadButton from './CookbookDownloadButton';
 
 interface TenantNavigationProperties {
   text: Translation;
@@ -126,6 +127,9 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
         <a className="button-link" href={`/${encodeURIComponent(tenantSlug)}/recipes/new`}>
           {text.recipeEditor.create}
         </a>
+      ) : null}
+      {cookbook.canManageUsers ? (
+        <CookbookDownloadButton text={text} tenantSlug={tenantSlug} />
       ) : null}
     </aside>
   );

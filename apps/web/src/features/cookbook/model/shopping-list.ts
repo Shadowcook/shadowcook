@@ -1,5 +1,5 @@
 import type { Translation } from '../../../i18n';
-import { localizedUnitSymbol } from '../../../i18n/unit-localization';
+import { localizedUnitSymbol } from '../../../i18n/unit-localization.ts';
 import type { UnitTranslations } from '../../../i18n/unit-localization';
 import type { IngredientUsage, RecipeDetail } from './types';
 

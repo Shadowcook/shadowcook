@@ -8,6 +8,8 @@ import {
 } from '../auth/session.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
+import { recipeCreatorDisplayNameSql } from './recipe-creator.js';
+import { recipeContributorsSql, type RecipeContributor } from './recipe-contributors.js';
 
 interface CategoryRow {
   public_id: string;
@@ -27,11 +29,15 @@ interface RecipeRow {
 
 interface RecipeDetailRow {
   tenant_id: string;
+  cookbook_name: string;
   public_id: string;
   slug: string;
   title: string;
   summary: string | null;
+  creator_display_name: string | null;
+  contributors: RecipeContributor[];
   revision_id: string;
+  version: number;
   can_edit: boolean;
   can_share: boolean;
 }
@@ -459,6 +465,9 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       const recipeResult = await pool.query<RecipeDetailRow>(
         `
       SELECT recipe.tenant_id, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+        tenant.display_name AS cookbook_name, recipe_revision.version,
+        ${recipeCreatorDisplayNameSql()} AS creator_display_name,
+        ${recipeContributorsSql()} AS contributors,
         recipe_revision.id AS revision_id,
         EXISTS (
           SELECT 1
@@ -571,6 +580,10 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         slug: recipe.slug,
         title: recipe.title,
         summary: recipe.summary,
+        cookbook_name: recipe.cookbook_name,
+        version: recipe.version,
+        creator_display_name: recipe.creator_display_name,
+        contributors: recipe.contributors,
         can_edit: recipe.can_edit,
         can_share: recipe.can_share,
         selectedVariant: selectedVariant.slug,

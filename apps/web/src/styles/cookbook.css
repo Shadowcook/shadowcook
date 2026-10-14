@@ -32,6 +32,12 @@
   display: grid;
   gap: 0.25rem;
 }
+.cookbook-download {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
 .tenant-navigation__link {
   display: block;
   width: 100%;
@@ -1151,6 +1157,43 @@
 .recipe-detail__title h2 {
   min-width: 0;
   margin-top: 0;
+  overflow-wrap: anywhere;
+}
+.recipe-detail__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.25rem;
+}
+.recipe-pdf-download {
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.recipe-pdf-download svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  flex-shrink: 0;
+}
+.recipe-contributors {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid #d9d3cd;
+  color: #685b52;
+  font-size: 0.9rem;
+}
+.recipe-contributors .eyebrow {
+  margin: 0 0 0.5rem;
+}
+.recipe-contributors ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.recipe-contributors li {
   overflow-wrap: anywhere;
 }
 .draft-list button,

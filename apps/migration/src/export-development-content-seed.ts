@@ -15,6 +15,7 @@ interface ContentSeed {
   category: SeedRow[];
   recipe: SeedRow[];
   recipe_revision: SeedRow[];
+  recipe_revision_contributor: SeedRow[];
   recipe_revision_category: SeedRow[];
   recipe_variant: SeedRow[];
   recipe_step: SeedRow[];
@@ -209,6 +210,18 @@ async function readContentSeed(pool: Pool, tenantSlug: string): Promise<ContentS
          INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
          WHERE recipe.tenant_id = $1
          ORDER BY recipe_revision.id
+       ) AS content_row`,
+      tenantId,
+    ),
+    recipe_revision_contributor: await readRows(
+      pool,
+      `SELECT row_to_json(content_row)::text AS value
+       FROM (
+         SELECT contributor.* FROM recipe_revision_contributor AS contributor
+         INNER JOIN recipe_revision ON recipe_revision.id = contributor.recipe_revision_id
+         INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
+         WHERE recipe.tenant_id = $1
+         ORDER BY contributor.recipe_revision_id, contributor.principal_id
        ) AS content_row`,
       tenantId,
     ),

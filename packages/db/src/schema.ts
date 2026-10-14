@@ -343,6 +343,7 @@ export interface Database {
   user_invitation: UserInvitationTable;
   recipe: RecipeTable;
   recipe_revision: RecipeRevisionTable;
+  recipe_revision_contributor: RecipeRevisionContributorTable;
   recipe_share_link: RecipeShareLinkTable;
   ai_context_grant: AiContextGrantTable;
   oauth_client: OAuthClientTable;
@@ -355,4 +356,9 @@ export interface Database {
   ingredient: IngredientTable;
   ingredient_alias: IngredientAliasTable;
   application_seed: ApplicationSeedTable;
+}
+
+export interface RecipeRevisionContributorTable {
+  recipe_revision_id: Uuid;
+  principal_id: Uuid;
 }

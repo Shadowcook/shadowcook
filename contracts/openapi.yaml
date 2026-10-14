@@ -2485,6 +2485,44 @@ paths:
           content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/InstancePermissionRequired' }
+  /cookbook/tenants/{tenantSlug}/export:
+    get:
+      operationId: downloadCookbook
+      summary: Downloads a portable cookbook content export as zipped JSON.
+      description: >-
+        Requires tenant:manage in the selected enabled cookbook and a completed sign-in.
+        Reads one consistent database snapshot without pagination or visibility filtering.
+        The ZIP contains one UTF-8 cookbook.json file conforming to CookbookExport.
+        References use public IDs and revision-scoped step, variant, and usage keys;
+        numeric quantities and conversion factors are decimal strings without precision loss.
+        Operational credentials, accounts, memberships, live sharing grants, and cryptographic
+        identity keys are excluded. This content format supports a future import into a new
+        cookbook; an import endpoint is not currently implemented.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
+      responses:
+        '200':
+          description: ZIP archive containing cookbook.json, including all drafts and revision history.
+          headers:
+            Content-Disposition:
+              description: Attachment filename containing the cookbook slug and UTC export timestamp.
+              schema:
+                {
+                  type: string,
+                  example: 'attachment; filename="my-cookbook-20261013T190000Z.shadowcook.zip"',
+                }
+            Cache-Control:
+              schema: { type: string, const: no-store }
+            X-Content-Type-Options:
+              schema: { type: string, const: nosniff }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: TENANT_PERMISSION_REQUIRED or PASSWORD_CHANGE_REQUIRED.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+        '404': { $ref: '#/components/responses/TenantNotFound' }
   /cookbook/tenants/{tenantSlug}/recipe-policy:
     get:
       operationId: getTenantRecipePolicy
@@ -3636,6 +3674,266 @@ components:
       description: The category or one of its descendants is used by a recipe revision.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   schemas:
+    CookbookExport:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          format,
+          format_version,
+          exported_at,
+          cookbook,
+          categories,
+          ingredients,
+          ingredient_aliases,
+          units,
+          recipes,
+          revisions,
+          variants,
+          steps,
+          ingredient_usages,
+        ]
+      properties:
+        format: { type: string, const: shadowcook-cookbook }
+        format_version: { type: integer, const: 1 }
+        exported_at: { type: string, format: date-time, description: UTC export timestamp. }
+        cookbook: { $ref: '#/components/schemas/ExportCookbookSettings' }
+        categories: { type: array, items: { $ref: '#/components/schemas/ExportCategory' } }
+        ingredients: { type: array, items: { $ref: '#/components/schemas/ExportIngredient' } }
+        ingredient_aliases:
+          { type: array, items: { $ref: '#/components/schemas/ExportIngredientAlias' } }
+        units: { type: array, items: { $ref: '#/components/schemas/ExportUnit' } }
+        recipes: { type: array, items: { $ref: '#/components/schemas/ExportRecipe' } }
+        revisions: { type: array, items: { $ref: '#/components/schemas/ExportRevision' } }
+        variants: { type: array, items: { $ref: '#/components/schemas/ExportVariant' } }
+        steps: { type: array, items: { $ref: '#/components/schemas/ExportStep' } }
+        ingredient_usages:
+          { type: array, items: { $ref: '#/components/schemas/ExportIngredientUsage' } }
+    ExportCookbookSettings:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          public_id,
+          display_name,
+          description,
+          slug,
+          default_recipe_visibility,
+          default_recipe_discoverability,
+          frontpage_recipe_count,
+          frontpage_heading,
+          show_on_start_page,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        public_id: { type: string, format: uuid }
+        display_name: { type: string }
+        description: { type: [string, 'null'] }
+        slug: { type: string }
+        default_recipe_visibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
+        default_recipe_discoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
+        frontpage_recipe_count: { type: integer, minimum: 1, maximum: 100 }
+        frontpage_heading: { type: [string, 'null'] }
+        show_on_start_page: { type: boolean }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ExportCategory:
+      type: object
+      additionalProperties: false
+      required: [public_id, parent_public_id, name, slug, sort_order]
+      properties:
+        public_id: { type: string, format: uuid }
+        parent_public_id: { type: [string, 'null'], format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        sort_order: { type: integer, minimum: 0 }
+    ExportIngredient:
+      type: object
+      additionalProperties: false
+      required: [public_id, canonical_name]
+      properties:
+        public_id: { type: string, format: uuid }
+        canonical_name: { type: string }
+    ExportIngredientAlias:
+      type: object
+      additionalProperties: false
+      required: [public_id, ingredient_public_id, alias]
+      properties:
+        public_id: { type: string, format: uuid }
+        ingredient_public_id: { type: string, format: uuid }
+        alias: { type: string }
+    ExportUnit:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          public_id,
+          is_instance_owned,
+          name,
+          symbol,
+          localization_key,
+          dimension,
+          base_factor,
+          base_offset,
+          translations,
+        ]
+      properties:
+        public_id: { type: string, format: uuid }
+        is_instance_owned: { type: boolean }
+        name: { type: string }
+        symbol: { type: string }
+        localization_key: { type: [string, 'null'] }
+        dimension: { type: [string, 'null'], enum: [MASS, VOLUME, COUNT, TEMPERATURE, null] }
+        base_factor:
+          {
+            type: [string, 'null'],
+            description: Exact decimal conversion factor; null for units without conversion.,
+          }
+        base_offset:
+          {
+            type: [string, 'null'],
+            description: Exact decimal conversion offset; null for units without conversion.,
+          }
+        translations:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: false
+            required: [name, symbol]
+            properties:
+              name: { type: string }
+              symbol: { type: string }
+    ExportRecipe:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          public_id,
+          lineage_public_id,
+          slug,
+          visibility_override,
+          discoverability_override,
+          is_featured,
+          published_revision_public_id,
+          draft_revision_public_id,
+          created_at,
+          updated_at,
+        ]
+      properties:
+        public_id: { type: string, format: uuid }
+        lineage_public_id: { type: string, format: uuid }
+        slug: { type: string }
+        visibility_override: { type: [string, 'null'], enum: [PRIVATE, MEMBERS_ONLY, PUBLIC, null] }
+        discoverability_override: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
+        is_featured: { type: boolean }
+        published_revision_public_id: { type: [string, 'null'], format: uuid }
+        draft_revision_public_id: { type: [string, 'null'], format: uuid }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+    ExportRevision:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          public_id,
+          recipe_public_id,
+          revision_no,
+          status,
+          title,
+          summary,
+          version,
+          author_display_name,
+          contributor_display_names,
+          created_at,
+          published_at,
+          category_public_ids,
+        ]
+      properties:
+        public_id: { type: string, format: uuid }
+        recipe_public_id: { type: string, format: uuid }
+        revision_no: { type: integer, minimum: 1 }
+        status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        version: { type: integer, minimum: 1 }
+        author_display_name:
+          {
+            type: [string, 'null'],
+            description: Current author display name without account or authentication data.,
+          }
+        contributor_display_names:
+          type: array
+          description: Current display names of the revision creator and recorded editors, deduplicated by principal. Includes draft contributors. Account identifiers and authentication data are excluded.
+          items: { type: string }
+        created_at: { type: string, format: date-time }
+        published_at: { type: [string, 'null'], format: date-time }
+        category_public_ids: { type: array, items: { type: string, format: uuid } }
+    ExportVariant:
+      type: object
+      additionalProperties: false
+      required:
+        [revision_public_id, variant_key, name, slug, is_default, is_visible, included_step_keys]
+      properties:
+        revision_public_id: { type: string, format: uuid }
+        variant_key: { type: string, format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        is_default: { type: boolean }
+        is_visible: { type: boolean }
+        included_step_keys:
+          type: array
+          description: Explicit step membership for this variant in the referenced revision.
+          items: { type: string, format: uuid }
+    ExportStep:
+      type: object
+      additionalProperties: false
+      required: [revision_public_id, step_key, sort_order, instruction]
+      properties:
+        revision_public_id: { type: string, format: uuid }
+        step_key: { type: string, format: uuid }
+        sort_order: { type: integer, minimum: 0 }
+        instruction:
+          { type: string, description: Authored content with recipe reference tokens preserved. }
+    ExportIngredientUsage:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          revision_public_id,
+          step_key,
+          usage_key,
+          ingredient_public_id,
+          ingredient_alias_public_id,
+          text_override,
+          special_kind,
+          unit_public_id,
+          amount,
+          is_optional,
+          note,
+          sort_order,
+        ]
+      properties:
+        revision_public_id: { type: string, format: uuid }
+        step_key: { type: string, format: uuid }
+        usage_key: { type: string, format: uuid }
+        ingredient_public_id: { type: [string, 'null'], format: uuid }
+        ingredient_alias_public_id: { type: [string, 'null'], format: uuid }
+        text_override: { type: [string, 'null'] }
+        special_kind:
+          {
+            type: [string, 'null'],
+            enum: [NO_ICON, REMOVE, ADD, INFO, IMPORTANT, COOK, COOL, HEAT, WAIT, WORK_STEP, null],
+          }
+        unit_public_id: { type: [string, 'null'], format: uuid }
+        amount:
+          {
+            type: [string, 'null'],
+            description: Exact decimal amount without conversion to floating point.,
+          }
+        is_optional: { type: boolean }
+        note: { type: [string, 'null'] }
+        sort_order: { type: integer, minimum: 0 }
     ReportSettings:
       type: object
       additionalProperties: false
@@ -4145,13 +4443,48 @@ components:
         createdAt: { type: string, format: date-time }
         expiresAt: { type: [string, 'null'], format: date-time }
     SharedRecipeDetail:
-      allOf:
-        - $ref: '#/components/schemas/CookbookRecipeDetail'
-        - type: object
-          additionalProperties: false
-          required: [tenant_slug]
-          properties:
-            tenant_slug: { type: string }
+      type: object
+      additionalProperties: false
+      required:
+        [
+          public_id,
+          tenant_slug,
+          cookbook_name,
+          version,
+          slug,
+          title,
+          summary,
+          creator_display_name,
+          contributors,
+          can_edit,
+          can_share,
+          selectedVariant,
+          variants,
+          steps,
+        ]
+      properties:
+        public_id: { type: string, format: uuid }
+        tenant_slug: { type: string }
+        cookbook_name:
+          $ref: '#/components/schemas/CookbookRecipeDetail/properties/cookbook_name'
+        version:
+          $ref: '#/components/schemas/CookbookRecipeDetail/properties/version'
+        slug: { type: string }
+        title: { type: string }
+        summary: { type: [string, 'null'] }
+        creator_display_name:
+          $ref: '#/components/schemas/CookbookRecipeDetail/properties/creator_display_name'
+        contributors:
+          $ref: '#/components/schemas/CookbookRecipeDetail/properties/contributors'
+        can_edit: { type: boolean, const: false }
+        can_share: { type: boolean, const: false }
+        selectedVariant: { type: string }
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/PublishedRecipeVariant' }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/CookbookRecipeStep' }
     CategoryInput:
       type: object
       additionalProperties: false
@@ -4439,9 +4772,13 @@ components:
       required:
         [
           public_id,
+          cookbook_name,
+          version,
           slug,
           title,
           summary,
+          creator_display_name,
+          contributors,
           can_edit,
           can_share,
           selectedVariant,
@@ -4450,6 +4787,13 @@ components:
           recipe_links,
         ]
       properties:
+        cookbook_name:
+          type: string
+          description: Current display name of the cookbook that owns this recipe.
+        version:
+          type: integer
+          minimum: 1
+          description: Version number of the published recipe revision returned in this response. An unpublished draft does not change this value.
         public_id:
           type: string
           format: uuid
@@ -4459,6 +4803,13 @@ components:
           type: string
         summary:
           type: [string, 'null']
+        creator_display_name:
+          type: [string, 'null']
+          description: Current display name of the principal that created the earliest recipe revision. Human creators use their account display name; service creators use their service-account name. No account identifiers or authentication data are exposed. Null when that revision has no creator.
+        contributors:
+          type: array
+          description: Creators and recorded content editors of published and archived revisions, deduplicated by principal and ordered by first contributed revision and current display name. Draft-only contributions are excluded. Returns display names without account identifiers or authentication data.
+          items: { $ref: '#/components/schemas/RecipeContributor' }
         can_edit:
           type: boolean
         can_share:
@@ -4475,6 +4826,12 @@ components:
         recipe_links:
           type: array
           items: { $ref: '#/components/schemas/RecipeLink' }
+    RecipeContributor:
+      type: object
+      additionalProperties: false
+      required: [display_name]
+      properties:
+        display_name: { type: string }
     CookbookRecipeStep:
       type: object
       additionalProperties: false

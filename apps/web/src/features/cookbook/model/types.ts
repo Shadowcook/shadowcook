@@ -24,15 +24,22 @@ export interface RecipeStep {
 
 export interface RecipeDetail {
   public_id: string;
+  cookbook_name: string;
+  version: number;
   slug: string;
   title: string;
   summary: string | null;
+  creator_display_name: string | null;
+  contributors: RecipeContributor[];
   can_edit: boolean;
   can_share: boolean;
   selectedVariant: string;
   variants: RecipeVariant[];
   steps: RecipeStep[];
   recipe_links?: RecipeLink[];
+}
+export interface RecipeContributor {
+  display_name: string;
 }
 export interface RecipeLink {
   public_id: string;

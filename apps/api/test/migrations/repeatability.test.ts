@@ -4,6 +4,7 @@ import { after, before, test } from 'node:test';
 import { migrateDatabase } from '@shadowcook/db';
 import type { PoolClient, QueryResult } from 'pg';
 import { seedInitialDeployment } from '../../src/initial-deployment-seed.js';
+import { createTestTenant, type TestTenant } from '../helpers/actors.js';
 import {
   createDisposablePostgresDatabase,
   type DisposablePostgresDatabase,
@@ -54,6 +55,55 @@ test('initial deployment seed stores complete conversions for all standard units
     assert.notEqual(unit.dimension, null);
     assert.notEqual(unit.base_factor, null);
     assert.notEqual(unit.base_offset, null);
+  }
+});
+
+test('the contributor migration backfills existing creators and cascades discarded revision memberships', async (): Promise<void> => {
+  const tenant: TestTenant = await createTestTenant(database.pool, 'contributor-backfill');
+  const client: PoolClient = await database.pool.connect();
+  try {
+    await client.query('BEGIN');
+    const principal: QueryResult<{ id: string }> = await client.query<{ id: string }>(
+      "INSERT INTO principal (principal_type) VALUES ('USER') RETURNING id",
+    );
+    const recipe: QueryResult<{ id: string }> = await client.query<{ id: string }>(
+      "INSERT INTO recipe (tenant_id, lineage_public_id, slug) VALUES ($1, gen_random_uuid(), 'backfill') RETURNING id",
+      [tenant.id],
+    );
+    const revision: QueryResult<{ id: string }> = await client.query<{ id: string }>(
+      "INSERT INTO recipe_revision (recipe_id, revision_no, status, title, created_by_principal_id) VALUES ($1, 1, 'DRAFT', 'Existing draft', $2) RETURNING id",
+      [recipe.rows[0]!.id, principal.rows[0]!.id],
+    );
+    await client.query('DROP TABLE recipe_revision_contributor');
+    const sql: string = readFileSync(
+      new URL(
+        '../../../../packages/db/src/migrations/sql/20261013205649_beta_2_recipe_contributors.sql',
+        import.meta.url,
+      ),
+      'utf8',
+    );
+    await client.query(sql);
+    const contributions: QueryResult<{ recipe_revision_id: string; principal_id: string }> =
+      await client.query<{ recipe_revision_id: string; principal_id: string }>(
+        'SELECT recipe_revision_id, principal_id FROM recipe_revision_contributor WHERE recipe_revision_id = $1',
+        [revision.rows[0]!.id],
+      );
+    assert.deepEqual(contributions.rows, [
+      { recipe_revision_id: revision.rows[0]!.id, principal_id: principal.rows[0]!.id },
+    ]);
+    await client.query('DELETE FROM recipe_revision WHERE id = $1', [revision.rows[0]!.id]);
+    assert.equal(
+      (
+        await client.query(
+          'SELECT 1 FROM recipe_revision_contributor WHERE recipe_revision_id = $1',
+          [revision.rows[0]!.id],
+        )
+      ).rowCount,
+      0,
+    );
+  } finally {
+    await client.query('ROLLBACK');
+    client.release();
   }
 });
 

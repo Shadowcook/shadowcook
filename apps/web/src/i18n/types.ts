@@ -613,6 +613,24 @@ export interface Translation {
     settings: string;
     serviceAccounts: string;
   };
+  recipePdf: {
+    cookbook: string;
+    createdBy: string;
+    recipeLink: string;
+    download: string;
+    downloading: string;
+    errorTitle: string;
+    failed: string;
+  };
+  cookbookExport: {
+    download: string;
+    downloading: string;
+    description: string;
+    errorTitle: string;
+    failed: string;
+    authenticationRequired: string;
+    permissionRequired: string;
+  };
   tenantUnits: {
     title: string;
     description: string;
@@ -703,6 +721,7 @@ export interface Translation {
     deleted: string;
   };
   dashboard: {
+    contributors: string;
     accountRecipes: string;
     accountCategories: string;
     accountIngredients: string;

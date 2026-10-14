@@ -33,6 +33,8 @@
 
 ### Cookbook, public web, and localization
 
+- Cookbook management provides a localized ZIP download containing a versioned JSON export of all recipes, drafts, complete revision history, variants, step memberships, ingredient usages, categories, ingredient aliases, unit definitions and translations, and cookbook settings. Exports require `tenant:manage`, use a consistent read-only snapshot, preserve portable references and exact decimal values, and exclude operational credentials and account data. Content import remains unimplemented (architecture section 27.0).
+
 - The global head bar displays the localized application wordmark beside the logo above the 700-pixel mobile breakpoint (architecture section 4.2).
 
 - Shared application dialogs provide localized information, error, and confirmation variants with Font Awesome pictograms, modal focus containment, Escape cancellation, focus restoration, and busy-state handling. Request errors, recipe-draft discards, ingredient merges, administrator deletion and password-reset confirmations, and service-account token information use the shared component. A source guard prevents native browser dialogs (architecture section 3.4, Application dialogs).
@@ -61,6 +63,16 @@
 - Server-rendered recipe pages render the resolved `CookbookScreen`; JavaScript-capable browsers hydrate the same component and non-JavaScript clients retain its semantic HTML recipe page.
 
 ### Recipe authoring, revisions, and variants
+
+- Recipe and shared-recipe views and PDFs display localized contributor names after preparation instructions. A BETA-2 migration adds normalized revision/principal memberships and backfills known creators. Draft content writes record all editors transactionally; published and archived history supplies deduplicated current display names. Draft-only and discarded work is excluded from reader credits. OpenAPI, portable ZIP revision metadata, and development-content seed exports include contributor data (architecture section 4.2).
+
+- Published recipe and shared-recipe views provide an icon-only PDF download beside the ellipsis action menu, with a localized tooltip and accessible name, for the selected variant. Browser-generated A4 PDFs include recipe content, aggregated shopping lists, ingredients beside preparation steps, resolved recipe-reference links, embedded fonts, automatic pagination, and localized labels and page numbers. PDF generation loads on demand and reports failures through the shared application dialog (architecture section 4.2).
+- PDF special entries embed the same Font Awesome pictograms as the recipe view through a shared icon mapping. Authored notes remain beside the icons; `NO_ICON` entries contain only their notes (architecture section 4.2).
+- Recipe PDFs provide a dedicated cover with the title, original creator's current display name, selected variant, description, a reserved future image area, and a shopping list in up to three columns. Preparation starts on a separate page. Published and shared recipe APIs supply the nullable creator display name from normalized revision and principal data, with the field represented in OpenAPI (architecture section 4.2).
+- PDF preparation steps keep their ingredients, step label, and instructions on one page when they fit. Rendered multi-page steps following another step move both columns to a fresh page; oversized steps remain breakable without truncation. Pagination tests cover ingredient-heavy steps, empty ingredient lists, successive page breaks, and oversized instructions and notes (architecture section 4.2).
+- Recipe PDF headers emphasize the cookbook name, with a smaller muted application wordmark and compact embedded logo on the right. Following pages use a fine separator; page margins reserve header space (architecture section 4.2).
+- PDF covers prominently display the full cookbook name above the recipe title and include the published version; document subjects retain both metadata fields. Headers repeat cookbook name, recipe name, and version on every page, with bounded name lengths. Published and shared recipe responses expose these metadata fields from existing normalized tenant/revision data; OpenAPI includes both fields (architecture section 4.2).
+- PDF credits end with a localized label and visible clickable canonical recipe URL, including the selected non-default variant. Empty contributor lists retain the link. Shared-view exports do not embed share tokens; recipe-read authorization remains unchanged (architecture section 4.2).
 
 - Recipe editors provide a sticky top action bar with separated save and publish actions, compact secondary controls, and coordinated busy states during step saving.
 - Recipe drafts can be discarded from the editor and draft list after localized confirmation. The tenant-scoped transactional API requires `recipe:update`, retains published history and recipe metadata, and removes never-published recipes completely.

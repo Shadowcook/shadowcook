@@ -2,6 +2,7 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { registerAuthenticationRoutes } from './auth/routes.js';
 import { registerCookbookRoutes } from './cookbook/routes.js';
+import { registerCookbookExportRoutes } from './cookbook/export-routes.js';
 import { registerAdminMailRoutes } from './admin/mail-routes.js';
 import { registerAdminEmailTemplateRoutes } from './admin/email-template-routes.js';
 import { registerAuthenticationSettingsRoutes } from './admin/authentication-routes.js';
@@ -58,6 +59,7 @@ export function createApi(
   registerRegistrationSettingsRoutes(api, pool, registrationConfig);
   registerCookbookSlugRoutes(api, pool);
   registerCookbookRoutes(api, pool);
+  registerCookbookExportRoutes(api, pool);
   registerCategoryRoutes(api, pool);
   registerRecipeEditorRoutes(api, pool);
   registerTenantUserRoutes(api, pool);

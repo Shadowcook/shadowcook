@@ -1,6 +1,6 @@
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
-import { localizedUnitSymbol } from '../../../i18n/unit-localization';
+import { ingredientAmountText, specialKindLabel } from '../model/recipe-presentation';
 import AdminIcon from '../../../components/AdminIcon';
 import type { IngredientUsage, RecipeDetail, RecipeStep, RecipeVariant } from '../model/types';
 import RecipeShoppingList from './RecipeShoppingList';
@@ -10,6 +10,8 @@ import RecipeInstruction from './RecipeInstruction';
 import ReportButton from '../../reports/ReportButton';
 import ContentActions from '../../../components/ContentActions';
 import CopyLinkAction from '../../../components/CopyLinkAction';
+import RecipePdfDownloadButton from './RecipePdfDownloadButton';
+import RecipeContributors from './RecipeContributors';
 
 interface RecipeDetailViewProperties {
   text: Translation;
@@ -46,52 +48,55 @@ export default function RecipeDetailView({
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <div className="recipe-detail__title">
         <h2>{recipe.title}</h2>
-        <ContentActions label={`${text.reports.moreActions}: ${recipe.title}`}>
-          <CopyLinkAction text={text} />
-          {recipe.can_edit ? (
-            <button
-              type="button"
-              className="content-actions__item"
-              onClick={onEdit}
-              aria-label={text.recipeEditor.edit}
-              title={text.recipeEditor.edit}
-            >
-              <AdminIcon name="edit" />
-              {text.recipeEditor.edit}
-            </button>
-          ) : null}
-          {recipe.can_share ? (
-            <button
-              type="button"
-              className="content-actions__item"
-              onClick={onShare}
-              aria-label={text.recipeEditor.share}
-              title={text.recipeEditor.share}
-            >
-              <AdminIcon name="share" />
-              {text.recipeEditor.share}
-            </button>
-          ) : null}
-          {recipe.can_share ? (
-            <button
-              type="button"
-              className="content-actions__item"
-              onClick={onShareWithAi}
-              aria-label={text.recipeEditor.aiContext}
-              title={text.recipeEditor.aiContext}
-            >
-              <AiShareIcon label={text.recipeEditor.aiShareIcon} />
-              {text.recipeEditor.aiContext}
-            </button>
-          ) : null}
-          <ReportButton
-            text={text}
-            targetType="RECIPE"
-            targetPublicId={recipe.public_id}
-            targetName={recipe.title}
-            shareToken={shareToken}
-          />
-        </ContentActions>
+        <div className="recipe-detail__actions">
+          <RecipePdfDownloadButton recipe={recipe} text={text} tenantSlug={tenantSlug} />
+          <ContentActions label={`${text.reports.moreActions}: ${recipe.title}`}>
+            <CopyLinkAction text={text} />
+            {recipe.can_edit ? (
+              <button
+                type="button"
+                className="content-actions__item"
+                onClick={onEdit}
+                aria-label={text.recipeEditor.edit}
+                title={text.recipeEditor.edit}
+              >
+                <AdminIcon name="edit" />
+                {text.recipeEditor.edit}
+              </button>
+            ) : null}
+            {recipe.can_share ? (
+              <button
+                type="button"
+                className="content-actions__item"
+                onClick={onShare}
+                aria-label={text.recipeEditor.share}
+                title={text.recipeEditor.share}
+              >
+                <AdminIcon name="share" />
+                {text.recipeEditor.share}
+              </button>
+            ) : null}
+            {recipe.can_share ? (
+              <button
+                type="button"
+                className="content-actions__item"
+                onClick={onShareWithAi}
+                aria-label={text.recipeEditor.aiContext}
+                title={text.recipeEditor.aiContext}
+              >
+                <AiShareIcon label={text.recipeEditor.aiShareIcon} />
+                {text.recipeEditor.aiContext}
+              </button>
+            ) : null}
+            <ReportButton
+              text={text}
+              targetType="RECIPE"
+              targetPublicId={recipe.public_id}
+              targetName={recipe.title}
+              shareToken={shareToken}
+            />
+          </ContentActions>
+        </div>
       </div>
       <div className="recipe-detail__overview">
         <div className="recipe-detail__overview-content">
@@ -160,6 +165,7 @@ export default function RecipeDetailView({
           </li>
         ))}
       </ol>
+      <RecipeContributors contributors={recipe.contributors ?? []} text={text} />
     </section>
   );
 }
@@ -180,37 +186,4 @@ function IngredientText(properties: IngredientTextProperties): JSX.Element {
       ) : null}
     </span>
   );
-}
-
-function ingredientAmountText(ingredient: IngredientUsage, text: Translation): string {
-  const amount: string | null = formatAmount(ingredient.amount);
-  const unit: string | null =
-    ingredient.unit_symbol === null
-      ? null
-      : localizedUnitSymbol(text, ingredient.unit_translations, ingredient.unit_symbol);
-  return [amount, unit]
-    .filter((value: string | null): value is string => value !== null && value.length > 0)
-    .join(' ');
-}
-
-function formatAmount(amount: string | null): string | null {
-  if (amount === null || !amount.includes('.')) return amount;
-  return amount.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
-}
-
-function specialKindLabel(specialKind: string, text: Translation): string {
-  const specialKindKey: string = specialKind.toUpperCase();
-  const labels: Record<string, string> = {
-    NO_ICON: text.recipeEditor.specialNoIcon,
-    REMOVE: text.recipeEditor.specialRemove,
-    ADD: text.recipeEditor.specialAdd,
-    INFO: text.recipeEditor.specialInfo,
-    IMPORTANT: text.recipeEditor.specialImportant,
-    COOK: text.recipeEditor.specialCook,
-    COOL: text.recipeEditor.specialCool,
-    HEAT: text.recipeEditor.specialHeat,
-    WAIT: text.recipeEditor.specialWait,
-    WORK_STEP: text.recipeEditor.specialWorkStep,
-  };
-  return labels[specialKindKey] ?? text.recipeEditor.specialEntry;
 }

@@ -29,6 +29,40 @@ function unexpectedWebFallback(): Promise<Response> {
   assert.fail('API requests must not render a web page.');
 }
 
+test('cookbook ZIP downloads preserve binary content, attachment headers and authentication through the proxy', async (context: TestContext): Promise<void> => {
+  configureApiOrigin(context);
+  const bytes: Uint8Array = new Uint8Array([0x50, 0x4b, 3, 4, 0, 0xff]);
+  const disposition: string = 'attachment; filename="cookbook-20261013T190000Z.shadowcook.zip"';
+  context.mock.method(
+    globalThis,
+    'fetch',
+    async (url: URL, options: RequestInit): Promise<Response> => {
+      assert.equal(url.href, 'http://api.internal:3000/cookbook/tenants/cookbook/export');
+      assert.equal(new Headers(options.headers).get('cookie'), 'shadowcook_session=export-session');
+      return new Response(bytes, {
+        headers: {
+          'content-type': 'application/zip',
+          'content-disposition': disposition,
+          'cache-control': 'no-store',
+          'x-content-type-options': 'nosniff',
+        },
+      });
+    },
+  );
+  const response: Response = await proxyRequest(
+    new Request('http://web.invalid/api/cookbook/tenants/cookbook/export', {
+      headers: { cookie: 'shadowcook_session=export-session' },
+    }),
+    unexpectedWebFallback,
+  );
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get('content-disposition'), disposition);
+  assert.equal(response.headers.get('content-type'), 'application/zip');
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+  assert.deepEqual(new Uint8Array(await response.arrayBuffer()), bytes);
+});
+
 test('both public MCP paths preserve initialize requests and JSON-RPC responses', async (context: TestContext): Promise<void> => {
   configureApiOrigin(context);
   const body: string = JSON.stringify({ jsonrpc: '2.0', id: 0, method: 'initialize' });

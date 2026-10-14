@@ -653,6 +653,26 @@ export const en: Translation = {
     settings: 'General settings',
     serviceAccounts: 'Service accounts',
   },
+  recipePdf: {
+    cookbook: 'Cookbook',
+    createdBy: 'Created by',
+    recipeLink: 'Recipe online',
+    download: 'Download as PDF',
+    downloading: 'Preparing PDF…',
+    errorTitle: 'PDF download failed',
+    failed: 'The recipe PDF could not be created. Please try again.',
+  },
+  cookbookExport: {
+    download: 'Download Cookbook',
+    downloading: 'Preparing download…',
+    description:
+      'Download all recipes, drafts, recipe history, categories, ingredients, units, and cookbook settings as zipped JSON.',
+    errorTitle: 'Cookbook download failed',
+    failed: 'The cookbook could not be downloaded. Please try again.',
+    authenticationRequired: 'Please sign in again to download your cookbook.',
+    permissionRequired:
+      'You need cookbook management permission and a completed sign-in to download this cookbook.',
+  },
   tenantUnits: {
     title: 'Units of measure',
     description: 'Manage units of measure for this cookbook.',
@@ -747,6 +767,7 @@ export const en: Translation = {
     deleted: 'Service account disabled.',
   },
   dashboard: {
+    contributors: 'Contributors',
     accountRecipes: 'Recipes',
     accountCategories: 'Categories',
     accountIngredients: 'Ingredients',
