@@ -19,6 +19,7 @@ x-api-environment: &api-environment
   PUBLIC_API_ORIGIN: ${PUBLIC_API_ORIGIN:-${PUBLIC_WEB_ORIGIN:?Set PUBLIC_WEB_ORIGIN in .env}/api}
   BOOTSTRAP_ADMIN_EMAIL: ${BOOTSTRAP_ADMIN_EMAIL:-admin@localhost}
   INSTANCE_SECRET_KEY_FILE: /run/secrets/instance_secret_key
+  SHADOWCOOK_API_TRUSTED_PROXIES: ${SHADOWCOOK_API_TRUSTED_PROXIES:-loopback,uniquelocal}
   TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY:-}
   TURNSTILE_SECRET: ${TURNSTILE_SECRET:-}
 
@@ -89,6 +90,7 @@ services:
       HOST: 0.0.0.0
       PORT: 4321
       SHADOWCOOK_API_ORIGIN: http://api:3000
+      SHADOWCOOK_WEB_TRUSTED_PROXIES: ${SHADOWCOOK_WEB_TRUSTED_PROXIES:-loopback,uniquelocal}
     depends_on:
       api:
         condition: service_healthy

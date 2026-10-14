@@ -35,8 +35,10 @@ export function createApi(
   publicWebOrigin: string,
   publicApiOrigin: string,
   registrationConfig: RegistrationConfig,
+  trustedProxies: string[] = [],
 ): FastifyInstance {
   const api: FastifyInstance = Fastify({
+    trustProxy: trustedProxies,
     logger: {
       timestamp: () => `,"time":"${new Date().toISOString()}"`,
     },

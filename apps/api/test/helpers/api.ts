@@ -15,7 +15,7 @@ const testRegistrationConfig: RegistrationConfig = {
   turnstileSecret: '',
 };
 
-export function createTestApi(pool: Pool): FastifyInstance {
+export function createTestApi(pool: Pool, trustedProxies: string[] = []): FastifyInstance {
   return createApi(
     pool,
     false,
@@ -23,5 +23,6 @@ export function createTestApi(pool: Pool): FastifyInstance {
     'http://test-web.invalid',
     'http://test-api.invalid',
     testRegistrationConfig,
+    trustedProxies,
   );
 }

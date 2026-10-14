@@ -1,6 +1,6 @@
 import { randomBytes, scrypt as scryptCallback, timingSafeEqual } from 'node:crypto';
 import { promisify } from 'node:util';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient } from 'pg';
 import { ZxcvbnFactory } from '@zxcvbn-ts/core';
 import type { ZxcvbnResult } from '@zxcvbn-ts/core';
 import { adjacencyGraphs, dictionary as commonDictionary } from '@zxcvbn-ts/language-common';
@@ -51,7 +51,7 @@ export async function verifyPassword(password: string, encodedHash: string): Pro
   return timingSafeEqual(actual, expected);
 }
 
-export async function minimumPasswordEntropy(pool: Pool): Promise<number> {
+export async function minimumPasswordEntropy(pool: Pool | PoolClient): Promise<number> {
   const result = await pool.query<{ minimum_password_entropy: number }>(
     'SELECT minimum_password_entropy FROM instance_authentication_settings WHERE singleton = true',
   );

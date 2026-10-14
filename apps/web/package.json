@@ -10,11 +10,12 @@
     "test:proxy": "npm run build && node --test test/integration/*.test.ts",
     "test:e2e": "node --input-type=module -e \"console.error('Browser end-to-end tests have not been implemented yet.'); process.exit(1);\"",
     "dev": "astro dev --host 0.0.0.0 --port 4321",
-    "start": "node ./dist/server/entry.mjs"
+    "start": "node server.ts"
   },
   "dependencies": {
     "@astrojs/node": "^9.5.0",
     "@astrojs/react": "^4.4.2",
+    "@fastify/proxy-addr": "^5.1.1",
     "@fortawesome/fontawesome-svg-core": "^7.3.1",
     "@fortawesome/free-solid-svg-icons": "^7.3.1",
     "@fortawesome/react-fontawesome": "^3.5.0",

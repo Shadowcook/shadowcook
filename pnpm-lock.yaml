@@ -87,6 +87,9 @@ importers:
       '@astrojs/react':
         specifier: ^4.4.2
         version: 4.4.2(@types/node@24.13.6)(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(tsx@4.23.15)(yaml@2.9.1)
+      '@fastify/proxy-addr':
+        specifier: ^5.1.1
+        version: 5.1.1
       '@fortawesome/fontawesome-svg-core':
         specifier: ^7.3.1
         version: 7.3.1

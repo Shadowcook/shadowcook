@@ -78,9 +78,11 @@ WORKDIR /workspace/apps/web
 
 COPY --from=build /runtime/web ./
 COPY --from=build /workspace/apps/web/dist ./dist
+COPY --from=build /workspace/apps/web/server.ts ./server.ts
+COPY --from=build /workspace/apps/web/src/lib/server/client-address.ts ./src/lib/server/client-address.ts
 
 USER node
 
 EXPOSE 4321
 
-CMD ["node", "dist/server/entry.mjs"]
+CMD ["node", "server.ts"]

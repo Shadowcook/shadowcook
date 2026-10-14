@@ -1,7 +1,9 @@
-import { randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
-import { hashPassword, minimumPasswordEntropy, verifyPassword } from './password.js';
+import { minimumPasswordEntropy } from './password.js';
+import { attemptPasswordLogin, type PasswordLoginResult } from './password-login.js';
+import { changePassword, type PasswordChangeResult } from './password-change.js';
+import { createSession, clearSessionCookie, setSessionCookie } from './browser-session.js';
 import { completePasswordReset, createPasswordResetToken } from './password-reset.js';
 import {
   loadPasswordReset,
@@ -16,6 +18,8 @@ import {
 } from './session.js';
 import { consumeEmailCode, normalizeEmail, requestEmailCode } from './email-code.js';
 import { sendTemplatedInstanceMail } from '../mail/service.js';
+
+export { createSession } from './browser-session.js';
 
 interface LoginBody {
   email: string;
@@ -43,9 +47,6 @@ interface PasswordResetBody {
   token?: string;
   newPassword?: string;
 }
-
-const sessionCookieName: string = 'shadowcook_session';
-const sessionLifetimeMilliseconds: number = 1000 * 60 * 60 * 24 * 14;
 
 export function registerAuthenticationRoutes(
   api: FastifyInstance,
@@ -97,23 +98,28 @@ export function registerAuthenticationRoutes(
     const settings = await authenticationSettings(pool);
     if (settings.login_mode === 'EMAIL_CODE_ONLY')
       return sendError(reply, 403, 'PASSWORD_LOGIN_DISABLED', 'Password login is disabled.');
-    const result = await pool.query<LoginUserRow>(
-      'SELECT id, password_hash, password_change_required, disabled_at FROM user_account WHERE email = $1 AND deleted_at IS NULL',
-      [body.email.trim().toLowerCase()],
+    const result: PasswordLoginResult = await attemptPasswordLogin(
+      pool,
+      request.ip,
+      body.email,
+      body.password,
     );
-    const user: LoginUserRow | undefined = result.rows[0];
-    if (
-      user === undefined ||
-      user.disabled_at !== null ||
-      user.password_hash === null ||
-      !(await verifyPassword(body.password, user.password_hash))
-    ) {
+    if (result.status === 'rate-limited') {
+      reply.header('Retry-After', result.retryAfterSeconds);
+      return sendError(
+        reply,
+        429,
+        'LOGIN_RATE_LIMITED',
+        'Too many failed sign-in attempts. Please try again later.',
+      );
+    }
+    if (result.status === 'invalid-credentials') {
       return sendError(reply, 401, 'INVALID_CREDENTIALS', 'Invalid email or password.');
     }
-    await createSession(pool, reply, user.id, secureCookies);
+    setSessionCookie(reply, result.session, secureCookies);
     return reply.send({
-      hasPassword: user.password_hash !== null,
-      passwordChangeRequired: user.password_change_required,
+      hasPassword: result.user.password_hash !== null,
+      passwordChangeRequired: result.user.password_change_required,
     });
   });
 
@@ -187,31 +193,18 @@ export function registerAuthenticationRoutes(
     if (token === null) {
       return sendError(reply, 401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
     }
-    const user = await currentSessionUser(pool, request);
-    if (
-      user === null ||
-      (user.password_hash !== null &&
-        (body.currentPassword === null ||
-          !(await verifyPassword(body.currentPassword, user.password_hash))))
-    ) {
+    const result: PasswordChangeResult = await changePassword(
+      pool,
+      request,
+      token,
+      body.currentPassword,
+      body.newPassword,
+    );
+    if (result.status === 'authentication-failed') {
       return sendError(reply, 401, 'AUTHENTICATION_FAILED', 'Authentication failed.');
     }
-    try {
-      const passwordHash: string = await hashPassword(
-        body.newPassword,
-        await minimumPasswordEntropy(pool),
-      );
-      await pool.query(
-        'UPDATE user_account SET password_hash = $1, password_change_required = false, password_changed_at = now(), updated_at = now() WHERE id = $2',
-        [passwordHash, user.id],
-      );
-    } catch (error: unknown) {
-      return sendError(
-        reply,
-        400,
-        'INVALID_PASSWORD',
-        error instanceof Error ? error.message : 'Invalid password.',
-      );
+    if (result.status === 'invalid-password') {
+      return sendError(reply, 400, 'INVALID_PASSWORD', result.message);
     }
     return reply.code(204).send();
   });
@@ -386,43 +379,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-export async function createSession(
-  pool: Pool,
-  reply: FastifyReply,
-  userId: string,
-  secureCookies: boolean,
-): Promise<void> {
-  const token: string = randomBytes(32).toString('base64url');
-  const expiresAt: Date = new Date(Date.now() + sessionLifetimeMilliseconds);
-  await pool.query(
-    'INSERT INTO user_session (user_account_id, token_hash, expires_at) VALUES ($1, $2, $3)',
-    [userId, hashSessionToken(token), expiresAt],
-  );
-  await pool.query(
-    'UPDATE user_account SET last_login_at = now(), updated_at = now() WHERE id = $1',
-    [userId],
-  );
-  setSessionCookie(reply, token, expiresAt, secureCookies);
-}
-function setSessionCookie(
-  reply: FastifyReply,
-  token: string,
-  expiresAt: Date,
-  secureCookies: boolean,
-): void {
-  const secureAttribute: string = secureCookies ? '; Secure' : '';
-  reply.header(
-    'Set-Cookie',
-    `${sessionCookieName}=${token}; Path=/; HttpOnly${secureAttribute}; SameSite=Lax; Expires=${expiresAt.toUTCString()}`,
-  );
-}
-function clearSessionCookie(reply: FastifyReply, secureCookies: boolean): void {
-  const secureAttribute: string = secureCookies ? '; Secure' : '';
-  reply.header(
-    'Set-Cookie',
-    `${sessionCookieName}=; Path=/; HttpOnly${secureAttribute}; SameSite=Lax; Max-Age=0`,
-  );
-}
 async function authenticationSettings(pool: Pool): Promise<AuthenticationSettingsRow> {
   const result = await pool.query<AuthenticationSettingsRow>(
     'SELECT login_mode FROM instance_authentication_settings WHERE singleton = true',

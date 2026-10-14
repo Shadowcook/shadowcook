@@ -24,6 +24,24 @@ listener. Enable Apache's `headers`, `proxy`, `proxy_http`, `rewrite`, and
 `PUBLIC_WEB_ORIGIN` to the same HTTPS origin in `.env`. The HTTPS virtual host
 must forward `X-Forwarded-Proto`, `X-Forwarded-Port`, and `X-Forwarded-Host`.
 
+The example removes incoming `X-Forwarded-For`, `Forwarded`, and `X-Real-IP`
+headers before Apache adds the observed visitor IP. Apply these directives to
+existing virtual hosts when upgrading. The web runtime sanitizes the IP chain
+from its socket peer before proxying requests to the API. Both layers accept
+forwarded IPs only from `SHADOWCOOK_WEB_TRUSTED_PROXIES` and
+`SHADOWCOOK_API_TRUSTED_PROXIES`, respectively. These comma-separated values
+accept IP addresses, CIDRs, and the `loopback`, `linklocal`, and `uniquelocal`
+range names. Compose defaults to `loopback,uniquelocal`; use specific proxy
+addresses or narrower CIDRs when untrusted peers share those private networks.
+Keep the web listener on loopback and the API internal to Compose. Outside
+Compose, unset proxy trust accepts only the directly connected peer IP.
+
+The web container and `npm start` use `server.ts`; do not start the built Astro
+entrypoint directly, as client-IP sanitization runs in this HTTP wrapper.
+Password login allows ten failed attempts per visitor IP in a rolling
+15-minute window and returns HTTP 429 with `Retry-After` when exhausted.
+Accounts are not independently locked by failed attempts.
+
 The web listener forwards `/api/*`, `/mcp`, and MCP OAuth discovery requests to
 the internal API. With the default `PUBLIC_API_ORIGIN`, configure MCP clients
 with `https://<public-host>/api/mcp`. `/mcp` is also forwarded directly and uses

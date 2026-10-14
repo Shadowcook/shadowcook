@@ -826,6 +826,8 @@ export const en: Translation = {
     authenticationFailed: 'Authentication failed.',
     authenticationRequired: 'Authentication is required.',
     invalidCredentials: 'Invalid email or password.',
+    loginRateLimited:
+      'Too many failed sign-in attempts from your IP address. Please try again later.',
     invalidLoginBody: 'Email and password are required.',
     invalidPassword: 'The new password is invalid.',
     passwordChangeRequired: 'A password change is required before continuing.',

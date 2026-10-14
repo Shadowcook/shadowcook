@@ -19,6 +19,7 @@ async function proxyRequest(request: Request, next: MiddlewareNext): Promise<Res
   const context: MiddlewareContext = {
     request,
     url: new URL(request.url),
+    clientAddress: '198.51.100.25',
   } as MiddlewareContext;
   const response: Response | void = await onRequest(context, next);
   assert.ok(response instanceof Response);
@@ -39,6 +40,7 @@ test('cookbook ZIP downloads preserve binary content, attachment headers and aut
     async (url: URL, options: RequestInit): Promise<Response> => {
       assert.equal(url.href, 'http://api.internal:3000/cookbook/tenants/cookbook/export');
       assert.equal(new Headers(options.headers).get('cookie'), 'shadowcook_session=export-session');
+      assert.equal(new Headers(options.headers).get('x-forwarded-for'), '198.51.100.25');
       return new Response(bytes, {
         headers: {
           'content-type': 'application/zip',

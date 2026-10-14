@@ -98,6 +98,12 @@ export interface UserAccountTable {
   deleted_at: Timestamp | null;
 }
 
+export interface PasswordLoginFailureTable {
+  id: Generated<string>;
+  client_ip: string;
+  created_at: Generated<Timestamp>;
+}
+
 export interface UserSessionTable {
   id: Generated<Uuid>;
   user_account_id: string;
@@ -335,6 +341,7 @@ export interface Database {
   tenant: TenantTable;
   user_account: UserAccountTable;
   user_session: UserSessionTable;
+  password_login_failure: PasswordLoginFailureTable;
   password_reset_token: PasswordResetTokenTable;
   account_email_change: AccountEmailChangeTable;
   pending_registration: PendingRegistrationTable;

@@ -32,6 +32,9 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
       ? undefined
       : await context.request.arrayBuffer();
   const headers: Headers = new Headers(context.request.headers);
+  headers.set('x-forwarded-for', context.clientAddress);
+  headers.delete('forwarded');
+  headers.delete('x-real-ip');
   headers.set('accept-encoding', 'identity');
   logAuthenticationProxyRequest(context.url.pathname, context.request.method);
   const response: Response = await fetch(apiUrl, {

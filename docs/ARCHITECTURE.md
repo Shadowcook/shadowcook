@@ -351,6 +351,9 @@ shadowcook/
 
 ### 4.5 Docker-first runtime configuration
 
+- `SHADOWCOOK_API_TRUSTED_PROXIES` and `SHADOWCOOK_WEB_TRUSTED_PROXIES` accept comma-separated proxy IP addresses, CIDRs, or the `loopback`, `linklocal`, and `uniquelocal` ranges. Unset values trust no forwarded IP headers. Compose defaults to `loopback,uniquelocal` for the private application network and host reverse proxy.
+- The web runtime starts through `apps/web/server.ts`, sanitizes forwarded client-IP headers using the socket peer and configured trusted proxy chain from right to left, and calls the built Astro handler. It supplies a single resolved IP to the API through `X-Forwarded-For`; alternative `Forwarded` and `X-Real-IP` headers are removed. The development Vite API proxy applies the same sanitization. The API resolves forwarded IPs only from configured trusted peers.
+- The bundled Apache reverse-proxy example removes incoming client-IP forwarding headers before Apache appends the observed visitor IP. The web listener remains bound to loopback by default. Deployments with untrusted private peers configure narrower proxy addresses or CIDRs.
 - A deployed Shadowcook instance runs as containers. The API process is configured through container environment variables and Docker Secrets.
 - A repository-root `.env` file is only a local-development convenience and is not required by a container deployment.
 - The operator-facing Docker Compose package is in `deployments/package`. Its `.env` selects the Git repository URL and stores the full build commit used as the Docker build context and displayed in the web footer.
@@ -1211,10 +1214,13 @@ Service accounts should normally receive least-privilege permissions.
 - Outside development, the bootstrap password is cryptographically generated and is emitted once in the API process log with the bootstrap email.
 - Outside development, bootstrap passwords and all maintenance-reset passwords set `password_change_required` to `true`.
 - `POST /auth/login` creates a browser session and reports `passwordChangeRequired`.
+- Password-login failures are stored as individual UTC-timestamped events in the normalized `password_login_failure` table, with an IP address and no account reference. Ten failures in a rolling 15-minute window block further password logins from that IP with `LOGIN_RATE_LIMITED` and a `Retry-After` header. Unknown, disabled, passwordless, and incorrect-password accounts count as failures. Successful logins and malformed bodies do not count or reset failures. Blocked retries do not extend the window.
+- Password-login attempts use a transaction-scoped PostgreSQL advisory lock per canonical IP. Account verification and session creation share a transaction and an account row lock. Expired failure events are removed by the three-hour API cleanup task. Counters are shared by API processes and retained across restarts.
 - `POST /auth/change-password` clears `password_change_required` after current-password verification.
+- Password changes lock and revalidate the account, update its password, and revoke every other browser session for that account in one transaction. The current session remains valid. Rejected changes preserve the password and all sessions.
 - A session whose user has `password_change_required` can access only the login, password-change, health, session, and logout endpoints.
 - The `maintenance reset-password <email>` command reads the new password from `NEW_PASSWORD`, revokes the user's existing sessions, and requires a password change at the next login.
-- `apps/web` is the Astro web application. In development, its Vite proxy forwards `/auth` requests to the local API process.
+- `apps/web` is the Astro web application. In development, its Vite proxy forwards `/api` requests to the local API process and removes the `/api` prefix.
 
 ### 15.3 API tokens
 

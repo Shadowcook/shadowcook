@@ -10,6 +10,7 @@ import {
   type ServerResponse,
 } from 'node:http';
 import type { AddressInfo } from 'node:net';
+import { createProxyAwareHandler } from '../../src/lib/server/client-address.ts';
 
 interface ForwardedRequest {
   method: string | undefined;
@@ -82,12 +83,13 @@ before(async (): Promise<void> => {
       : `${publicDomain.protocol}://${publicDomain.hostname}${publicDomain.port === undefined ? '' : `:${publicDomain.port}`}`,
   );
   browserOrigin = publicUrl.origin;
+  const handler: RequestListener = createProxyAwareHandler(runtime.handler, []);
   webServer = createServer((request: IncomingMessage, response: ServerResponse): void => {
     if (publicDomain !== undefined) {
       request.headers['x-forwarded-host'] = publicUrl.host;
       request.headers['x-forwarded-proto'] = publicDomain.protocol;
     }
-    runtime.handler(request, response);
+    handler(request, response);
   });
   webOrigin = await listen(webServer);
 });
@@ -192,6 +194,41 @@ test('the built Astro proxy still forwards same-origin forms', async (): Promise
   assert.equal(response.status, 200);
   assert.deepEqual(await response.json(), { forwarded: true });
   assert.equal(forwardedRequests.at(-1)?.path, '/auth/logout');
+});
+
+test('the built proxy replaces spoofed IP headers for a direct visitor', async (): Promise<void> => {
+  const response: Response = await fetch(`${webOrigin}/api/auth/authentication-methods`, {
+    headers: {
+      'x-forwarded-for': '203.0.113.1',
+      forwarded: 'for=203.0.113.2',
+      'x-real-ip': '203.0.113.3',
+    },
+  });
+  assert.equal(response.status, 200);
+  await response.json();
+  const forwarded: ForwardedRequest | undefined = forwardedRequests.at(-1);
+  assert.ok(forwarded);
+  assert.equal(forwarded.headers['x-forwarded-for'], '127.0.0.1');
+  assert.equal(forwarded.headers.forwarded, undefined);
+  assert.equal(forwarded.headers['x-real-ip'], undefined);
+});
+
+test('the built proxy preserves the visitor IP established by a trusted edge proxy', async (): Promise<void> => {
+  const runtime: { handler: RequestListener } = await import(
+    new URL('../../dist/server/entry.mjs', import.meta.url).href
+  );
+  const server: Server = createServer(createProxyAwareHandler(runtime.handler, ['loopback']));
+  try {
+    const origin: string = await listen(server);
+    const response: Response = await fetch(`${origin}/api/auth/authentication-methods`, {
+      headers: { 'x-forwarded-for': '203.0.113.1, 198.51.100.25' },
+    });
+    assert.equal(response.status, 200);
+    await response.json();
+    assert.equal(forwardedRequests.at(-1)?.headers['x-forwarded-for'], '198.51.100.25');
+  } finally {
+    await close(server);
+  }
 });
 
 async function listen(server: Server): Promise<string> {

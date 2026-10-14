@@ -10,6 +10,7 @@ export interface ApiConfig {
   publicWebOrigin: string;
   publicApiOrigin: string;
   registration: RegistrationConfig;
+  trustedProxies: string[];
 }
 
 export interface RegistrationConfig {
@@ -54,6 +55,10 @@ export function loadApiConfig(environment: NodeJS.ProcessEnv): ApiConfig {
     bootstrapAdminPassword: isDevelopment ? 'admin' : null,
     bootstrapPasswordChangeRequired: !isDevelopment,
     secureCookies: !isDevelopment,
+    trustedProxies: (environment.SHADOWCOOK_API_TRUSTED_PROXIES ?? '')
+      .split(',')
+      .map((address: string): string => address.trim())
+      .filter((address: string): boolean => address.length > 0),
     instanceSecretKey,
     publicWebOrigin,
     publicApiOrigin: (environment.PUBLIC_API_ORIGIN ?? `${publicWebOrigin}/api`).replace(/\/$/, ''),

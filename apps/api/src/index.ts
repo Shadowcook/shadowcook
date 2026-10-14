@@ -9,6 +9,7 @@ import { loadLocalEnvironment } from './environment.js';
 import { seedInitialDeployment } from './initial-deployment-seed.js';
 import { cleanupExpiredPendingRegistrations } from './registration/routes.js';
 import { deliverReportNotifications } from './reports/notifications.js';
+import { cleanupExpiredPasswordLoginFailures } from './auth/password-login.js';
 
 async function start(): Promise<void> {
   loadLocalEnvironment();
@@ -47,11 +48,15 @@ async function start(): Promise<void> {
     config.publicWebOrigin,
     config.publicApiOrigin,
     config.registration,
+    config.trustedProxies,
   );
   const cleanupTimer: NodeJS.Timeout = setInterval(
     (): void => {
       void cleanupExpiredPendingRegistrations(connection.pool).catch((error: unknown): void => {
         console.warn('Pending-registration cleanup failed', error);
+      });
+      void cleanupExpiredPasswordLoginFailures(connection.pool).catch((error: unknown): void => {
+        api.log.warn({ error }, 'Password-login failure cleanup failed');
       });
     },
     3 * 60 * 60 * 1000,

@@ -846,6 +846,8 @@ export const de: Translation = {
     authenticationFailed: 'Die Anmeldung ist fehlgeschlagen.',
     authenticationRequired: 'Eine Anmeldung ist erforderlich.',
     invalidCredentials: 'E-Mail-Adresse oder Passwort sind ungültig.',
+    loginRateLimited:
+      'Zu viele fehlgeschlagene Anmeldeversuche von deiner IP-Adresse. Bitte versuche es später erneut.',
     invalidLoginBody: 'E-Mail-Adresse und Passwort sind erforderlich.',
     invalidPassword: 'Das neue Passwort ist ungültig.',
     passwordChangeRequired: 'Vor der weiteren Nutzung muss das Passwort geändert werden.',

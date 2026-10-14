@@ -749,6 +749,7 @@ function errorMessage(error: unknown, locale: Locale): string {
     AUTHENTICATION_FAILED: errors.authenticationFailed,
     AUTHENTICATION_REQUIRED: errors.authenticationRequired,
     INVALID_CREDENTIALS: errors.invalidCredentials,
+    LOGIN_RATE_LIMITED: errors.loginRateLimited,
     INVALID_LOGIN_BODY: errors.invalidLoginBody,
     INVALID_PASSWORD: errors.invalidPassword,
     INVALID_EMAIL_CODE: errors.invalidEmailCode,

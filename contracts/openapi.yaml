@@ -697,6 +697,7 @@ paths:
     post:
       operationId: login
       summary: Authenticates a human user and starts a browser session.
+      description: Failed password logins are limited to ten per client IP in a rolling 15-minute window, independently of account or email address. Unknown, disabled, passwordless, and incorrect-password accounts count as failed logins. Successful logins and malformed bodies do not count or clear previous failures. Once the limit is reached, further password logins from that IP return LOGIN_RATE_LIMITED without extending the window. Forwarded client IPs are accepted only through configured trusted proxies.
       requestBody:
         required: true
         content:
@@ -742,6 +743,26 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ApiError'
+        '403':
+          description: PASSWORD_LOGIN_DISABLED; password login is disabled by the instance.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '429':
+          description: LOGIN_RATE_LIMITED; this client IP has ten failed password logins in the last 15 minutes.
+          headers:
+            Retry-After:
+              description: Seconds until the oldest counted failure leaves the rolling window.
+              schema: { type: integer, minimum: 1, maximum: 900 }
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/ApiError'
+                  - type: object
+                    properties:
+                      code: { const: LOGIN_RATE_LIMITED }
   /auth/password-requirements:
     get:
       operationId: getPasswordRequirements
@@ -761,7 +782,7 @@ paths:
     post:
       operationId: changePassword
       summary: Changes the authenticated user's password.
-      description: Requires the current password when the account already has a password. Accounts without a password can omit currentPassword. Successful changes clear passwordChangeRequired and preserve the current session. The configured minimum entropy is enforced outside development.
+      description: Requires the current password when the account already has a password. Accounts without a password can omit currentPassword. Successful changes atomically update the password, clear passwordChangeRequired, and revoke all other browser sessions for this account. The current session and other accounts remain unchanged. Concurrent changes recheck authentication under an account row lock. Rejected changes leave passwords and sessions unchanged. The configured minimum entropy is enforced outside development.
       security:
         - sessionCookie: []
       requestBody:

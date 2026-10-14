@@ -780,6 +780,7 @@ export interface Translation {
     authenticationFailed: string;
     authenticationRequired: string;
     invalidCredentials: string;
+    loginRateLimited: string;
     invalidLoginBody: string;
     invalidPassword: string;
     passwordChangeRequired: string;

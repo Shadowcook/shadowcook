@@ -108,6 +108,10 @@
 
 ### Authentication, authorization, and administration
 
+- Password-login failures use persistent IP-only limits of ten failures in a rolling 15-minute window, concurrency-safe PostgreSQL transactions, a localized limit message, and documented `LOGIN_RATE_LIMITED`/`Retry-After` responses. Account names do not define limit buckets; successful logins do not count (architecture section 15.2.3).
+- Web and API runtimes support explicit trusted proxy ranges. The web HTTP entrypoint and development proxy sanitize visitor IPs from the socket and trusted chain, and the Apache example replaces incoming forwarding headers. Both Compose variants configure proxy trust (architecture section 4.5, Docker-first runtime configuration).
+- Password changes atomically preserve the current session and revoke other sessions belonging to the same account, with locked credential revalidation and targeted API/proxy regression coverage (architecture section 15.2.3).
+
 - Instance-user, cookbook-user, and cookbook-owner invitations collect first name, last name, and display name from the invited person when creating an account. Inviter forms require only the recipient email address as personal information. Existing-account acceptance preserves the profile; cookbook-owner profile validation preserves the email code on invalid names (architecture sections 4.6 and 15.2.2).
 
 - Public registration requires first name, last name, and display name, stores them until email verification, and transfers them to the account. Account settings provide localized editing of all three names through authenticated profile endpoints, including immediate display-name updates in the header (architecture section 4.5).

@@ -64,6 +64,7 @@ export async function frontpageShuffleSeed(
 export async function currentSessionUser(
   pool: Pool | PoolClient,
   request: FastifyRequest,
+  lockUser: boolean = false,
 ): Promise<AuthenticatedSessionUser | null> {
   const token: string | null = sessionTokenFromRequest(request);
   if (token === null) return null;
@@ -77,6 +78,7 @@ export async function currentSessionUser(
     INNER JOIN user_account ON user_account.id = user_session.user_account_id
     WHERE user_session.token_hash = $1 AND user_session.revoked_at IS NULL AND user_session.expires_at > now()
       AND user_account.disabled_at IS NULL AND user_account.deleted_at IS NULL
+    ${lockUser ? 'FOR UPDATE OF user_account' : ''}
   `,
     [hashSessionToken(token)],
   );
