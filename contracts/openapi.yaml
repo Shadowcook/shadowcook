@@ -1960,7 +1960,7 @@ paths:
     get:
       operationId: exchangeAiContextLink
       summary: Exchanges a one-time AI context URL for a scoped read-only bearer token, tenant identity, web route templates, and endpoint manifest.
-      description: Each endpoint includes an absolute public URL template preserving the PUBLIC_API_ORIGIN path prefix. Replace template placeholders with public IDs and send Authorization Bearer credentials on every request. The path field is an internal API path, not a URL to resolve against baseUrl. Bootstrap tokens are single-use and cannot authenticate reader requests. AI reader tokens cannot authenticate ordinary API or MCP endpoints.
+      description: Each endpoint includes an absolute public URL template preserving the PUBLIC_API_ORIGIN path prefix. Replace template placeholders with public IDs and authenticate every reader request using Authorization Bearer credentials or, when headers cannot be set, the URL-encoded accessToken in the access_token query parameter. Use exactly one authentication method per request. Query credentials apply only to reader endpoints and must not be appended to public web links. The path field is an internal API path, not a URL to resolve against baseUrl. Bootstrap tokens are single-use and cannot authenticate reader requests. AI reader tokens cannot authenticate ordinary API or MCP endpoints.
       parameters:
         - { name: bootstrapToken, in: path, required: true, schema: { type: string } }
       responses:
@@ -1977,12 +1977,13 @@ paths:
     get:
       operationId: getAiContextOverview
       summary: Returns categories and recipes inside an AI context scope, preferring current draft metadata.
-      security: [{ aiContextBearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }, { aiContextQueryAuth: [] }]
       responses:
         '200':
           description: Scoped reader overview.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiContextOverview' }
@@ -1991,7 +1992,7 @@ paths:
     get:
       operationId: getAiContextRecipe
       summary: Returns a published recipe inside an AI context scope.
-      security: [{ aiContextBearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }, { aiContextQueryAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -1999,6 +2000,7 @@ paths:
           description: Scoped published recipe with visible variants and the default variant's steps.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiContextRecipe' }
@@ -2008,7 +2010,7 @@ paths:
     get:
       operationId: listAiContextRecipeRevisions
       summary: Lists published and archived revisions for a recipe inside an AI context scope.
-      security: [{ aiContextBearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }, { aiContextQueryAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -2016,6 +2018,7 @@ paths:
           description: Scoped immutable recipe revisions, newest version first.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
           content:
             application/json:
               schema:
@@ -2032,7 +2035,7 @@ paths:
     get:
       operationId: getAiContextRecipeRevision
       summary: Returns an immutable published or archived recipe revision inside an AI context scope.
-      security: [{ aiContextBearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }, { aiContextQueryAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
         - {
@@ -2046,6 +2049,7 @@ paths:
           description: Scoped immutable recipe revision.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiContextRevision' }
@@ -2055,7 +2059,7 @@ paths:
     get:
       operationId: getAiContextRecipeDraft
       summary: Returns the current draft for a recipe inside an AI context scope.
-      security: [{ aiContextBearerAuth: [] }]
+      security: [{ aiContextBearerAuth: [] }, { aiContextQueryAuth: [] }]
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
@@ -2063,6 +2067,7 @@ paths:
           description: Scoped current recipe draft.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
+            Referrer-Policy: { schema: { type: string, const: no-referrer } }
           content:
             application/json:
               schema: { $ref: '#/components/schemas/AiContextRevision' }
@@ -3790,10 +3795,16 @@ components:
       description: AI_CONTEXT_UNAVAILABLE. The bootstrap link is unknown, expired, consumed, revoked, or its cookbook is disabled.
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     AiContextReaderUnavailable:
-      description: AI_CONTEXT_UNAVAILABLE. The AI reader bearer token is missing, malformed, unknown, expired, or revoked.
+      description: AI_CONTEXT_UNAVAILABLE. The AI reader token is missing, malformed, unknown, expired, or revoked, the access_token parameter is repeated, or both Authorization and access_token are supplied.
+      headers:
+        Cache-Control: { schema: { type: string, const: no-store } }
+        Referrer-Policy: { schema: { type: string, const: no-referrer } }
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     AiContextRecipeUnavailable:
       description: RECIPE_NOT_FOUND. The recipe or requested revision is outside the grant scope or unavailable; the draft endpoint also returns this response when no current draft exists.
+      headers:
+        Cache-Control: { schema: { type: string, const: no-store } }
+        Referrer-Policy: { schema: { type: string, const: no-referrer } }
       content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     ReportInvalid:
       description: Invalid report, ticket update, assignee, filter, or report settings. Codes are INVALID_REPORT, INVALID_REPORT_UPDATE, INVALID_REPORT_ASSIGNEE, INVALID_REPORT_FILTER, or INVALID_REPORT_SETTINGS.
@@ -3936,10 +3947,12 @@ components:
         authentication:
           type: object
           additionalProperties: false
-          required: [type, header]
+          required: [type, header, queryParameter, queryTemplate]
           properties:
             type: { type: string, const: bearer }
             header: { type: string, const: 'Authorization: Bearer {accessToken}' }
+            queryParameter: { type: string, const: access_token }
+            queryTemplate: { type: string, const: 'access_token={accessToken}' }
         restrictions:
           type: array
           items: { type: string, enum: [read-only, no administration, scope-limited] }
@@ -5749,3 +5762,8 @@ components:
       scheme: bearer
       bearerFormat: opaque AI context reader access token
       description: Issued by the single-use AI context bootstrap endpoint. Accepted only on AI context reader routes while the grant is active.
+    aiContextQueryAuth:
+      type: apiKey
+      in: query
+      name: access_token
+      description: Fallback for clients that cannot set Authorization headers. Uses the same AI context reader accessToken, lifetime, and scope as aiContextBearerAuth. Accepted only on AI context reader routes. Send exactly one access_token parameter and no Authorization header. URLs contain credentials and must be excluded or redacted in external proxy and access logs.

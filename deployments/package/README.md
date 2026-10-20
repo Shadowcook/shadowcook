@@ -24,6 +24,12 @@ listener. Enable Apache's `headers`, `proxy`, `proxy_http`, `rewrite`, and
 `PUBLIC_WEB_ORIGIN` to the same HTTPS origin in `.env`. The HTTPS virtual host
 must forward `X-Forwarded-Proto`, `X-Forwarded-Port`, and `X-Forwarded-Host`.
 
+AI context URLs contain credentials: bootstrap tokens in `/api/ai-context/{token}`
+and optional reader tokens in the `access_token` query parameter. Exclude these
+URLs from reverse-proxy, CDN, and access logs or redact their credentials before
+logging. The API redacts these credentials in its own request logs and unknown-route
+responses. This does not configure logging in external infrastructure.
+
 The example removes incoming `X-Forwarded-For`, `Forwarded`, and `X-Real-IP`
 headers before Apache adds the observed visitor IP. Apply these directives to
 existing virtual hosts when upgrading. The web runtime sanitizes the IP chain

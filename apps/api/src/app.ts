@@ -27,6 +27,7 @@ import { registerOAuthRoutes } from './auth/oauth.js';
 import { registerMcpRoutes } from './mcp/routes.js';
 import { registerReportRoutes } from './reports/routes.js';
 import { registerAdminReportRoutes } from './reports/admin-routes.js';
+import { replyWithNotFound, serializeRequestForLog } from './security/request-logging.js';
 
 export function createApi(
   pool: Pool,
@@ -41,9 +42,11 @@ export function createApi(
     trustProxy: trustedProxies,
     logger: {
       timestamp: () => `,"time":"${new Date().toISOString()}"`,
+      serializers: { req: serializeRequestForLog },
     },
   });
 
+  api.setNotFoundHandler(replyWithNotFound);
   api.get('/health', async () => ({ status: 'ok' }));
   registerOAuthRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);

@@ -27,7 +27,13 @@ interface Manifest {
   expiresAt: string;
   scope: { type: ScopeType; publicId: string };
   endpoints: Record<EndpointName, { method: 'GET'; path: string; url: string }>;
-  authentication: { type: string; header: string };
+  authentication: {
+    type: string;
+    header: string;
+    queryParameter: string;
+    queryTemplate: string;
+  };
+  requestInstructions: string;
   restrictions: string[];
 }
 
@@ -148,21 +154,32 @@ test('the public share URL and manifest credentials work together through the we
         .replace('{revisionPublicId}', revision.rows[0]!.public_id),
       `${manifest.baseUrl}/`,
     ).href;
-    const response: Response = await request(
-      new Request(url, {
-        method: manifest.endpoints[name].method,
-        headers: {
-          authorization: manifest.authentication.header
+    for (const transport of ['header', 'query'] as const) {
+      const target: URL = new URL(url);
+      const headers: Headers = new Headers();
+      if (transport === 'header') {
+        headers.set(
+          'authorization',
+          manifest.authentication.header
             .replace('Authorization: ', '')
             .replace('{accessToken}', manifest.accessToken),
-        },
-      }),
-    );
-    assert.equal(response.status, 200, await response.clone().text());
-    assert.ok(url.startsWith(`${publicApiOrigin}/`), url);
-    assert.match(response.headers.get('content-type') ?? '', /^application\/json/);
-    assert.equal(response.headers.get('cache-control'), 'no-store');
+        );
+      } else {
+        target.searchParams.set('existing', 'preserved');
+        target.searchParams.set(manifest.authentication.queryParameter, manifest.accessToken);
+      }
+      const response: Response = await request(
+        new Request(target, { method: manifest.endpoints[name].method, headers }),
+      );
+      assert.equal(response.status, 200, await response.clone().text());
+      assert.ok(url.startsWith(`${publicApiOrigin}/`), url);
+      assert.match(response.headers.get('content-type') ?? '', /^application\/json/);
+      assert.equal(response.headers.get('cache-control'), 'no-store');
+      assert.equal(response.headers.get('referrer-policy'), 'no-referrer');
+    }
   }
+  assert.equal(manifest.authentication.queryTemplate, 'access_token={accessToken}');
+  assert.match(manifest.requestInstructions, /cannot set Authorization headers/);
   assert.equal((await request(new Request(shared.url))).status, 404);
 });
 
@@ -242,9 +259,21 @@ test('recipe, category subtree and tenant grants enforce scope on every reader e
       denied: [foreignRecipeId],
     },
   ];
-  for (const scope of scopes) {
+  for (const entry of scopes.flatMap(
+    (scope: ScopeCase): { scope: ScopeCase; transport: 'header' | 'query' }[] => [
+      { scope, transport: 'header' },
+      { scope, transport: 'query' },
+    ],
+  )) {
+    const scope: ScopeCase = entry.scope;
     const manifest: Manifest = await exchange(await createGrant(scope.type, scope.id));
-    const overview: LightMyRequestResponse = await reader(manifest, 'overview');
+    const overview: LightMyRequestResponse = await reader(
+      manifest,
+      'overview',
+      recipeId,
+      '',
+      entry.transport,
+    );
     assert.equal(overview.statusCode, 200, overview.body);
     assert.deepEqual(
       overview
@@ -263,7 +292,10 @@ test('recipe, category subtree and tenant grants enforce scope on every reader e
       );
     }
     for (const publicId of scope.allowed) {
-      assert.equal((await reader(manifest, 'recipe', publicId)).statusCode, 200);
+      assert.equal(
+        (await reader(manifest, 'recipe', publicId, '', entry.transport)).statusCode,
+        200,
+      );
     }
     for (const publicId of scope.denied) {
       for (const endpoint of ['recipe', 'revisions', 'revision', 'draft'] as const) {
@@ -272,9 +304,12 @@ test('recipe, category subtree and tenant grants enforce scope on every reader e
           endpoint,
           publicId,
           randomUUID(),
+          entry.transport,
         );
         assert.equal(response.statusCode, 404, response.body);
         assert.equal(response.json<{ code: string }>().code, 'RECIPE_NOT_FOUND');
+        assert.equal(response.headers['cache-control'], 'no-store');
+        assert.equal(response.headers['referrer-policy'], 'no-referrer');
       }
     }
   }
@@ -421,6 +456,38 @@ test('reader credentials reject missing, malformed, bootstrap, expired and revok
       [tokenHash(inactive.accessToken)],
     );
     await assertError(await reader(inactive, 'overview'), 401);
+    await assertError(await reader(inactive, 'overview', recipeId, '', 'query'), 401);
+  }
+});
+
+test('query credentials reject malformed, repeated, mixed, unknown and bootstrap tokens', async (): Promise<void> => {
+  const url: string = await createGrant('RECIPE', recipeId);
+  const manifest: Manifest = await exchange(url);
+  const bootstrapToken: string = new URL(url).pathname.split('/').at(-1)!;
+  const credentials: { query: string; authorization?: string }[] = [
+    { query: 'access_token=' },
+    { query: 'access_token=bad%20token' },
+    { query: 'access_token=unknown' },
+    { query: `access_token=${bootstrapToken}` },
+    { query: `access_token=${manifest.accessToken}&access_token=${manifest.accessToken}` },
+    { query: `access_token=${manifest.accessToken}`, authorization: 'Basic invalid' },
+    {
+      query: `access_token=${manifest.accessToken}`,
+      authorization: `Bearer ${manifest.accessToken}`,
+    },
+  ];
+  for (const credential of credentials) {
+    for (const endpoint of Object.values(manifest.endpoints)) {
+      const response: LightMyRequestResponse = await api.inject({
+        method: 'GET',
+        url: `${endpoint.path.replace('{publicId}', recipeId).replace('{revisionPublicId}', randomUUID())}?${credential.query}`,
+        headers:
+          credential.authorization === undefined ? {} : { authorization: credential.authorization },
+      });
+      await assertError(response, 401);
+      assert.equal(response.headers['cache-control'], 'no-store');
+      assert.equal(response.headers['referrer-policy'], 'no-referrer');
+    }
   }
 });
 
@@ -442,8 +509,29 @@ test('AI reader credentials cannot authenticate ordinary API reads or writes', a
       payload: method === 'POST' || method === 'PATCH' ? {} : undefined,
     });
     assert.equal(response.statusCode, 401, response.body);
+    const queryResponse: LightMyRequestResponse = await api.inject({
+      method,
+      url: `${url}?access_token=${manifest.accessToken}`,
+      payload: method === 'POST' || method === 'PATCH' ? {} : undefined,
+    });
+    assert.equal(queryResponse.statusCode, 401, queryResponse.body);
   }
   assert.equal((await api.inject({ method: 'GET', url: '/admin/users', headers })).statusCode, 401);
+  assert.equal(
+    (await api.inject({ method: 'GET', url: `/admin/users?access_token=${manifest.accessToken}` }))
+      .statusCode,
+    401,
+  );
+  assert.equal(
+    (
+      await api.inject({
+        method: 'POST',
+        url: `/mcp?access_token=${manifest.accessToken}`,
+        payload: {},
+      })
+    ).statusCode,
+    401,
+  );
   assert.equal(
     (await api.inject({ method: 'POST', url: '/ai-context/reader', headers })).statusCode,
     404,
@@ -478,13 +566,18 @@ async function reader(
   name: EndpointName,
   publicId: string = recipeId,
   revisionId: string = '',
+  transport: 'header' | 'query' = 'header',
 ): Promise<LightMyRequestResponse> {
+  const path: string = manifest.endpoints[name].path
+    .replace('{publicId}', publicId)
+    .replace('{revisionPublicId}', revisionId);
   return api.inject({
     method: manifest.endpoints[name].method,
-    url: manifest.endpoints[name].path
-      .replace('{publicId}', publicId)
-      .replace('{revisionPublicId}', revisionId),
-    headers: { authorization: `Bearer ${manifest.accessToken}` },
+    url:
+      transport === 'query'
+        ? `${path}?access_token=${encodeURIComponent(manifest.accessToken)}`
+        : path,
+    headers: transport === 'header' ? { authorization: `Bearer ${manifest.accessToken}` } : {},
   });
 }
 

@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { requireTenantPermission } from '../admin/authorization.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
+import { aiContextTokenFromRequest } from '../auth/ai-context-token.js';
 import { recipeFactsSql, recipeMetadataSql, type RecipeFactsRow } from './recipe-facts.js';
 
 type ScopeType = 'TENANT' | 'RECIPE' | 'CATEGORY';
@@ -33,6 +34,14 @@ export function registerAiContextRoutes(
   publicWebOrigin: string,
   publicApiOrigin: string,
 ): void {
+  api.addHook('onRequest', async (request, reply): Promise<void> => {
+    const pathname: string = request.url.split('?')[0]!;
+    if (pathname === '/ai-context/reader' || pathname.startsWith('/ai-context/reader/')) {
+      reply.header('cache-control', 'no-store');
+      reply.header('referrer-policy', 'no-referrer');
+    }
+  });
+
   api.post('/cookbook/tenants/:tenantSlug/ai-contexts', async (request, reply) => {
     const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
     const tenantId: string | null = await requireTenantPermission(
@@ -152,8 +161,13 @@ export function registerAiContextRoutes(
           draft: readerEndpoint(publicApiOrigin, '/ai-context/reader/recipes/{publicId}/draft'),
         },
         requestInstructions:
-          'Use the absolute endpoints.*.url templates, replace placeholders with public IDs, and send the accessToken in the Authorization header on every reader request. The endpoints.*.path values are internal API paths; resolving them against baseUrl can discard its public path prefix. The bootstrap URL is single-use and cannot authenticate reader requests.',
-        authentication: { type: 'bearer', header: 'Authorization: Bearer {accessToken}' },
+          'Use the absolute endpoints.*.url templates and replace placeholders with public IDs. Authenticate every reader request with Authorization: Bearer {accessToken}. If you cannot set Authorization headers, append ?access_token={accessToken} to the reader URL, or &access_token={accessToken} when it already has a query string; replace {accessToken} with the URL-encoded accessToken. Use exactly one authentication method per request. The query parameter works only on AI context reader endpoints. Never append the token to public web links or send it to other services. The endpoints.*.path values are internal API paths; resolving them against baseUrl can discard its public path prefix. The bootstrap URL is single-use and cannot authenticate reader requests.',
+        authentication: {
+          type: 'bearer',
+          header: 'Authorization: Bearer {accessToken}',
+          queryParameter: 'access_token',
+          queryTemplate: 'access_token={accessToken}',
+        },
         restrictions: ['read-only', 'no administration', 'scope-limited'],
       });
   });
@@ -278,7 +292,7 @@ async function scopePublicIdForInput(
 }
 
 async function activeGrant(pool: Pool, request: FastifyRequest): Promise<GrantRow | null> {
-  const token: string | null = bearerToken(request);
+  const token: string | null = aiContextTokenFromRequest(request);
   if (token === null) return null;
   const result = await pool.query<GrantRow>(
     `UPDATE ai_context_grant SET last_used_at = now()
@@ -484,10 +498,6 @@ function recipeNotFound(reply: FastifyReply): FastifyReply {
   return reply.code(404).send({ code: 'RECIPE_NOT_FOUND', error: 'The recipe was not found.' });
 }
 
-function bearerToken(request: FastifyRequest): string | null {
-  const match = request.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]+)$/);
-  return match?.[1] ?? null;
-}
 function opaqueToken(): string {
   return randomBytes(32).toString('base64url');
 }
