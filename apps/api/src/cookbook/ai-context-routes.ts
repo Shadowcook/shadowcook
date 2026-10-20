@@ -3,6 +3,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { requireTenantPermission } from '../admin/authorization.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
+import { recipeFactsSql, recipeMetadataSql, type RecipeFactsRow } from './recipe-facts.js';
 
 type ScopeType = 'TENANT' | 'RECIPE' | 'CATEGORY';
 
@@ -342,18 +343,20 @@ async function recipeForGrant(
   grant: GrantRow,
   publicId: string,
 ): Promise<unknown | null> {
-  const allowed = await pool.query<{
-    public_id: string;
-    title: string;
-    summary: string | null;
-    slug: string;
-    revision_id: string;
-  }>(
+  const allowed = await pool.query<
+    RecipeFactsRow & {
+      public_id: string;
+      title: string;
+      summary: string | null;
+      slug: string;
+      revision_id: string;
+    }
+  >(
     `WITH RECURSIVE subtree AS (
        SELECT id FROM category WHERE tenant_id = $1 AND ($3 = 'TENANT' OR public_id = $2)
        UNION SELECT category.id FROM category INNER JOIN subtree ON category.parent_id = subtree.id
      )
-     SELECT recipe.public_id, recipe.slug, revision.id AS revision_id, revision.title, revision.summary
+     SELECT recipe.public_id, recipe.slug, revision.id AS revision_id, revision.title, revision.summary, ${recipeFactsSql('revision')}
      FROM recipe INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
      WHERE recipe.tenant_id = $1 AND recipe.public_id = $4 AND (
@@ -391,6 +394,10 @@ async function recipeForGrant(
     slug: recipe.slug,
     title: recipe.title,
     summary: recipe.summary,
+    metadata: recipe.metadata,
+    diet: recipe.diet,
+    createdAt: recipe.createdAt,
+    updatedAt: recipe.updatedAt,
     variants: variants.rows,
     steps: steps.rows.map((step: { public_id: string }) => ({
       ...step,
@@ -434,7 +441,7 @@ async function scopedRecipe(
 
 async function revisionContents(pool: Pool, revisionId: string): Promise<unknown> {
   const revision = await pool.query(
-    `SELECT public_id, version, status, published_at, title, summary
+    `SELECT public_id, version, status, published_at, title, summary, ${recipeMetadataSql('recipe_revision')}
      FROM recipe_revision WHERE id = $1`,
     [revisionId],
   );

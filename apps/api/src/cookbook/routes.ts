@@ -10,6 +10,12 @@ import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
 import { recipeCreatorDisplayNameSql } from './recipe-creator.js';
 import { recipeContributorsSql, type RecipeContributor } from './recipe-contributors.js';
+import {
+  recipeFactsSql,
+  isRecipeDiet,
+  recipeDietFilterValues,
+  type RecipeFactsRow,
+} from './recipe-facts.js';
 
 interface CategoryRow {
   public_id: string;
@@ -24,10 +30,11 @@ interface RecipeRow {
   slug: string;
   title: string;
   summary: string | null;
+  diet: RecipeFactsRow['diet'];
   category_public_ids: string[];
 }
 
-interface RecipeDetailRow {
+interface RecipeDetailRow extends RecipeFactsRow {
   tenant_id: string;
   cookbook_name: string;
   public_id: string;
@@ -195,9 +202,18 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       frontpagePage?: unknown;
       refreshFrontpageShuffle?: unknown;
       recipeFilter?: unknown;
+      diet?: unknown;
     };
     const tenantSlug: unknown = query.tenantSlug;
     const recipeFilter: string = parseRecipeFilter(query.recipeFilter);
+    if (query.diet !== undefined && !isRecipeDiet(query.diet)) {
+      return reply
+        .code(400)
+        .send({ code: 'INVALID_RECIPE_FILTER', error: 'The diet filter is invalid.' });
+    }
+    const diets: string[] | null = isRecipeDiet(query.diet)
+      ? recipeDietFilterValues(query.diet)
+      : null;
     if (typeof tenantSlug !== 'string' || tenantSlug.length === 0)
       return reply.send({
         tenant: null,
@@ -259,7 +275,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const recipes = await pool.query<RecipeRow>(
       `
-      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.diet,
         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
       FROM recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id
@@ -269,6 +285,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       LEFT JOIN category ON category.id = recipe_revision_category.category_id
       WHERE tenant.slug = $2
         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
+        AND ($4::text[] IS NULL OR recipe_revision.diet = ANY($4::text[]))
         AND (COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
           OR EXISTS (
             SELECT 1 FROM tenant_membership_role
@@ -291,7 +308,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3),
         recipe_revision.title ASC
     `,
-      [principalId, tenantSlug, recipeFilter],
+      [principalId, tenantSlug, recipeFilter, diets],
     );
 
     const frontpagePage: number = parseFrontpagePage(query.frontpagePage);
@@ -309,6 +326,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          AND tenant_membership.principal_id = $1
        WHERE tenant.slug = $2
          AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
+         AND ($4::text[] IS NULL OR recipe_revision.diet = ANY($4::text[]))
          AND recipe.is_featured
          AND recipe.published_revision_id IS NOT NULL
          AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
@@ -322,7 +340,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
                AND tenant_membership_role.principal_id = $1
                AND tenant_role_permission.permission_code = 'recipe:visibility-update'
            )))`,
-      [principalId, tenantSlug, recipeFilter],
+      [principalId, tenantSlug, recipeFilter, diets],
     );
     const totalFrontpageRecipes: number = frontpageCount.rows[0]?.total_recipes ?? 0;
     const totalFrontpagePages: number = Math.ceil(
@@ -330,7 +348,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const page: number = Math.min(frontpagePage, Math.max(totalFrontpagePages, 1));
     const frontpageRecipes = await pool.query<RecipeRow>(
-      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.diet,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
        FROM recipe
        INNER JOIN tenant ON tenant.id = recipe.tenant_id
@@ -341,6 +359,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
        LEFT JOIN category ON category.id = recipe_revision_category.category_id
        WHERE tenant.slug = $2
          AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4) < 5
+         AND ($7::text[] IS NULL OR recipe_revision.diet = ANY($7::text[]))
          AND recipe.is_featured
          AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
          AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
@@ -366,6 +385,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         recipeFilter,
         tenant.frontpage_recipe_count,
         (page - 1) * tenant.frontpage_recipe_count,
+        diets,
       ],
     );
 
@@ -478,7 +498,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       const recipeResult = await pool.query<RecipeDetailRow>(
         `
       SELECT recipe.tenant_id, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
-        tenant.display_name AS cookbook_name, recipe_revision.version,
+        tenant.display_name AS cookbook_name, recipe_revision.version, ${recipeFactsSql('recipe_revision')},
         ${recipeCreatorDisplayNameSql()} AS creator_display_name,
         ${recipeContributorsSql()} AS contributors,
         recipe_revision.id AS revision_id,
@@ -593,6 +613,10 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         slug: recipe.slug,
         title: recipe.title,
         summary: recipe.summary,
+        metadata: recipe.metadata,
+        diet: recipe.diet,
+        createdAt: recipe.createdAt,
+        updatedAt: recipe.updatedAt,
         cookbook_name: recipe.cookbook_name,
         version: recipe.version,
         creator_display_name: recipe.creator_display_name,

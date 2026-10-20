@@ -3,6 +3,27 @@ import type { ReportTranslation } from '../features/reports/types';
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  recipeMetadata: {
+    title: string;
+    difficulty: string;
+    difficulties: { EASY: string; MEDIUM: string; DEMANDING: string };
+    totalDuration: string;
+    activeDuration: string;
+    hours: string;
+    minutes: string;
+    kcal: string;
+    servings: string;
+    kcalPerServing: string;
+    utensils: string;
+    diet: string;
+    diets: { VEGAN: string; VEGETARIAN: string; OMNI: string };
+    unspecified: string;
+    anyDiet: string;
+    createdAt: string;
+    updatedAt: string;
+    durationExceeded: string;
+    changed: string;
+  };
   reports: ReportTranslation;
   locale: Locale;
   brandName: string;
@@ -444,6 +465,7 @@ export interface Translation {
     draftsDescription: string;
     noDrafts: string;
     back: string;
+    backToRecipe: string;
     recipeTitle: string;
     summary: string;
     slug: string;

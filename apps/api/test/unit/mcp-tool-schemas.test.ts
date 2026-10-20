@@ -28,7 +28,9 @@ test('every MCP input schema uses portable types and retains closed objects and 
     ]);
     assert.deepEqual(
       definition.inputSchema.required,
-      Object.keys(definition.inputSchema.properties!),
+      definition.name === 'search_recipes'
+        ? ['tenantSlug']
+        : Object.keys(definition.inputSchema.properties!),
     );
     inspectSchema(definition.inputSchema);
   }
@@ -41,6 +43,9 @@ test('every MCP input schema uses portable types and retains closed objects and 
     });
   }
   const unit: JsonSchema = toolSchema('create_unit').properties!.unit!;
+  const search: JsonSchema = toolSchema('search_recipes');
+  assert.deepEqual(search.properties!.diet!.enum, ['VEGAN', 'VEGETARIAN', 'OMNI']);
+  assert.equal(search.properties!.query!.type, 'string');
   assert.deepEqual(unit.required, ['name', 'symbol']);
   assert.deepEqual(unit.properties!.equivalenceAmount, {
     anyOf: [{ type: 'string' }, { type: 'null' }],
@@ -118,6 +123,41 @@ const unitCases: SchemaCase[] = [
   },
 ];
 const recipeCases: SchemaCase[] = [
+  {
+    name: 'optional metadata with only calories',
+    payload: { title: 'Soup', slug: 'soup', metadata: { kcal: 200 } },
+    valid: true,
+  },
+  {
+    name: 'optional metadata with only servings',
+    payload: { title: 'Soup', slug: 'soup', metadata: { servings: 2 } },
+    valid: true,
+  },
+  {
+    name: 'explicit vegan diet',
+    payload: { title: 'Soup', slug: 'soup', diet: 'VEGAN' },
+    valid: true,
+  },
+  {
+    name: 'clear dietary classification',
+    payload: { title: 'Soup', slug: 'soup', diet: null },
+    valid: true,
+  },
+  {
+    name: 'invalid dietary classification',
+    payload: { title: 'Soup', slug: 'soup', diet: 'INVALID' },
+    valid: false,
+  },
+  {
+    name: 'zero servings',
+    payload: { title: 'Soup', slug: 'soup', metadata: { servings: 0 } },
+    valid: false,
+  },
+  {
+    name: 'derived calories cannot be written',
+    payload: { title: 'Soup', slug: 'soup', metadata: { kcalPerServing: 50 } },
+    valid: false,
+  },
   { name: 'omitted optional summary', payload: { title: 'Soup', slug: 'soup' }, valid: true },
   {
     name: 'explicit null summary',

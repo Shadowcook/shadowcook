@@ -4,6 +4,7 @@ import test from 'node:test';
 import type { TestContext } from 'node:test';
 import pdfMake from 'pdfmake/build/pdfmake.js';
 import pdfFonts from 'pdfmake/build/vfs_fonts.js';
+import { faEgg, faLeaf } from '@fortawesome/free-solid-svg-icons';
 import type {
   CanvasElement,
   Content,
@@ -11,6 +12,7 @@ import type {
   ContextPageSize,
   DynamicContent,
   Node as PdfNode,
+  NodeQueries,
   TDocumentDefinitions,
 } from 'pdfmake/interfaces';
 import { en } from '../../src/i18n/en.ts';
@@ -22,6 +24,8 @@ import {
 import { downloadRecipePdf } from '../../src/features/cookbook/model/download-recipe-pdf.ts';
 import { loadRecipePdfLogo } from '../../src/features/cookbook/model/recipe-pdf-logo.ts';
 import { createRecipePdfHeader } from '../../src/features/cookbook/model/recipe-pdf-header.ts';
+import { createRecipePdfCover } from '../../src/features/cookbook/model/recipe-pdf-cover.ts';
+import type { RecipeDiet } from '../../src/features/cookbook/model/recipe-metadata.ts';
 import { recipePdfSourceUrl } from '../../src/features/cookbook/model/recipe-pdf-links.ts';
 import type { RecipePdfLinkContext } from '../../src/features/cookbook/model/recipe-pdf-links.ts';
 import type { IngredientUsage, RecipeDetail } from '../../src/features/cookbook/model/types.ts';
@@ -32,6 +36,47 @@ const logoBytes: Buffer = readFileSync(
   new URL('../../src/assets/shadowcook-logo.png', import.meta.url),
 );
 const logoDataUrl: string = `data:image/png;base64,${logoBytes.toString('base64')}`;
+
+test('PDF covers render the localized vegan or vegetarian label and matching green icon below the title', async (): Promise<void> => {
+  for (const text of [en, de]) {
+    for (const diet of ['VEGAN', 'VEGETARIAN'] as const) {
+      const recipe: RecipeDetail = { ...pdfRecipeFixture(), diet };
+      const cover: Content[] = createRecipePdfCover(recipe, text);
+      const badge: Content | undefined = cover[2];
+      assert.ok(typeof badge === 'object' && 'columns' in badge);
+      const symbol: Column | undefined = badge.columns[0];
+      const label: Column | undefined = badge.columns[1];
+      assert.ok(typeof symbol === 'object' && 'svg' in symbol);
+      assert.ok(typeof label === 'object' && 'text' in label);
+      assert.equal(label.text, text.recipeMetadata.diets[diet]);
+      assert.equal(label.color, '#28723b');
+      assert.ok(symbol.svg.includes('fill="#28723b"'));
+      const path: string | string[] = (diet === 'VEGAN' ? faLeaf : faEgg).icon[4];
+      assert.ok(symbol.svg.includes(typeof path === 'string' ? path : path[0]!));
+
+      const definition: TDocumentDefinitions = createRecipePdfDefinition(recipe, text);
+      const labelPages: number[] = [];
+      const paginate: NonNullable<TDocumentDefinitions['pageBreakBefore']> =
+        definition.pageBreakBefore!;
+      definition.pageBreakBefore = (node: PdfNode, queries: NodeQueries): boolean => {
+        if (node.text === text.recipeMetadata.diets[diet]) labelPages.push(...node.pageNumbers);
+        return paginate(node, queries);
+      };
+      const buffer: Buffer = await pdfMake.createPdf(definition).getBuffer();
+      assert.ok(buffer.length > 1000);
+      assert.ok(labelPages.includes(1));
+    }
+  }
+});
+
+test('PDF covers omit diet badges for omnivorous and unclassified recipes', (): void => {
+  for (const diet of ['OMNI', null] as (RecipeDiet | null)[]) {
+    const recipe: RecipeDetail = { ...pdfRecipeFixture(), diet };
+    const cover: Content[] = createRecipePdfCover(recipe, en);
+    assert.ok(!JSON.stringify(cover).includes('<svg'));
+    assert.ok(!JSON.stringify(cover).includes('"color":"#28723b"'));
+  }
+});
 
 test('PDF content retains authored text and resolves units, notes, quantities, and recipe links', (): void => {
   const recipe: RecipeDetail = pdfRecipeFixture();
@@ -70,8 +115,9 @@ test('PDF content retains authored text and resolves units, notes, quantities, a
   assert.ok(english.includes('gesiebt'));
 });
 
-test('cookbook branding is larger and precedes the muted software wordmark on every page', (): void => {
+test('recipe headers place the large title above the smaller muted cookbook name on every page', (): void => {
   const recipe: RecipeDetail = pdfRecipeFixture();
+  recipe.title = 'Käsekuchen';
   for (const page of [1, 2]) {
     const header: Content = createRecipePdfHeader(recipe, en, page, true);
     assert.ok(typeof header === 'object' && 'stack' in header);
@@ -81,14 +127,22 @@ test('cookbook branding is larger and precedes the muted software wordmark on ev
     const branding: Column | undefined = row.columns[2];
     assert.ok(typeof metadata === 'object' && 'stack' in metadata);
     assert.ok(typeof branding === 'object' && 'stack' in branding);
-    const cookbook: Content | undefined = metadata.stack[0];
+    const title: Content | undefined = metadata.stack[0];
+    const cookbook: Content | undefined = metadata.stack[1];
     const brandRow: Content | undefined = branding.stack[0];
+    assert.ok(typeof title === 'object' && 'text' in title);
     assert.ok(typeof cookbook === 'object' && 'text' in cookbook);
     assert.ok(typeof brandRow === 'object' && 'columns' in brandRow);
     const wordmark: Column | undefined = brandRow.columns[1];
     assert.ok(typeof wordmark === 'object' && 'text' in wordmark);
+    assert.equal(title.text, recipe.title);
+    assert.equal(title.fontSize, page === 1 ? 16 : 12);
+    assert.equal(title.bold, true);
+    assert.equal(title.color, '#302820');
     assert.equal(cookbook.text, recipe.cookbook_name);
-    assert.equal(cookbook.bold, true);
+    assert.equal(cookbook.fontSize, 9);
+    assert.equal(cookbook.bold, undefined);
+    assert.equal(cookbook.color, '#685b52');
     assert.equal(wordmark.text, en.brandName);
     assert.ok((cookbook.fontSize ?? 0) > (wordmark.fontSize ?? 0));
     assert.equal(wordmark.bold, undefined);
@@ -168,6 +222,7 @@ test('a cover without a creator, shopping ingredients, or steps remains a single
 
 test('the embedded application logo and localized wordmark repeat on every PDF page without covering preparation', async (): Promise<void> => {
   const recipe: RecipeDetail = pdfRecipeFixture();
+  recipe.title = 'Käsekuchen';
   recipe.steps[0]!.instruction = 'Gründlich verrühren und abkühlen lassen.\n'.repeat(140);
   const definition: TDocumentDefinitions = createRecipePdfDefinition(
     recipe,

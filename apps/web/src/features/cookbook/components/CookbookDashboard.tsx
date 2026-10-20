@@ -6,6 +6,7 @@ import BreadcrumbBar from './BreadcrumbBar';
 import CategoryTree from './CategoryTree';
 import MobileCategoryDrawer from './MobileCategoryDrawer';
 import RecipeDetailView from './RecipeDetailView';
+import RecipeDietIcon from './RecipeDietIcon';
 import RecipePagination from './RecipePagination';
 import ReportButton from '../../reports/ReportButton';
 import ContentActions from '../../../components/ContentActions';
@@ -14,6 +15,7 @@ import { cookbookPath } from '../model/routing';
 import { cookbookManagementPath } from '../model/management-access';
 import { recipeCreationPath } from '../model/recipe-creation';
 import type { Category, CookbookResponse, Recipe, RecipeDetail } from '../model/types';
+import { recipeDietFilter, type RecipeDiet } from '../model/recipe-metadata';
 
 interface CookbookDashboardProperties {
   text: Translation;
@@ -30,6 +32,8 @@ interface CookbookDashboardProperties {
   onSelectVariant: (slug: string) => void;
   onSelectFrontpagePage: (page: number) => Promise<CookbookResponse>;
   recipeFilter: string;
+  dietFilter: RecipeDiet | '';
+  onDietFilterChange: (diet: RecipeDiet | '') => void;
   onRecipeFilterChange: (filter: string) => void;
   onCategoryNavigate: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void;
   tenantSlug: string;
@@ -51,6 +55,8 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
     onSelectVariant,
     onSelectFrontpagePage,
     recipeFilter,
+    dietFilter,
+    onDietFilterChange,
     onRecipeFilterChange,
     onCategoryNavigate,
     tenantSlug,
@@ -62,7 +68,8 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
       category.name,
     ]),
   );
-  const isGlobalSearch: boolean = selectedCategoryId === null && recipeFilter.trim().length > 0;
+  const isGlobalSearch: boolean =
+    selectedCategoryId === null && (recipeFilter.trim().length > 0 || dietFilter !== '');
   const recipes: Recipe[] =
     selectedCategoryId === null
       ? isGlobalSearch
@@ -79,7 +86,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
       : recipes.slice((categoryPage - 1) * categoryPageSize, categoryPage * categoryPageSize);
   useEffect((): void => {
     setCategoryPage(1);
-  }, [selectedCategoryId, recipeFilter]);
+  }, [selectedCategoryId, recipeFilter, dietFilter]);
   const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
   const frontpageHeading: string = cookbook.tenant?.frontpage_heading ?? text.dashboard.greeting;
   const managementHref: string | null = cookbookManagementPath(cookbook, tenantSlug);
@@ -218,6 +225,24 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                 }
               />
             </label>
+            <label className="recipe-filter">
+              <span>{text.recipeMetadata.diet}</span>
+              <select
+                value={dietFilter}
+                onChange={(event: ChangeEvent<HTMLSelectElement>): void =>
+                  onDietFilterChange(recipeDietFilter(event.currentTarget.value))
+                }
+              >
+                <option value="">{text.recipeMetadata.anyDiet}</option>
+                {(['VEGAN', 'VEGETARIAN', 'OMNI'] as RecipeDiet[]).map(
+                  (diet: RecipeDiet): JSX.Element => (
+                    <option key={diet} value={diet}>
+                      {text.recipeMetadata.diets[diet]}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
             {visibleRecipes.length === 0 ? (
               <p className="empty-state">{text.dashboard.noRecipes}</p>
             ) : (
@@ -233,7 +258,10 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                         recipe,
                       )}
                     >
-                      <h2>{recipe.title}</h2>
+                      <div className="recipe-card__heading">
+                        <h2>{recipe.title}</h2>
+                        <RecipeDietIcon diet={recipe.diet} text={text} />
+                      </div>
                       {recipe.summary === null ? null : <p>{recipe.summary}</p>}
                       <div className="recipe-card__categories">
                         {recipe.category_public_ids.length === 0 ? (

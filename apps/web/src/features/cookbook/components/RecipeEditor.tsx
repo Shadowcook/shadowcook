@@ -16,6 +16,13 @@ import RecipeDraftDiscardButton from './RecipeDraftDiscardButton';
 import RecipeEditorActionBar from './RecipeEditorActionBar';
 import RecipeEditorSaveButton from './RecipeEditorSaveButton';
 import RecipeSlugField from './RecipeSlugField';
+import RecipeMetadataEditor from './RecipeMetadataEditor';
+import RecipeMetadata from './RecipeMetadata';
+import {
+  emptyRecipeMetadata,
+  type RecipeContentMetadata,
+  type RecipeDiet,
+} from '../model/recipe-metadata';
 import { recipeCreationCategoryId } from '../model/recipe-creation';
 import { recipeRequestError } from '../model/recipe-request-error';
 import { useRecipeSlugAvailability } from '../model/use-recipe-slug-availability';
@@ -33,6 +40,8 @@ interface RecipeEditorProperties {
 }
 
 interface RecipeForm {
+  metadata: RecipeContentMetadata;
+  diet: RecipeDiet | null;
   title: string;
   summary: string;
   slug: string;
@@ -43,6 +52,8 @@ interface RecipeForm {
 }
 
 interface RecipeDraftForm {
+  metadata: RecipeContentMetadata;
+  diet: RecipeDiet | null;
   title: string;
   summary: string;
   categoryPublicIds: string[];
@@ -55,6 +66,8 @@ interface RecipeMetadataForm {
   isFeatured: boolean;
 }
 const emptyForm: RecipeForm = {
+  metadata: emptyRecipeMetadata(),
+  diet: null,
   title: '',
   summary: '',
   slug: '',
@@ -155,6 +168,14 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   }
   async function saveRecipeDraft(): Promise<void> {
     if (isBusy) return;
+    if (
+      form.metadata.totalMinutes !== null &&
+      form.metadata.activeMinutes !== null &&
+      form.metadata.activeMinutes > form.metadata.totalMinutes
+    ) {
+      setErrorMessage(text.recipeMetadata.durationExceeded);
+      return;
+    }
     if (recipe === null && slugBlocksSave) return;
     setMessage('');
     setIsSaving(true);
@@ -370,6 +391,21 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
         </div>
         {recipe === null ? null : (
           <div className="recipe-editor-action-bar__secondary">
+            {recipe.hasPublishedRevision ? (
+              <a
+                className="button--secondary recipe-editor-action-bar__back"
+                href={`/${encodeURIComponent(properties.tenantSlug)}/recipes/${encodeURIComponent(recipe.slug)}`}
+                aria-label={text.recipeEditor.backToRecipe}
+                title={text.recipeEditor.backToRecipe}
+              >
+                <span className="recipe-editor-action-bar__button-icon">
+                  <AdminIcon name="previous" />
+                </span>
+                <span className="recipe-editor-action-bar__button-label">
+                  {text.recipeEditor.backToRecipe}
+                </span>
+              </a>
+            ) : null}
             {recipe.isDraft ? (
               <RecipeDraftDiscardButton
                 text={text}
@@ -430,6 +466,20 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
               onToggleCategory={toggleCategory}
             />
           </fieldset>
+          <RecipeMetadataEditor
+            metadata={form.metadata}
+            diet={form.diet}
+            text={text}
+            onChange={(metadata: RecipeContentMetadata, diet: RecipeDiet | null): void =>
+              setForm({ ...form, metadata, diet })
+            }
+          />
+          {recipe === null ? null : (
+            <RecipeMetadata
+              recipe={{ createdAt: recipe.createdAt, updatedAt: recipe.updatedAt }}
+              text={text}
+            />
+          )}
           <fieldset>
             <legend>{text.recipeEditor.metadata}</legend>
             <RecipeSlugField
@@ -562,6 +612,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
 }
 function formFromRecipe(recipe: EditableRecipe): RecipeForm {
   return {
+    metadata: recipe.metadata,
+    diet: recipe.diet,
     title: recipe.title,
     summary: recipe.summary ?? '',
     slug: recipe.slug,
@@ -574,6 +626,8 @@ function formFromRecipe(recipe: EditableRecipe): RecipeForm {
 
 function recipeDraftForm(form: RecipeForm): RecipeDraftForm {
   return {
+    metadata: form.metadata,
+    diet: form.diet,
     title: form.title,
     summary: form.summary,
     categoryPublicIds: form.categoryPublicIds,

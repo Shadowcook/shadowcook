@@ -1,4 +1,5 @@
 import type { UnitTranslations } from '../../../i18n/unit-localization';
+import type { RecipeDiet, RecipeFacts } from './recipe-metadata';
 
 export interface IngredientUsage {
   sort_order: number;
@@ -22,7 +23,7 @@ export interface RecipeStep {
   ingredients: IngredientUsage[];
 }
 
-export interface RecipeDetail {
+export interface RecipeDetail extends RecipeFacts {
   public_id: string;
   cookbook_name: string;
   version: number;
@@ -67,6 +68,7 @@ export interface Recipe {
   slug: string;
   title: string;
   summary: string | null;
+  diet: RecipeDiet | null;
   category_public_ids: string[];
 }
 
@@ -101,7 +103,7 @@ export interface CookbookFrontpage {
   totalRecipes: number;
 }
 
-export interface EditableRecipe {
+export interface EditableRecipe extends RecipeFacts {
   publicId: string;
   slug: string;
   title: string;

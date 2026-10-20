@@ -8,6 +8,7 @@ import { buildCommit } from '../../../lib/server/build-info';
 import { loadHeadBarSession } from '../../../lib/server/head-bar-session';
 import CookbookScreen from '../CookbookScreen';
 import type { CookbookResponse } from '../model/types';
+import { recipeDietFilter } from '../model/recipe-metadata';
 import '../../../styles/global.css';
 import '../../../styles/cookbook.css';
 
@@ -49,6 +50,7 @@ function requestedTenantSlug(): string {
         initialCategoryId={categoryId}
         initialCookbook={cookbook}
         initialTenantSlug={tenantSlug}
+        initialDiet={recipeDietFilter(Astro.url.searchParams.get('diet'))}
         locale={locale}
       />
     </main>

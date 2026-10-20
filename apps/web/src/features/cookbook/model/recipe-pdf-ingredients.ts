@@ -4,6 +4,7 @@ import type { Translation } from '../../../i18n/types.ts';
 import { ingredientAmountText } from './recipe-presentation.ts';
 import { specialIngredientIconDefinition } from './special-ingredient-icons.ts';
 import type { IngredientUsage } from './types.ts';
+import { recipePdfIconSvg } from './recipe-pdf-icons.ts';
 
 export function recipePdfIngredientContent(
   ingredient: IngredientUsage,
@@ -18,7 +19,7 @@ export function recipePdfIngredientContent(
 
     return {
       columns: [
-        { svg: iconSvg(icon), fit: [12, 12], width: 12 },
+        { svg: recipePdfIconSvg(icon), fit: [12, 12], width: 12 },
         { ...note, width: '*' },
       ],
       columnGap: 6,
@@ -38,15 +39,4 @@ export function recipePdfIngredientContent(
     ],
     margin: [0, 0, 0, 6],
   };
-}
-
-function iconSvg(icon: IconDefinition): string {
-  const width: number = icon.icon[0];
-  const height: number = icon.icon[1];
-  const pathData: string | string[] = icon.icon[4];
-  const paths: string[] = typeof pathData === 'string' ? [pathData] : pathData;
-  const svgPaths: string = paths
-    .map((path: string): string => `<path fill="#302820" d="${path}" />`)
-    .join('');
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${svgPaths}</svg>`;
 }

@@ -1,3 +1,5 @@
+import type { RecipeContentMetadata, RecipeDiet } from './recipe-facts.js';
+
 export interface ExportCookbookSettings {
   public_id: string;
   display_name: string;
@@ -57,6 +59,8 @@ export interface ExportRecipe {
 }
 
 export interface ExportRevision {
+  metadata: RecipeContentMetadata;
+  diet: RecipeDiet | null;
   public_id: string;
   recipe_public_id: string;
   revision_no: number;

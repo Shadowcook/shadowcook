@@ -13,7 +13,7 @@ export function createRecipePdfHeader(
   const isCover: boolean = currentPage === 1;
   const logoSize: number = isCover ? 24 : 18;
   const brandWidth: number = 82;
-  const cookbookFontSize: number = isCover ? 16 : 12;
+  const titleFontSize: number = isCover ? 16 : 12;
   const versionWidth: number = 56;
   const columnGap: number = 12;
   const metadataWidth: number = headerWidth - brandWidth - versionWidth - columnGap * 2;
@@ -36,13 +36,13 @@ export function createRecipePdfHeader(
       width: metadataWidth,
       stack: [
         {
-          text: headerName(recipe.cookbook_name, metadataWidth, cookbookFontSize),
-          fontSize: cookbookFontSize,
+          text: headerName(recipe.title, metadataWidth, titleFontSize),
+          fontSize: titleFontSize,
           bold: true,
           color: '#302820',
         },
         {
-          text: headerName(recipe.title, metadataWidth, 9),
+          text: headerName(recipe.cookbook_name, metadataWidth, 9),
           fontSize: 9,
           color: '#685b52',
         },

@@ -4,6 +4,7 @@ import { recipePdfIngredientContent } from './recipe-pdf-ingredients.ts';
 import { createRecipePdfCover } from './recipe-pdf-cover.ts';
 import { createRecipePdfHeader } from './recipe-pdf-header.ts';
 import { createRecipePdfCredits } from './recipe-pdf-credits.ts';
+import { createRecipePdfMetadata } from './recipe-pdf-metadata.ts';
 import { recipePdfLinkUrl } from './recipe-pdf-links.ts';
 import type { RecipePdfLinkContext } from './recipe-pdf-links.ts';
 import { createRecipePdfStepPagination } from './recipe-pdf-pagination.ts';
@@ -79,6 +80,7 @@ export function createRecipePdfDefinition(
   }
 
   content.push(...createRecipePdfCredits(recipe, text, linkContext));
+  content.push(...createRecipePdfMetadata(recipe, text));
 
   return {
     info: {

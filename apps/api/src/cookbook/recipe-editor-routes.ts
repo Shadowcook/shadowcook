@@ -12,8 +12,15 @@ import {
 import { registerRecipeDraftDiscardRoutes } from './recipe-draft-discard-routes.js';
 import { registerRecipeSlugRoutes } from './recipe-slug-routes.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
+import {
+  parseRecipeFactsInput,
+  recipeFactsSql,
+  saveRecipeFacts,
+  type RecipeFactsInput,
+  type RecipeFactsRow,
+} from './recipe-facts.js';
 
-interface RecipeDraftInput {
+interface RecipeDraftInput extends RecipeFactsInput {
   title: string;
   summary: string | null;
   categoryPublicIds: string[];
@@ -52,7 +59,7 @@ interface VariantRow {
   is_visible: boolean;
 }
 
-interface DraftRow {
+interface DraftRow extends RecipeFactsRow {
   public_id: string;
   slug: string;
   title: string;
@@ -73,6 +80,7 @@ interface ManagedRecipeRow {
   slug: string;
   title: string;
   summary: string | null;
+  diet: RecipeFactsRow['diet'];
   category_public_ids: string[];
 }
 interface ManagedRecipeCountRow {
@@ -89,7 +97,7 @@ interface RevisionListRow {
   published_at: Date;
   title: string;
 }
-interface RevisionSnapshotRow {
+interface RevisionSnapshotRow extends RecipeFactsRow {
   public_id: string;
   version: number;
   status: 'PUBLISHED' | 'ARCHIVED';
@@ -111,7 +119,7 @@ interface RevisionVariantRow {
   is_visible: boolean;
   included_step_keys: string[];
 }
-interface SharedRecipeRow {
+interface SharedRecipeRow extends RecipeFactsRow {
   public_id: string;
   tenant_slug: string;
   cookbook_name: string;
@@ -443,7 +451,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const token: string = (request.params as { token: string }).token;
     const result = await pool.query<SharedRecipeRow>(
       `SELECT recipe.public_id, tenant.slug AS tenant_slug, recipe.slug, revision.title, revision.summary, revision.id AS revision_id,
-        tenant.display_name AS cookbook_name, revision.version,
+        tenant.display_name AS cookbook_name, revision.version, ${recipeFactsSql('revision')},
         ${recipeCreatorDisplayNameSql()} AS creator_display_name,
         ${recipeContributorsSql()} AS contributors
        FROM recipe_share_link
@@ -498,6 +506,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       slug: recipe.slug,
       title: recipe.title,
       summary: recipe.summary,
+      metadata: recipe.metadata,
+      diet: recipe.diet,
+      createdAt: recipe.createdAt,
+      updatedAt: recipe.updatedAt,
       creator_display_name: recipe.creator_display_name,
       contributors: recipe.contributors,
       can_edit: false,
@@ -649,7 +661,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const totalPages: number = Math.ceil(totalRecipes / managedRecipePageSize);
     const resolvedPage: number = Math.min(page, Math.max(totalPages, 1));
     const recipes = await pool.query<ManagedRecipeRow>(
-      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.diet,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
        FROM recipe
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
@@ -719,6 +731,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         [created.id, input.title, input.summary, user?.principal_id ?? null],
       );
       await createDefaultVariant(client, revision.rows[0]!.id);
+      await saveRecipeFacts(client, revision.rows[0]!.id, input);
       await recordRecipeContributor(client, revision.rows[0]!.id, user?.principal_id ?? null);
       await replaceCategories(client, revision.rows[0]!.id, tenantId, input.categoryPublicIds);
       await client.query('UPDATE recipe SET draft_revision_id = $1 WHERE id = $2', [
@@ -878,7 +891,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       if (tenantId === null) return;
       const params = request.params as { publicId: string; revisionPublicId: string };
       const revision = await pool.query<RevisionSnapshotRow>(
-        `SELECT revision.public_id, revision.version, revision.status, revision.published_at, revision.title, revision.summary
+        `SELECT revision.public_id, revision.version, revision.status, revision.published_at, revision.title, revision.summary, ${recipeFactsSql('revision')}
          FROM recipe_revision AS revision
          INNER JOIN recipe ON recipe.id = revision.recipe_id
          WHERE recipe.tenant_id = $1 AND recipe.public_id = $2 AND revision.public_id = $3
@@ -990,6 +1003,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         input.summary,
         draftId,
       ]);
+      await saveRecipeFacts(client, draftId, input);
       await replaceCategories(client, draftId, tenantId, input.categoryPublicIds);
       await client.query(
         'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
@@ -1640,7 +1654,8 @@ function parseRecipeDraftInput(value: unknown): RecipeDraftInput | null {
     categoryPublicIds === null
   )
     return null;
-  return { title, summary, categoryPublicIds };
+  const facts: RecipeFactsInput | null = parseRecipeFactsInput(body);
+  return facts === null ? null : { title, summary, categoryPublicIds, ...facts };
 }
 
 function parseRecipeMetadataInput(value: unknown): RecipeMetadataInput | null {
@@ -1695,8 +1710,10 @@ async function createDraftFromPublished(
 ): Promise<string> {
   if (publishedId === null) throw new Error('A recipe without a draft cannot be edited.');
   const revision = await client.query<{ id: string }>(
-    `INSERT INTO recipe_revision (recipe_id, revision_no, status, title, summary, version, created_by_principal_id)
-     SELECT recipe_id, revision_no + 1, 'DRAFT', title, summary, version, $2 FROM recipe_revision WHERE id = $1 RETURNING id`,
+    `INSERT INTO recipe_revision (recipe_id, revision_no, status, title, summary, version, created_by_principal_id,
+       difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet)
+     SELECT recipe_id, revision_no + 1, 'DRAFT', title, summary, version, $2,
+       difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet FROM recipe_revision WHERE id = $1 RETURNING id`,
     [publishedId, principalId],
   );
   const draftId: string = revision.rows[0]!.id;
@@ -1872,7 +1889,7 @@ async function draftForRecipe(
 }
 
 function draftSelectSql(condition: string): string {
-  return `SELECT recipe.public_id, recipe.slug, revision.title, revision.summary,
+  return `SELECT recipe.public_id, recipe.slug, revision.title, revision.summary, ${recipeFactsSql('revision', 'published')},
     COALESCE(array_agg(category.public_id) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids,
     recipe.visibility_override, recipe.discoverability_override, recipe.is_featured,
     tenant.default_recipe_visibility, tenant.default_recipe_discoverability,
@@ -1892,12 +1909,16 @@ function draftSelectSql(condition: string): string {
     LEFT JOIN recipe_revision_category AS assignment ON assignment.recipe_revision_id = revision.id
     LEFT JOIN category ON category.id = assignment.category_id
     WHERE recipe.tenant_id = $1 AND ${condition}
-    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.version
+    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.id, published.version
     ORDER BY revision.title ASC`;
 }
 
 function draftResponse(row: DraftRow): object {
   return {
+    metadata: row.metadata,
+    diet: row.diet,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     publicId: row.public_id,
     slug: row.slug,
     title: row.title,
@@ -1925,6 +1946,10 @@ function revisionListResponse(row: RevisionListRow): object {
 }
 function revisionSnapshotResponse(row: RevisionSnapshotRow): object {
   return {
+    metadata: row.metadata,
+    diet: row.diet,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     publicId: row.public_id,
     version: row.version,
     status: row.status,

@@ -2,6 +2,14 @@
 
 ## Completed architecture features
 
+### Recipe metadata and dietary classification
+
+- Optional versioned difficulty, total and active duration, total kcal, servings, and free-text utensils are available in the recipe editor and at the end of recipe views and PDFs (architecture section 4.2).
+- Calories per serving are calculated only when both required values exist. Missing input is valid; empty fields and unavailable derived values are hidden. Created and last-published-change timestamps are automatic and read-only.
+- Explicit vegan, vegetarian, and omnivorous classifications support hierarchical cookbook search, combined text filtering, deep links, browser history, and optional MCP search filters. Unclassified recipes appear only without a diet filter.
+- Recipe cards and regular and shared recipe detail views show a green leaf for vegan recipes and a green egg for vegetarian recipes beside the title, with localized tooltips and accessible names. Detail views and PDF covers include the localized diet name beside the matching symbol. Recipe summary responses include the published dietary classification (architecture section 4.2).
+- A BETA-2 migration adds constrained nullable revision columns. Draft copying, publication, history, sharing, AI readers, cookbook exports, content-seed exports, and the OpenAPI contract include the metadata.
+
 ### Content reports and moderation tickets
 
 - Recipe and cookbook report controls appear inside small ellipsis action menus with link copying and permitted recipe actions. Cookbook overview cards have no report controls. User report controls appear only beside visible user names in tenant-user management. Shared report dialogs have neutral English/German text and require reasons and descriptions (architecture section 4.6, Content reports).
@@ -70,11 +78,12 @@
 - PDF special entries embed the same Font Awesome pictograms as the recipe view through a shared icon mapping. Authored notes remain beside the icons; `NO_ICON` entries contain only their notes (architecture section 4.2).
 - Recipe PDFs provide a dedicated cover with the title, original creator's current display name, selected variant, description, a reserved future image area, and a shopping list in up to three columns. Preparation starts on a separate page. Published and shared recipe APIs supply the nullable creator display name from normalized revision and principal data, with the field represented in OpenAPI (architecture section 4.2).
 - PDF preparation steps keep their ingredients, step label, and instructions on one page when they fit. Rendered multi-page steps following another step move both columns to a fresh page; oversized steps remain breakable without truncation. Pagination tests cover ingredient-heavy steps, empty ingredient lists, successive page breaks, and oversized instructions and notes (architecture section 4.2).
-- Recipe PDF headers emphasize the cookbook name, with a smaller muted application wordmark and compact embedded logo on the right. Following pages use a fine separator; page margins reserve header space (architecture section 4.2).
+- Recipe PDF headers display the large bold recipe title above the smaller muted cookbook name, with a smaller muted application wordmark and compact embedded logo on the right. Following pages use a fine separator; page margins reserve header space (architecture section 4.2).
 - PDF covers prominently display the full cookbook name above the recipe title and include the published version; document subjects retain both metadata fields. Headers repeat cookbook name, recipe name, and version on every page, with bounded name lengths. Published and shared recipe responses expose these metadata fields from existing normalized tenant/revision data; OpenAPI includes both fields (architecture section 4.2).
 - PDF credits end with a localized label and visible clickable canonical recipe URL, including the selected non-default variant. Empty contributor lists retain the link. Shared-view exports do not embed share tokens; recipe-read authorization remains unchanged (architecture section 4.2).
 
 - Recipe editors provide a sticky top action bar with separated save and publish actions, compact secondary controls, and coordinated busy states during step saving. On mobile, the bar stays on one line with save and discard icons, localized accessible names and tooltips, and a text label for publication (architecture section 4.2).
+- Recipe editors show a localized "Back to Recipe" action for recipes with a published revision, including immediately after first publication. The link opens the live recipe using its saved slug; mobile layouts use a compact left-chevron icon (architecture section 4.2).
 - Recipe URL names receive debounced, tenant-scoped availability checks covering published and draft-only recipes. Localized field feedback blocks known conflicts during creation and metadata saving. Failed recipe, metadata, step, and variant writes use the shared error dialog with specific API-code messages; input is retained and OpenAPI documents availability and save errors (architecture section 4.2).
 - Recipe-list headers provide a localized create button for principals with `recipe:create`. Category context is retained in the new-editor URL and preselects the matching tenant category; Featured and views without a category leave the assignment empty. Creation controls and the new-editor route use the dedicated `canCreateRecipes` API capability (architecture section 4.2).
 - Recipe drafts can be discarded from the editor and draft list after localized confirmation. The tenant-scoped transactional API requires `recipe:update`, retains published history and recipe metadata, and removes never-published recipes completely.

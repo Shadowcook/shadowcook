@@ -1,4 +1,5 @@
 import type { IngredientUsage, RecipeDetail } from '../../src/features/cookbook/model/types.ts';
+import { emptyRecipeMetadata } from '../../src/features/cookbook/model/recipe-metadata.ts';
 
 const flour: IngredientUsage = {
   sort_order: 0,
@@ -17,6 +18,10 @@ const flour: IngredientUsage = {
 
 export function pdfRecipeFixture(): RecipeDetail {
   return {
+    metadata: emptyRecipeMetadata(),
+    diet: null,
+    createdAt: '2026-10-01T10:00:00Z',
+    updatedAt: null,
     public_id: '6b58edc7-ec19-4c1a-a410-45f4c296bca5',
     cookbook_name: 'Ursulas Familienküche',
     version: 7,

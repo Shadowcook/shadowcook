@@ -85,7 +85,7 @@ async function invokeTool(
   if (name === 'search_recipes')
     return api.inject({
       method: 'GET',
-      url: `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}`,
+      url: `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}${typeof args.query === 'string' ? `&recipeFilter=${encodeURIComponent(args.query)}` : ''}${args.diet === undefined ? '' : `&diet=${encodeURIComponent(String(args.diet))}`}`,
       headers,
     });
   if (name === 'list_recipe_drafts')
@@ -173,6 +173,8 @@ async function invokeTool(
 
 function recipeInput(input: Record<string, unknown>): Record<string, unknown> {
   return {
+    metadata: input.metadata,
+    diet: input.diet,
     title: input.title,
     summary: input.summary ?? null,
     slug: input.slug,

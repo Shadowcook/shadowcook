@@ -194,6 +194,13 @@ export interface RecipeTable {
 }
 
 export interface RecipeRevisionTable {
+  difficulty: 'EASY' | 'MEDIUM' | 'DEMANDING' | null;
+  total_minutes: number | null;
+  active_minutes: number | null;
+  kcal: number | null;
+  servings: number | null;
+  utensils: string | null;
+  diet: 'VEGAN' | 'VEGETARIAN' | 'OMNI' | null;
   id: Generated<Uuid>;
   recipe_id: string;
   public_id: Generated<Uuid>;

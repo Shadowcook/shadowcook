@@ -1,6 +1,11 @@
 export interface JsonSchema {
   type?: string;
   minLength?: number;
+  enum?: string[];
+  minimum?: number;
+  maximum?: number;
+  exclusiveMinimum?: number;
+  maxLength?: number;
   format?: string;
   additionalProperties?: boolean;
   required?: string[];
@@ -30,6 +35,19 @@ const recipeSchema: JsonSchema = {
     summary: nullableSchema({ type: 'string' }),
     categoryPublicIds: { type: 'array', items: uuidSchema },
     isFeatured: { type: 'boolean' },
+    diet: nullableSchema({ type: 'string', enum: ['VEGAN', 'VEGETARIAN', 'OMNI'] }),
+    metadata: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        difficulty: nullableSchema({ type: 'string', enum: ['EASY', 'MEDIUM', 'DEMANDING'] }),
+        totalMinutes: nullableSchema({ type: 'integer', minimum: 0, maximum: 5256000 }),
+        activeMinutes: nullableSchema({ type: 'integer', minimum: 0, maximum: 5256000 }),
+        kcal: nullableSchema({ type: 'number', minimum: 0, maximum: 1000000000 }),
+        servings: nullableSchema({ type: 'number', exclusiveMinimum: 0, maximum: 1000000 }),
+        utensils: nullableSchema({ type: 'string', maxLength: 4000 }),
+      },
+    },
   },
 };
 const ingredientSchema: JsonSchema = {
@@ -54,9 +72,17 @@ const unitSchema: JsonSchema = {
 };
 
 export const mcpTools: McpToolDefinition[] = [
-  tool('search_recipes', 'Search published recipes in an accessible tenant.', {
-    tenantSlug: stringSchema,
-  }),
+  tool(
+    'search_recipes',
+    'Search published recipes in an accessible tenant. Vegetarian includes vegan; omnivorous includes all explicitly classified recipes.',
+    {
+      tenantSlug: stringSchema,
+    },
+    {
+      query: { type: 'string' },
+      diet: { type: 'string', enum: ['VEGAN', 'VEGETARIAN', 'OMNI'] },
+    },
+  ),
   tool('list_recipe_drafts', 'List the recipe drafts in a tenant.', { tenantSlug: stringSchema }),
   tool('search_ingredients', 'Search ingredients before creating a new tenant ingredient.', {
     tenantSlug: stringSchema,
@@ -107,6 +133,7 @@ function tool(
   name: string,
   description: string,
   properties: Record<string, JsonSchema>,
+  optionalProperties: Record<string, JsonSchema> = {},
 ): McpToolDefinition {
   return {
     name,
@@ -115,7 +142,7 @@ function tool(
     inputSchema: {
       type: 'object',
       additionalProperties: false,
-      properties,
+      properties: { ...properties, ...optionalProperties },
       required: Object.keys(properties),
     },
   };

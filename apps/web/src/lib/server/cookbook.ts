@@ -1,6 +1,7 @@
 import { resolveCookbookLocation } from '../../features/cookbook/model/routing';
 import type { CookbookLocation } from '../../features/cookbook/model/routing';
 import type { CookbookResponse, RecipeDetail } from '../../features/cookbook/model/types';
+import { recipeDietFilter, type RecipeDiet } from '../../features/cookbook/model/recipe-metadata';
 
 const defaultApiOrigin: string = 'http://localhost:3000';
 
@@ -21,7 +22,10 @@ export async function loadServerTenantCookbook(
 ): Promise<CookbookResponse | null> {
   const tenantSlug: string | null = tenantSlugFromPath(pathname);
   if (tenantSlug === null) return null;
-  return getJson<CookbookResponse>(`/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}`, cookie);
+  return getJson<CookbookResponse>(
+    `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}`,
+    cookie,
+  );
 }
 
 export async function loadServerRecipePage(
@@ -48,12 +52,14 @@ export async function loadServerCookbookPage(
   pathname: string,
   cookie: string | null,
   refreshFrontpageShuffle: boolean = false,
+  search: string = '',
 ): Promise<ServerCookbookPage | null> {
   const tenantSlug: string | null = tenantSlugFromPath(pathname);
   if (tenantSlug === null) return null;
 
+  const diet: RecipeDiet | '' = recipeDietFilter(new URLSearchParams(search).get('diet'));
   const cookbook: CookbookResponse | null = await getJson<CookbookResponse>(
-    `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}${refreshFrontpageShuffle ? '&refreshFrontpageShuffle=true' : ''}`,
+    `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}${refreshFrontpageShuffle ? '&refreshFrontpageShuffle=true' : ''}${diet === '' ? '' : `&diet=${diet}`}`,
     cookie,
   );
   if (cookbook === null) return null;

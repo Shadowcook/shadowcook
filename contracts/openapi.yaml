@@ -2392,6 +2392,11 @@ paths:
           required: false
           description: Accent-insensitive recipe filter for titles and summaries. Non-alphanumeric ASCII characters are word separators. The recipes response contains all matching accessible discoverable recipes regardless of featured state; the frontpage response remains limited to matching featured recipes. Exact title, title phrase, title token, summary phrase, and summary token matches are returned in that order.
           schema: { type: string, maxLength: 200 }
+        - name: diet
+          in: query
+          required: false
+          description: VEGAN matches vegan recipes; VEGETARIAN matches vegetarian and vegan recipes; OMNI matches all explicitly classified recipes. Unclassified recipes match only when this filter is absent. Applies together with recipeFilter to recipes and frontpage results and counts.
+          schema: { type: string, enum: [VEGAN, VEGETARIAN, OMNI] }
         - name: refreshFrontpageShuffle
           in: query
           required: false
@@ -2463,6 +2468,11 @@ paths:
                   canCreateAiContexts:
                     type: boolean
                     description: Granted by the tenant recipe:visibility-update permission.
+        '400':
+          description: INVALID_RECIPE_FILTER. The diet filter is invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
         '403':
           description: A password change is required before accessing the cookbook.
           content:
@@ -3989,8 +3999,13 @@ components:
     AiContextRecipe:
       type: object
       additionalProperties: false
-      required: [publicId, slug, title, summary, variants, steps]
+      required:
+        [publicId, slug, title, summary, metadata, diet, createdAt, updatedAt, variants, steps]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
+        createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
+        updatedAt: { $ref: '#/components/schemas/RecipeUpdatedAt' }
         publicId: { type: string, format: uuid }
         slug: { type: string }
         title: { type: string }
@@ -4062,8 +4077,22 @@ components:
       type: object
       additionalProperties: false
       required:
-        [public_id, version, status, published_at, title, summary, categories, steps, variants]
+        [
+          public_id,
+          version,
+          status,
+          published_at,
+          title,
+          summary,
+          metadata,
+          diet,
+          categories,
+          steps,
+          variants,
+        ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         public_id: { type: string, format: uuid }
         version: { type: integer, minimum: 1 }
         status: { type: string, enum: [DRAFT, PUBLISHED, ARCHIVED] }
@@ -4309,8 +4338,12 @@ components:
           created_at,
           published_at,
           category_public_ids,
+          metadata,
+          diet,
         ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         public_id: { type: string, format: uuid }
         recipe_public_id: { type: string, format: uuid }
         revision_no: { type: integer, minimum: 1 }
@@ -4726,11 +4759,41 @@ components:
         description: { type: [string, 'null'] }
         slug: { type: string }
         recipe_count: { type: integer, minimum: 0 }
+    RecipeDiet:
+      type: [string, 'null']
+      enum: [VEGAN, VEGETARIAN, OMNI, null]
+      description: Explicit recipe classification. Null means unclassified. Vegetarian search includes vegan recipes; omnivorous search includes all three explicit classifications.
+    RecipeCreatedAt:
+      type: string
+      format: date-time
+      readOnly: true
+      description: Original recipe creation timestamp, serialized in UTC. Never editable through recipe writes.
+    RecipeUpdatedAt:
+      type: [string, 'null']
+      format: date-time
+      readOnly: true
+      description: Publication timestamp of the displayed revision, or of the current published revision in editor responses. Null before first publication. Draft and policy changes do not advance this value. Serialized in UTC.
+    RecipeContentMetadata:
+      type: object
+      additionalProperties: false
+      description: Optional versioned recipe content. All six fields are present in read responses and nullable. Supplying this object on create or draft update replaces all six fields; omitted properties become null. Omitting the object on update preserves existing values. Active minutes cannot exceed total minutes when both exist. kcal per serving is calculated only for non-null kcal and servings and is never stored or accepted as input. Incomplete calorie and serving data is valid.
+      properties:
+        difficulty: { type: [string, 'null'], enum: [EASY, MEDIUM, DEMANDING, null] }
+        totalMinutes: { type: [integer, 'null'], minimum: 0, maximum: 5256000 }
+        activeMinutes: { type: [integer, 'null'], minimum: 0, maximum: 5256000 }
+        kcal: { type: [number, 'null'], minimum: 0, maximum: 1000000000 }
+        servings: { type: [number, 'null'], exclusiveMinimum: 0, maximum: 1000000 }
+        utensils:
+          type: [string, 'null']
+          maxLength: 4000
+          description: Authored free text, including line breaks. Empty or whitespace-only input clears this field. No catalogue association.
     RecipeDraftInput:
       type: object
       additionalProperties: false
       required: [title, summary, categoryPublicIds]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         title: { type: string, minLength: 1, maxLength: 240 }
         summary: { type: string, maxLength: 2000 }
         categoryPublicIds:
@@ -4759,6 +4822,8 @@ components:
           isFeatured,
         ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         title: { type: string, minLength: 1, maxLength: 240 }
         summary: { type: string, maxLength: 2000 }
         categoryPublicIds:
@@ -4787,8 +4852,16 @@ components:
           publishedVersion,
           hasPublishedRevision,
           isDraft,
+          metadata,
+          diet,
+          createdAt,
+          updatedAt,
         ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
+        createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
+        updatedAt: { $ref: '#/components/schemas/RecipeUpdatedAt' }
         publicId: { type: string, format: uuid }
         slug: { type: string }
         title: { type: string }
@@ -4814,22 +4887,44 @@ components:
         publishedAt: { type: string, format: date-time }
         title: { type: string }
     RecipeRevisionSnapshot:
-      allOf:
-        - $ref: '#/components/schemas/RecipeRevision'
-        - type: object
-          additionalProperties: false
-          required: [summary, categories, steps, variants]
-          properties:
-            summary: { type: [string, 'null'] }
-            categories:
-              type: array
-              items: { $ref: '#/components/schemas/RecipeRevisionCategory' }
-            steps:
-              type: array
-              items: { $ref: '#/components/schemas/RecipeRevisionStep' }
-            variants:
-              type: array
-              items: { $ref: '#/components/schemas/RecipeRevisionVariant' }
+      type: object
+      additionalProperties: false
+      required:
+        [
+          publicId,
+          version,
+          status,
+          publishedAt,
+          title,
+          summary,
+          metadata,
+          diet,
+          createdAt,
+          updatedAt,
+          categories,
+          steps,
+          variants,
+        ]
+      properties:
+        publicId: { type: string, format: uuid }
+        version: { type: integer, minimum: 1 }
+        status: { type: string, enum: [PUBLISHED, ARCHIVED] }
+        publishedAt: { type: string, format: date-time }
+        title: { type: string }
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
+        createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
+        updatedAt: { $ref: '#/components/schemas/RecipeUpdatedAt' }
+        summary: { type: [string, 'null'] }
+        categories:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeRevisionCategory' }
+        steps:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeRevisionStep' }
+        variants:
+          type: array
+          items: { $ref: '#/components/schemas/RecipeRevisionVariant' }
     RecipeRevisionCategory:
       type: object
       additionalProperties: false
@@ -4922,8 +5017,16 @@ components:
           selectedVariant,
           variants,
           steps,
+          metadata,
+          diet,
+          createdAt,
+          updatedAt,
         ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
+        createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
+        updatedAt: { $ref: '#/components/schemas/RecipeUpdatedAt' }
         public_id: { type: string, format: uuid }
         tenant_slug: { type: string }
         cookbook_name:
@@ -5187,7 +5290,7 @@ components:
     CookbookRecipe:
       type: object
       additionalProperties: false
-      required: [public_id, slug, title, summary, category_public_ids]
+      required: [public_id, slug, title, summary, diet, category_public_ids]
       properties:
         public_id:
           type: string
@@ -5198,6 +5301,8 @@ components:
           type: string
         summary:
           type: [string, 'null']
+        diet:
+          $ref: '#/components/schemas/RecipeDiet'
         category_public_ids:
           type: array
           items:
@@ -5246,8 +5351,16 @@ components:
           variants,
           steps,
           recipe_links,
+          metadata,
+          diet,
+          createdAt,
+          updatedAt,
         ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
+        createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
+        updatedAt: { $ref: '#/components/schemas/RecipeUpdatedAt' }
         cookbook_name:
           type: string
           description: Current display name of the cookbook that owns this recipe.

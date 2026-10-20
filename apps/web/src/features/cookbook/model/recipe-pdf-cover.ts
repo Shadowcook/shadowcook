@@ -3,6 +3,7 @@ import type { Translation } from '../../../i18n/types.ts';
 import { aggregateShoppingList, formatShoppingListAmount } from './shopping-list.ts';
 import type { AggregatedAmount, ShoppingListItem } from './shopping-list.ts';
 import type { RecipeDetail, RecipeVariant } from './types.ts';
+import { createRecipePdfDiet } from './recipe-pdf-diet.ts';
 
 const coverWidth: number = 515.28;
 
@@ -11,6 +12,7 @@ export function createRecipePdfCover(recipe: RecipeDetail, text: Translation): C
   const content: Content[] = [
     { text: recipe.cookbook_name, style: 'coverCookbook' },
     { text: recipe.title, style: 'coverTitle' },
+    ...createRecipePdfDiet(recipe.diet, text),
   ];
   content.push({
     text: `${text.recipeEditor.version} ${recipe.version}`,

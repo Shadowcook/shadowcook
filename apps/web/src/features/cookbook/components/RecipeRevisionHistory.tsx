@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
 import { request } from '../../../lib/api/client';
+import RecipeMetadata from './RecipeMetadata';
+import type { RecipeFacts } from '../model/recipe-metadata';
 
 interface Revision {
   publicId: string;
@@ -39,7 +41,7 @@ interface RevisionVariant {
   isVisible: boolean;
   includedStepKeys: string[];
 }
-interface RevisionSnapshot extends Revision {
+interface RevisionSnapshot extends Revision, RecipeFacts {
   summary: string | null;
   categories: RevisionCategory[];
   steps: RevisionStep[];
@@ -172,6 +174,7 @@ function Snapshot(properties: { snapshot: RevisionSnapshot; text: Translation })
           </li>
         ))}
       </ul>
+      <RecipeMetadata recipe={snapshot} text={properties.text} />
     </section>
   );
 }
@@ -209,6 +212,11 @@ function changesFor(
   const changes: string[] = [];
   if (current.title !== previous.title) changes.push(text.recipeEditor.titleChanged);
   if (current.summary !== previous.summary) changes.push(text.recipeEditor.summaryChanged);
+  if (
+    JSON.stringify(current.metadata) !== JSON.stringify(previous.metadata) ||
+    current.diet !== previous.diet
+  )
+    changes.push(text.recipeMetadata.changed);
   if (!sameValues(current.categories.map(categoryKey), previous.categories.map(categoryKey)))
     changes.push(text.recipeEditor.categoriesChanged);
   if (!sameMappedValues(current.steps, previous.steps, stepKey, stepValue))

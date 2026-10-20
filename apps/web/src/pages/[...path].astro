@@ -21,6 +21,7 @@ const cookbookPage =
         Astro.url.pathname,
         Astro.request.headers.get('cookie'),
         isTenantRoot(Astro.url.pathname),
+        Astro.url.search,
       )
     : null;
 const locale: Locale = resolveRequestLocale(

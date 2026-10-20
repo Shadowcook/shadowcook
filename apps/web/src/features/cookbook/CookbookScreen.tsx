@@ -20,6 +20,7 @@ import {
   isCookbookManagementAccessDenied,
 } from './model/management-access';
 import type { CookbookResponse, Recipe, RecipeDetail } from './model/types';
+import { recipeDietFilter, type RecipeDiet } from './model/recipe-metadata';
 import RecipeEditor from './components/RecipeEditor';
 import DraftRecipeList from './components/DraftRecipeList';
 import SharedRecipeView from './components/SharedRecipeView';
@@ -50,6 +51,7 @@ interface CookbookScreenProperties {
   initialTenantSlug?: string;
   initialManagementRoute?: ManagementRoute;
   initialLogin?: boolean;
+  initialDiet?: RecipeDiet | '';
   notifyWhenReady?: boolean;
 }
 interface SessionResponse {
@@ -88,6 +90,7 @@ export default function CookbookScreen({
   initialTenantSlug,
   initialManagementRoute,
   initialLogin = false,
+  initialDiet = '',
   notifyWhenReady = false,
 }: CookbookScreenProperties): JSX.Element {
   const text: Translation = translations[locale];
@@ -117,6 +120,7 @@ export default function CookbookScreen({
   const isRecipeLoading: boolean = false;
   const [recipeError, setRecipeError] = useState<string>('');
   const [recipeFilter, setRecipeFilter] = useState<string>('');
+  const [dietFilter, setDietFilter] = useState<RecipeDiet | ''>(initialDiet);
   const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(
     initialManagementRoute?.isCategoryEditor ?? false,
   );
@@ -155,7 +159,13 @@ export default function CookbookScreen({
       setEditorPath(currentManagementRoute.editorPath);
       setRecipeCategoryId(new URLSearchParams(window.location.search).get('categoryPublicId'));
       setShareToken(sharedRecipeToken());
-      void applyBrowserLocation(cookbook);
+      const restoredDiet: RecipeDiet | '' = recipeDietFilter(
+        new URLSearchParams(window.location.search).get('diet'),
+      );
+      setDietFilter(restoredDiet);
+      void loadCookbook(1, recipeFilter, restoredDiet).then(
+        (loaded: CookbookResponse): Promise<void> => applyBrowserLocation(loaded),
+      );
     }
     window.addEventListener('popstate', restoreLocation);
     return (): void => window.removeEventListener('popstate', restoreLocation);
@@ -428,6 +438,7 @@ export default function CookbookScreen({
   async function loadCookbook(
     frontpagePage: number = 1,
     filter: string = recipeFilter,
+    diet: RecipeDiet | '' = dietFilter,
   ): Promise<CookbookResponse> {
     const slug: string | null = tenantSlugFromPath();
     if (slug === null) {
@@ -436,7 +447,7 @@ export default function CookbookScreen({
     }
     try {
       const response: CookbookResponse = await request<CookbookResponse>(
-        `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&recipeFilter=${encodeURIComponent(filter)}`,
+        `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&recipeFilter=${encodeURIComponent(filter)}${diet === '' ? '' : `&diet=${diet}`}`,
       );
       setCookbook(response);
       return response;
@@ -451,6 +462,14 @@ export default function CookbookScreen({
     setRecipeFilter(filter);
     void loadCookbook(1, filter);
   }
+  function changeDietFilter(diet: RecipeDiet | ''): void {
+    setDietFilter(diet);
+    const url: URL = new URL(window.location.href);
+    if (diet === '') url.searchParams.delete('diet');
+    else url.searchParams.set('diet', diet);
+    window.history.pushState(null, '', url);
+    void loadCookbook(1, recipeFilter, diet);
+  }
   function navigateCategory(event: MouseEvent<HTMLAnchorElement>, targetPath: string): void {
     if (
       event.defaultPrevented ||
@@ -463,7 +482,9 @@ export default function CookbookScreen({
       return;
     event.preventDefault();
     if (window.location.pathname === targetPath) return;
-    window.history.pushState(null, '', targetPath);
+    const categoryUrl: URL = new URL(targetPath, window.location.origin);
+    if (dietFilter !== '') categoryUrl.searchParams.set('diet', dietFilter);
+    window.history.pushState(null, '', categoryUrl);
     void applyBrowserLocation(cookbook);
   }
   async function applyBrowserLocation(
@@ -646,6 +667,8 @@ export default function CookbookScreen({
                   onSelectVariant={selectRecipeVariant}
                   onSelectFrontpagePage={loadCookbook}
                   recipeFilter={recipeFilter}
+                  dietFilter={dietFilter}
+                  onDietFilterChange={changeDietFilter}
                   onRecipeFilterChange={changeRecipeFilter}
                   onCategoryNavigate={navigateCategory}
                   tenantSlug={tenantSlug}

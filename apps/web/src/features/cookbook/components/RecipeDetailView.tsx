@@ -1,4 +1,5 @@
 import type { JSX } from 'react';
+import RecipeMetadata from './RecipeMetadata';
 import type { Translation } from '../../../i18n';
 import { ingredientAmountText, specialKindLabel } from '../model/recipe-presentation';
 import AdminIcon from '../../../components/AdminIcon';
@@ -12,6 +13,7 @@ import ContentActions from '../../../components/ContentActions';
 import CopyLinkAction from '../../../components/CopyLinkAction';
 import RecipePdfDownloadButton from './RecipePdfDownloadButton';
 import RecipeContributors from './RecipeContributors';
+import RecipeDietIcon from './RecipeDietIcon';
 
 interface RecipeDetailViewProperties {
   text: Translation;
@@ -47,7 +49,9 @@ export default function RecipeDetailView({
       </a>
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <div className="recipe-detail__title">
-        <h2>{recipe.title}</h2>
+        <h2>
+          {recipe.title} <RecipeDietIcon diet={recipe.diet} text={text} showLabel />
+        </h2>
         <div className="recipe-detail__actions">
           <RecipePdfDownloadButton recipe={recipe} text={text} tenantSlug={tenantSlug} />
           <ContentActions label={`${text.reports.moreActions}: ${recipe.title}`}>
@@ -166,6 +170,7 @@ export default function RecipeDetailView({
         ))}
       </ol>
       <RecipeContributors contributors={recipe.contributors ?? []} text={text} />
+      <RecipeMetadata recipe={recipe} text={text} />
     </section>
   );
 }

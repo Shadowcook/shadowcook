@@ -24,7 +24,7 @@ interface RenderedPage {
 
 interface RenderedItem {
   type: string;
-  item: { type?: string; y1?: number; y2?: number };
+  item: { type?: string; y1?: number; y2?: number; inlines?: { text: string }[] };
 }
 
 type RenderedPdfStream = Awaited<ReturnType<TCreatedPdf['getStream']>> & {
@@ -87,6 +87,22 @@ function tableRulePositions(page: RenderedPage): number[] {
   });
   return Array.from(positions).sort((left: number, right: number): number => left - right);
 }
+
+test('long utensils text flows across PDF pages without truncation', async (): Promise<void> => {
+  const recipe: RecipeDetail = recipeWithSteps([2]);
+  const utensils: string = `${'Mixing bowl\n'.repeat(160)}Final utensil`;
+  recipe.metadata.utensils = utensils;
+  const result: RenderedRecipe = await renderRecipe(recipe);
+  const textNode: Node = renderedNode(result, utensils);
+  assert.ok(textNode.pageNumbers.length > 1);
+  const finalPageText: string = result.pages
+    .at(-1)!
+    .items.flatMap((element: RenderedItem): string[] =>
+      (element.item.inlines ?? []).map((inline: { text: string }): string => inline.text),
+    )
+    .join('');
+  assert.ok(finalPageText.includes('Final utensil'));
+});
 
 function renderedNode(result: RenderedRecipe, text: string): Node {
   const node: Node | undefined =

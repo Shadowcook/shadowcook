@@ -1,6 +1,7 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { unitTranslationsSql } from '../unit-translations.js';
 import { revisionContributorNamesSql } from './recipe-contributors.js';
+import { recipeMetadataSql } from './recipe-facts.js';
 import type {
   CookbookExport,
   ExportCategory,
@@ -81,7 +82,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
     const revisions: ExportRevision[] = await exportRows<ExportRevision>(
       client,
       `SELECT revision.public_id, recipe.public_id AS recipe_public_id,
-        revision.revision_no, revision.status, revision.title, revision.summary, revision.version,
+        revision.revision_no, revision.status, revision.title, revision.summary, revision.version, ${recipeMetadataSql('revision')},
         COALESCE(user_account.display_name, service_account.name) AS author_display_name,
         ${revisionContributorNamesSql()} AS contributor_display_names,
         revision.created_at, revision.published_at,
