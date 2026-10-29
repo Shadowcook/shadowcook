@@ -79,6 +79,7 @@ const emptyForm: RecipeForm = {
 
 export default function RecipeEditor(properties: RecipeEditorProperties): JSX.Element {
   const text: Translation = translations[properties.locale];
+  const [categories, setCategories] = useState<Category[]>(properties.categories);
   const [form, setForm] = useState<RecipeForm>((): RecipeForm => {
     const categoryId: string | null =
       properties.recipePublicId === null
@@ -97,6 +98,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const draftFormId: string = useId();
   const isBusy: boolean = isSaving || isSavingSteps;
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants' | 'revisions'>('recipe');
+  const [variantsVersion, setVariantsVersion] = useState<number>(0);
   const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
   const [isShareDialogOpen, setIsShareDialogOpen] = useState<boolean>(false);
   const checkedSlugStatus: RecipeSlugStatus = useRecipeSlugAvailability(
@@ -120,6 +122,21 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
     if (properties.recipePublicId === null) return;
     void loadRecipe();
   }, [properties.recipePublicId, properties.tenantSlug]);
+
+  useEffect((): (() => void) => {
+    const controller: AbortController = new AbortController();
+    void request<{ categories: Category[] }>(
+      `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue`,
+      { signal: controller.signal },
+    )
+      .then((catalogue: { categories: Category[] }): void => {
+        if (!controller.signal.aborted) setCategories(catalogue.categories);
+      })
+      .catch((error: unknown): void => {
+        if (!controller.signal.aborted) showError(error);
+      });
+    return (): void => controller.abort();
+  }, [properties.tenantSlug, properties.recipePublicId]);
 
   async function loadRecipe(): Promise<boolean> {
     if (properties.recipePublicId === null) return false;
@@ -460,7 +477,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           <fieldset>
             <legend>{text.recipeEditor.categories}</legend>
             <RecipeCategorySelector
-              categories={properties.categories}
+              categories={categories}
               selectedCategoryIds={form.categoryPublicIds}
               text={text}
               onToggleCategory={toggleCategory}
@@ -562,6 +579,7 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
             recipePublicId={recipe.publicId}
             text={text}
             onDraftChanged={markDraftChanged}
+            variantsVersion={variantsVersion}
             actionsContainer={stepsActionsContainer}
             isBusy={isSaving}
             onBusyChanged={setIsSavingSteps}
@@ -573,7 +591,10 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
           tenantSlug={properties.tenantSlug}
           recipePublicId={recipe.publicId}
           text={text}
-          onDraftChanged={markDraftChanged}
+          onDraftChanged={async (): Promise<void> => {
+            setVariantsVersion((current: number): number => current + 1);
+            await markDraftChanged();
+          }}
         />
       )}
       {recipe === null || tab !== 'revisions' ? null : (

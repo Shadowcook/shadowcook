@@ -1,4 +1,5 @@
 import type { RecipeContentMetadata, RecipeDiet } from './recipe-facts.js';
+import type { ExportImportSources } from './export-import-sources.js';
 
 export interface ExportCookbookSettings {
   public_id: string;
@@ -108,6 +109,7 @@ export interface ExportIngredientUsage {
 }
 
 export interface CookbookExport {
+  import_sources: ExportImportSources;
   format: 'shadowcook-cookbook';
   format_version: 1;
   exported_at: string;

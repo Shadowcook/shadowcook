@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import type { ChangeEvent, JSX, MouseEvent } from 'react';
+import type { ChangeEvent, JSX, MouseEvent, RefObject } from 'react';
 import { createPortal } from 'react-dom';
 import type { Translation } from '../../../i18n';
 import { localizedUnitSymbol, type UnitTranslations } from '../../../i18n/unit-localization';
@@ -11,6 +11,7 @@ import RecipeEditorSaveButton from './RecipeEditorSaveButton';
 import IngredientPicker from './IngredientPicker';
 import RecipeLinkPicker from './RecipeLinkPicker';
 import type { DraftVariant } from './RecipeVariantsEditor';
+import { refreshStepVariants, setStepVariant, stepVariantKeys } from '../model/step-variants';
 import { recipeRequestError } from '../model/recipe-request-error';
 
 interface Unit {
@@ -42,6 +43,7 @@ interface SavedUsage {
 }
 interface SavedStep {
   id: string;
+  includedVariantKeys?: string[];
   instruction: string;
   ingredients: SavedUsage[];
 }
@@ -65,6 +67,7 @@ interface RecipeStepsEditorProperties {
   recipePublicId: string;
   text: Translation;
   onDraftChanged: () => Promise<void>;
+  variantsVersion: number;
   actionsContainer: HTMLDivElement | null;
   isBusy: boolean;
   onBusyChanged: (isBusy: boolean) => void;
@@ -90,6 +93,11 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [errorMessage, setErrorMessage] = useState<string>('');
+  const changedMembershipIds: RefObject<Set<string>> = useRef<Set<string>>(new Set<string>());
+  const stepIdsByKey: RefObject<Map<string, string>> = useRef<Map<string, string>>(
+    new Map<string, string>(),
+  );
+  const editedStepIds: RefObject<Set<string>> = useRef<Set<string>>(new Set<string>());
   const [variants, setVariants] = useState<DraftVariant[]>([]);
   const [recipeLinkSelection, setRecipeLinkSelection] = useState<RecipeLinkSelection | null>(null);
   const base: string = `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${properties.recipePublicId}/draft`;
@@ -98,9 +106,9 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     setMessage('');
     try {
       const [stepResponse, catalogue] = await Promise.all([
-        request<{ steps: Array<{ id: string; instruction: string; ingredients: Usage[] }> }>(
-          `${base}/steps`,
-        ),
+        request<{
+          steps: Array<{ id: string; stepKey: string; instruction: string; ingredients: Usage[] }>;
+        }>(`${base}/steps`),
         request<{ units: Unit[] }>(
           `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/editor-catalogue`,
         ),
@@ -111,6 +119,9 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
         setMessage(properties.text.errors.requestFailed);
         return;
       }
+      stepIdsByKey.current = new Map(
+        loadedSteps.map((step): [string, string] => [step.stepKey, step.id]),
+      );
       setSteps(
         loadedSteps.map((step): Step => ({
           id: step.id,
@@ -152,6 +163,41 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
   useEffect((): void => {
     void loadEditor();
   }, [base, properties.tenantSlug, properties.text.errors.requestFailed]);
+  useEffect((): (() => void) | undefined => {
+    if (properties.variantsVersion === 0) return;
+    let cancelled: boolean = false;
+    void Promise.all([
+      request<{ variants: DraftVariant[] }>(`${base}/variants`),
+      request<{ steps: Array<{ id: string; stepKey: string }> }>(`${base}/steps`),
+    ])
+      .then(([response, stepResponse]): void => {
+        const localIdByServerId: Map<string, string> = new Map(
+          stepResponse.steps.map((step): [string, string] => [
+            step.id,
+            stepIdsByKey.current.get(step.stepKey) ?? step.id,
+          ]),
+        );
+        const loaded: DraftVariant[] = response.variants.map(
+          (variant: DraftVariant): DraftVariant => ({
+            ...variant,
+            overrides: variant.overrides.map((override) => ({
+              ...override,
+              stepId: localIdByServerId.get(override.stepId) ?? override.stepId,
+            })),
+          }),
+        );
+        if (!cancelled)
+          setVariants((current: DraftVariant[]): DraftVariant[] =>
+            refreshStepVariants(loaded, current, editedStepIds.current),
+          );
+      })
+      .catch((error: unknown): void => {
+        if (!cancelled) setErrorMessage(recipeRequestError(error, properties.text));
+      });
+    return (): void => {
+      cancelled = true;
+    };
+  }, [base, properties.variantsVersion]);
   function updateStep(index: number, patch: Partial<Step>): void {
     setSteps((current): Step[] =>
       current.map((step, candidate): Step => (candidate === index ? { ...step, ...patch } : step)),
@@ -176,6 +222,17 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
   }
   function addStep(afterIndex?: number): void {
     const newStep: Step = { id: createBrowserUuid(), instruction: '', ingredients: [] };
+    editedStepIds.current.add(newStep.id);
+    setVariants((current: DraftVariant[]): DraftVariant[] =>
+      current.map((variant: DraftVariant): DraftVariant =>
+        variant.isDefault
+          ? {
+              ...variant,
+              overrides: [...variant.overrides, { stepId: newStep.id, state: 'INCLUDE' }],
+            }
+          : variant,
+      ),
+    );
     setRecipeLinkSelection(null);
     setSteps((current: Step[]): Step[] => {
       const insertionIndex: number = afterIndex === undefined ? current.length : afterIndex + 1;
@@ -215,25 +272,17 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
     const local = (variant.overrides ?? []).find((override) => override.stepId === stepId);
     return local?.state === 'INCLUDE';
   }
-  async function toggleVariant(variant: DraftVariant, stepId: string): Promise<void> {
-    const next = !effectiveState(variant, stepId);
-    const overrides = (variant.overrides ?? []).filter((override) => override.stepId !== stepId);
-    if (next) overrides.push({ stepId, state: 'INCLUDE' });
-    try {
-      await request<void>(`${base}/variants/${variant.variantKey}/step-overrides`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ overrides }),
-      });
-      setVariants((current: DraftVariant[]): DraftVariant[] =>
-        current.map((candidate: DraftVariant): DraftVariant =>
-          candidate.variantKey === variant.variantKey ? { ...candidate, overrides } : candidate,
-        ),
-      );
-      await properties.onDraftChanged();
-    } catch (error: unknown) {
-      setErrorMessage(recipeRequestError(error, properties.text));
-    }
+  function toggleVariant(variant: DraftVariant, stepId: string): void {
+    changedMembershipIds.current.add(stepId);
+    editedStepIds.current.add(stepId);
+    setVariants((current: DraftVariant[]): DraftVariant[] =>
+      setStepVariant(
+        current,
+        variant.variantKey,
+        stepId,
+        !stepVariantKeys(current, stepId).includes(variant.variantKey),
+      ),
+    );
   }
   async function save(): Promise<void> {
     if (isLoading || isSaving || properties.isBusy) return;
@@ -248,6 +297,9 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
           steps: savedSteps(),
         }),
       });
+      editedStepIds.current.clear();
+      changedMembershipIds.current.clear();
+      await loadEditor();
       setMessage(properties.text.recipeEditor.stepsSaved);
       await properties.onDraftChanged();
     } catch (error: unknown) {
@@ -262,6 +314,9 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
       .filter((step: Step): boolean => step.instruction.trim().length > 0)
       .map((step: Step): SavedStep => ({
         id: step.id,
+        ...(changedMembershipIds.current.has(step.id) && variants.length > 0
+          ? { includedVariantKeys: stepVariantKeys(variants, step.id) }
+          : {}),
         instruction: step.instruction,
         ingredients: step.ingredients.map((usage: Usage): SavedUsage => ({
           ingredientPublicId: usage.ingredientPublicId,
@@ -330,6 +385,7 @@ export default function RecipeStepsEditor(properties: RecipeStepsEditorPropertie
                   <label className="recipe-editor__check">
                     <input
                       type="checkbox"
+                      disabled={isSaving || properties.isBusy}
                       checked={effectiveState(variant, step.id)}
                       onChange={(): void => void toggleVariant(variant, step.id)}
                     />

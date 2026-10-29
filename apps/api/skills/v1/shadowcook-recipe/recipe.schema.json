@@ -1,0 +1,497 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Shadowcook portable recipe v1",
+  "description": "One authored recipe with document-local ingredient, unit, step, entry, variant and recipe-reference keys. Structural validation must be followed by the semantic checks in references/format.md. Recipe import validates this document and requires explicit local catalogue mappings before creating a draft.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["format", "formatVersion", "ingredients", "units", "recipe"],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "format": "uri"
+    },
+    "format": {
+      "const": "shadowcook-recipe"
+    },
+    "formatVersion": {
+      "const": 1
+    },
+    "ingredients": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/ingredient"
+      },
+      "maxItems": 500
+    },
+    "units": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/unit"
+      },
+      "maxItems": 200
+    },
+    "recipeReferences": {
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/recipeReference"
+      },
+      "maxItems": 100
+    },
+    "recipe": {
+      "$ref": "#/definitions/recipe"
+    }
+  },
+  "definitions": {
+    "key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]{0,79}$"
+    },
+    "nonEmptyText": {
+      "type": "string",
+      "pattern": "\\S"
+    },
+    "decimal": {
+      "type": "string",
+      "pattern": "^(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,12})?$"
+    },
+    "sourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instanceUrl", "tenantPublicId", "publicId"],
+      "properties": {
+        "instanceUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "tenantPublicId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "publicId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "description": "Known source instance URL, tenant public UUID and entity public UUID. Omit source entirely when unknown; never invent it."
+    },
+    "unitSourceIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["instanceUrl", "tenantPublicId", "publicId"],
+      "properties": {
+        "instanceUrl": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "tenantPublicId": {
+          "type": ["string", "null"],
+          "format": "uuid"
+        },
+        "publicId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "description": "A null tenantPublicId identifies an instance-owned unit."
+    },
+    "ingredient": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "name": {
+          "maxLength": 240,
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "maxLength": 240,
+            "type": "string",
+            "pattern": "\\S"
+          },
+          "uniqueItems": true,
+          "maxItems": 100
+        },
+        "source": {
+          "$ref": "#/definitions/sourceIdentity"
+        }
+      }
+    },
+    "conversion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dimension", "baseFactor", "baseOffset"],
+      "properties": {
+        "dimension": {
+          "type": "string",
+          "enum": ["MASS", "VOLUME", "COUNT", "TEMPERATURE"]
+        },
+        "baseFactor": {
+          "type": "string",
+          "pattern": "^(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,12})?$",
+          "not": {
+            "pattern": "^0(?:\\.0+)?$"
+          }
+        },
+        "baseOffset": {
+          "type": "string",
+          "pattern": "^-?(?:0|[1-9][0-9]{0,11})(?:\\.[0-9]{1,12})?$"
+        }
+      },
+      "description": "Base units: g, ml, count, degrees Celsius. base = amount * baseFactor + baseOffset. Only temperature has a non-zero offset.",
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "dimension": {
+                "enum": ["MASS", "VOLUME", "COUNT"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "baseOffset": {
+                "pattern": "^0(?:\\.0+)?$",
+                "type": "string"
+              }
+            }
+          }
+        }
+      ]
+    },
+    "unit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "symbol"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "name": {
+          "maxLength": 240,
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "symbol": {
+          "maxLength": 80,
+          "type": "string",
+          "pattern": "\\S"
+        },
+        "conversion": {
+          "$ref": "#/definitions/conversion"
+        },
+        "source": {
+          "$ref": "#/definitions/unitSourceIdentity"
+        }
+      }
+    },
+    "catalogueEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "ingredientKey"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "kind": {
+          "const": "ingredient"
+        },
+        "ingredientKey": {
+          "$ref": "#/definitions/key"
+        },
+        "alias": {
+          "$ref": "#/definitions/nonEmptyText"
+        },
+        "amount": {
+          "$ref": "#/definitions/decimal"
+        },
+        "unitKey": {
+          "$ref": "#/definitions/key"
+        },
+        "isOptional": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "textEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "text"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "kind": {
+          "const": "text"
+        },
+        "text": {
+          "$ref": "#/definitions/nonEmptyText"
+        },
+        "amount": {
+          "$ref": "#/definitions/decimal"
+        },
+        "unitKey": {
+          "$ref": "#/definitions/key"
+        },
+        "isOptional": {
+          "type": "boolean"
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "specialEntry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "kind", "specialKind"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "kind": {
+          "const": "special"
+        },
+        "specialKind": {
+          "type": "string",
+          "enum": [
+            "NO_ICON",
+            "REMOVE",
+            "ADD",
+            "INFO",
+            "IMPORTANT",
+            "COOK",
+            "COOL",
+            "HEAT",
+            "WAIT",
+            "WORK_STEP"
+          ]
+        },
+        "note": {
+          "type": "string"
+        }
+      }
+    },
+    "entry": {
+      "oneOf": [
+        {
+          "$ref": "#/definitions/catalogueEntry"
+        },
+        {
+          "$ref": "#/definitions/textEntry"
+        },
+        {
+          "$ref": "#/definitions/specialEntry"
+        }
+      ]
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "instruction", "entries"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "instruction": {
+          "$ref": "#/definitions/nonEmptyText"
+        },
+        "entries": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/entry"
+          }
+        }
+      }
+    },
+    "variant": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "name", "slug", "isDefault", "isVisible", "includedStepKeys"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "name": {
+          "$ref": "#/definitions/nonEmptyText"
+        },
+        "slug": {
+          "type": "string",
+          "maxLength": 160,
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "isDefault": {
+          "type": "boolean"
+        },
+        "isVisible": {
+          "type": "boolean"
+        },
+        "includedStepKeys": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/key"
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "isDefault": {
+                "const": true
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "isVisible": {
+                "const": true
+              }
+            }
+          }
+        }
+      ]
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [],
+      "properties": {
+        "difficulty": {
+          "type": ["string", "null"],
+          "enum": ["EASY", "MEDIUM", "DEMANDING", null]
+        },
+        "totalMinutes": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 5256000
+        },
+        "activeMinutes": {
+          "type": ["integer", "null"],
+          "minimum": 0,
+          "maximum": 5256000
+        },
+        "kcal": {
+          "type": ["number", "null"],
+          "minimum": 0,
+          "maximum": 1000000000
+        },
+        "servings": {
+          "type": ["number", "null"],
+          "exclusiveMinimum": 0,
+          "maximum": 1000000
+        },
+        "utensils": {
+          "type": ["string", "null"],
+          "maxLength": 4000
+        }
+      },
+      "description": "Unknown fields may be omitted or null. Active minutes must not exceed total minutes. Calories describe the entire recipe; do not include derived kcalPerServing or timestamps."
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source"],
+      "properties": {
+        "source": {
+          "$ref": "#/definitions/sourceIdentity"
+        },
+        "revisionPublicId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "lineagePublicId": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "description": "Unverified source claims, never an access grant. Preserve known lineage when copying; omit unknown identity fields."
+    },
+    "recipeReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["key", "title", "url"],
+      "properties": {
+        "key": {
+          "$ref": "#/definitions/key"
+        },
+        "title": {
+          "$ref": "#/definitions/nonEmptyText"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://"
+        },
+        "source": {
+          "$ref": "#/definitions/sourceIdentity"
+        }
+      }
+    },
+    "recipe": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "steps", "variants"],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 240,
+          "pattern": "\\S"
+        },
+        "summary": {
+          "type": ["string", "null"]
+        },
+        "categoryPaths": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/definitions/nonEmptyText"
+            },
+            "minItems": 1
+          },
+          "uniqueItems": true
+        },
+        "metadata": {
+          "$ref": "#/definitions/metadata"
+        },
+        "diet": {
+          "type": ["string", "null"],
+          "enum": ["VEGAN", "VEGETARIAN", "OMNI", null]
+        },
+        "provenance": {
+          "$ref": "#/definitions/provenance"
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/step"
+          },
+          "minItems": 1,
+          "maxItems": 500
+        },
+        "variants": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/variant"
+          },
+          "minItems": 1,
+          "maxItems": 50
+        }
+      }
+    }
+  }
+}

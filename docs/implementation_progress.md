@@ -2,6 +2,24 @@
 
 ## Completed architecture features
 
+### Public recipe authoring skill
+
+- Public versioned skill, Draft-07 recipe JSON schema, format and icon guides, simple and variant examples, and a Python structural/semantic validator are exposed through the API and included in the downloadable skill ZIP (architecture section 15.3.1).
+- AI-sharing manifests link absolute skill, schema, example and ZIP URLs with the public API prefix and credential-free authoring instructions. Context grants remain read-only.
+- The portable document uses independent ingredient/unit keys, explicit variant step membership, optional source identities and recipe lineage, and exact decimal conversion data. Authenticated federation import and trusted reusable source mappings remain unimplemented.
+- Skill instructions, format/icon guides and the variant example keep the left column strictly technical and compact. Prose and complete warnings belong in step instructions or dedicated warning steps; special-entry markers can omit notes (architecture section 15.3.1).
+- Skill instructions and the format guide require notes to agree with authoritative structured quantities, exclude redundant or competing same-unit amounts and approximation qualifiers, and include this consistency check in manual validation (architecture section 15.3.1).
+- Public-resource, archive and schema unit tests cover resource links, ZIP contents and structural rejection. AI-context integration tests verify credential-free resource retrieval through the web proxy. `pnpm test:skill` runs the Python validator's positive, negative and CLI tests with the skill's Python dependencies installed.
+
+### Recipe JSON upload and draft import
+
+- The Import Recipe action appears only in recipe management, above and to the right of Create Recipe; Create Recipe appears below on the left (architecture section 15.3.2).
+- Page-wide JSON-file drops show a drag overlay, switch to file input and automatically validate the file before opening the recipe overview. The source step shows the filename. Localized errors cover multiple files, non-JSON files and the shared size limit; reading and submission block further drops (architecture section 15.3.2).
+- A deep-linkable cookbook import wizard accepts a JSON file or pasted JSON, validates the portable v1 format, and guides users through an informational overview, editable title/URL/category/variant name and slug head data, and ingredient/unit assignment tables with Next, Previous and Finish controls. Title edits appear in the overview and imported draft; titles require non-whitespace text and are limited to 240 characters. Variant names set to the locale default or left empty reset the variant slug to `default`; variant slugs remain editable and require valid, unique values. Choices survive backward navigation (architecture section 15.3.2).
+- Assignment comboboxes show the permitted new-entry choice first, integrate catalogue search, retain original-entry suggestions above filtered existing entries, support keyboard navigation, and retain selected search results between steps. Existing ingredient mappings provide an explicit Add as alias checkbox gated by `ingredient:update`; alias additions participate in the import transaction. New-entry selections clear and disable the alias checkbox.
+- Cookbook-local ingredient names and aliases and visible unit definitions/translations provide ranked suggestions. Users can search existing entries or explicitly create new ones when permitted. Unknown unit definitions require selection; incompatible known definitions are rejected.
+- Import revalidates selections and stores all new catalogue entries, recipe content, variants, metadata and contributor attribution atomically as a draft. Source identities remain unverified, known lineage is retained, and source records are included in cookbook exports. Full cookbook ZIP import and authenticated federation synchronization remain unimplemented.
+
 ### Recipe metadata and dietary classification
 
 - Optional versioned difficulty, total and active duration, total kcal, servings, and free-text utensils are available in the recipe editor and at the end of recipe views and PDFs (architecture section 4.2).

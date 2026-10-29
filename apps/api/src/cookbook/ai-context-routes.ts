@@ -5,6 +5,7 @@ import { requireTenantPermission } from '../admin/authorization.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { aiContextTokenFromRequest } from '../auth/ai-context-token.js';
 import { recipeFactsSql, recipeMetadataSql, type RecipeFactsRow } from './recipe-facts.js';
+import { recipeAuthoringResources } from '../skills/recipe-skill.js';
 
 type ScopeType = 'TENANT' | 'RECIPE' | 'CATEGORY';
 
@@ -147,6 +148,7 @@ export function registerAiContextRoutes(
             'Use rootRecipe when no category path is available. A non-default variant appends variantSuffix.',
         },
         scope: { type: context.scope_type, publicId: context.scope_public_id },
+        recipeAuthoring: recipeAuthoringResources(publicApiOrigin),
         endpoints: {
           overview: readerEndpoint(publicApiOrigin, '/ai-context/reader'),
           recipe: readerEndpoint(publicApiOrigin, '/ai-context/reader/recipes/{publicId}'),
@@ -161,7 +163,7 @@ export function registerAiContextRoutes(
           draft: readerEndpoint(publicApiOrigin, '/ai-context/reader/recipes/{publicId}/draft'),
         },
         requestInstructions:
-          'Use the absolute endpoints.*.url templates and replace placeholders with public IDs. Authenticate every reader request with Authorization: Bearer {accessToken}. If you cannot set Authorization headers, append ?access_token={accessToken} to the reader URL, or &access_token={accessToken} when it already has a query string; replace {accessToken} with the URL-encoded accessToken. Use exactly one authentication method per request. The query parameter works only on AI context reader endpoints. Never append the token to public web links or send it to other services. The endpoints.*.path values are internal API paths; resolving them against baseUrl can discard its public path prefix. The bootstrap URL is single-use and cannot authenticate reader requests.',
+          'Use the absolute endpoints.*.url templates and replace placeholders with public IDs. Authenticate every reader request with Authorization: Bearer {accessToken}. If you cannot set Authorization headers, append ?access_token={accessToken} to the reader URL, or &access_token={accessToken} when it already has a query string; replace {accessToken} with the URL-encoded accessToken. Use exactly one authentication method per request. The query parameter works only on AI context reader endpoints. Never append the token to public web links or send it to other services. The endpoints.*.path values are internal API paths; resolving them against baseUrl can discard its public path prefix. The bootstrap URL is single-use and cannot authenticate reader requests. Before composing recipe JSON, read recipeAuthoring.skillUrl and follow recipeAuthoring.instructions. Fetch public authoring resources without authentication.',
         authentication: {
           type: 'bearer',
           header: 'Authorization: Bearer {accessToken}',

@@ -3,6 +3,453 @@ info:
   title: Shadowcook API
   version: 0.1.0
 paths:
+  /cookbook/tenants/{tenantSlug}/recipe-imports/preview:
+    post:
+      operationId: previewRecipeImport
+      summary: Validates portable recipe JSON and suggests cookbook-local catalogue
+        matches without writing data.
+      description: 'Requires recipe:create in the target cookbook. File contents and
+        pasted JSON are submitted as the same json string. The document is validated
+        against the bundled v1 schema and semantic rules without fetching its $schema
+        or source URLs. Limit: 1 MiB UTF-8 text, nesting depth 64, 500 ingredients,
+        200 units, 500 steps, 50 variants, 100 recipe references and 5000 step entries.
+        Explicit alias additions require ingredient:update and are committed atomically with the draft. New catalogue entries require ingredient:create or unit:create; additional variants
+        require variant:create. Imports use one transaction, generate local IDs, retain
+        explicit memberships and known source claims, and never publish or activate
+        federation. Existing units must have exactly equivalent definitions when a source
+        definition is known. Unknown unit definitions require explicit user selection.
+        Imported external recipe references become authored title-and-URL text.'
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      parameters:
+        - name: tenantSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeImportPreviewInput'
+      responses:
+        '200':
+          description: Validated preview.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportPreview'
+        '400':
+          description: INVALID_RECIPE_IMPORT or INVALID_RECIPE_DOCUMENT. Document failures
+            include stable issue codes and JSON paths.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          description: TENANT_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or IMPORT_CREATE_PERMISSION_REQUIRED or IMPORT_ALIAS_PERMISSION_REQUIRED.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '404':
+          description: TENANT_NOT_FOUND.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '413':
+          description: RECIPE_IMPORT_TOO_LARGE. HTTP request bodies are limited to 4194304
+            bytes; recipe JSON text remains limited to 1048576 bytes.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '415':
+          description: INVALID_RECIPE_IMPORT; unsupported request media type.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecipeImportError' }
+  /cookbook/tenants/{tenantSlug}/recipe-imports:
+    post:
+      operationId: importRecipeDraft
+      summary: Imports a portable recipe as one new draft after explicit catalogue mapping.
+      description: 'Requires recipe:create in the target cookbook. File contents and
+        pasted JSON are submitted as the same json string. The document is validated
+        against the bundled v1 schema and semantic rules without fetching its $schema
+        or source URLs. Limit: 1 MiB UTF-8 text, nesting depth 64, 500 ingredients,
+        200 units, 500 steps, 50 variants, 100 recipe references and 5000 step entries.
+        Explicit alias additions require ingredient:update and are committed atomically with the draft. New catalogue entries require ingredient:create or unit:create; additional variants
+        require variant:create. Imports use one transaction, generate local IDs, retain
+        explicit memberships and known source claims, and never publish or activate
+        federation. Existing units must have exactly equivalent definitions when a source
+        definition is known. Unknown unit definitions require explicit user selection.
+        Imported external recipe references become authored title-and-URL text.'
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      parameters:
+        - name: tenantSlug
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RecipeImportInput'
+      responses:
+        '201':
+          description: Draft created with new local public ID and selected URL slug.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - publicId
+                  - slug
+                properties:
+                  publicId:
+                    type: string
+                    format: uuid
+                  slug:
+                    type: string
+        '400':
+          description: INVALID_RECIPE_IMPORT or INVALID_RECIPE_DOCUMENT. Document failures
+            include stable issue codes and JSON paths.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          description: TENANT_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or IMPORT_CREATE_PERMISSION_REQUIRED or IMPORT_ALIAS_PERMISSION_REQUIRED.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '404':
+          description: TENANT_NOT_FOUND.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '413':
+          description: RECIPE_IMPORT_TOO_LARGE. HTTP request bodies are limited to 4194304
+            bytes; recipe JSON text remains limited to 1048576 bytes.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '415':
+          description: INVALID_RECIPE_IMPORT; unsupported request media type.
+          headers:
+            Cache-Control: { schema: { type: string, const: no-store } }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecipeImportError' }
+        '409':
+          description: IMPORT_MAPPING_INVALID, IMPORT_UNIT_MISMATCH, IMPORT_CATALOGUE_CONFLICT,
+            INVALID_RECIPE_CATEGORY or RECIPE_IMPORT_CONFLICT. No recipe or catalogue
+            changes are committed.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+  /cookbook/tenants/{tenantSlug}/recipe-imports/catalogue:
+    get:
+      operationId: searchRecipeImportCatalogue
+      summary: Searches visible ingredients or units while reviewing an import.
+      description: Requires recipe:create. Ingredients belong to the receiving cookbook;
+        units are instance-owned or belong to that cookbook. Searches names, aliases,
+        unit symbols and stored unit translations. Returns at most 25 candidates. An empty search returns the first 25 visible entries.
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      parameters:
+        - name: tenantSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: kind
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - INGREDIENT
+              - UNIT
+        - name: search
+          in: query
+          required: true
+          schema:
+            type: string
+            maxLength: 200
+      responses:
+        '200':
+          description: Matching visible catalogue entries.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                  - candidates
+                properties:
+                  candidates:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/RecipeImportCandidate'
+                    maxItems: 25
+        '400':
+          description: INVALID_RECIPE_IMPORT or INVALID_RECIPE_DOCUMENT. Document failures
+            include stable issue codes and JSON paths.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '401':
+          $ref: '#/components/responses/AuthenticationRequired'
+        '403':
+          description: TENANT_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or IMPORT_CREATE_PERMISSION_REQUIRED or IMPORT_ALIAS_PERMISSION_REQUIRED.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+        '404':
+          description: TENANT_NOT_FOUND.
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                const: no-store
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecipeImportError'
+  /skills/shadowcook-recipe/v1/SKILL.md:
+    get:
+      operationId: getRecipeAuthoringSkill
+      summary: Public Shadowcook recipe authoring skill.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Public Shadowcook recipe authoring skill.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            text/markdown:
+              schema: { type: string }
+  /skills/shadowcook-recipe/v1/recipe.schema.json:
+    get:
+      operationId: getPortableRecipeSchema
+      summary: Public Draft-07 schema for one portable Shadowcook recipe.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Public Draft-07 schema for one portable Shadowcook recipe.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            application/schema+json:
+              schema:
+                {
+                  type: object,
+                  additionalProperties: true,
+                  description: 'Draft-07 JSON Schema document; its definitions and semantic rules are bundled with the skill.',
+                }
+  /skills/shadowcook-recipe/v1/references/format.md:
+    get:
+      operationId: getPortableRecipeFormatGuide
+      summary: Portable recipe format and semantic constraints.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Portable recipe format and semantic constraints.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            text/markdown:
+              schema: { type: string }
+  /skills/shadowcook-recipe/v1/references/icons.md:
+    get:
+      operationId: getRecipeIconGuide
+      summary: Supported recipe pictograms and their semantic uses.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Supported recipe pictograms and their semantic uses.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            text/markdown:
+              schema: { type: string }
+  /skills/shadowcook-recipe/v1/examples/simple.json:
+    get:
+      operationId: getSimplePortableRecipeExample
+      summary: Simple portable recipe example.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Simple portable recipe example.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            application/json:
+              schema: { $ref: '../apps/api/skills/v1/shadowcook-recipe/recipe.schema.json' }
+  /skills/shadowcook-recipe/v1/examples/variants.json:
+    get:
+      operationId: getVariantPortableRecipeExample
+      summary: Portable recipe example with shared steps and variants.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Portable recipe example with shared steps and variants.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            application/json:
+              schema: { $ref: '../apps/api/skills/v1/shadowcook-recipe/recipe.schema.json' }
+  /skills/shadowcook-recipe/v1/scripts/validate_recipe.py:
+    get:
+      operationId: getPortableRecipeValidator
+      summary: Downloadable Python validator for structural and semantic recipe checks.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Downloadable Python validator for structural and semantic recipe checks.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            text/plain:
+              schema: { type: string }
+  /skills/shadowcook-recipe/v1/scripts/requirements.txt:
+    get:
+      operationId: getPortableRecipeValidatorRequirements
+      summary: Python dependency constraints for the bundled recipe validator.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Python dependency constraints for the bundled recipe validator.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+          content:
+            text/plain:
+              schema: { type: string }
+  /skills/shadowcook-recipe/v1/shadowcook-recipe.zip:
+    get:
+      operationId: downloadRecipeAuthoringSkill
+      summary: Downloads the complete recipe authoring skill folder.
+      description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
+      security: []
+      responses:
+        '200':
+          description: Downloads the complete recipe authoring skill folder.
+          headers:
+            Cache-Control: { schema: { type: string, const: 'public, max-age=3600' } }
+            X-Content-Type-Options: { schema: { type: string, const: nosniff } }
+            Content-Disposition:
+              { schema: { type: string, const: 'attachment; filename="shadowcook-recipe-v1.zip"' } }
+          content:
+            application/zip:
+              schema: { type: string, format: binary }
   /reports:
     post:
       operationId: createContentReport
@@ -1960,7 +2407,7 @@ paths:
     get:
       operationId: exchangeAiContextLink
       summary: Exchanges a one-time AI context URL for a scoped read-only bearer token, tenant identity, web route templates, and endpoint manifest.
-      description: Each endpoint includes an absolute public URL template preserving the PUBLIC_API_ORIGIN path prefix. Replace template placeholders with public IDs and authenticate every reader request using Authorization Bearer credentials or, when headers cannot be set, the URL-encoded accessToken in the access_token query parameter. Use exactly one authentication method per request. Query credentials apply only to reader endpoints and must not be appended to public web links. The path field is an internal API path, not a URL to resolve against baseUrl. Bootstrap tokens are single-use and cannot authenticate reader requests. AI reader tokens cannot authenticate ordinary API or MCP endpoints.
+      description: Each endpoint includes an absolute public URL template preserving the PUBLIC_API_ORIGIN path prefix. Replace template placeholders with public IDs and authenticate every reader request using Authorization Bearer credentials or, when headers cannot be set, the URL-encoded accessToken in the access_token query parameter. Use exactly one authentication method per request. Query credentials apply only to reader endpoints and must not be appended to public web links. The recipeAuthoring object links the public recipe JSON skill, schema, examples and ZIP; fetch those resources without context credentials. Read its instructions before authoring recipe JSON. The path field is an internal API path, not a URL to resolve against baseUrl. Bootstrap tokens are single-use and cannot authenticate reader requests. AI reader tokens cannot authenticate ordinary API or MCP endpoints.
       parameters:
         - { name: bootstrapToken, in: path, required: true, schema: { type: string } }
       responses:
@@ -3079,7 +3526,8 @@ paths:
                     items: { $ref: '#/components/schemas/RecipeDraftStep' }
     put:
       operationId: replaceRecipeDraftSteps
-      summary: Replaces the editable preparation steps, creating a draft from the published revision when needed.
+      summary: Replaces the editable preparation steps and memberships atomically, creating a draft when needed.
+      description: Requires recipe:update. Explicit includedVariantKeys additionally requires variant:update. Existing step keys and memberships are retained when id identifies a step in this recipe and includedVariantKeys is omitted. New steps without explicit membership join the default variant. Response step row IDs must be reloaded after saving.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
@@ -3101,7 +3549,7 @@ paths:
       responses:
         '204': { description: Preparation steps saved. }
         '400':
-          description: INVALID_RECIPE_STEPS. The recipe steps, ingredient references, units, or amounts are invalid.
+          description: INVALID_RECIPE_STEPS. The recipe steps, variant keys, ingredient references, units, or amounts are invalid.
           content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
@@ -3263,20 +3711,23 @@ paths:
   /cookbook/tenants/{tenantSlug}/editor-catalogue:
     get:
       operationId: getRecipeEditorCatalogue
-      summary: Returns units for the recipe editor.
+      summary: Returns visible units and the complete category tree of the receiving cookbook for recipe creation, editing and import.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       responses:
         '200':
-          description: Recipe editor units.
+          description: Recipe editor units and categories; requires recipe:create or recipe:update.
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [units]
+                required: [units, categories]
                 properties:
+                  categories:
+                    type: array
+                    items: { $ref: '#/components/schemas/RecipeEditorCategory' }
                   units:
                     type: array
                     items: { $ref: '#/components/schemas/EditorUnit' }
@@ -3884,6 +4335,425 @@ components:
             type: string,
             description: Absolute public URL template including the API path prefix. Replace placeholders before requesting.,
           }
+    RecipeAuthoringResources:
+      type: object
+      additionalProperties: false
+      required:
+        [
+          name,
+          version,
+          format,
+          formatVersion,
+          skillUrl,
+          schemaUrl,
+          downloadUrl,
+          examples,
+          instructions,
+        ]
+      description: Public recipe-authoring resources, independent of the context grant. URLs retain the configured public API prefix. Fetch them without credentials. Context reader access remains read-only; import requires ordinary cookbook permissions and explicit local catalogue mappings.
+      properties:
+        name: { type: string, const: shadowcook-recipe }
+        version: { type: string, const: '1' }
+        format: { type: string, const: shadowcook-recipe }
+        formatVersion: { type: integer, const: 1 }
+        skillUrl: { type: string, format: uri }
+        schemaUrl: { type: string, format: uri }
+        downloadUrl: { type: string, format: uri }
+        examples:
+          type: array
+          minItems: 2
+          maxItems: 2
+          items: { type: string, format: uri }
+        instructions: { type: string }
+    PortableRecipeDocument:
+      $ref: ../apps/api/skills/v1/shadowcook-recipe/recipe.schema.json
+    RecipeEditorCategory:
+      type: object
+      additionalProperties: false
+      required: [public_id, parent_public_id, name, slug, sort_order]
+      properties:
+        public_id: { type: string, format: uuid }
+        parent_public_id: { type: [string, 'null'], format: uuid }
+        name: { type: string }
+        slug: { type: string }
+        sort_order: { type: integer, minimum: 0 }
+    RecipeImportPreviewInput:
+      type: object
+      additionalProperties: false
+      required:
+        - json
+      properties:
+        json:
+          type: string
+          description: UTF-8 recipe JSON text, at most 1048576 bytes. Files and pasted
+            input use the same field.
+    RecipeImportIssue:
+      type: object
+      additionalProperties: false
+      required:
+        - path
+        - code
+      properties:
+        path:
+          type: string
+        code:
+          type: string
+          enum:
+            - JSON
+            - SCHEMA
+            - DUPLICATE
+            - REFERENCE
+            - VARIANT
+            - DURATION
+            - URL
+            - LIMIT
+    RecipeImportError:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - error
+      properties:
+        code:
+          type: string
+        error:
+          type: string
+        issues:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeImportIssue'
+          maxItems: 40
+    RecipeImportCandidate:
+      type: object
+      additionalProperties: false
+      required:
+        - publicId
+        - name
+        - symbol
+        - conversion
+        - match
+      properties:
+        publicId:
+          type: string
+          format: uuid
+        name:
+          type: string
+        symbol:
+          type:
+            - string
+            - 'null'
+        conversion:
+          oneOf:
+            - type: object
+              additionalProperties: false
+              required:
+                - dimension
+                - baseFactor
+                - baseOffset
+              properties:
+                dimension:
+                  type: string
+                  enum:
+                    - MASS
+                    - VOLUME
+                    - COUNT
+                    - TEMPERATURE
+                baseFactor:
+                  type: string
+                baseOffset:
+                  type: string
+            - type: 'null'
+        match:
+          type: string
+          enum:
+            - EXACT
+            - ALIAS
+            - SIMILAR
+            - DEFINITION
+        translations:
+          type: object
+          additionalProperties:
+            type: object
+            additionalProperties: false
+            required:
+              - name
+              - symbol
+            properties:
+              name:
+                type: string
+              symbol:
+                type: string
+    RecipeImportSuggestions:
+      type: object
+      additionalProperties: false
+      required:
+        - key
+        - candidates
+        - suggestedPublicId
+      properties:
+        key:
+          type: string
+          pattern: ^[a-z][a-z0-9-]{0,79}$
+        candidates:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeImportCandidate'
+          maxItems: 10
+        suggestedPublicId:
+          type:
+            - string
+            - 'null'
+          format: uuid
+    RecipeImportMapping:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - key
+            - action
+            - publicId
+          properties:
+            key:
+              type: string
+            action:
+              type: string
+              const: EXISTING
+            publicId:
+              type: string
+              format: uuid
+            addAsAlias:
+              type: boolean
+              default: false
+              description:
+                Ingredient mappings only. Explicitly adds the original ingredient name as an alias
+                of the selected local ingredient in the import transaction. Requires ingredient:update. Existing
+                equivalent aliases are reused.
+        - type: object
+          additionalProperties: false
+          required:
+            - key
+            - action
+            - name
+          properties:
+            key:
+              type: string
+            action:
+              type: string
+              const: CREATE
+            name:
+              type: string
+              pattern: \S
+              maxLength: 240
+            symbol:
+              type: string
+              pattern: \S
+              maxLength: 80
+          description:
+            Creating a unit additionally requires a non-blank symbol. The source conversion definition
+            is retained.
+    RecipeImportUnitMapping:
+      oneOf:
+        - type: object
+          additionalProperties: false
+          required:
+            - key
+            - action
+            - publicId
+          properties:
+            key:
+              type: string
+            action:
+              type: string
+              const: EXISTING
+            publicId:
+              type: string
+              format: uuid
+        - type: object
+          additionalProperties: false
+          required:
+            - key
+            - action
+            - name
+          properties:
+            key:
+              type: string
+            action:
+              type: string
+              const: CREATE
+            name:
+              type: string
+              pattern: \S
+              maxLength: 240
+            symbol:
+              type: string
+              pattern: \S
+              maxLength: 80
+          description:
+            Creating a unit additionally requires a non-blank symbol. The source conversion definition
+            is retained.
+    RecipeImportInput:
+      type: object
+      additionalProperties: false
+      required:
+        - json
+        - slug
+        - categoryPublicIds
+        - ingredients
+        - units
+      properties:
+        json:
+          type: string
+        slug:
+          type: string
+          pattern: ^[a-z0-9]+(?:-[a-z0-9]+)*$
+          maxLength: 160
+          not:
+            enum:
+              - admin
+              - api
+              - assets
+              - auth
+              - health
+              - login
+              - logout
+              - recipes
+              - settings
+        categoryPublicIds:
+          type: array
+          items:
+            type: string
+            format: uuid
+          uniqueItems: true
+          maxItems: 200
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeImportMapping'
+          maxItems: 500
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeImportUnitMapping'
+          maxItems: 200
+      description:
+        Supply exactly one mapping for every ingredient/unit used by any recipe step. Unused catalogue
+        declarations are ignored. Source public IDs are not local mapping targets.
+    RecipeImportPreview:
+      type: object
+      additionalProperties: false
+      required:
+        - document
+        - categories
+        - permissions
+        - ingredients
+        - units
+      properties:
+        categories:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeEditorCategory'
+        document:
+          $ref: '#/components/schemas/PortableRecipeDocument'
+        permissions:
+          type: object
+          additionalProperties: false
+          required:
+            - canCreateIngredients
+            - canCreateUnits
+            - canCreateVariants
+            - canAddIngredientAliases
+          properties:
+            canCreateIngredients:
+              type: boolean
+            canCreateUnits:
+              type: boolean
+            canCreateVariants:
+              type: boolean
+            canAddIngredientAliases:
+              type: boolean
+              description: The current principal has ingredient:update in the receiving cookbook.
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeImportSuggestions'
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecipeImportSuggestions'
+    CookbookImportSources:
+      type: object
+      additionalProperties: false
+      required:
+        - recipes
+        - ingredients
+        - units
+      properties:
+        recipes:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required:
+              - recipe_public_id
+              - instance_url
+              - tenant_public_id
+              - remote_recipe_public_id
+              - remote_revision_public_id
+            properties:
+              recipe_public_id:
+                type: string
+                format: uuid
+              instance_url:
+                type: string
+                format: uri
+              tenant_public_id:
+                type: string
+                format: uuid
+              remote_recipe_public_id:
+                type: string
+                format: uuid
+              remote_revision_public_id:
+                type:
+                  - string
+                  - 'null'
+                format: uuid
+        ingredients:
+          type: array
+          items:
+            $ref: '#/components/schemas/CookbookEntityImportSource'
+        units:
+          type: array
+          items:
+            $ref: '#/components/schemas/CookbookEntityImportSource'
+      description: Unverified import provenance. These source claims are not active federation
+        relationships or authorization grants.
+    CookbookEntityImportSource:
+      type: object
+      additionalProperties: false
+      required:
+        - recipe_public_id
+        - local_public_id
+        - instance_url
+        - remote_tenant_public_id
+        - remote_entity_public_id
+      properties:
+        recipe_public_id:
+          type: string
+          format: uuid
+        local_public_id:
+          type: string
+          format: uuid
+        instance_url:
+          type: string
+          format: uri
+        remote_tenant_public_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        remote_entity_public_id:
+          type: string
+          format: uuid
     AiContextManifest:
       type: object
       additionalProperties: false
@@ -3898,6 +4768,7 @@ components:
           scope,
           endpoints,
           requestInstructions,
+          recipeAuthoring,
           authentication,
           restrictions,
         ]
@@ -3932,6 +4803,7 @@ components:
                 variantSuffix: { type: string }
             categorySlugPath: { type: string }
             recipeLinkRule: { type: string }
+        recipeAuthoring: { $ref: '#/components/schemas/RecipeAuthoringResources' }
         scope: { $ref: '#/components/schemas/AiContextScope' }
         endpoints:
           type: object
@@ -4182,6 +5054,7 @@ components:
       additionalProperties: false
       required:
         [
+          import_sources,
           format,
           format_version,
           exported_at,
@@ -4197,6 +5070,7 @@ components:
           ingredient_usages,
         ]
       properties:
+        import_sources: { $ref: '#/components/schemas/CookbookImportSources' }
         format: { type: string, const: shadowcook-cookbook }
         format_version: { type: integer, const: 1 }
         exported_at: { type: string, format: date-time, description: UTC export timestamp. }
@@ -5486,9 +6360,11 @@ components:
     RecipeDraftStep:
       type: object
       additionalProperties: false
-      required: [id, instruction, sortOrder, ingredients]
+      required: [id, stepKey, instruction, sortOrder, ingredients]
       properties:
         id: { type: string, format: uuid }
+        stepKey:
+          { type: string, format: uuid, description: Stable step identity across recipe revisions. }
         instruction: { type: string }
         sortOrder: { type: integer, minimum: 0 }
         ingredients:
@@ -5499,6 +6375,15 @@ components:
       additionalProperties: false
       required: [instruction, ingredients]
       properties:
+        id:
+          type: string
+          format: uuid
+          description: Existing step row ID or a client-generated identifier for a new step. Must be unique within the request.
+        includedVariantKeys:
+          type: array
+          uniqueItems: true
+          items: { type: string, format: uuid }
+          description: Complete direct membership for this step. Keys must belong to this draft. An empty array excludes the step from every variant.
         instruction:
           type: string
           minLength: 1

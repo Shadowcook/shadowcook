@@ -39,6 +39,7 @@ test('Viewer has no Manage Cookbook button destination and every management deep
     'categories',
     'drafts',
     'recipes/new',
+    'manage/recipes/import',
     'recipes/private-recipe/edit',
   ];
   for (const path of paths) {

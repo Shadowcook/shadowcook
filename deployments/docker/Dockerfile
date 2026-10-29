@@ -55,6 +55,7 @@ WORKDIR /workspace/apps/api
 
 COPY --from=build /runtime/api ./
 COPY --from=build /workspace/apps/api/dist ./dist
+COPY --from=build /workspace/apps/api/skills ./skills
 COPY --from=build /workspace/initial-deployment-seed.json /workspace/initial-deployment-seed.json
 
 USER node

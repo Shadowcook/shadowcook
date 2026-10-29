@@ -1,0 +1,69 @@
+{
+  "format": "shadowcook-recipe",
+  "formatVersion": 1,
+  "ingredients": [
+    {
+      "key": "tomatoes",
+      "name": "Tomatoes"
+    },
+    {
+      "key": "salt",
+      "name": "Salt"
+    }
+  ],
+  "units": [
+    {
+      "key": "g",
+      "name": "Gram",
+      "symbol": "g",
+      "conversion": {
+        "dimension": "MASS",
+        "baseFactor": "1",
+        "baseOffset": "0"
+      }
+    }
+  ],
+  "recipe": {
+    "title": "Simple tomato salad",
+    "summary": "A quick salad with fresh tomatoes.",
+    "categoryPaths": [["Salads"]],
+    "diet": "VEGAN",
+    "metadata": {
+      "totalMinutes": 10,
+      "activeMinutes": 10,
+      "servings": 2
+    },
+    "steps": [
+      {
+        "key": "prepare",
+        "instruction": "Slice the tomatoes, season with salt and mix gently.",
+        "entries": [
+          {
+            "key": "tomatoes-prepare",
+            "kind": "ingredient",
+            "ingredientKey": "tomatoes",
+            "amount": "400",
+            "unitKey": "g",
+            "note": "ripe"
+          },
+          {
+            "key": "salt-prepare",
+            "kind": "ingredient",
+            "ingredientKey": "salt",
+            "note": "to taste"
+          }
+        ]
+      }
+    ],
+    "variants": [
+      {
+        "key": "default",
+        "name": "Default",
+        "slug": "default",
+        "isDefault": true,
+        "isVisible": true,
+        "includedStepKeys": ["prepare"]
+      }
+    ]
+  }
+}

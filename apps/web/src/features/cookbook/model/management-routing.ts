@@ -15,6 +15,13 @@ export function managementRoute(pathname: string): ManagementRoute {
     return { editorPath: 'drafts', isCategoryEditor };
   if (segments.length === 3 && segments[1] === 'recipes' && segments[2] === 'new')
     return { editorPath: 'new', isCategoryEditor };
+  if (
+    segments.length === 4 &&
+    segments[1] === 'manage' &&
+    segments[2] === 'recipes' &&
+    segments[3] === 'import'
+  )
+    return { editorPath: 'import', isCategoryEditor };
   if (segments.length === 4 && segments[1] === 'recipes' && segments[3] === 'edit')
     return { editorPath: segments[2]!, isCategoryEditor };
   if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'recipes')

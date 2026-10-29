@@ -28,6 +28,8 @@ import { registerMcpRoutes } from './mcp/routes.js';
 import { registerReportRoutes } from './reports/routes.js';
 import { registerAdminReportRoutes } from './reports/admin-routes.js';
 import { replyWithNotFound, serializeRequestForLog } from './security/request-logging.js';
+import { registerSkillRoutes } from './skills/routes.js';
+import { registerRecipeImportRoutes } from './recipe-import/routes.js';
 
 export function createApi(
   pool: Pool,
@@ -48,6 +50,7 @@ export function createApi(
 
   api.setNotFoundHandler(replyWithNotFound);
   api.get('/health', async () => ({ status: 'ok' }));
+  registerSkillRoutes(api);
   registerOAuthRoutes(api, pool, publicWebOrigin, publicApiOrigin);
   registerAuthenticationRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerAccountRoutes(api, pool);
@@ -67,6 +70,7 @@ export function createApi(
   registerCookbookExportRoutes(api, pool);
   registerCategoryRoutes(api, pool);
   registerRecipeEditorRoutes(api, pool);
+  registerRecipeImportRoutes(api, pool);
   registerTenantUserRoutes(api, pool);
   registerTenantIngredientRoutes(api, pool);
   registerTenantUnitRoutes(api, pool);

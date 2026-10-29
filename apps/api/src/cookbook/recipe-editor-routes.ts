@@ -3,7 +3,13 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool, PoolClient } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantAnyPermission, requireTenantPermission } from '../admin/authorization.js';
+import {
+  resolveStepMemberships,
+  saveStepMemberships,
+  type StepMembership,
+} from './step-memberships.js';
 import { recipeCreatorDisplayNameSql } from './recipe-creator.js';
+import { editorCategories } from './editor-categories.js';
 import {
   recordRecipeContributor,
   recipeContributorsSql,
@@ -175,12 +181,12 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
 
   api.get('/cookbook/tenants/:tenantSlug/editor-catalogue', async (request, reply) => {
     const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
-    const tenantId: string | null = await requireTenantPermission(
+    const tenantId: string | null = await requireTenantAnyPermission(
       pool,
       request,
       reply,
       tenantSlug,
-      'recipe:update',
+      ['recipe:create', 'recipe:update'],
     );
     if (tenantId === null) return;
     const units = await pool.query<{
@@ -192,6 +198,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       [tenantId],
     );
     return reply.send({
+      categories: await editorCategories(pool, tenantId),
       units: units.rows.map((row) => ({
         publicId: row.public_id,
         symbol: row.symbol,
@@ -289,7 +296,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     if (tenantId === null) return;
     const publicId: string = (request.params as { publicId: string }).publicId;
     const result = await pool.query(
-      `SELECT recipe_step.id, recipe_step.instruction, recipe_step.sort_order,
+      `SELECT recipe_step.id, recipe_step.step_key, recipe_step.instruction, recipe_step.sort_order,
         COALESCE(json_agg(json_build_object(
           'id', ingredient_usage.id,
           'ingredientPublicId', ingredient.public_id,
@@ -318,6 +325,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     return reply.send({
       steps: result.rows.map((row) => ({
         id: row.id,
+        stepKey: row.step_key,
         instruction: row.instruction,
         sortOrder: row.sort_order,
         ingredients: row.ingredients,
@@ -339,6 +347,16 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       return reply
         .code(400)
         .send({ code: 'INVALID_RECIPE_STEPS', error: 'The recipe steps are invalid.' });
+    if (steps.some((step: StepInput): boolean => step.includedVariantKeys !== undefined)) {
+      const variantTenantId: string | null = await requireTenantPermission(
+        pool,
+        request,
+        reply,
+        tenantSlug,
+        'variant:update',
+      );
+      if (variantTenantId === null) return;
+    }
     const publicId: string = (request.params as { publicId: string }).publicId;
     const user = await currentAuthenticatedPrincipal(pool, request);
     const client = await pool.connect();
@@ -366,13 +384,22 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           user?.principal_id ?? null,
         ));
       await validateStepInput(client, tenantId, steps as StepInput[]);
+      const memberships: StepMembership[] | null = await resolveStepMemberships(
+        client,
+        current.id,
+        revisionId,
+        steps as StepInput[],
+      );
+      if (memberships === null) throw new InvalidStepInputError();
       await client.query('DELETE FROM recipe_step WHERE recipe_revision_id = $1', [revisionId]);
       for (let index = 0; index < steps.length; index += 1) {
-        const step = steps[index] as { instruction: string; ingredients?: unknown[] };
+        const step: StepInput = steps[index] as StepInput;
+        const membership: StepMembership = memberships[index]!;
         const inserted = await client.query<{ id: string }>(
-          `INSERT INTO recipe_step (recipe_revision_id, step_key, sort_order, instruction) VALUES ($1, gen_random_uuid(), $2, $3) RETURNING id`,
-          [revisionId, index, step.instruction],
+          `INSERT INTO recipe_step (recipe_revision_id, step_key, sort_order, instruction) VALUES ($1, COALESCE($4::uuid, gen_random_uuid()), $2, $3) RETURNING id`,
+          [revisionId, index, step.instruction, membership.stepKey],
         );
+        await saveStepMemberships(client, revisionId, inserted.rows[0]!.id, membership.variantKeys);
         if (!Array.isArray(step.ingredients)) continue;
         for (let usageIndex = 0; usageIndex < step.ingredients.length; usageIndex += 1) {
           const usage = step.ingredients[usageIndex] as {
@@ -422,13 +449,6 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           );
         }
       }
-      await client.query(
-        `INSERT INTO recipe_variant_step_override (variant_id, step_id, state)
-         SELECT variant.id, step.id, 'INCLUDE'
-         FROM recipe_variant AS variant CROSS JOIN recipe_step AS step
-         WHERE variant.recipe_revision_id = $1 AND variant.is_default AND step.recipe_revision_id = $1`,
-        [revisionId],
-      );
       await client.query(
         'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
         [revisionId, current.id],
@@ -1502,6 +1522,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
 }
 
 interface StepInput {
+  id?: string;
+  includedVariantKeys?: string[];
   instruction: string;
   ingredients: UsageInput[];
 }
@@ -1523,6 +1545,12 @@ function isValidStep(value: unknown): value is StepInput {
   if (typeof value !== 'object' || value === null) return false;
   const step = value as StepInput;
   return (
+    (step.id === undefined || (typeof step.id === 'string' && uuidPattern.test(step.id))) &&
+    (step.includedVariantKeys === undefined ||
+      (Array.isArray(step.includedVariantKeys) &&
+        step.includedVariantKeys.every(
+          (key: unknown): boolean => typeof key === 'string' && uuidPattern.test(key),
+        ))) &&
     typeof step.instruction === 'string' &&
     step.instruction.trim().length > 0 &&
     Array.isArray(step.ingredients) &&

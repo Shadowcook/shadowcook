@@ -1,8 +1,10 @@
 import type { ReportTranslation } from '../features/reports/types';
+import type { RecipeImportTranslation } from '../features/cookbook/import/translations';
 
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  recipeImport: RecipeImportTranslation;
   recipeMetadata: {
     title: string;
     difficulty: string;

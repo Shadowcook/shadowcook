@@ -1,0 +1,256 @@
+.recipe-import form > fieldset,
+.recipe-import__review > fieldset {
+  border: 0;
+  padding: 0;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.recipe-import .recipe-import__source-choice {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin: 1.5rem 0 0;
+}
+
+.recipe-import__source-choice label,
+.recipe-import .recipe-import__alias {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.recipe-import__source-choice input[type='radio'],
+.recipe-import .recipe-import__alias input[type='checkbox'] {
+  width: auto;
+  margin: 0;
+  padding: 0;
+}
+
+.recipe-import__alias input:disabled + span {
+  opacity: 0.55;
+}
+
+.recipe-import__json {
+  width: 100%;
+  font-family: monospace;
+  resize: vertical;
+}
+
+.recipe-import__progress {
+  margin: 1.5rem 0;
+}
+
+.recipe-import__progress p {
+  font-size: 0.9rem;
+}
+
+.recipe-import__progress ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.65rem;
+  padding: 0;
+  list-style: none;
+}
+
+.recipe-import__progress li {
+  border-bottom: 3px solid #e5dbce;
+  padding-bottom: 0.6rem;
+  overflow-wrap: anywhere;
+}
+
+.recipe-import__progress [aria-current='step'] {
+  border-bottom-color: #744b2c;
+  font-weight: 700;
+}
+
+.recipe-import__step--complete {
+  color: #665747;
+}
+
+.recipe-import__preview {
+  border: 1px solid #d8d0c5;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  overflow-wrap: anywhere;
+}
+
+.recipe-import__facts {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.recipe-import__facts dt {
+  font-weight: 700;
+}
+
+.recipe-import__facts dd {
+  margin: 0.2rem 0 0;
+  white-space: pre-wrap;
+}
+
+.recipe-import__new-entry,
+.recipe-import__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.recipe-import__new-entry label {
+  flex: 1 1 12rem;
+}
+
+.recipe-import__steps > li {
+  margin-bottom: 1.5rem;
+}
+
+.recipe-import__instruction {
+  white-space: pre-wrap;
+}
+
+.recipe-import__issues code {
+  overflow-wrap: anywhere;
+}
+
+.recipe-import__table-scroll {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 1rem 0 2rem;
+}
+
+.recipe-import__table {
+  border-collapse: collapse;
+  width: 100%;
+  min-width: 660px;
+}
+
+.recipe-import__table caption {
+  text-align: left;
+  font-size: 1.15rem;
+  font-weight: 700;
+  padding: 0.75rem 0;
+}
+
+.recipe-import__table th,
+.recipe-import__table td {
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid #d8d0c5;
+  padding: 0.9rem 0.7rem;
+}
+
+.recipe-import__table thead th {
+  background: #eee5d8;
+}
+
+.recipe-import__table tbody th,
+.recipe-import__table tbody td {
+  vertical-align: middle;
+}
+
+.recipe-import__table th[scope='row'] {
+  width: 26%;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+
+.recipe-import__table td:nth-child(2) {
+  min-width: 240px;
+}
+
+.recipe-import__combobox {
+  position: relative;
+}
+
+.recipe-import__combobox input {
+  padding-right: 2.8rem;
+}
+
+.recipe-import .recipe-import__combobox-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 1px;
+  right: 1px;
+  width: 2.3rem;
+  min-width: 0;
+  height: calc(100% - 2px);
+  padding: 0;
+  border: 0;
+  border-left: 1px solid #d7cabb;
+  border-radius: 0 0.2rem 0.2rem 0;
+}
+
+.recipe-import__options {
+  position: fixed;
+  z-index: 1500;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid #b9a58e;
+  border-radius: 0.35rem;
+  background: #fffdf9;
+  color: #28211d;
+  box-shadow: 0 0.4rem 1.3rem #28211d24;
+}
+
+.recipe-import__option-heading {
+  padding: 0.65rem 0.8rem;
+  background: #f0e7da;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.recipe-import__option {
+  display: grid;
+  gap: 0.15rem;
+  padding: 0.65rem 0.8rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  border-left: 3px solid transparent;
+}
+
+.recipe-import__option span,
+.recipe-import__option-status {
+  font-size: 0.9rem;
+  color: #665747;
+}
+
+.recipe-import__option-status {
+  padding: 0.5rem 0.8rem;
+  margin: 0;
+}
+
+.recipe-import__option[aria-selected='true'] {
+  background: #f8f1e6;
+}
+
+.recipe-import__option--active {
+  border-left-color: #744b2c;
+  background: #eee2cf;
+}
+
+.recipe-import__option--create {
+  border-bottom: 1px solid #d8d0c5;
+  font-weight: 700;
+}
+
+.recipe-import__drop-overlay {
+  position: fixed;
+  inset: 1rem;
+  z-index: 1600;
+  display: grid;
+  place-items: center;
+  padding: 2rem;
+  border: 3px dashed #744b2c;
+  border-radius: 0.75rem;
+  background: #fffaf0ed;
+  color: #28211d;
+  font-size: 1.5rem;
+  font-weight: 700;
+  text-align: center;
+  pointer-events: none;
+}

@@ -370,6 +370,12 @@
   max-width: 100%;
   padding: 0.65rem 0.9rem;
 }
+.recipe-management > .button--secondary {
+  justify-self: end;
+}
+.recipe-management > .recipe-management__create-button {
+  justify-self: start;
+}
 .recipe-editor form {
   max-width: 48rem;
 }

@@ -22,6 +22,7 @@ import {
 import type { CookbookResponse, Recipe, RecipeDetail } from './model/types';
 import { recipeDietFilter, type RecipeDiet } from './model/recipe-metadata';
 import RecipeEditor from './components/RecipeEditor';
+import RecipeImportScreen from './import/RecipeImportScreen';
 import DraftRecipeList from './components/DraftRecipeList';
 import SharedRecipeView from './components/SharedRecipeView';
 import TenantNavigation from './components/TenantNavigation';
@@ -635,6 +636,15 @@ export default function CookbookScreen({
                 tenantSlug={tenantSlug}
                 onEdit={openRecipeEditor}
                 onCreate={(): void => openRecipeEditor(null)}
+              />
+            ) : editorPath === 'import' && tenantSlug.length > 0 ? (
+              <RecipeImportScreen
+                text={text}
+                tenantSlug={tenantSlug}
+                onImported={(publicId: string): void => {
+                  void loadCookbook();
+                  openRecipeEditor(publicId);
+                }}
               />
             ) : editorPath !== null && tenantSlug.length > 0 ? (
               <RecipeEditor

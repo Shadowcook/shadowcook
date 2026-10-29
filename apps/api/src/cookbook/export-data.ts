@@ -2,6 +2,7 @@ import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { unitTranslationsSql } from '../unit-translations.js';
 import { revisionContributorNamesSql } from './recipe-contributors.js';
 import { recipeMetadataSql } from './recipe-facts.js';
+import { exportImportSources } from './export-import-sources.js';
 import type {
   CookbookExport,
   ExportCategory,
@@ -64,6 +65,10 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
          INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
          INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
          WHERE recipe.tenant_id = $1 AND ingredient_usage.unit_id = unit.id
+       ) OR EXISTS (
+         SELECT 1 FROM recipe_import_unit_source source
+         INNER JOIN recipe ON recipe.id = source.recipe_id
+         WHERE recipe.tenant_id = $1 AND source.unit_id = unit.id
        ) ORDER BY unit.public_id`,
       tenantId,
     );
@@ -136,6 +141,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
       tenantId,
     );
     const result: CookbookExport = {
+      import_sources: await exportImportSources(client, tenantId),
       format: 'shadowcook-cookbook',
       format_version: 1,
       exported_at: new Date().toISOString(),

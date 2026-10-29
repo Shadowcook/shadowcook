@@ -24,6 +24,7 @@ export function isCookbookManagementAccessDenied(
     case null:
       return false;
     case 'new':
+    case 'import':
       return !cookbook.canCreateRecipes;
     case 'manage':
       return cookbookManagementPath(cookbook, '') === null;

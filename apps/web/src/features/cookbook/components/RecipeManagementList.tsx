@@ -55,9 +55,17 @@ export default function RecipeManagementList(
 
   const recipes: Recipe[] = response?.recipes ?? [];
   return (
-    <section className="recipe-editor">
+    <section className="recipe-editor recipe-management">
       <p className="eyebrow">{text.dashboard.recipes}</p>
       <h1>{text.dashboard.recipes}</h1>
+      {properties.canCreateRecipes ? (
+        <a
+          className="button--secondary"
+          href={`/${encodeURIComponent(properties.tenantSlug)}/manage/recipes/import`}
+        >
+          {text.recipeImport.title}
+        </a>
+      ) : null}
       {properties.canCreateRecipes ? (
         <button
           type="button"

@@ -9,6 +9,7 @@
     "check": "npm --prefix packages/db run check && npm --prefix apps/api run check && npm --prefix apps/migration run check && npm --prefix apps/web run check",
     "test": "node scripts/run-tests.mjs",
     "test:unit": "npm --prefix apps/api run test:unit && npm --prefix apps/web run test:unit",
+    "test:skill": "npm --prefix apps/api run test:skill",
     "test:api": "npm --prefix packages/db run build && npm --prefix apps/api run test:api",
     "test:contract": "npm --prefix packages/db run build && npm --prefix apps/api run test:contract",
     "test:e2e": "npm --prefix apps/web run test:e2e",

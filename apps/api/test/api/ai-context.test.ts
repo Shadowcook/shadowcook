@@ -4,6 +4,7 @@ import { after, before, test, type TestContext } from 'node:test';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import type { QueryResult } from 'pg';
 import { createTestApi } from '../helpers/api.js';
+import type { RecipeAuthoringResources } from '../../src/skills/recipe-skill.js';
 import { createPublicApiClient } from '../helpers/public-api-client.js';
 import {
   assignTenantRole,
@@ -22,6 +23,7 @@ type ScopeType = 'TENANT' | 'CATEGORY' | 'RECIPE';
 type EndpointName = 'overview' | 'recipe' | 'revisions' | 'revision' | 'draft';
 
 interface Manifest {
+  recipeAuthoring: RecipeAuthoringResources;
   baseUrl: string;
   accessToken: string;
   expiresAt: string;
@@ -142,6 +144,20 @@ test('the public share URL and manifest credentials work together through the we
   assert.equal(bootstrap.headers.get('cache-control'), 'no-store');
   assert.equal(bootstrap.headers.get('referrer-policy'), 'no-referrer');
   const manifest: Manifest = await bootstrap.json();
+  assert.equal(manifest.recipeAuthoring.format, 'shadowcook-recipe');
+  assert.equal(manifest.recipeAuthoring.formatVersion, 1);
+  for (const url of [
+    manifest.recipeAuthoring.skillUrl,
+    manifest.recipeAuthoring.schemaUrl,
+    ...manifest.recipeAuthoring.examples,
+  ]) {
+    assert.ok(url.startsWith(`${publicApiOrigin}/skills/shadowcook-recipe/v1/`));
+    const resource: Response = await request(new Request(url));
+    assert.equal(resource.status, 200, url);
+    assert.equal(resource.headers.get('cache-control'), 'public, max-age=3600');
+    assert.ok(!(await resource.text()).includes(manifest.accessToken));
+  }
+  assert.ok(manifest.recipeAuthoring.downloadUrl.startsWith(`${publicApiOrigin}/skills/`));
   const revision: QueryResult<{ public_id: string }> = await database.pool.query(
     'SELECT revision.public_id FROM recipe JOIN recipe_revision revision ON revision.id = recipe.published_revision_id WHERE recipe.public_id = $1',
     [recipeId],

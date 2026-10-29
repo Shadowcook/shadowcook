@@ -1,7 +1,9 @@
 import type { Translation } from './types';
+import { recipeImportGerman } from '../features/cookbook/import/translations.ts';
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  recipeImport: recipeImportGerman,
   recipeMetadata: {
     title: 'Rezeptangaben',
     difficulty: 'Schwierigkeitsgrad',
