@@ -3590,6 +3590,7 @@ paths:
     post:
       operationId: createRecipeDraftVariant
       summary: Creates a variant in the editable revision.
+      description: Copies the current default variant's persisted step memberships in the same transaction. If isDefault is true, membership is copied from the previous default. Creates a draft from the published revision when needed. Subsequent membership edits are independent.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters:
         [
@@ -4874,14 +4875,17 @@ components:
     AiContextVariant:
       type: object
       additionalProperties: false
-      required: [variant_key, name, slug, is_default, is_visible]
+      required: [metadata, diet, variant_key, name, slug, is_default, is_visible]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         variant_key: { type: string, format: uuid }
         name: { type: string }
         slug: { type: string }
         is_default: { type: boolean }
         is_visible: { type: boolean }
     AiContextRecipe:
+      description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required:
@@ -5209,6 +5213,7 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
     ExportRevision:
+      description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required:
@@ -5254,8 +5259,20 @@ components:
       type: object
       additionalProperties: false
       required:
-        [revision_public_id, variant_key, name, slug, is_default, is_visible, included_step_keys]
+        [
+          metadata,
+          diet,
+          revision_public_id,
+          variant_key,
+          name,
+          slug,
+          is_default,
+          is_visible,
+          included_step_keys,
+        ]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         revision_public_id: { type: string, format: uuid }
         variant_key: { type: string, format: uuid }
         name: { type: string }
@@ -5675,6 +5692,7 @@ components:
           maxLength: 4000
           description: Authored free text, including line breaks. Empty or whitespace-only input clears this field. No catalogue association.
     RecipeDraftInput:
+      description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required: [title, summary, categoryPublicIds]
@@ -5696,6 +5714,7 @@ components:
         discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
         isFeatured: { type: boolean }
     RecipeCreateInput:
+      description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required:
@@ -5721,6 +5740,7 @@ components:
         discoverabilityOverride: { type: [string, 'null'], enum: [DISCOVERABLE, UNLISTED, null] }
         isFeatured: { type: boolean }
     EditableRecipe:
+      description: Preparation metadata and diet project the selected variant in reader detail responses and the default variant in editor and snapshot responses.
       type: object
       additionalProperties: false
       required:
@@ -5774,6 +5794,7 @@ components:
         publishedAt: { type: string, format: date-time }
         title: { type: string }
     RecipeRevisionSnapshot:
+      description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required:
@@ -5858,8 +5879,10 @@ components:
     RecipeRevisionVariant:
       type: object
       additionalProperties: false
-      required: [variantKey, name, slug, isDefault, isVisible, includedStepKeys]
+      required: [metadata, diet, variantKey, name, slug, isDefault, isVisible, includedStepKeys]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         variantKey: { type: string, format: uuid }
         name: { type: string }
         slug: { type: string }
@@ -5886,6 +5909,7 @@ components:
         createdAt: { type: string, format: date-time }
         expiresAt: { type: [string, 'null'], format: date-time }
     SharedRecipeDetail:
+      description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required:
@@ -6177,7 +6201,7 @@ components:
     CookbookRecipe:
       type: object
       additionalProperties: false
-      required: [public_id, slug, title, summary, diet, category_public_ids]
+      required: [public_id, slug, title, summary, diet, category_public_ids, variants]
       properties:
         public_id:
           type: string
@@ -6190,6 +6214,10 @@ components:
           type: [string, 'null']
         diet:
           $ref: '#/components/schemas/RecipeDiet'
+        variants:
+          type: array
+          description: Visible variants and the default variant of the published revision, ordered by name and variant key. Authored names are unchanged.
+          items: { $ref: '#/components/schemas/PublishedRecipeVariant' }
         category_public_ids:
           type: array
           items:
@@ -6220,6 +6248,7 @@ components:
         totalPages: { type: integer, minimum: 0 }
         totalRecipes: { type: integer, minimum: 0 }
     CookbookRecipeDetail:
+      description: Preparation metadata and diet project the selected variant in reader detail responses and the default variant in editor and snapshot responses.
       type: object
       additionalProperties: false
       required:
@@ -6472,8 +6501,10 @@ components:
     PublishedRecipeVariant:
       type: object
       additionalProperties: false
-      required: [variant_key, name, slug, is_default, is_visible]
+      required: [metadata, diet, variant_key, name, slug, is_default, is_visible]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         variant_key: { type: string, format: uuid }
         name: { type: string }
         slug: { type: string }
@@ -6482,8 +6513,10 @@ components:
     RecipeVariant:
       type: object
       additionalProperties: false
-      required: [variantKey, name, slug, isDefault, isVisible, overrides]
+      required: [metadata, diet, variantKey, name, slug, isDefault, isVisible, overrides]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         variantKey: { type: string, format: uuid }
         name: { type: string }
         slug: { type: string }
@@ -6493,10 +6526,13 @@ components:
           type: array
           items: { $ref: '#/components/schemas/RecipeVariantStepOverride' }
     RecipeVariantInput:
+      description: Variant preparation data. New variants copy metadata and diet from the current default variant before applying explicitly supplied fields. Explicit null diet clears the inherited classification; a supplied metadata object replaces all inherited metadata. Omitted metadata or diet preserves existing values on update.
       type: object
       additionalProperties: false
       required: [name, slug, isDefault, isVisible]
       properties:
+        metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
+        diet: { $ref: '#/components/schemas/RecipeDiet' }
         name: { type: string, minLength: 1, maxLength: 240 }
         slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         isDefault: { type: boolean, description: Only a visible variant may be the default. }

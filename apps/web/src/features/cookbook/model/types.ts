@@ -47,7 +47,7 @@ export interface RecipeLink {
   slug: string;
   title: string;
 }
-export interface RecipeVariant {
+export interface RecipeVariant extends Pick<RecipeFacts, 'metadata' | 'diet'> {
   variant_key: string;
   name: string;
   slug: string;
@@ -70,6 +70,7 @@ export interface Recipe {
   summary: string | null;
   diet: RecipeDiet | null;
   category_public_ids: string[];
+  variants: RecipeVariant[];
 }
 
 export interface RecipeManagementResponse {

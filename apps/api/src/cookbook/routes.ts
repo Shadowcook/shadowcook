@@ -8,10 +8,14 @@ import {
 } from '../auth/session.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
+import { recipeSummaryVariantsSql, type RecipeSummaryVariant } from './recipe-summary-variants.js';
 import { recipeCreatorDisplayNameSql } from './recipe-creator.js';
 import { recipeContributorsSql, type RecipeContributor } from './recipe-contributors.js';
 import {
   recipeFactsSql,
+  variantFactsSql,
+  defaultVariantDietSql,
+  variantDietFilterSql,
   isRecipeDiet,
   recipeDietFilterValues,
   type RecipeFactsRow,
@@ -32,6 +36,7 @@ interface RecipeRow {
   summary: string | null;
   diet: RecipeFactsRow['diet'];
   category_public_ids: string[];
+  variants: RecipeSummaryVariant[];
 }
 
 interface RecipeDetailRow extends RecipeFactsRow {
@@ -275,7 +280,8 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const recipes = await pool.query<RecipeRow>(
       `
-      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.diet,
+      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+        ${recipeSummaryVariantsSql} AS variants,
         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
       FROM recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id
@@ -285,7 +291,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       LEFT JOIN category ON category.id = recipe_revision_category.category_id
       WHERE tenant.slug = $2
         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
-        AND ($4::text[] IS NULL OR recipe_revision.diet = ANY($4::text[]))
+        AND ($4::text[] IS NULL OR ${variantDietFilterSql('recipe_revision', '$4::text[]')})
         AND (COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
           OR EXISTS (
             SELECT 1 FROM tenant_membership_role
@@ -326,7 +332,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          AND tenant_membership.principal_id = $1
        WHERE tenant.slug = $2
          AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
-         AND ($4::text[] IS NULL OR recipe_revision.diet = ANY($4::text[]))
+         AND ($4::text[] IS NULL OR ${variantDietFilterSql('recipe_revision', '$4::text[]')})
          AND recipe.is_featured
          AND recipe.published_revision_id IS NOT NULL
          AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
@@ -348,7 +354,8 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const page: number = Math.min(frontpagePage, Math.max(totalFrontpagePages, 1));
     const frontpageRecipes = await pool.query<RecipeRow>(
-      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.diet,
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+        ${recipeSummaryVariantsSql} AS variants,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
        FROM recipe
        INNER JOIN tenant ON tenant.id = recipe.tenant_id
@@ -359,7 +366,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
        LEFT JOIN category ON category.id = recipe_revision_category.category_id
        WHERE tenant.slug = $2
          AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4) < 5
-         AND ($7::text[] IS NULL OR recipe_revision.diet = ANY($7::text[]))
+         AND ($7::text[] IS NULL OR ${variantDietFilterSql('recipe_revision', '$7::text[]')})
          AND recipe.is_featured
          AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
          AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
@@ -546,13 +553,15 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
           ? (request.query as { variant: string }).variant
           : null;
       const variants = await pool.query<{
+        metadata: RecipeFactsRow['metadata'];
+        diet: RecipeFactsRow['diet'];
         variant_key: string;
         name: string;
         slug: string;
         is_default: boolean;
         is_visible: boolean;
       }>(
-        'SELECT variant_key, name, slug, is_default, is_visible FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name',
+        `SELECT variant_key, name, slug, is_default, is_visible, ${variantFactsSql('recipe_variant')} FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name`,
         [recipe.revision_id],
       );
       const selectedVariant =
@@ -613,8 +622,8 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         slug: recipe.slug,
         title: recipe.title,
         summary: recipe.summary,
-        metadata: recipe.metadata,
-        diet: recipe.diet,
+        metadata: selectedVariant.metadata,
+        diet: selectedVariant.diet,
         createdAt: recipe.createdAt,
         updatedAt: recipe.updatedAt,
         cookbook_name: recipe.cookbook_name,

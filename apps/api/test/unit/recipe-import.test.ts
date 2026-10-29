@@ -150,3 +150,16 @@ test('import requests cannot smuggle catalogue writes into existing selections',
     null,
   );
 });
+
+test('portable variants validate their own preparation metadata', (): void => {
+  const document: PortableRecipeDocument = example();
+  document.recipe.variants[0]!.diet = 'VEGAN';
+  document.recipe.variants[0]!.metadata = { totalMinutes: 15, activeMinutes: 10, servings: 2 };
+  document.recipe.variants[1]!.diet = null;
+  document.recipe.variants[1]!.metadata = { totalMinutes: 90, activeMinutes: 20, utensils: 'Oven' };
+  assert.ok(validatePortableRecipe(JSON.stringify(document)).document);
+  document.recipe.variants[1]!.metadata.activeMinutes = 91;
+  assert.deepEqual(validatePortableRecipe(JSON.stringify(document)).issues, [
+    { path: '/recipe/variants/1/metadata/activeMinutes', code: 'DURATION' },
+  ]);
+});

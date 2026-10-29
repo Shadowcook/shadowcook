@@ -94,6 +94,15 @@ export function portableRecipeIssues(document: PortableRecipeDocument): ImportIs
       if (entry.unitKey !== undefined && !units.has(entry.unitKey)) add(path, 'REFERENCE');
     });
   });
+  for (const [index, variant] of recipe.variants.entries()) {
+    const metadata: typeof recipe.metadata = variant.metadata ?? recipe.metadata;
+    if (
+      metadata?.activeMinutes != null &&
+      metadata.totalMinutes != null &&
+      metadata.activeMinutes > metadata.totalMinutes
+    )
+      add(`/recipe/variants/${index}/metadata/activeMinutes`, 'DURATION');
+  }
   const active: number | null | undefined = recipe.metadata?.activeMinutes;
   const total: number | null | undefined = recipe.metadata?.totalMinutes;
   if (active != null && total != null && active > total)

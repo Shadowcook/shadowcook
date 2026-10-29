@@ -207,6 +207,10 @@ test('preview validates without writes, suggests exact aliases and retains unkno
 
 test('import creates an unpublished draft with amounts, ordered variants and unverified provenance', async (): Promise<void> => {
   const document: PortableRecipeDocument = example('variants');
+  document.recipe.variants[0]!.metadata = { totalMinutes: 15, activeMinutes: 5, servings: 2 };
+  document.recipe.variants[0]!.diet = 'VEGAN';
+  document.recipe.variants[1]!.metadata = { totalMinutes: 90, utensils: 'Oven' };
+  document.recipe.variants[1]!.diet = null;
   const source = {
     instanceUrl: 'https://source.example',
     tenantPublicId: randomUUID(),
@@ -244,6 +248,13 @@ test('import creates an unpublished draft with amounts, ordered variants and unv
     0,
   );
   const exported: CookbookExport = await loadCookbookExport(database.pool, tenant.id);
+  for (const variant of document.recipe.variants) {
+    const imported: CookbookExport['variants'][number] = exported.variants.find(
+      (item: CookbookExport['variants'][number]): boolean => item.slug === variant.slug,
+    )!;
+    assert.equal(imported.metadata.totalMinutes, variant.metadata!.totalMinutes);
+    assert.equal(imported.diet, variant.diet);
+  }
   assert.equal(
     exported.import_sources.recipes.find((origin): boolean => origin.recipe_public_id === id)!
       .remote_recipe_public_id,

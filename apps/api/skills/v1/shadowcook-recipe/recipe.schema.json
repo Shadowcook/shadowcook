@@ -343,6 +343,13 @@
           },
           "minItems": 1,
           "uniqueItems": true
+        },
+        "metadata": {
+          "$ref": "#/definitions/metadata"
+        },
+        "diet": {
+          "type": ["string", "null"],
+          "enum": ["VEGAN", "VEGETARIAN", "OMNI", null]
         }
       },
       "allOf": [

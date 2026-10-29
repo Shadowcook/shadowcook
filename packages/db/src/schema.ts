@@ -193,7 +193,14 @@ export interface RecipeTable {
   updated_at: Generated<Timestamp>;
 }
 
-export interface RecipeRevisionTable {
+export interface RecipeVariantTable {
+  id: Generated<Uuid>;
+  recipe_revision_id: string;
+  variant_key: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  is_visible: boolean;
   difficulty: 'EASY' | 'MEDIUM' | 'DEMANDING' | null;
   total_minutes: number | null;
   active_minutes: number | null;
@@ -201,6 +208,9 @@ export interface RecipeRevisionTable {
   servings: number | null;
   utensils: string | null;
   diet: 'VEGAN' | 'VEGETARIAN' | 'OMNI' | null;
+}
+
+export interface RecipeRevisionTable {
   id: Generated<Uuid>;
   recipe_id: string;
   public_id: Generated<Uuid>;
@@ -357,6 +367,7 @@ export interface Database {
   user_invitation: UserInvitationTable;
   recipe: RecipeTable;
   recipe_revision: RecipeRevisionTable;
+  recipe_variant: RecipeVariantTable;
   recipe_revision_contributor: RecipeRevisionContributorTable;
   recipe_share_link: RecipeShareLinkTable;
   ai_context_grant: AiContextGrantTable;

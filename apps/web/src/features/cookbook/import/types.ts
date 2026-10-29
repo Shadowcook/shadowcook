@@ -36,6 +36,8 @@ export interface ImportStep {
 }
 
 export interface ImportVariant {
+  metadata?: Partial<RecipeContentMetadata>;
+  diet?: RecipeDiet | null;
   key: string;
   name: string;
   slug: string;

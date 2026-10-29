@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { requireTenantAnyPermission, requireTenantPermission } from '../admin/authorization.js';
 import {
@@ -21,6 +21,8 @@ import { unitTranslationsSql, type UnitTranslations } from '../unit-translations
 import {
   parseRecipeFactsInput,
   recipeFactsSql,
+  variantFactsSql,
+  defaultVariantDietSql,
   saveRecipeFacts,
   type RecipeFactsInput,
   type RecipeFactsRow,
@@ -49,14 +51,14 @@ interface RecipeIdentifierRow {
   public_id: string;
 }
 
-interface VariantInput {
+interface VariantInput extends RecipeFactsInput {
   name: string;
   slug: string;
   isDefault: boolean;
   isVisible: boolean;
 }
 
-interface VariantRow {
+interface VariantRow extends Pick<RecipeFactsRow, 'metadata' | 'diet'> {
   id: string;
   variant_key: string;
   name: string;
@@ -117,7 +119,7 @@ interface RevisionStepRow {
   instruction: string;
   ingredients: object[];
 }
-interface RevisionVariantRow {
+interface RevisionVariantRow extends Pick<RecipeFactsRow, 'metadata' | 'diet'> {
   variant_key: string;
   name: string;
   slug: string;
@@ -485,7 +487,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const recipe = result.rows[0];
     if (recipe === undefined) return recipeNotFound(reply);
     const variants = await pool.query<VariantRow>(
-      'SELECT id, variant_key, name, slug, is_default, is_visible FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name',
+      `SELECT id, variant_key, name, slug, is_default, is_visible, ${variantFactsSql('recipe_variant')} FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name`,
       [recipe.revision_id],
     );
     const selectedVariant: VariantRow | undefined = variants.rows.find(
@@ -542,6 +544,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           slug: selectedVariant.slug,
           is_default: selectedVariant.is_default,
           is_visible: selectedVariant.is_visible,
+          metadata: selectedVariant.metadata,
+          diet: selectedVariant.diet,
         },
       ],
       steps: steps.rows.map((step: SharedRecipeStepRow) => ({
@@ -681,7 +685,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const totalPages: number = Math.ceil(totalRecipes / managedRecipePageSize);
     const resolvedPage: number = Math.min(page, Math.max(totalPages, 1));
     const recipes = await pool.query<ManagedRecipeRow>(
-      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, recipe_revision.diet,
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
        FROM recipe
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
@@ -945,7 +949,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           [params.revisionPublicId],
         ),
         pool.query<RevisionVariantRow>(
-          `SELECT variant.variant_key, variant.name, variant.slug, variant.is_default, variant.is_visible,
+          `SELECT variant.variant_key, variant.name, variant.slug, variant.is_default, variant.is_visible, ${variantFactsSql('variant')},
              COALESCE(array_agg(step.step_key ORDER BY step.sort_order) FILTER (WHERE step.step_key IS NOT NULL), '{}') AS included_step_keys
            FROM recipe_variant AS variant
            LEFT JOIN recipe_variant_step_override AS override ON override.variant_id = variant.id
@@ -974,6 +978,8 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           slug: variant.slug,
           isDefault: variant.is_default,
           isVisible: variant.is_visible,
+          metadata: variant.metadata,
+          diet: variant.diet,
           includedStepKeys: variant.included_step_keys,
         })),
       });
@@ -1097,15 +1103,36 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           await client.query('ROLLBACK');
           return recipeNotFound(reply);
         }
+        const sourceDefault: QueryResult<{ id: string }> = await client.query<{ id: string }>(
+          'SELECT id FROM recipe_variant WHERE recipe_revision_id = $1 AND is_default',
+          [draftId],
+        );
+        const sourceDefaultId: string | undefined = sourceDefault.rows[0]?.id;
+        if (sourceDefaultId === undefined) throw new InvalidVariantInputError();
         if (input.isDefault)
           await client.query(
             'UPDATE recipe_variant SET is_default = false WHERE recipe_revision_id = $1',
             [draftId],
           );
-        const inserted = await client.query<{ variant_key: string }>(
-          `INSERT INTO recipe_variant (recipe_revision_id, variant_key, name, slug, is_default, is_visible)
-         VALUES ($1, gen_random_uuid(), $2, $3, $4, $5) RETURNING variant_key`,
-          [draftId, input.name, input.slug, input.isDefault, input.isVisible],
+        const inserted: QueryResult<{ id: string; variant_key: string }> = await client.query<{
+          id: string;
+          variant_key: string;
+        }>(
+          `INSERT INTO recipe_variant (
+             recipe_revision_id, variant_key, name, slug, is_default, is_visible,
+             difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet
+           )
+           SELECT $1, gen_random_uuid(), $2, $3, $4, $5,
+             difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet
+           FROM recipe_variant WHERE id = $6
+           RETURNING id, variant_key`,
+          [draftId, input.name, input.slug, input.isDefault, input.isVisible, sourceDefaultId],
+        );
+        await saveRecipeFacts(client, draftId, input, inserted.rows[0]!.id);
+        await client.query(
+          `INSERT INTO recipe_variant_step_override (variant_id, step_id, state)
+           SELECT $1, step_id, state FROM recipe_variant_step_override WHERE variant_id = $2`,
+          [inserted.rows[0]!.id, sourceDefaultId],
         );
         await client.query('COMMIT');
         return reply.code(201).send({ variantKey: inserted.rows[0]!.variant_key });
@@ -1165,6 +1192,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           'UPDATE recipe_variant SET name = $1, slug = $2, is_default = $3, is_visible = $4 WHERE id = $5',
           [input.name, input.slug, input.isDefault, input.isVisible, variantId],
         );
+        await saveRecipeFacts(client, draftId, input, variantId);
         await client.query('COMMIT');
         return reply.code(204).send();
       } catch (error: unknown) {
@@ -1727,7 +1755,9 @@ function parseVariantInput(value: unknown): VariantInput | null {
     (body.isDefault && !body.isVisible)
   )
     return null;
-  return { name, slug, isDefault: body.isDefault, isVisible: body.isVisible };
+  const facts: RecipeFactsInput | null = parseRecipeFactsInput(body);
+  if (facts === null) return null;
+  return { ...facts, name, slug, isDefault: body.isDefault, isVisible: body.isVisible };
 }
 
 async function createDraftFromPublished(
@@ -1738,10 +1768,8 @@ async function createDraftFromPublished(
 ): Promise<string> {
   if (publishedId === null) throw new Error('A recipe without a draft cannot be edited.');
   const revision = await client.query<{ id: string }>(
-    `INSERT INTO recipe_revision (recipe_id, revision_no, status, title, summary, version, created_by_principal_id,
-       difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet)
-     SELECT recipe_id, revision_no + 1, 'DRAFT', title, summary, version, $2,
-       difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet FROM recipe_revision WHERE id = $1 RETURNING id`,
+    `INSERT INTO recipe_revision (recipe_id, revision_no, status, title, summary, version, created_by_principal_id)
+     SELECT recipe_id, revision_no + 1, 'DRAFT', title, summary, version, $2 FROM recipe_revision WHERE id = $1 RETURNING id`,
     [publishedId, principalId],
   );
   const draftId: string = revision.rows[0]!.id;
@@ -1767,8 +1795,8 @@ async function createDraftFromPublished(
     [draftId, publishedId],
   );
   await client.query(
-    `INSERT INTO recipe_variant (recipe_revision_id, variant_key, name, slug, is_default, is_visible)
-     SELECT $1, variant_key, name, slug, is_default, is_visible
+    `INSERT INTO recipe_variant (recipe_revision_id, variant_key, name, slug, is_default, is_visible, difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet)
+     SELECT $1, variant_key, name, slug, is_default, is_visible, difficulty, total_minutes, active_minutes, kcal, servings, utensils, diet
      FROM recipe_variant WHERE recipe_revision_id = $2`,
     [draftId, publishedId],
   );
@@ -1841,7 +1869,7 @@ async function ensureDraft(
 
 async function variantsForRevision(pool: Pool, revisionId: string): Promise<object[]> {
   const variants = await pool.query<VariantRow>(
-    `SELECT variant.id, variant.variant_key, variant.name, variant.slug, variant.is_default, variant.is_visible
+    `SELECT variant.id, variant.variant_key, variant.name, variant.slug, variant.is_default, variant.is_visible, ${variantFactsSql('variant')}
      FROM recipe_variant AS variant WHERE variant.recipe_revision_id = $1 ORDER BY variant.name`,
     [revisionId],
   );
@@ -1859,6 +1887,8 @@ async function variantsForRevision(pool: Pool, revisionId: string): Promise<obje
     slug: variant.slug,
     isDefault: variant.is_default,
     isVisible: variant.is_visible,
+    metadata: variant.metadata,
+    diet: variant.diet,
     overrides: overrides.rows
       .filter((override) => override.variant_id === variant.id)
       .map((override) => ({ stepId: override.step_id, state: override.state })),

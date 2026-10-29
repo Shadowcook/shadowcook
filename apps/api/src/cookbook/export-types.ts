@@ -77,6 +77,8 @@ export interface ExportRevision {
 }
 
 export interface ExportVariant {
+  metadata: RecipeContentMetadata;
+  diet: RecipeDiet | null;
   revision_public_id: string;
   variant_key: string;
   name: string;

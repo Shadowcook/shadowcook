@@ -863,6 +863,8 @@ export const de: Translation = {
     nextPage: 'Nächste Seite',
     page: 'Seite',
     uncategorized: 'Ohne Kategorie',
+    variantsLabel: 'Varianten:',
+    moreVariants: '+{count} weitere',
     backToRecipes: 'Zurück zu den Rezepten',
     ingredients: 'Zutaten',
     shoppingList: 'Einkaufsliste',

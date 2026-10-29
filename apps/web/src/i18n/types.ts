@@ -788,6 +788,8 @@ export interface Translation {
     nextPage: string;
     page: string;
     uncategorized: string;
+    variantsLabel: string;
+    moreVariants: string;
     backToRecipes: string;
     ingredients: string;
     shoppingList: string;

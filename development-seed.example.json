@@ -222,13 +222,6 @@
       "status": "PUBLISHED",
       "title": "Tomato pasta",
       "summary": "An example recipe with optional recipe metadata.",
-      "difficulty": "EASY",
-      "total_minutes": 30,
-      "active_minutes": 15,
-      "kcal": 800,
-      "servings": 2,
-      "utensils": "Large pot\nColander",
-      "diet": "VEGAN",
       "created_by_principal_id": "90000000-0000-4000-8000-000000000001",
       "created_at": "2026-10-20T08:00:00Z",
       "published_at": "2026-10-20T08:00:00Z"
@@ -247,7 +240,14 @@
       "variant_key": "62000000-0000-4000-8000-000000000011",
       "name": "Original",
       "slug": "original",
-      "is_default": true
+      "is_default": true,
+      "difficulty": "EASY",
+      "total_minutes": 30,
+      "active_minutes": 15,
+      "kcal": 800,
+      "servings": 2,
+      "utensils": "Large pot\nColander",
+      "diet": "VEGAN"
     }
   ],
   "recipe_step": [

@@ -7,6 +7,7 @@ import CategoryTree from './CategoryTree';
 import MobileCategoryDrawer from './MobileCategoryDrawer';
 import RecipeDetailView from './RecipeDetailView';
 import RecipeDietIcon from './RecipeDietIcon';
+import RecipeVariantLabels from './RecipeVariantLabels';
 import RecipePagination from './RecipePagination';
 import ReportButton from '../../reports/ReportButton';
 import ContentActions from '../../../components/ContentActions';
@@ -262,6 +263,7 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                         <h2>{recipe.title}</h2>
                         <RecipeDietIcon diet={recipe.diet} text={text} />
                       </div>
+                      <RecipeVariantLabels variants={recipe.variants} text={text} />
                       {recipe.summary === null ? null : <p>{recipe.summary}</p>}
                       <div className="recipe-card__categories">
                         {recipe.category_public_ids.length === 0 ? (

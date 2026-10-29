@@ -1,7 +1,7 @@
 import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { unitTranslationsSql } from '../unit-translations.js';
 import { revisionContributorNamesSql } from './recipe-contributors.js';
-import { recipeMetadataSql } from './recipe-facts.js';
+import { recipeMetadataSql, variantFactsSql } from './recipe-facts.js';
 import { exportImportSources } from './export-import-sources.js';
 import type {
   CookbookExport,
@@ -104,7 +104,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
     const variants: ExportVariant[] = await exportRows<ExportVariant>(
       client,
       `SELECT revision.public_id AS revision_public_id, variant.variant_key,
-        variant.name, variant.slug, variant.is_default, variant.is_visible,
+        variant.name, variant.slug, variant.is_default, variant.is_visible, ${variantFactsSql('variant')},
         ARRAY(SELECT recipe_step.step_key FROM recipe_variant_step_override
           INNER JOIN recipe_step ON recipe_step.id = recipe_variant_step_override.step_id
           WHERE recipe_variant_step_override.variant_id = variant.id

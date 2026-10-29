@@ -20,6 +20,10 @@
 - Cookbook-local ingredient names and aliases and visible unit definitions/translations provide ranked suggestions. Users can search existing entries or explicitly create new ones when permitted. Unknown unit definitions require selection; incompatible known definitions are rejected.
 - Import revalidates selections and stores all new catalogue entries, recipe content, variants, metadata and contributor attribution atomically as a draft. Source identities remain unverified, known lineage is retained, and source records are included in cookbook exports. Full cookbook ZIP import and authenticated federation synchronization remain unimplemented.
 
+### Recipe card variant labels
+
+- Cookbook recipe cards display up to ten published, reader-visible non-default variant names before the description, with a localized “Variants:” prefix and overflow count. Vegan and vegetarian labels include the corresponding diet icon with localized accessibility text and tooltip. Cards without alternative variants omit the row. Cookbook and featured-front-page API responses and the OpenAPI contract include the ordered variants (architecture section 4.2).
+
 ### Recipe metadata and dietary classification
 
 - Optional versioned difficulty, total and active duration, total kcal, servings, and free-text utensils are available in the recipe editor and at the end of recipe views and PDFs (architecture section 4.2).
@@ -115,7 +119,7 @@
 - Ingredient preparation and state information is stored as authored free-text usage notes. It is preserved without translation or mapping during federation.
 - Ingredient search is delayed and server-backed, searches aliases, and supports creating tenant ingredients during editing.
 - Published recipe details render step-oriented ingredients and preparation, special-entry icons, normalized ingredient notes, and aggregated shopping lists.
-- Recipe variants have stable keys, direct step membership, one visible default variant, draft APIs, and reader resolution by optional variant slug.
+- Recipe variants have stable keys, direct step membership, one visible default variant, draft APIs, and reader resolution by optional variant slug. New variants atomically copy the current default variant's persisted step memberships, including when creating a draft or replacing the default (architecture section 12.6).
 - Recipe creation, draft creation, and the development seed create and preserve default variants, stable step keys, variant keys, and direct step memberships.
 - Recipe visibility and discoverability use tenant defaults with inheritable recipe overrides. `PRIVATE`, `MEMBERS_ONLY`, and `PUBLIC` visibility are enforced for recipe reads; `DISCOVERABLE` and `UNLISTED` control cookbook lists while direct links remain access-controlled. Opaque share links grant access to the full published default variant, can have an optional name and UTC expiry, and are listed, copied, and individually revoked from the recipe editor; those actions require the `recipe:visibility-update` permission.
 - Recipe editors manage a featured flag. Cookbook root pages show only eligible featured recipes in session-seeded pagination, with a tenant-configured front-page recipe count.
@@ -186,3 +190,7 @@
 - Public self-service registration uses the normalized cookbook name as the tenant slug when available and appends a random suffix only after a slug collision. Instance administrators can update tenant display names and slugs; tenant owners cannot.
 - Cookbook URL slugs are checked against a hardcoded reserved dictionary and instance-administered blocked terms during preview, registration, account cookbook creation, and instance administration. Blocked terms have a deep-linkable administration page.
 - Instance administrators can customize each system email’s subject and plain-text body through deep-linkable Email templates settings. The API validates type-specific placeholders, renders them server-side, and supports restoring built-in defaults. Templates provide recipient-name personalization from the account display name with recipient-email fallback. Cookbook invitations provide inviter, cookbook, invitation-link, and code fields where applicable.
+
+- [x] Variant preparation metadata: normalized storage and legacy-data migration; per-variant diet, difficulty, durations, calories, servings, and utensils; variant editor; selected-variant details/PDF; visible-variant diet filters; revision copying/history, AI readers, import/export, and OpenAPI contract.
+
+- [x] New variants inherit the current default variant’s preparation metadata and diet in the API and creation dialog. Explicit creation values override inherited fields; later edits remain independent.

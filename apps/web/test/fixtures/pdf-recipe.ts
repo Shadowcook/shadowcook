@@ -40,6 +40,8 @@ export function pdfRecipeFixture(): RecipeDetail {
         slug: 'original',
         is_default: true,
         is_visible: true,
+        metadata: emptyRecipeMetadata(),
+        diet: null,
       },
       {
         variant_key: 'sugar-free',
@@ -47,6 +49,8 @@ export function pdfRecipeFixture(): RecipeDetail {
         slug: 'ohne-zucker',
         is_default: false,
         is_visible: true,
+        metadata: emptyRecipeMetadata(),
+        diet: null,
       },
     ],
     recipe_links: [

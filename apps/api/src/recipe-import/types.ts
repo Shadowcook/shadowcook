@@ -49,6 +49,8 @@ export interface PortableStep {
 }
 
 export interface PortableVariant {
+  metadata?: Partial<RecipeContentMetadata>;
+  diet?: RecipeDiet | null;
   key: string;
   name: string;
   slug: string;

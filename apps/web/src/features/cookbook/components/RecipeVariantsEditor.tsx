@@ -2,11 +2,19 @@ import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
+import RecipeMetadataEditor from './RecipeMetadataEditor';
+import {
+  emptyRecipeMetadata,
+  type RecipeContentMetadata,
+  type RecipeDiet,
+} from '../model/recipe-metadata';
 import MessageDialog from '../../../components/MessageDialog';
 import { request } from '../../../lib/api/client';
 import { recipeRequestError } from '../model/recipe-request-error';
 
 export interface DraftVariant {
+  metadata: RecipeContentMetadata;
+  diet: RecipeDiet | null;
   variantKey: string;
   name: string;
   slug: string;
@@ -23,11 +31,13 @@ interface Properties {
 }
 
 interface VariantForm {
+  metadata: RecipeContentMetadata;
+  diet: RecipeDiet | null;
   name: string;
   slug: string;
 }
 
-const emptyForm: VariantForm = { name: '', slug: '' };
+const emptyForm: VariantForm = { name: '', slug: '', metadata: emptyRecipeMetadata(), diet: null };
 
 export default function RecipeVariantsEditor(properties: Properties): JSX.Element {
   const base: string = `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${properties.recipePublicId}/draft/variants`;
@@ -62,13 +72,25 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
   function openCreateDialog(): void {
     setEditing(null);
     setSlugEdited(false);
-    setForm(emptyForm);
+    const defaultVariant: DraftVariant | undefined = variants.find(
+      (variant: DraftVariant): boolean => variant.isDefault,
+    );
+    setForm({
+      ...emptyForm,
+      metadata: { ...(defaultVariant?.metadata ?? emptyRecipeMetadata()) },
+      diet: defaultVariant?.diet ?? null,
+    });
   }
 
   function openEditDialog(variant: DraftVariant): void {
     setEditing(variant);
     setSlugEdited(false);
-    setForm({ name: variant.name, slug: variant.slug });
+    setForm({
+      name: variant.name,
+      slug: variant.slug,
+      metadata: variant.metadata,
+      diet: variant.diet,
+    });
   }
 
   function closeDialog(): void {
@@ -79,7 +101,7 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
   function changeName(event: ChangeEvent<HTMLInputElement>): void {
     if (form === null) return;
     const name: string = event.currentTarget.value;
-    setForm({ name, slug: slugEdited ? form.slug : slugFromName(name) });
+    setForm({ ...form, name, slug: slugEdited ? form.slug : slugFromName(name) });
   }
 
   function changeSlug(event: ChangeEvent<HTMLInputElement>): void {
@@ -98,6 +120,14 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
     )
       return;
 
+    if (
+      form.metadata.totalMinutes !== null &&
+      form.metadata.activeMinutes !== null &&
+      form.metadata.activeMinutes > form.metadata.totalMinutes
+    ) {
+      setErrorMessage(properties.text.recipeMetadata.durationExceeded);
+      return;
+    }
     try {
       if (editing === null) {
         await request<void>(base, {
@@ -159,6 +189,7 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
         <h2>{properties.text.recipeEditor.variants}</h2>
         <button
           type="button"
+          disabled={variants.length === 0}
           onClick={openCreateDialog}
           aria-label={properties.text.recipeEditor.addVariant}
           title={properties.text.recipeEditor.addVariant}
@@ -257,6 +288,14 @@ export default function RecipeVariantsEditor(properties: Properties): JSX.Elemen
               {properties.text.recipeEditor.variantUrl}
               <input value={form.slug} onChange={changeSlug} required />
             </label>
+            <RecipeMetadataEditor
+              metadata={form.metadata}
+              diet={form.diet}
+              text={properties.text}
+              onChange={(metadata: RecipeContentMetadata, diet: RecipeDiet | null): void =>
+                setForm({ ...form, metadata, diet })
+              }
+            />
             {slugConflict ? (
               <p className="message">{properties.text.recipeEditor.variantSlugConflict}</p>
             ) : null}

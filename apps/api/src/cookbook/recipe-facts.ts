@@ -32,14 +32,37 @@ export function recipeFactsSql(
 }
 
 export function recipeMetadataSql(revisionAlias: string): string {
+  return `(SELECT ${variantMetadataExpression('facts_variant')} FROM recipe_variant AS facts_variant
+    WHERE facts_variant.recipe_revision_id = ${revisionAlias}.id AND facts_variant.is_default) AS metadata,
+    ${defaultVariantDietSql(revisionAlias)} AS diet`;
+}
+
+export function defaultVariantDietSql(revisionAlias: string): string {
+  return `(SELECT diet FROM recipe_variant WHERE recipe_revision_id = ${revisionAlias}.id AND is_default)`;
+}
+
+export function variantDietFilterSql(revisionAlias: string, parameter: string): string {
+  return `EXISTS (
+    SELECT 1 FROM recipe_variant AS diet_variant
+    WHERE diet_variant.recipe_revision_id = ${revisionAlias}.id
+      AND (diet_variant.is_visible OR diet_variant.is_default)
+      AND diet_variant.diet = ANY(${parameter})
+  )`;
+}
+
+export function variantMetadataExpression(alias: string): string {
   return `json_build_object(
-    'difficulty', ${revisionAlias}.difficulty,
-    'totalMinutes', ${revisionAlias}.total_minutes,
-    'activeMinutes', ${revisionAlias}.active_minutes,
-    'kcal', ${revisionAlias}.kcal,
-    'servings', ${revisionAlias}.servings,
-    'utensils', ${revisionAlias}.utensils
-  ) AS metadata, ${revisionAlias}.diet`;
+    'difficulty', ${alias}.difficulty,
+    'totalMinutes', ${alias}.total_minutes,
+    'activeMinutes', ${alias}.active_minutes,
+    'kcal', ${alias}.kcal,
+    'servings', ${alias}.servings,
+    'utensils', ${alias}.utensils
+  )`;
+}
+
+export function variantFactsSql(alias: string): string {
+  return `${variantMetadataExpression(alias)} AS metadata, ${alias}.diet`;
 }
 
 export function parseRecipeFactsInput(body: Record<string, unknown>): RecipeFactsInput | null {
@@ -132,12 +155,13 @@ export async function saveRecipeFacts(
   client: PoolClient,
   revisionId: string,
   input: RecipeFactsInput,
+  variantId: string | null = null,
 ): Promise<void> {
   if (input.metadata !== undefined) {
     const metadata: RecipeContentMetadata = input.metadata;
     await client.query(
-      `UPDATE recipe_revision SET difficulty = $2, total_minutes = $3, active_minutes = $4,
-        kcal = $5, servings = $6, utensils = $7 WHERE id = $1`,
+      `UPDATE recipe_variant SET difficulty = $2, total_minutes = $3, active_minutes = $4,
+        kcal = $5, servings = $6, utensils = $7 WHERE recipe_revision_id = $1 AND (CASE WHEN $8::uuid IS NULL THEN is_default ELSE id = $8 END)`,
       [
         revisionId,
         metadata.difficulty,
@@ -146,14 +170,15 @@ export async function saveRecipeFacts(
         metadata.kcal,
         metadata.servings,
         metadata.utensils,
+        variantId,
       ],
     );
   }
   if (input.diet !== undefined)
-    await client.query('UPDATE recipe_revision SET diet = $2 WHERE id = $1', [
-      revisionId,
-      input.diet,
-    ]);
+    await client.query(
+      'UPDATE recipe_variant SET diet = $2 WHERE recipe_revision_id = $1 AND (CASE WHEN $3::uuid IS NULL THEN is_default ELSE id = $3 END)',
+      [revisionId, input.diet, variantId],
+    );
 }
 
 export function recipeDietFilterValues(value: RecipeDiet): RecipeDiet[] {

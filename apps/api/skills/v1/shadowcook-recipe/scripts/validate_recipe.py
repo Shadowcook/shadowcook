@@ -96,6 +96,13 @@ def semantic_errors(document: dict) -> list[str]:
             if reference not in references:
                 errors.append(f"Step {step['key']} references an unknown recipe: {reference}")
 
+    for variant in recipe["variants"]:
+        variant_metadata: dict = variant.get("metadata", recipe.get("metadata", {}))
+        variant_active: int | None = variant_metadata.get("activeMinutes")
+        variant_total: int | None = variant_metadata.get("totalMinutes")
+        if variant_active is not None and variant_total is not None and variant_active > variant_total:
+            errors.append(f"Variant {variant['key']}: active duration cannot exceed total duration.")
+
     metadata: dict = recipe.get("metadata", {})
     active: int | None = metadata.get("activeMinutes")
     total: int | None = metadata.get("totalMinutes")

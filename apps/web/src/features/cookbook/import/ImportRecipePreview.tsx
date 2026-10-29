@@ -86,21 +86,30 @@ export default function ImportRecipePreview({
           </li>
         ))}
       </ol>
-      <h4>{text.recipeMetadata.title}</h4>
-      <dl className="recipe-import__facts">
-        {recipeMetadataRows(
-          {
-            metadata: { ...emptyRecipeMetadata(), ...document.recipe.metadata },
-            diet: document.recipe.diet ?? null,
-          },
-          text,
-        ).map((row: RecipeMetadataRow): JSX.Element => (
-          <div key={row.label}>
-            <dt>{row.label}</dt>
-            <dd>{row.value}</dd>
-          </div>
-        ))}
-      </dl>
+      {document.recipe.variants.map((variant: ImportVariant): JSX.Element => (
+        <section key={variant.key}>
+          <h4>
+            {variant.name}: {text.recipeMetadata.title}
+          </h4>
+          <dl className="recipe-import__facts">
+            {recipeMetadataRows(
+              {
+                metadata: {
+                  ...emptyRecipeMetadata(),
+                  ...(variant.metadata ?? document.recipe.metadata),
+                },
+                diet: variant.diet === undefined ? (document.recipe.diet ?? null) : variant.diet,
+              },
+              text,
+            ).map((row: RecipeMetadataRow): JSX.Element => (
+              <div key={row.label}>
+                <dt>{row.label}</dt>
+                <dd>{row.value}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
+      ))}
       {document.recipe.provenance === undefined ? null : (
         <p className="hint">
           {text.recipeImport.sourceLabel}: {document.recipe.provenance.source.instanceUrl}.{' '}

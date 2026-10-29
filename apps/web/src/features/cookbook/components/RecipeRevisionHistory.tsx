@@ -33,7 +33,7 @@ interface RevisionStep {
   instruction: string;
   ingredients: RevisionUsage[];
 }
-interface RevisionVariant {
+interface RevisionVariant extends Pick<RecipeFacts, 'metadata' | 'diet'> {
   variantKey: string;
   name: string;
   slug: string;
@@ -171,10 +171,14 @@ function Snapshot(properties: { snapshot: RevisionSnapshot; text: Translation })
         {snapshot.variants.map((variant: RevisionVariant): JSX.Element => (
           <li key={variant.variantKey}>
             {variant.name} ({variant.slug})
+            <RecipeMetadata recipe={variant} text={properties.text} />
           </li>
         ))}
       </ul>
-      <RecipeMetadata recipe={snapshot} text={properties.text} />
+      <RecipeMetadata
+        recipe={{ createdAt: snapshot.createdAt, updatedAt: snapshot.updatedAt }}
+        text={properties.text}
+      />
     </section>
   );
 }
@@ -262,6 +266,8 @@ function variantValue(variant: RevisionVariant): string {
     variant.slug,
     variant.isDefault,
     variant.isVisible,
+    JSON.stringify(variant.metadata),
+    variant.diet,
     ...variant.includedStepKeys,
   ].join('|');
 }

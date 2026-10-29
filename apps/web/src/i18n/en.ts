@@ -837,6 +837,8 @@ export const en: Translation = {
     nextPage: 'Next page',
     page: 'Page',
     uncategorized: 'Uncategorized',
+    variantsLabel: 'Variants:',
+    moreVariants: '+{count} more',
     backToRecipes: 'Back to recipes',
     ingredients: 'Ingredients',
     shoppingList: 'Shopping list',

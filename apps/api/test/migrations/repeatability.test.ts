@@ -171,3 +171,65 @@ test('unit translation migration preserves existing default edits and populates 
     client.release();
   }
 });
+
+test('variant metadata migration copies legacy values to every variant and removes revision columns', async (): Promise<void> => {
+  const tenant: TestTenant = await createTestTenant(database.pool, 'variant-facts-backfill');
+  const client: PoolClient = await database.pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET CONSTRAINTS ALL IMMEDIATE');
+    const recipe: QueryResult<{ id: string }> = await client.query(
+      "INSERT INTO recipe (tenant_id, lineage_public_id, slug) VALUES ($1, gen_random_uuid(), 'variant-backfill') RETURNING id",
+      [tenant.id],
+    );
+    const revision: QueryResult<{ id: string }> = await client.query(
+      "INSERT INTO recipe_revision (recipe_id, revision_no, status, title) VALUES ($1, 1, 'DRAFT', 'Existing') RETURNING id",
+      [recipe.rows[0]!.id],
+    );
+    for (const isDefault of [true, false])
+      await client.query(
+        'INSERT INTO recipe_variant (recipe_revision_id, variant_key, name, slug, is_default, is_visible) VALUES ($1, gen_random_uuid(), $2, $2, $3, true)',
+        [revision.rows[0]!.id, isDefault ? 'default' : 'alternative', isDefault],
+      );
+    await client.query(
+      'ALTER TABLE recipe_variant DROP COLUMN difficulty, DROP COLUMN total_minutes, DROP COLUMN active_minutes, DROP COLUMN kcal, DROP COLUMN servings, DROP COLUMN utensils, DROP COLUMN diet',
+    );
+    await client.query(
+      readFileSync(
+        new URL(
+          '../../../../packages/db/src/migrations/sql/20261020080239_beta_2_recipe_metadata.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    );
+    await client.query(
+      "UPDATE recipe_revision SET diet = 'VEGAN', total_minutes = 90, active_minutes = 20, kcal = 800, servings = 4, utensils = 'Whisk', difficulty = 'EASY' WHERE id = $1",
+      [revision.rows[0]!.id],
+    );
+    await client.query(
+      readFileSync(
+        new URL(
+          '../../../../packages/db/src/migrations/sql/20261029202409_beta_2_variant_metadata.sql',
+          import.meta.url,
+        ),
+        'utf8',
+      ),
+    );
+    const variants: QueryResult<{ diet: string; total_minutes: number }> = await client.query(
+      'SELECT diet, total_minutes FROM recipe_variant WHERE recipe_revision_id = $1',
+      [revision.rows[0]!.id],
+    );
+    assert.deepEqual(variants.rows, [
+      { diet: 'VEGAN', total_minutes: 90 },
+      { diet: 'VEGAN', total_minutes: 90 },
+    ]);
+    const columns: QueryResult<{ column_name: string }> = await client.query(
+      "SELECT column_name FROM information_schema.columns WHERE table_name = 'recipe_revision' AND column_name IN ('diet', 'total_minutes', 'active_minutes', 'kcal', 'servings', 'utensils', 'difficulty')",
+    );
+    assert.equal(columns.rows.length, 0);
+  } finally {
+    await client.query('ROLLBACK');
+    client.release();
+  }
+});

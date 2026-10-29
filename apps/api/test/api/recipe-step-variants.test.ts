@@ -228,3 +228,65 @@ test('invalid memberships and duplicate step IDs roll back step replacement; exp
   assert.deepEqual(await steps(path), original);
   await save(path, original, 204, recipeOnlyCookie);
 });
+
+test('new variants copy exactly the current default memberships in drafts and published recipes', async (): Promise<void> => {
+  for (const published of [false, true]) {
+    for (const isDefault of [false, true]) {
+      const path: string = await create();
+      const defaultVariant: Variant = (await variants(path))[0]!;
+      const otherCreation: LightMyRequestResponse = await api.inject({
+        method: 'POST',
+        url: `${path}/draft/variants`,
+        headers: { cookie },
+        payload: { name: 'Other variant', slug: 'other', isDefault: false, isVisible: true },
+      });
+      assert.equal(otherCreation.statusCode, 201, otherCreation.body);
+      const otherKey: string = otherCreation.json<{ variantKey: string }>().variantKey;
+      await save(path, [
+        { instruction: 'Shared preparation', ingredients: [] },
+        { instruction: 'Default finishing', ingredients: [] },
+        { instruction: 'Other variant only', ingredients: [], includedVariantKeys: [otherKey] },
+        { instruction: 'Unassigned alternative', ingredients: [], includedVariantKeys: [] },
+      ]);
+      const originalSteps: Step[] = await steps(path);
+      if (published) {
+        const publication: LightMyRequestResponse = await api.inject({
+          method: 'POST',
+          url: `${path}/publish`,
+          headers: { cookie },
+        });
+        assert.equal(publication.statusCode, 200, publication.body);
+      }
+      const creation: LightMyRequestResponse = await api.inject({
+        method: 'POST',
+        url: `${path}/draft/variants`,
+        headers: { cookie },
+        payload: { name: 'New variant', slug: 'new-variant', isDefault, isVisible: true },
+      });
+      assert.equal(creation.statusCode, 201, creation.body);
+      const newKey: string = creation.json<{ variantKey: string }>().variantKey;
+      const savedSteps: Step[] = await steps(path);
+      const memberships: Variant[] = await variants(path);
+      const created: Variant = memberships.find(
+        (item: Variant): boolean => item.variantKey === newKey,
+      )!;
+      const expectedIds: string[] = savedSteps
+        .slice(0, 2)
+        .map((step: Step): string => step.id)
+        .sort();
+      assert.deepEqual(created.overrides.map((entry): string => entry.stepId).sort(), expectedIds);
+      assert.equal(created.isDefault, isDefault);
+      assert.deepEqual(
+        memberships
+          .find((item: Variant): boolean => item.variantKey === defaultVariant.variantKey)!
+          .overrides.map((entry): string => entry.stepId)
+          .sort(),
+        expectedIds,
+      );
+      assert.deepEqual(
+        savedSteps.map((step: Step): string => step.stepKey),
+        originalSteps.map((step: Step): string => step.stepKey),
+      );
+    }
+  }
+});

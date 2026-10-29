@@ -41,11 +41,6 @@ export async function persistImportedRecipe(
     [created.id, document.recipe.title, document.recipe.summary ?? null, principalId],
   );
   const revisionId: string = revision.rows[0]!.id;
-  const facts: RecipeFactsInput = parseRecipeFactsInput({
-    metadata: document.recipe.metadata ?? {},
-    diet: document.recipe.diet ?? null,
-  })!;
-  await saveRecipeFacts(client, revisionId, facts);
   await recordRecipeContributor(client, revisionId, principalId);
   for (const category of categories.rows)
     await client.query(
@@ -118,6 +113,11 @@ export async function persistImportedRecipe(
        VALUES ($1, gen_random_uuid(), $2, $3, $4, $5) RETURNING id`,
       [revisionId, variant.name, variant.slug, variant.isDefault, variant.isVisible],
     );
+    const facts: RecipeFactsInput = parseRecipeFactsInput({
+      metadata: variant.metadata ?? document.recipe.metadata ?? {},
+      diet: variant.diet === undefined ? (document.recipe.diet ?? null) : variant.diet,
+    })!;
+    await saveRecipeFacts(client, revisionId, facts, inserted.rows[0]!.id);
     for (const key of variant.includedStepKeys)
       await client.query(
         "INSERT INTO recipe_variant_step_override (variant_id, step_id, state) VALUES ($1, $2, 'INCLUDE')",

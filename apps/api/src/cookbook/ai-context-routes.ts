@@ -4,7 +4,12 @@ import type { Pool } from 'pg';
 import { requireTenantPermission } from '../admin/authorization.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 import { aiContextTokenFromRequest } from '../auth/ai-context-token.js';
-import { recipeFactsSql, recipeMetadataSql, type RecipeFactsRow } from './recipe-facts.js';
+import {
+  recipeFactsSql,
+  recipeMetadataSql,
+  variantFactsSql,
+  type RecipeFactsRow,
+} from './recipe-facts.js';
 import { recipeAuthoringResources } from '../skills/recipe-skill.js';
 
 type ScopeType = 'TENANT' | 'RECIPE' | 'CATEGORY';
@@ -385,7 +390,7 @@ async function recipeForGrant(
   const recipe = allowed.rows[0];
   if (recipe === undefined) return null;
   const variants = await pool.query(
-    'SELECT variant_key, name, slug, is_default, is_visible FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name',
+    `SELECT variant_key, name, slug, is_default, is_visible, ${variantFactsSql('recipe_variant')} FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name`,
     [recipe.revision_id],
   );
   const steps = await pool.query(
@@ -483,7 +488,7 @@ async function revisionContents(pool: Pool, revisionId: string): Promise<unknown
       [revisionId],
     ),
     pool.query(
-      `SELECT variant_key, name, slug, is_default, is_visible FROM recipe_variant
+      `SELECT variant_key, name, slug, is_default, is_visible, ${variantFactsSql('recipe_variant')} FROM recipe_variant
        WHERE recipe_revision_id = $1 ORDER BY name`,
       [revisionId],
     ),
