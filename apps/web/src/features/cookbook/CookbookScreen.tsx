@@ -1,0 +1,774 @@
+import RecipeTrash from './components/RecipeTrash';
+import { postLoginDestination } from '../../lib/login-navigation';
+import { isSystemPath } from '../../lib/system-routing';
+import { useEffect, useState } from 'react';
+import type { ChangeEvent, JSX, MouseEvent, SubmitEvent } from 'react';
+import { translations } from '../../i18n';
+import type { Locale, Translation } from '../../i18n';
+import { ApiRequestError, jsonRequest, request } from '../../lib/api/client';
+import { clearAdminAccessCache, clearBrowserSessionCache } from '../../lib/browser/session-cache';
+import type { BrowserSessionState } from '../../lib/browser/session-cache';
+import CookbookDashboard from './components/CookbookDashboard';
+import CategoryEditor from './components/CategoryEditor';
+import { cookbookPath, resolveCookbookLocation } from './model/routing';
+import type { CookbookLocation } from './model/routing';
+import { managementRoute } from './model/management-routing';
+import type { EditorPath, ManagementRoute } from './model/management-routing';
+import {
+  cookbookManagementPath,
+  isCookbookManagementAccessDenied,
+} from './model/management-access';
+import type { CookbookResponse, Recipe, RecipeDetail } from './model/types';
+import { recipeDietFilter, type RecipeDiet } from './model/recipe-metadata';
+import RecipeEditor from './components/RecipeEditor';
+import RecipeImportScreen from './import/RecipeImportScreen';
+import DraftRecipeList from './components/DraftRecipeList';
+import SharedRecipeView from './components/SharedRecipeView';
+import TenantNavigation from './components/TenantNavigation';
+import RecipeManagementList from './components/RecipeManagementList';
+import LoginScreen from '../../components/LoginScreen';
+import type { AuthenticationMethods } from '../../components/LoginScreen';
+import PasswordChangeScreen from '../../components/PasswordChangeScreen';
+import { isReauthenticationRequest } from '../../lib/login-navigation';
+import AccessDeniedScreen from '../../components/AccessDeniedScreen';
+import ManagementPlaceholder from './components/ManagementPlaceholder';
+import TenantUserManagement from './components/TenantUserManagement';
+import TenantIngredientManagement from './components/TenantIngredientManagement';
+import TenantUnitManagement from './components/TenantUnitManagement';
+import RecipePolicySettings from './components/RecipePolicySettings';
+import RecipeShareDialog from './components/RecipeShareDialog';
+import ServiceAccountManagement from './components/ServiceAccountManagement';
+import type { RecipeShareLink } from './components/RecipeShareDialog';
+import AiContextDialog from './components/AiContextDialog';
+import '../../styles/cookbook.css';
+
+interface CookbookScreenProperties {
+  locale: Locale;
+  initialCookbook?: CookbookResponse;
+  initialCategoryId?: string | null;
+  initialRecipeCategoryId?: string | null;
+  initialRecipe?: RecipeDetail | null;
+  initialTenantSlug?: string;
+  initialManagementRoute?: ManagementRoute;
+  initialLogin?: boolean;
+  initialDiet?: RecipeDiet | '';
+  notifyWhenReady?: boolean;
+}
+interface SessionResponse {
+  email: string;
+  hasPassword: boolean;
+  passwordChangeRequired: boolean;
+}
+interface LoginResponse {
+  hasPassword: boolean;
+  passwordChangeRequired: boolean;
+}
+type Screen = 'loading' | 'login' | 'change-password' | 'dashboard';
+
+const loginPath: string = '/login';
+const emptyCookbook: CookbookResponse = {
+  tenant: null,
+  categories: [],
+  recipes: [],
+  frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
+  canManageCategories: false,
+  canManageRecipes: false,
+  canDeleteRecipes: false,
+  canCreateRecipes: false,
+  canManageUsers: false,
+  canManageIngredients: false,
+  canManageUnits: false,
+  canManageServiceAccounts: false,
+  canCreateAiContexts: false,
+};
+
+export default function CookbookScreen({
+  locale,
+  initialCookbook,
+  initialCategoryId = null,
+  initialRecipeCategoryId = null,
+  initialRecipe = null,
+  initialTenantSlug,
+  initialManagementRoute,
+  initialLogin = false,
+  initialDiet = '',
+  notifyWhenReady = false,
+}: CookbookScreenProperties): JSX.Element {
+  const text: Translation = translations[locale];
+  const tenantSlug: string = initialTenantSlug ?? tenantSlugFromPath() ?? '';
+  const initialScreen: Screen = initialLogin
+    ? 'login'
+    : initialCookbook === undefined
+      ? 'loading'
+      : 'dashboard';
+  const [screen, setScreen] = useState<Screen>(initialScreen);
+  const [email, setEmail] = useState<string>('');
+  const [password, setPassword] = useState<string>('');
+  const [emailCode, setEmailCode] = useState<string>('');
+  const [methods, setMethods] = useState<AuthenticationMethods>({
+    password: true,
+    emailCode: true,
+  });
+  const [currentPassword, setCurrentPassword] = useState<string>('');
+  const [newPassword, setNewPassword] = useState<string>('');
+  const [hasPassword, setHasPassword] = useState<boolean>(false);
+  const [message, setMessage] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [cookbook, setCookbook] = useState<CookbookResponse>(initialCookbook ?? emptyCookbook);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId);
+  const [recipeCategoryId, setRecipeCategoryId] = useState<string | null>(initialRecipeCategoryId);
+  const [selectedRecipe, setSelectedRecipe] = useState<RecipeDetail | null>(initialRecipe);
+  const isRecipeLoading: boolean = false;
+  const [recipeError, setRecipeError] = useState<string>('');
+  const [recipeFilter, setRecipeFilter] = useState<string>('');
+  const [dietFilter, setDietFilter] = useState<RecipeDiet | ''>(initialDiet);
+  const [isCategoryEditor, setIsCategoryEditor] = useState<boolean>(
+    initialManagementRoute?.isCategoryEditor ?? false,
+  );
+  const [editorPath, setEditorPath] = useState<EditorPath>(
+    initialManagementRoute?.editorPath ?? null,
+  );
+  const [shareToken, setShareToken] = useState<string | null>(sharedRecipeToken());
+  const [isDetailShareDialogOpen, setIsDetailShareDialogOpen] = useState<boolean>(false);
+  const [detailShareLinks, setDetailShareLinks] = useState<RecipeShareLink[]>([]);
+  const [aiContextTarget, setAiContextTarget] = useState<{
+    type: 'TENANT' | 'RECIPE' | 'CATEGORY';
+    publicId: string;
+    name: string;
+  } | null>(null);
+  const hasCookbookManagementAccess: boolean =
+    cookbookManagementPath(cookbook, tenantSlug) !== null;
+  const isManagementAccessDenied: boolean = isCookbookManagementAccessDenied(cookbook, {
+    editorPath,
+    isCategoryEditor,
+  });
+
+  useEffect((): void => {
+    const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
+    setIsCategoryEditor(currentManagementRoute.isCategoryEditor);
+    setEditorPath(currentManagementRoute.editorPath);
+    setShareToken(sharedRecipeToken());
+    void restoreSession();
+    void request<AuthenticationMethods>('/auth/authentication-methods')
+      .then(setMethods)
+      .catch((): void => undefined);
+  }, []);
+  useEffect((): (() => void) => {
+    function restoreLocation(): void {
+      const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
+      setIsCategoryEditor(currentManagementRoute.isCategoryEditor);
+      setEditorPath(currentManagementRoute.editorPath);
+      setRecipeCategoryId(new URLSearchParams(window.location.search).get('categoryPublicId'));
+      setShareToken(sharedRecipeToken());
+      const restoredDiet: RecipeDiet | '' = recipeDietFilter(
+        new URLSearchParams(window.location.search).get('diet'),
+      );
+      setDietFilter(restoredDiet);
+      void loadCookbook(1, recipeFilter, restoredDiet).then(
+        (loaded: CookbookResponse): Promise<void> => applyBrowserLocation(loaded),
+      );
+    }
+    window.addEventListener('popstate', restoreLocation);
+    return (): void => window.removeEventListener('popstate', restoreLocation);
+  }, [cookbook, locale]);
+  useEffect((): void => {
+    const shell: HTMLElement | null = document.querySelector('.application-shell');
+    shell?.classList.toggle('application-shell--admin', isCategoryEditor || editorPath !== null);
+  }, [editorPath, isCategoryEditor]);
+  useEffect((): void => {
+    if (!notifyWhenReady || screen === 'loading') return;
+    window.dispatchEvent(new CustomEvent('shadowcook:cookbook-ready'));
+  }, [notifyWhenReady, screen]);
+
+  async function restoreSession(): Promise<void> {
+    try {
+      const response: SessionResponse = await request<SessionResponse>('/auth/session');
+      const session: BrowserSessionState = {
+        authenticated: true,
+        email: response.email,
+        hasPassword: response.hasPassword,
+        passwordChangeRequired: response.passwordChangeRequired,
+      };
+      await applySession(session);
+    } catch (error: unknown) {
+      const session: BrowserSessionState = { authenticated: false };
+      if (error instanceof ApiRequestError && error.code === 'AUTHENTICATION_REQUIRED')
+        clearBrowserSessionCache();
+      await applySession(session);
+    }
+  }
+
+  async function applySession(session: BrowserSessionState): Promise<void> {
+    if (isReauthenticationRequest(window.location.pathname, window.location.search)) {
+      setScreen('login');
+      return;
+    }
+    if (sharedRecipeToken() !== null) {
+      setScreen('dashboard');
+      return;
+    }
+    if (!session.authenticated) {
+      if (isLoginPath()) {
+        setScreen('login');
+        return;
+      }
+      const loaded: CookbookResponse = await loadCookbook();
+      await applyBrowserLocation(loaded, initialRecipe);
+      setScreen('dashboard');
+      return;
+    }
+    setEmail(session.email);
+    setHasPassword(session.hasPassword);
+    if (session.passwordChangeRequired) {
+      setScreen('change-password');
+      return;
+    }
+    if (isLoginPath()) {
+      window.location.replace(postLoginPath());
+      return;
+    }
+    const loaded: CookbookResponse = await loadCookbook();
+    await applyBrowserLocation(loaded, initialRecipe);
+    setScreen('dashboard');
+  }
+
+  async function completeLogin(response: LoginResponse): Promise<void> {
+    clearAdminAccessCache();
+    if (response.passwordChangeRequired) {
+      setHasPassword(response.hasPassword);
+      setScreen('change-password');
+      return;
+    }
+    window.location.replace(postLoginPath());
+  }
+  async function login(event: SubmitEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setMessage('');
+    setIsSubmitting(true);
+    try {
+      await completeLogin(
+        await request<LoginResponse>('/auth/login', jsonRequest({ email, password })),
+      );
+    } catch (error: unknown) {
+      setMessage(errorMessage(error, locale));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function requestCode(): Promise<void> {
+    setMessage('');
+    setIsSubmitting(true);
+    try {
+      await request<void>('/auth/email-code/request', jsonRequest({ email }));
+      setMessage(text.login.codeSent);
+    } catch (error: unknown) {
+      setMessage(errorMessage(error, locale));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function verifyCode(event: SubmitEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    const code: string = emailCode;
+    setEmailCode('');
+    setMessage('');
+    setIsSubmitting(true);
+    try {
+      await completeLogin(
+        await request<LoginResponse>('/auth/email-code/verify', jsonRequest({ email, code })),
+      );
+    } catch (error: unknown) {
+      setMessage(errorMessage(error, locale));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function requestPasswordReset(): Promise<void> {
+    setIsSubmitting(true);
+    setMessage('');
+    try {
+      await request<void>('/auth/password-reset/request', jsonRequest({ email }));
+      setMessage(text.login.passwordResetRequested);
+    } catch (_error: unknown) {
+      setMessage(text.errors.requestFailed);
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function changePassword(event: SubmitEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    setMessage('');
+    setIsSubmitting(true);
+    try {
+      await request<void>('/auth/change-password', jsonRequest({ currentPassword, newPassword }));
+      setCurrentPassword('');
+      setNewPassword('');
+      setHasPassword(true);
+      await completeLogin({ hasPassword: true, passwordChangeRequired: false });
+    } catch (error: unknown) {
+      setMessage(errorMessage(error, locale));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+  async function selectRecipeVariant(slug: string): Promise<void> {
+    if (selectedRecipe === null) return;
+    try {
+      const recipe: RecipeDetail = await request<RecipeDetail>(
+        `/cookbook/recipes/${selectedRecipe.public_id}?variant=${encodeURIComponent(slug)}`,
+      );
+      setSelectedRecipe(recipe);
+      const overviewRecipe = cookbook.recipes.find(
+        (candidate: Recipe): boolean => candidate.public_id === selectedRecipe.public_id,
+      );
+      const tenantSlug = tenantSlugFromPath();
+      if (overviewRecipe !== undefined && tenantSlug !== null)
+        window.history.pushState(
+          null,
+          '',
+          cookbookPath(
+            tenantSlug,
+            cookbook.categories,
+            selectedCategoryId,
+            overviewRecipe,
+            recipe.selectedVariant === recipe.variants.find((variant) => variant.is_default)?.slug
+              ? null
+              : recipe.selectedVariant,
+          ),
+        );
+    } catch (_error: unknown) {
+      setRecipeError(text.dashboard.recipeLoadFailed);
+    }
+  }
+  function editSelectedRecipe(): void {
+    if (selectedRecipe === null) return;
+    openRecipeEditor(selectedRecipe.public_id);
+  }
+  async function loadSelectedRecipeShareLinks(): Promise<void> {
+    if (selectedRecipe === null) return;
+    const tenantSlug: string | null = tenantSlugFromPath();
+    if (tenantSlug === null) return;
+    const response: { shareLinks: RecipeShareLink[] } = await request<{
+      shareLinks: RecipeShareLink[];
+    }>(
+      `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links`,
+    );
+    setDetailShareLinks(response.shareLinks);
+  }
+  function openSelectedRecipeShareDialog(): void {
+    void loadSelectedRecipeShareLinks()
+      .then((): void => setIsDetailShareDialogOpen(true))
+      .catch((): void => setRecipeError(text.errors.requestFailed));
+  }
+  function openSelectedRecipeAiContext(): void {
+    if (selectedRecipe === null) return;
+    setAiContextTarget({
+      type: 'RECIPE',
+      publicId: selectedRecipe.public_id,
+      name: selectedRecipe.title,
+    });
+  }
+  function openCategoryAiContext(publicId: string): void {
+    const category = cookbook.categories.find(
+      (candidate): boolean => candidate.public_id === publicId,
+    );
+    if (category === undefined) return;
+    setAiContextTarget({ type: 'CATEGORY', publicId, name: category.name });
+  }
+  function openCookbookAiContext(): void {
+    const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+    setAiContextTarget({ type: 'TENANT', publicId: 'tenant', name: cookbookName });
+  }
+  async function createSelectedRecipeShareLink(
+    name: string | null,
+    expiresAt: string | null,
+  ): Promise<string | null> {
+    if (selectedRecipe === null) return null;
+    const tenantSlug: string | null = tenantSlugFromPath();
+    if (tenantSlug === null) return null;
+    try {
+      const link: { path: string } = await request<{ path: string }>(
+        `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links`,
+        jsonRequest({ name, expiresAt }),
+      );
+      await loadSelectedRecipeShareLinks();
+      return link.path;
+    } catch (_error: unknown) {
+      setRecipeError(text.errors.requestFailed);
+      return null;
+    }
+  }
+  async function copySelectedRecipeShareLink(path: string): Promise<void> {
+    await navigator.clipboard.writeText(`${window.location.origin}${path}`);
+  }
+  async function revokeSelectedRecipeShareLink(link: RecipeShareLink): Promise<void> {
+    if (selectedRecipe === null) return;
+    const tenantSlug: string | null = tenantSlugFromPath();
+    if (tenantSlug === null) return;
+    await request<void>(
+      `/cookbook/tenants/${encodeURIComponent(tenantSlug)}/recipes/${selectedRecipe.public_id}/share-links/${link.id}`,
+      { method: 'DELETE' },
+    );
+    await loadSelectedRecipeShareLinks();
+  }
+  function openRecipeEditor(recipePublicId: string | null): void {
+    const slug: string | null = tenantSlugFromPath();
+    if (slug === null) return;
+    window.history.pushState(
+      null,
+      '',
+      recipePublicId === null ? `/${slug}/recipes/new` : `/${slug}/recipes/${recipePublicId}/edit`,
+    );
+    setIsCategoryEditor(false);
+    setRecipeCategoryId(null);
+    setEditorPath(recipePublicId === null ? 'new' : recipePublicId);
+  }
+  async function loadCookbook(
+    frontpagePage: number = 1,
+    filter: string = recipeFilter,
+    diet: RecipeDiet | '' = dietFilter,
+  ): Promise<CookbookResponse> {
+    const slug: string | null = tenantSlugFromPath();
+    if (slug === null) {
+      setCookbook(emptyCookbook);
+      return emptyCookbook;
+    }
+    try {
+      const response: CookbookResponse = await request<CookbookResponse>(
+        `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&recipeFilter=${encodeURIComponent(filter)}${diet === '' ? '' : `&diet=${diet}`}`,
+      );
+      setCookbook(response);
+      return response;
+    } catch (error: unknown) {
+      if (error instanceof ApiRequestError && error.code === 'TENANT_NOT_FOUND')
+        window.location.replace('/explore');
+      setCookbook(emptyCookbook);
+      return emptyCookbook;
+    }
+  }
+  function changeRecipeFilter(filter: string): void {
+    setRecipeFilter(filter);
+    void loadCookbook(1, filter);
+  }
+  function changeDietFilter(diet: RecipeDiet | ''): void {
+    setDietFilter(diet);
+    const url: URL = new URL(window.location.href);
+    if (diet === '') url.searchParams.delete('diet');
+    else url.searchParams.set('diet', diet);
+    window.history.pushState(null, '', url);
+    void loadCookbook(1, recipeFilter, diet);
+  }
+  function navigateCategory(event: MouseEvent<HTMLAnchorElement>, targetPath: string): void {
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.altKey ||
+      event.ctrlKey ||
+      event.shiftKey
+    )
+      return;
+    event.preventDefault();
+    if (window.location.pathname === targetPath) return;
+    const categoryUrl: URL = new URL(targetPath, window.location.origin);
+    if (dietFilter !== '') categoryUrl.searchParams.set('diet', dietFilter);
+    window.history.pushState(null, '', categoryUrl);
+    void applyBrowserLocation(cookbook);
+  }
+  async function applyBrowserLocation(
+    loaded: CookbookResponse,
+    preservedRecipe: RecipeDetail | null = null,
+  ): Promise<void> {
+    const currentManagementRoute: ManagementRoute = managementRoute(window.location.pathname);
+    if (currentManagementRoute.isCategoryEditor || currentManagementRoute.editorPath !== null) {
+      setSelectedCategoryId(null);
+      setSelectedRecipe(null);
+      setRecipeError('');
+      return;
+    }
+    const location: CookbookLocation = resolveCookbookLocation(loaded, window.location.pathname);
+    setSelectedCategoryId(location.categoryId);
+    setRecipeError('');
+    if (location.recipe === null) {
+      setSelectedRecipe(null);
+      return;
+    }
+    if (
+      preservedRecipe !== null &&
+      preservedRecipe.public_id === location.recipe.public_id &&
+      (location.variantSlug === null || preservedRecipe.selectedVariant === location.variantSlug)
+    ) {
+      setSelectedRecipe(preservedRecipe);
+      return;
+    }
+    setSelectedRecipe(null);
+    try {
+      setSelectedRecipe(
+        await request<RecipeDetail>(
+          `/cookbook/recipes/${location.recipe.public_id}${location.variantSlug === null ? '' : `?variant=${encodeURIComponent(location.variantSlug)}`}`,
+        ),
+      );
+    } catch (_error: unknown) {
+      setRecipeError(text.dashboard.recipeLoadFailed);
+    }
+  }
+  if (screen === 'loading')
+    return (
+      <section className="panel loading-panel" aria-live="polite">
+        {text.loading}
+      </section>
+    );
+  if (screen === 'change-password')
+    return (
+      <PasswordChangeScreen
+        text={text}
+        hasPassword={hasPassword}
+        currentPassword={currentPassword}
+        newPassword={newPassword}
+        isSubmitting={isSubmitting}
+        message={message}
+        onSubmit={changePassword}
+        onCurrentPasswordChange={onValueChange(setCurrentPassword)}
+        onNewPasswordChange={onValueChange(setNewPassword)}
+      />
+    );
+  if (screen === 'dashboard')
+    return shareToken !== null ? (
+      <SharedRecipeView token={shareToken} text={text} />
+    ) : (
+      <section
+        className={isCategoryEditor || editorPath !== null ? 'tenant-management' : 'tenant-content'}
+      >
+        {isCategoryEditor || editorPath !== null ? (
+          <a
+            className="button--secondary tenant-management__back"
+            href={`/${encodeURIComponent(tenantSlug)}`}
+          >
+            {text.tenantNavigation.backToCookbook}
+          </a>
+        ) : null}
+        <div
+          className={
+            (isCategoryEditor || editorPath !== null) && hasCookbookManagementAccess
+              ? 'tenant-area'
+              : undefined
+          }
+        >
+          {(isCategoryEditor || editorPath !== null) && hasCookbookManagementAccess ? (
+            <TenantNavigation
+              text={text}
+              cookbook={cookbook}
+              tenantSlug={tenantSlug}
+              activeView={
+                editorPath === 'trash'
+                  ? 'trash'
+                  : isCategoryEditor
+                    ? 'categories'
+                    : editorPath === 'manage'
+                      ? 'none'
+                      : editorPath === 'drafts'
+                        ? 'drafts'
+                        : editorPath === 'manage-recipes'
+                          ? 'recipes'
+                          : editorPath === 'manage-users'
+                            ? 'users'
+                            : editorPath === 'manage-ingredients'
+                              ? 'ingredients'
+                              : editorPath === 'manage-units'
+                                ? 'units'
+                                : editorPath === 'manage-recipe-policy'
+                                  ? 'settings'
+                                  : editorPath === 'manage-service-accounts'
+                                    ? 'service-accounts'
+                                    : editorPath !== null
+                                      ? 'editor'
+                                      : 'recipes'
+              }
+            />
+          ) : null}
+          <div className="tenant-content">
+            {isManagementAccessDenied ? (
+              <AccessDeniedScreen text={text} />
+            ) : editorPath === 'trash' ? (
+              <RecipeTrash text={text} tenantSlug={tenantSlug} onChanged={loadCookbook} />
+            ) : editorPath === 'manage' ? (
+              <ManagementPlaceholder text={text} />
+            ) : editorPath === 'manage-users' && tenantSlug.length > 0 ? (
+              <TenantUserManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : editorPath === 'manage-ingredients' && tenantSlug.length > 0 ? (
+              <TenantIngredientManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : editorPath === 'manage-units' && tenantSlug.length > 0 ? (
+              <TenantUnitManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : editorPath === 'manage-recipe-policy' && tenantSlug.length > 0 ? (
+              <RecipePolicySettings tenantSlug={tenantSlug} text={text} />
+            ) : editorPath === 'manage-service-accounts' && tenantSlug.length > 0 ? (
+              <ServiceAccountManagement locale={locale} tenantSlug={tenantSlug} />
+            ) : isCategoryEditor && tenantSlug.length > 0 ? (
+              <CategoryEditor
+                locale={locale}
+                tenantSlug={tenantSlug}
+                onChanged={async (): Promise<void> => {
+                  await loadCookbook();
+                }}
+              />
+            ) : editorPath === 'drafts' && tenantSlug.length > 0 ? (
+              <DraftRecipeList
+                canDeleteRecipes={cookbook.canDeleteRecipes === true}
+                locale={locale}
+                canCreateRecipes={cookbook.canCreateRecipes}
+                tenantSlug={tenantSlug}
+                onChanged={loadCookbook}
+                onEdit={openRecipeEditor}
+                onCreate={(): void => openRecipeEditor(null)}
+              />
+            ) : editorPath === 'manage-recipes' ? (
+              <RecipeManagementList
+                onChanged={loadCookbook}
+                canDeleteRecipes={cookbook.canDeleteRecipes === true}
+                locale={locale}
+                canCreateRecipes={cookbook.canCreateRecipes}
+                tenantSlug={tenantSlug}
+                onEdit={openRecipeEditor}
+                onCreate={(): void => openRecipeEditor(null)}
+              />
+            ) : editorPath === 'import' && tenantSlug.length > 0 ? (
+              <RecipeImportScreen
+                text={text}
+                tenantSlug={tenantSlug}
+                onImported={(publicId: string): void => {
+                  void loadCookbook();
+                  openRecipeEditor(publicId);
+                }}
+              />
+            ) : editorPath !== null && tenantSlug.length > 0 ? (
+              <RecipeEditor
+                locale={locale}
+                tenantSlug={tenantSlug}
+                recipePublicId={editorPath === 'new' ? null : editorPath}
+                categories={cookbook.categories}
+                initialCategoryId={editorPath === 'new' ? recipeCategoryId : null}
+                onChanged={loadCookbook}
+                onCreated={(publicId: string): void => openRecipeEditor(publicId)}
+                onDiscarded={(): void => {
+                  window.history.pushState(null, '', `/${tenantSlug}/drafts`);
+                  setEditorPath('drafts');
+                }}
+              />
+            ) : (
+              <>
+                <CookbookDashboard
+                  text={text}
+                  cookbook={cookbook}
+                  selectedCategoryId={selectedCategoryId}
+                  selectedRecipe={selectedRecipe}
+                  isRecipeLoading={isRecipeLoading}
+                  recipeError={recipeError}
+                  onEditRecipe={editSelectedRecipe}
+                  onShareRecipe={openSelectedRecipeShareDialog}
+                  onShareRecipeWithAi={openSelectedRecipeAiContext}
+                  onShareCategoryWithAi={openCategoryAiContext}
+                  onShareCookbookWithAi={openCookbookAiContext}
+                  onSelectVariant={selectRecipeVariant}
+                  onSelectFrontpagePage={loadCookbook}
+                  recipeFilter={recipeFilter}
+                  dietFilter={dietFilter}
+                  onDietFilterChange={changeDietFilter}
+                  onRecipeFilterChange={changeRecipeFilter}
+                  onCategoryNavigate={navigateCategory}
+                  tenantSlug={tenantSlug}
+                />
+                {aiContextTarget === null ? null : (
+                  <AiContextDialog
+                    text={text}
+                    targetType={aiContextTarget.type}
+                    targetPublicId={aiContextTarget.publicId}
+                    targetName={aiContextTarget.name}
+                    tenantSlug={tenantSlugFromPath() ?? ''}
+                    onClose={(): void => setAiContextTarget(null)}
+                    onError={(): void => setRecipeError(text.errors.requestFailed)}
+                  />
+                )}
+                {isDetailShareDialogOpen ? (
+                  <RecipeShareDialog
+                    text={text}
+                    links={detailShareLinks}
+                    isSaving={false}
+                    onClose={(): void => setIsDetailShareDialogOpen(false)}
+                    onCreate={createSelectedRecipeShareLink}
+                    onCopy={copySelectedRecipeShareLink}
+                    onRevoke={revokeSelectedRecipeShareLink}
+                  />
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+      </section>
+    );
+  return (
+    <LoginScreen
+      text={text}
+      email={email}
+      password={password}
+      emailCode={emailCode}
+      methods={methods}
+      isSubmitting={isSubmitting}
+      message={message}
+      onSubmit={login}
+      onRequestCode={requestCode}
+      onVerifyCode={verifyCode}
+      onRequestPasswordReset={requestPasswordReset}
+      onEmailChange={(event: ChangeEvent<HTMLInputElement>): void => {
+        setEmail(event.currentTarget.value);
+        setEmailCode('');
+      }}
+      onPasswordChange={onValueChange(setPassword)}
+      onCodeChange={setEmailCode}
+    />
+  );
+}
+
+function onValueChange(
+  setValue: (value: string) => void,
+): (event: ChangeEvent<HTMLInputElement>) => void {
+  return (event: ChangeEvent<HTMLInputElement>): void => setValue(event.currentTarget.value);
+}
+function isLoginPath(): boolean {
+  return window.location.pathname === loginPath;
+}
+function postLoginPath(): string {
+  return postLoginDestination(window.location.pathname, window.location.search);
+}
+function tenantSlugFromPath(): string | null {
+  if (typeof window === 'undefined' || isSystemPath(window.location.pathname)) return null;
+  const segment: string | undefined = window.location.pathname.split('/').filter(Boolean)[0];
+  return segment === undefined ? null : decodeURIComponent(segment);
+}
+
+function sharedRecipeToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  const segments: string[] = window.location.pathname
+    .split('/')
+    .filter((segment: string): boolean => segment.length > 0);
+  return segments.length === 3 && segments[0] === 'shared' && segments[1] === 'recipes'
+    ? segments[2]!
+    : null;
+}
+function errorMessage(error: unknown, locale: Locale): string {
+  const errors: Translation['errors'] = translations[locale].errors;
+  if (!(error instanceof ApiRequestError)) return errors.requestFailed;
+  const messages: Record<string, string> = {
+    AUTHENTICATION_FAILED: errors.authenticationFailed,
+    AUTHENTICATION_REQUIRED: errors.authenticationRequired,
+    INVALID_CREDENTIALS: errors.invalidCredentials,
+    LOGIN_RATE_LIMITED: errors.loginRateLimited,
+    INVALID_LOGIN_BODY: errors.invalidLoginBody,
+    INVALID_PASSWORD: errors.invalidPassword,
+    INVALID_EMAIL_CODE: errors.invalidEmailCode,
+    PASSWORD_LOGIN_DISABLED: errors.passwordLoginDisabled,
+    EMAIL_CODE_LOGIN_DISABLED: errors.emailCodeLoginDisabled,
+    PASSWORD_CHANGE_REQUIRED: errors.passwordChangeRequired,
+    REQUEST_FAILED: errors.requestFailed,
+  };
+  return messages[error.code] ?? errors.requestFailed;
+}

@@ -1,0 +1,734 @@
+import { recipeImageSql } from './recipe-image-routes.js';
+import { randomUUID } from 'node:crypto';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { Pool } from 'pg';
+import {
+  currentSessionUser,
+  frontpageShuffleSeed,
+  refreshFrontpageShuffleSeed,
+} from '../auth/session.js';
+import { currentAuthenticatedPrincipal } from '../auth/principal.js';
+import { unitTranslationsSql, type UnitTranslations } from '../unit-translations.js';
+import { recipeSummaryVariantsSql, type RecipeSummaryVariant } from './recipe-summary-variants.js';
+import { recipeCreatorDisplayNameSql } from './recipe-creator.js';
+import { recipeContributorsSql, type RecipeContributor } from './recipe-contributors.js';
+import {
+  recipeFactsSql,
+  variantFactsSql,
+  defaultVariantDietSql,
+  variantDietFilterSql,
+  isRecipeDiet,
+  recipeDietFilterValues,
+  type RecipeFactsRow,
+} from './recipe-facts.js';
+
+interface CategoryRow {
+  public_id: string;
+  parent_public_id: string | null;
+  name: string;
+  slug: string;
+  sort_order: number;
+}
+
+interface RecipeRow {
+  image_url: string | null;
+  public_id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  diet: RecipeFactsRow['diet'];
+  category_public_ids: string[];
+  variants: RecipeSummaryVariant[];
+}
+
+interface RecipeDetailRow extends RecipeFactsRow {
+  image_url: string | null;
+  tenant_id: string;
+  cookbook_name: string;
+  public_id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  creator_display_name: string | null;
+  contributors: RecipeContributor[];
+  revision_id: string;
+  version: number;
+  can_edit: boolean;
+  can_share: boolean;
+}
+interface RecipeLinkRow {
+  public_id: string;
+  slug: string;
+  title: string;
+}
+
+interface RecipeStepRow {
+  public_id: string;
+  sort_order: number;
+  instruction: string;
+}
+
+interface IngredientUsageRow {
+  step_public_id: string;
+  sort_order: number;
+  amount: string | null;
+  unit_public_id: string | null;
+  unit_symbol: string | null;
+  unit_localization_key: string | null;
+  unit_translations: UnitTranslations;
+  ingredient_public_id: string | null;
+  ingredient_name: string;
+  is_catalog_ingredient: boolean;
+  special_kind: string | null;
+  note: string | null;
+  is_optional: boolean;
+}
+
+interface TenantRow {
+  id: string;
+  public_id: string;
+  display_name: string;
+  frontpage_recipe_count: number;
+  frontpage_heading: string | null;
+}
+
+interface FrontpageCountRow {
+  total_recipes: number;
+}
+
+interface TenantSelectionSettingsRow {
+  site_name: string;
+  slogan: string;
+  cookbooks_per_page: number;
+}
+
+interface TenantSelectionCountRow {
+  total_tenants: number;
+}
+
+const defaultFrontpageRecipeCount: number = 4;
+const defaultSiteName: string = 'My Cookbook';
+const defaultSlogan: string = 'Made to be shared';
+const defaultCookbooksPerPage: number = 4;
+
+export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
+  api.get('/cookbook/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
+    const principal = await currentAuthenticatedPrincipal(pool, request);
+    const principalId: string | null =
+      principal === null || principal.disabled_at !== null ? null : principal.principal_id;
+    const query = request.query as { page?: unknown; filter?: unknown; shuffleSeed?: unknown };
+    const page: number = parseFrontpagePage(query.page);
+    const filter: string = parseRecipeFilter(query.filter);
+    const shuffleSeed: string =
+      typeof query.shuffleSeed === 'string' && query.shuffleSeed.length <= 100
+        ? query.shuffleSeed
+        : randomUUID();
+    const settingsResult = await pool.query<TenantSelectionSettingsRow>(
+      'SELECT site_name, slogan, cookbooks_per_page FROM instance_frontpage_settings WHERE singleton = true',
+    );
+    const settings: TenantSelectionSettingsRow | undefined = settingsResult.rows[0];
+    const cookbooksPerPage: number = settings?.cookbooks_per_page ?? defaultCookbooksPerPage;
+    const tenantFilterClause: string = `
+      tenant.disabled_at IS NULL
+        AND tenant.show_on_start_page
+        AND ($2 = '' OR tenant.display_name ILIKE '%' || $2 || '%' OR COALESCE(tenant.description, '') ILIKE '%' || $2 || '%')
+        AND (
+          EXISTS (
+            SELECT 1 FROM tenant_membership
+            WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1
+          )
+          OR EXISTS (
+            SELECT 1 FROM recipe AS public_recipe
+            WHERE public_recipe.deleted_at IS NULL AND public_recipe.tenant_id = tenant.id
+              AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+              AND public_recipe.published_revision_id IS NOT NULL
+          )
+        )`;
+    const countResult = await pool.query<TenantSelectionCountRow>(
+      `SELECT count(*)::integer AS total_tenants FROM tenant WHERE ${tenantFilterClause}`,
+      [principalId, filter],
+    );
+    const totalTenants: number = countResult.rows[0]?.total_tenants ?? 0;
+    const totalPages: number = Math.ceil(totalTenants / cookbooksPerPage);
+    const selectedPage: number = Math.min(page, Math.max(totalPages, 1));
+    const [tenants, myCookbooks] = await Promise.all([
+      pool.query(
+        `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug,
+         count(recipe.id) FILTER (
+           WHERE recipe.published_revision_id IS NOT NULL
+             AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+         )::integer AS recipe_count
+       FROM tenant
+       LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
+       WHERE ${tenantFilterClause}
+       GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
+       ORDER BY md5(tenant.public_id::text || $3), tenant.public_id
+       LIMIT $4 OFFSET $5`,
+        [principalId, filter, shuffleSeed, cookbooksPerPage, (selectedPage - 1) * cookbooksPerPage],
+      ),
+      pool.query(
+        `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug,
+           count(recipe.id) FILTER (
+             WHERE recipe.published_revision_id IS NOT NULL
+           )::integer AS recipe_count
+         FROM tenant
+         INNER JOIN tenant_membership
+           ON tenant_membership.tenant_id = tenant.id
+           AND tenant_membership.principal_id = $1
+         LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
+         WHERE tenant.disabled_at IS NULL
+         GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
+         ORDER BY lower(tenant.display_name), tenant.public_id`,
+        [principalId],
+      ),
+    ]);
+    return reply.send({
+      siteName: settings?.site_name ?? defaultSiteName,
+      slogan: settings?.slogan ?? defaultSlogan,
+      cookbooksPerPage,
+      tenants: tenants.rows,
+      myCookbooks: myCookbooks.rows,
+      page: selectedPage,
+      totalPages,
+      totalTenants,
+      shuffleSeed,
+    });
+  });
+  api.get('/cookbook', async (request: FastifyRequest, reply: FastifyReply) => {
+    const user = await currentSessionUser(pool, request);
+    const principal = await currentAuthenticatedPrincipal(pool, request);
+    if (user?.password_change_required === true) {
+      return reply.code(403).send({
+        code: 'PASSWORD_CHANGE_REQUIRED',
+        error: 'A password change is required before continuing.',
+      });
+    }
+    const principalId: string | null =
+      principal === null || principal.disabled_at !== null ? null : principal.principal_id;
+    const query = request.query as {
+      tenantSlug?: unknown;
+      frontpagePage?: unknown;
+      refreshFrontpageShuffle?: unknown;
+      recipeFilter?: unknown;
+      diet?: unknown;
+    };
+    const tenantSlug: unknown = query.tenantSlug;
+    const recipeFilter: string = parseRecipeFilter(query.recipeFilter);
+    if (query.diet !== undefined && !isRecipeDiet(query.diet)) {
+      return reply
+        .code(400)
+        .send({ code: 'INVALID_RECIPE_FILTER', error: 'The diet filter is invalid.' });
+    }
+    const diets: string[] | null = isRecipeDiet(query.diet)
+      ? recipeDietFilterValues(query.diet)
+      : null;
+    if (typeof tenantSlug !== 'string' || tenantSlug.length === 0)
+      return reply.send({
+        tenant: null,
+        categories: [],
+        recipes: [],
+        frontpage: emptyFrontpage(),
+        canManageCategories: false,
+        canManageRecipes: false,
+        canDeleteRecipes: false,
+        canCreateRecipes: false,
+        canManageUsers: false,
+        canManageIngredients: false,
+        canManageUnits: false,
+        canManageServiceAccounts: false,
+        canCreateAiContexts: false,
+      });
+    const tenantResult = await pool.query<TenantRow>(
+      'SELECT id, public_id, display_name, frontpage_recipe_count, frontpage_heading FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
+      [tenantSlug],
+    );
+    const tenant: TenantRow | undefined = tenantResult.rows[0];
+    if (tenant === undefined)
+      return reply.code(404).send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
+
+    const categories = await pool.query<CategoryRow>(
+      `
+      WITH RECURSIVE accessible_categories AS (
+        SELECT category.id, category.parent_id, category.tenant_id
+        FROM category
+        WHERE EXISTS (
+          SELECT 1 FROM recipe_revision_category
+          INNER JOIN recipe_revision ON recipe_revision.id = recipe_revision_category.recipe_revision_id
+          INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
+          INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
+          LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
+          WHERE recipe_revision_category.category_id = category.id
+            AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+            AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+              OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
+              OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+                SELECT 1 FROM tenant_membership_role
+                INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+                WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+                  AND tenant_membership_role.principal_id = $1
+                  AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+              )))
+        ) AND category.tenant_id = (SELECT id FROM tenant WHERE slug = $2)
+        UNION
+        SELECT parent_category.id, parent_category.parent_id, parent_category.tenant_id
+        FROM category AS parent_category
+        INNER JOIN accessible_categories ON accessible_categories.parent_id = parent_category.id
+      )
+      SELECT DISTINCT category.public_id, parent_category.public_id AS parent_public_id, category.name, category.slug, category.sort_order
+      FROM accessible_categories
+      INNER JOIN category ON category.id = accessible_categories.id
+      LEFT JOIN category AS parent_category ON parent_category.id = category.parent_id
+      ORDER BY category.sort_order ASC, category.name ASC
+    `,
+      [principalId, tenantSlug],
+    );
+    const recipes = await pool.query<RecipeRow>(
+      `
+      SELECT ${recipeImageSql('recipe_revision')}, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+        ${recipeSummaryVariantsSql} AS variants,
+        COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
+      FROM recipe
+      INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
+      LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
+      INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
+      LEFT JOIN category ON category.id = recipe_revision_category.category_id
+      WHERE tenant.slug = $2
+        AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
+        AND ($4::text[] IS NULL OR ${variantDietFilterSql('recipe_revision', '$4::text[]')})
+        AND (COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+          OR EXISTS (
+            SELECT 1 FROM tenant_membership_role
+            INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+            WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+              AND tenant_membership_role.principal_id = $1
+              AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+          ))
+        AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+            SELECT 1 FROM tenant_membership_role
+            INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+            WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+              AND tenant_membership_role.principal_id = $1
+              AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+          )))
+      GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+      ORDER BY
+        recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3),
+        recipe_revision.title ASC
+    `,
+      [principalId, tenantSlug, recipeFilter, diets],
+    );
+
+    const frontpagePage: number = parseFrontpagePage(query.frontpagePage);
+    const frontpageSeed: string = await resolveFrontpageShuffleSeed(
+      pool,
+      request,
+      query.refreshFrontpageShuffle === 'true',
+    );
+    const frontpageCount = await pool.query<FrontpageCountRow>(
+      `SELECT count(*)::integer AS total_recipes
+       FROM recipe
+       INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
+       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
+         AND tenant_membership.principal_id = $1
+       WHERE tenant.slug = $2
+         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3) < 5
+         AND ($4::text[] IS NULL OR ${variantDietFilterSql('recipe_revision', '$4::text[]')})
+         AND recipe.is_featured
+         AND recipe.published_revision_id IS NOT NULL
+         AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+         AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY'
+             AND tenant_membership.principal_id IS NOT NULL)
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+             SELECT 1 FROM tenant_membership_role
+             INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+             WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+               AND tenant_membership_role.principal_id = $1
+               AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+           )))`,
+      [principalId, tenantSlug, recipeFilter, diets],
+    );
+    const totalFrontpageRecipes: number = frontpageCount.rows[0]?.total_recipes ?? 0;
+    const totalFrontpagePages: number = Math.ceil(
+      totalFrontpageRecipes / tenant.frontpage_recipe_count,
+    );
+    const page: number = Math.min(frontpagePage, Math.max(totalFrontpagePages, 1));
+    const frontpageRecipes = await pool.query<RecipeRow>(
+      `SELECT ${recipeImageSql('recipe_revision')}, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+        ${recipeSummaryVariantsSql} AS variants,
+         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
+       FROM recipe
+       INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
+       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
+         AND tenant_membership.principal_id = $1
+       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+       LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
+       LEFT JOIN category ON category.id = recipe_revision_category.category_id
+       WHERE tenant.slug = $2
+         AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4) < 5
+         AND ($7::text[] IS NULL OR ${variantDietFilterSql('recipe_revision', '$7::text[]')})
+         AND recipe.is_featured
+         AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
+         AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY'
+             AND tenant_membership.principal_id IS NOT NULL)
+           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+             SELECT 1 FROM tenant_membership_role
+             INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+             WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+               AND tenant_membership_role.principal_id = $1
+               AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+           )))
+       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+       ORDER BY
+        recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4),
+         md5(recipe.public_id::text || $3),
+         recipe.public_id
+       LIMIT $5 OFFSET $6`,
+      [
+        principalId,
+        tenantSlug,
+        frontpageSeed,
+        recipeFilter,
+        tenant.frontpage_recipe_count,
+        (page - 1) * tenant.frontpage_recipe_count,
+        diets,
+      ],
+    );
+
+    const permissions = await pool.query<{
+      can_manage_categories: boolean;
+      can_manage_recipes: boolean;
+      can_delete_recipes: boolean;
+      can_create_recipes: boolean;
+      can_manage_users: boolean;
+      can_manage_ingredients: boolean;
+      can_manage_units: boolean;
+      can_manage_service_accounts: boolean;
+      can_create_ai_contexts: boolean;
+    }>(
+      `SELECT EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'category:update'
+       ) AS can_manage_categories,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code IN ('recipe:create', 'recipe:update')
+       ) AS can_manage_recipes,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'recipe:delete'
+       ) AS can_delete_recipes,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'recipe:create'
+       ) AS can_create_recipes,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'tenant:manage'
+       ) AS can_manage_users,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code IN ('ingredient:create', 'ingredient:update')
+       ) AS can_manage_ingredients,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code IN ('unit:create', 'unit:update', 'unit:delete')
+       ) AS can_manage_units,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'service-account:manage'
+       ) AS can_manage_service_accounts,
+       EXISTS (
+         SELECT 1 FROM tenant_membership_role
+         INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+         WHERE tenant_membership_role.tenant_id = $1
+           AND tenant_membership_role.principal_id = $2
+           AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+       ) AS can_create_ai_contexts`,
+      [tenant.id, principalId],
+    );
+    return reply.send({
+      tenant: {
+        public_id: tenant.public_id,
+        display_name: tenant.display_name,
+        frontpage_heading: tenant.frontpage_heading,
+      },
+      categories: categories.rows,
+      recipes: recipes.rows,
+      frontpage: {
+        recipes: frontpageRecipes.rows,
+        page,
+        pageSize: tenant.frontpage_recipe_count,
+        totalPages: totalFrontpagePages,
+        totalRecipes: totalFrontpageRecipes,
+      },
+      canManageCategories: permissions.rows[0]?.can_manage_categories === true,
+      canManageRecipes: permissions.rows[0]?.can_manage_recipes === true,
+      canDeleteRecipes: permissions.rows[0]?.can_delete_recipes === true,
+      canCreateRecipes: permissions.rows[0]?.can_create_recipes === true,
+      canManageUsers: permissions.rows[0]?.can_manage_users === true,
+      canManageIngredients: permissions.rows[0]?.can_manage_ingredients === true,
+      canManageUnits: permissions.rows[0]?.can_manage_units === true,
+      canManageServiceAccounts: permissions.rows[0]?.can_manage_service_accounts === true,
+      canCreateAiContexts: permissions.rows[0]?.can_create_ai_contexts === true,
+    });
+  });
+
+  api.get<{ Params: { publicId: string } }>(
+    '/cookbook/recipes/:publicId',
+    async (request, reply) => {
+      const user = await currentSessionUser(pool, request);
+      if (user?.password_change_required === true) {
+        return reply.code(403).send({
+          code: 'PASSWORD_CHANGE_REQUIRED',
+          error: 'A password change is required before continuing.',
+        });
+      }
+      const principalId: string | null =
+        user === null || user.disabled_at !== null ? null : user.principal_id;
+      const recipeResult = await pool.query<RecipeDetailRow>(
+        `
+      SELECT ${recipeImageSql('recipe_revision')}, recipe.tenant_id, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+        tenant.display_name AS cookbook_name, recipe_revision.version, ${recipeFactsSql('recipe_revision')},
+        ${recipeCreatorDisplayNameSql()} AS creator_display_name,
+        ${recipeContributorsSql()} AS contributors,
+        recipe_revision.id AS revision_id,
+        EXISTS (
+          SELECT 1
+          FROM tenant_membership_role
+          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+          WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+            AND tenant_membership_role.principal_id = $1
+            AND tenant_role_permission.permission_code = 'recipe:update'
+        ) AS can_edit,
+        EXISTS (
+          SELECT 1
+          FROM tenant_membership_role
+          INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+          WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+            AND tenant_membership_role.principal_id = $1
+            AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+        ) AS can_share
+      FROM recipe
+      INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
+      LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
+      INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+      WHERE recipe.public_id = $2 AND tenant.disabled_at IS NULL
+        AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
+          OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+            SELECT 1 FROM tenant_membership_role
+            INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+            WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+              AND tenant_membership_role.principal_id = $1
+              AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+          )))
+    `,
+        [principalId, request.params.publicId],
+      );
+      const recipe: RecipeDetailRow | undefined = recipeResult.rows[0];
+      if (recipe === undefined) {
+        return reply
+          .code(404)
+          .send({ code: 'RECIPE_NOT_FOUND', error: 'The recipe was not found.' });
+      }
+      const requestedVariantSlug: string | null =
+        typeof (request.query as { variant?: unknown }).variant === 'string'
+          ? (request.query as { variant: string }).variant
+          : null;
+      const variants = await pool.query<{
+        metadata: RecipeFactsRow['metadata'];
+        diet: RecipeFactsRow['diet'];
+        variant_key: string;
+        name: string;
+        slug: string;
+        is_default: boolean;
+        is_visible: boolean;
+      }>(
+        `SELECT variant_key, name, slug, is_default, is_visible, ${variantFactsSql('recipe_variant')} FROM recipe_variant WHERE recipe_revision_id = $1 AND (is_visible OR is_default) ORDER BY name`,
+        [recipe.revision_id],
+      );
+      const selectedVariant =
+        requestedVariantSlug === null
+          ? variants.rows.find((variant) => variant.is_default)
+          : variants.rows.find((variant) => variant.slug === requestedVariantSlug);
+      if (selectedVariant === undefined)
+        return reply
+          .code(404)
+          .send({ code: 'RECIPE_VARIANT_NOT_FOUND', error: 'The recipe variant was not found.' });
+      const steps = await pool.query<RecipeStepRow>(
+        `
+      SELECT recipe_step.id AS public_id, recipe_step.sort_order, recipe_step.instruction
+      FROM recipe_step INNER JOIN recipe_variant_step_override AS membership ON membership.step_id = recipe_step.id
+      INNER JOIN recipe_variant AS variant ON variant.id = membership.variant_id
+      WHERE recipe_step.recipe_revision_id = $1 AND variant.variant_key = $2 AND membership.state = 'INCLUDE'
+      ORDER BY recipe_step.sort_order ASC
+    `,
+        [recipe.revision_id, selectedVariant.variant_key],
+      );
+      const ingredientUsages = await pool.query<IngredientUsageRow>(
+        `
+      SELECT recipe_step.id AS step_public_id, ingredient_usage.sort_order, ingredient_usage.amount::text,
+        unit.public_id AS unit_public_id, unit.symbol AS unit_symbol,
+        unit.localization_key AS unit_localization_key,
+        ${unitTranslationsSql()} AS unit_translations,
+        ingredient.public_id AS ingredient_public_id,
+        COALESCE(ingredient_alias.alias, ingredient.canonical_name, ingredient_usage.text_override) AS ingredient_name,
+        (ingredient_usage.ingredient_id IS NOT NULL) AS is_catalog_ingredient,
+        ingredient_usage.special_kind,
+        ingredient_usage.note, ingredient_usage.is_optional
+      FROM ingredient_usage
+      INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
+      INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
+      INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
+      LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
+      LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id
+      LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
+      WHERE recipe.public_id = $1 AND recipe_step.id = ANY($2::uuid[])
+      ORDER BY recipe_step.sort_order ASC, ingredient_usage.sort_order ASC
+    `,
+        [recipe.public_id, steps.rows.map((step: RecipeStepRow): string => step.public_id)],
+      );
+      const detailSteps = steps.rows.map((step: RecipeStepRow) => ({
+        ...step,
+        ingredients: ingredientUsages.rows
+          .filter((usage: IngredientUsageRow) => usage.step_public_id === step.public_id)
+          .map(({ step_public_id: _stepPublicId, ...usage }: IngredientUsageRow) => usage),
+      }));
+      const recipeLinks: RecipeLinkRow[] = await loadRecipeLinks(
+        pool,
+        recipe.tenant_id,
+        principalId,
+        detailSteps.map((step: RecipeStepRow): string => step.instruction),
+      );
+      return reply.send({
+        image_url: recipe.image_url,
+        public_id: recipe.public_id,
+        slug: recipe.slug,
+        title: recipe.title,
+        summary: recipe.summary,
+        metadata: selectedVariant.metadata,
+        diet: selectedVariant.diet,
+        createdAt: recipe.createdAt,
+        updatedAt: recipe.updatedAt,
+        cookbook_name: recipe.cookbook_name,
+        version: recipe.version,
+        creator_display_name: recipe.creator_display_name,
+        contributors: recipe.contributors,
+        can_edit: recipe.can_edit,
+        can_share: recipe.can_share,
+        selectedVariant: selectedVariant.slug,
+        variants: variants.rows,
+        steps: detailSteps,
+        recipe_links: recipeLinks,
+      });
+    },
+  );
+}
+
+async function loadRecipeLinks(
+  pool: Pool,
+  tenantId: string,
+  principalId: string | null,
+  instructions: string[],
+): Promise<RecipeLinkRow[]> {
+  const referencePattern: RegExp =
+    /\{recipe:([0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\}/gi;
+  const publicIds: string[] = [];
+  for (const instruction of instructions) {
+    let match: RegExpExecArray | null;
+    while ((match = referencePattern.exec(instruction)) !== null) publicIds.push(match[1]!);
+  }
+  if (publicIds.length === 0) return [];
+  const links = await pool.query<RecipeLinkRow>(
+    `SELECT recipe.public_id, recipe.slug, recipe_revision.title
+     FROM recipe
+     INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
+     INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
+     LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
+       AND tenant_membership.principal_id = $2
+     WHERE recipe.tenant_id = $1
+       AND recipe.public_id = ANY($3::uuid[])
+       AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
+         OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY'
+           AND tenant_membership.principal_id IS NOT NULL)
+         OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (
+           SELECT 1 FROM tenant_membership_role
+           INNER JOIN tenant_role_permission ON tenant_role_permission.tenant_role_id = tenant_membership_role.tenant_role_id
+           WHERE tenant_membership_role.tenant_id = recipe.tenant_id
+             AND tenant_membership_role.principal_id = $2
+             AND tenant_role_permission.permission_code = 'recipe:visibility-update'
+         )))`,
+    [tenantId, principalId, [...new Set(publicIds)]],
+  );
+  return links.rows;
+}
+
+function emptyFrontpage(): {
+  recipes: RecipeRow[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecipes: number;
+} {
+  return {
+    recipes: [],
+    page: 1,
+    pageSize: defaultFrontpageRecipeCount,
+    totalPages: 0,
+    totalRecipes: 0,
+  };
+}
+
+function parseFrontpagePage(value: unknown): number {
+  if (typeof value !== 'string' || !/^[1-9][0-9]*$/.test(value)) return 1;
+  const page: number = Number(value);
+  return Number.isSafeInteger(page) ? page : 1;
+}
+
+function parseRecipeFilter(value: unknown): string {
+  if (typeof value !== 'string') return '';
+  return value.trim().slice(0, 200);
+}
+
+async function resolveFrontpageShuffleSeed(
+  pool: Pool,
+  request: FastifyRequest,
+  refresh: boolean,
+): Promise<string> {
+  if (refresh) return (await refreshFrontpageShuffleSeed(pool, request)) ?? randomUUID();
+  return (
+    (await frontpageShuffleSeed(pool, request)) ??
+    (await refreshFrontpageShuffleSeed(pool, request)) ??
+    randomUUID()
+  );
+}

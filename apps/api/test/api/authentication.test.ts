@@ -1,0 +1,442 @@
+import assert from 'node:assert/strict';
+import { after, before, test } from 'node:test';
+import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
+import { estimatePasswordEntropy } from '../../src/auth/password.js';
+import { hashSessionToken } from '../../src/auth/session.js';
+import { createTestApi } from '../helpers/api.js';
+import { assignTenantRole, createTestUser, type TestUser } from '../helpers/actors.js';
+import {
+  createDisposablePostgresDatabase,
+  type DisposablePostgresDatabase,
+} from '../helpers/disposable-postgres.js';
+
+let database: DisposablePostgresDatabase;
+let api: FastifyInstance;
+
+before(async (): Promise<void> => {
+  database = await createDisposablePostgresDatabase();
+  api = createTestApi(database.pool);
+  await api.ready();
+});
+
+after(async (): Promise<void> => {
+  if (api !== undefined) await api.close();
+  if (database !== undefined) await database.close();
+});
+
+test('login rejects malformed and invalid credentials with documented error codes', async (): Promise<void> => {
+  const malformedResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: 'owner@example.test' },
+  });
+  const invalidResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: 'unknown@example.test', password: 'not-the-password' },
+  });
+
+  assert.equal(malformedResponse.statusCode, 400);
+  assert.deepEqual(malformedResponse.json(), {
+    code: 'INVALID_LOGIN_BODY',
+    error: 'Email and password are required.',
+  });
+  assert.equal(invalidResponse.statusCode, 401);
+  assert.deepEqual(invalidResponse.json(), {
+    code: 'INVALID_CREDENTIALS',
+    error: 'Invalid email or password.',
+  });
+});
+
+test('login creates an HttpOnly session and logout revokes it', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'session@example.test',
+  });
+  const loginResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+
+  assert.equal(loginResponse.statusCode, 200);
+  assert.match(cookie, /^shadowcook_session=[A-Za-z0-9_-]+;/);
+  assert.match(cookie, /; HttpOnly;/);
+  assert.match(cookie, /; SameSite=Lax;/);
+  assert.doesNotMatch(cookie, /; Secure(?:;|$)/);
+
+  const sessionResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+  assert.equal(sessionResponse.statusCode, 200);
+  assert.deepEqual(sessionResponse.json(), {
+    email: user.email,
+    displayName: 'Test user',
+    passwordChangeRequired: false,
+    hasPassword: true,
+  });
+
+  const logoutResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/logout',
+    headers: { cookie },
+  });
+  assert.equal(logoutResponse.statusCode, 204);
+  assert.match(String(logoutResponse.headers['set-cookie']), /Max-Age=0/);
+
+  const revokedResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+  assertAuthenticationRequired(revokedResponse.statusCode, revokedResponse.json());
+});
+
+test('disabled users cannot create sessions', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'disabled@example.test',
+    disabled: true,
+  });
+  const response = await login(user);
+
+  assert.equal(response.statusCode, 401);
+  assert.deepEqual(response.json(), {
+    code: 'INVALID_CREDENTIALS',
+    error: 'Invalid email or password.',
+  });
+});
+
+test('deactivating a user invalidates an existing session', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'deactivated-session@example.test',
+  });
+  const loginResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+  await database.pool.query('UPDATE user_account SET disabled_at = now() WHERE id = $1', [
+    user.userId,
+  ]);
+
+  const response = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+
+  assertAuthenticationRequired(response.statusCode, response.json());
+});
+
+test('missing, malformed, expired, and revoked session credentials are rejected', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'credentials@example.test',
+  });
+  const token: string = 'expired-session-token';
+  await database.pool.query(
+    `INSERT INTO user_session (user_account_id, token_hash, created_at, expires_at)
+     VALUES ($1, $2, now() - interval '2 minutes', now() - interval '1 minute')`,
+    [user.userId, hashSessionToken(token)],
+  );
+
+  const responses = await Promise.all([
+    api.inject({ method: 'GET', url: '/auth/session' }),
+    api.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie: 'shadowcook_session=malformed' },
+    }),
+    api.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie: `shadowcook_session=${token}` },
+    }),
+  ]);
+  for (const response of responses) {
+    assertAuthenticationRequired(response.statusCode, response.json());
+  }
+});
+
+test('password-change-required sessions can reach only authentication endpoints', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'password-change@example.test',
+    passwordChangeRequired: true,
+  });
+  const loginResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+
+  const sessionResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+  const protectedResponse = await api.inject({
+    method: 'GET',
+    url: '/admin/tenants',
+    headers: { cookie },
+  });
+
+  assert.equal(sessionResponse.statusCode, 200);
+  assert.equal(protectedResponse.statusCode, 403);
+  assert.deepEqual(protectedResponse.json(), {
+    code: 'PASSWORD_CHANGE_REQUIRED',
+    error: 'A password change is required before continuing.',
+  });
+});
+
+test('a tenant role never grants instance administration', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'tenant-owner@example.test',
+  });
+  await assignTenantRole(database.pool, user.principalId, 'alpha');
+  const loginResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+
+  const anonymousResponse = await api.inject({ method: 'GET', url: '/admin/tenants' });
+  const tenantOwnerResponse = await api.inject({
+    method: 'GET',
+    url: '/admin/tenants',
+    headers: { cookie },
+  });
+
+  assertAuthenticationRequired(anonymousResponse.statusCode, anonymousResponse.json());
+  assert.equal(tenantOwnerResponse.statusCode, 403);
+  assert.deepEqual(tenantOwnerResponse.json(), {
+    code: 'INSTANCE_PERMISSION_REQUIRED',
+    error: 'An instance permission is required.',
+  });
+});
+
+test('an authenticated account can create an owned cookbook without instance permissions', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'independent-cookbook@example.test',
+  });
+  const loginResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+
+  const response = await api.inject({
+    method: 'POST',
+    url: '/account/cookbooks',
+    headers: { cookie },
+    payload: { cookbookName: 'Independent cookbook' },
+  });
+
+  assert.equal(response.statusCode, 201);
+  assert.deepEqual(response.json(), { tenantSlug: 'independent-cookbook' });
+  const membership = await database.pool.query<{ role_name: string }>(
+    `SELECT tenant_role.name AS role_name
+     FROM tenant_membership
+     INNER JOIN tenant ON tenant.id = tenant_membership.tenant_id
+     INNER JOIN tenant_membership_role
+       ON tenant_membership_role.tenant_id = tenant_membership.tenant_id
+       AND tenant_membership_role.principal_id = tenant_membership.principal_id
+     INNER JOIN tenant_role ON tenant_role.id = tenant_membership_role.tenant_role_id
+     WHERE tenant.slug = 'independent-cookbook' AND tenant_membership.principal_id = $1`,
+    [user.principalId],
+  );
+  assert.deepEqual(membership.rows, [{ role_name: 'Owner' }]);
+});
+
+test('lowering the owned-cookbook limit preserves existing cookbooks and blocks further creation', async (): Promise<void> => {
+  const administrator: TestUser = await createTestUser(database.pool, {
+    email: 'cookbook-limit-administrator@example.test',
+  });
+  const owner: TestUser = await createTestUser(database.pool, {
+    email: 'cookbook-limit-owner@example.test',
+  });
+  await database.pool.query(
+    `INSERT INTO principal_instance_role (principal_id, instance_role_id)
+     SELECT $1, id FROM instance_role WHERE code = 'administrator'`,
+    [administrator.principalId],
+  );
+  const administratorLogin = await login(administrator);
+  const ownerLogin = await login(owner);
+  const administratorCookie: string = sessionCookie(administratorLogin.headers['set-cookie']);
+  const ownerCookie: string = sessionCookie(ownerLogin.headers['set-cookie']);
+
+  const increaseLimit = await api.inject({
+    method: 'PUT',
+    url: '/admin/registration-settings',
+    headers: { cookie: administratorCookie },
+    payload: { enabled: true, turnstileEnabled: false, maxCookbooksPerOwner: 3 },
+  });
+  assert.equal(increaseLimit.statusCode, 204);
+
+  for (const cookbookName of ['First cookbook', 'Second cookbook', 'Third cookbook']) {
+    const create = await api.inject({
+      method: 'POST',
+      url: '/account/cookbooks',
+      headers: { cookie: ownerCookie },
+      payload: { cookbookName },
+    });
+    assert.equal(create.statusCode, 201);
+  }
+
+  const lowerLimit = await api.inject({
+    method: 'PUT',
+    url: '/admin/registration-settings',
+    headers: { cookie: administratorCookie },
+    payload: { enabled: true, turnstileEnabled: false, maxCookbooksPerOwner: 2 },
+  });
+  assert.equal(lowerLimit.statusCode, 204);
+
+  const ownedCookbooks = await api.inject({
+    method: 'GET',
+    url: '/account/cookbooks',
+    headers: { cookie: ownerCookie },
+  });
+  const anotherCookbook = await api.inject({
+    method: 'POST',
+    url: '/account/cookbooks',
+    headers: { cookie: ownerCookie },
+    payload: { cookbookName: 'Fourth cookbook' },
+  });
+
+  assert.equal(ownedCookbooks.statusCode, 200);
+  assert.equal(ownedCookbooks.json().cookbooks.length, 3);
+  assert.equal(ownedCookbooks.json().maxCookbooksPerOwner, 2);
+  assert.equal(anotherCookbook.statusCode, 409);
+  assert.deepEqual(anotherCookbook.json(), {
+    code: 'COOKBOOK_LIMIT_REACHED',
+    error: 'The cookbook limit has been reached.',
+  });
+});
+
+test('cookbook URL preview reports a normalized available and unavailable slug', async (): Promise<void> => {
+  const available = await api.inject({
+    method: 'GET',
+    url: '/account/cookbook-slug-preview?cookbookName=My%20Preview',
+  });
+  assert.equal(available.statusCode, 200);
+  assert.deepEqual(available.json(), { slug: 'my-preview', available: true });
+
+  await database.pool.query(
+    "INSERT INTO tenant (display_name, slug) VALUES ('Taken', 'my-preview')",
+  );
+  const unavailable = await api.inject({
+    method: 'GET',
+    url: '/account/cookbook-slug-preview?cookbookName=My%20Preview',
+  });
+  assert.equal(unavailable.statusCode, 200);
+  assert.deepEqual(unavailable.json(), { slug: 'my-preview', available: false });
+});
+
+test('password changes verify the current password and configured entropy before replacing credentials', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'self-service-password@example.test',
+    passwordChangeRequired: true,
+  });
+  const loginResponse: LightMyRequestResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+  const newPassword: string = 'm9!Rk4@Zt7#Qv2$Lp8%Wc5^Hs3&Yn6*Bx1(Gd0)Fe9+Ju4=Ao7?Si2/Vw5~Xq8';
+  assert.ok(estimatePasswordEntropy(newPassword) >= 256);
+  assert.ok(estimatePasswordEntropy(user.password) >= 60);
+  assert.ok(estimatePasswordEntropy(user.password) < 256);
+
+  const anonymous: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    payload: { currentPassword: user.password, newPassword },
+  });
+  assert.equal(anonymous.statusCode, 401);
+  assert.equal(anonymous.json<{ code: string }>().code, 'AUTHENTICATION_REQUIRED');
+  const incorrect: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    headers: { cookie },
+    payload: { currentPassword: 'incorrect-password', newPassword },
+  });
+  assert.equal(incorrect.statusCode, 401);
+  assert.equal(incorrect.json<{ code: string }>().code, 'AUTHENTICATION_FAILED');
+  const missingCurrent: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    headers: { cookie },
+    payload: { newPassword },
+  });
+  assert.equal(missingCurrent.statusCode, 401);
+
+  await database.pool.query(
+    `INSERT INTO instance_authentication_settings (minimum_password_entropy) VALUES (256)
+     ON CONFLICT (singleton) DO UPDATE SET minimum_password_entropy = EXCLUDED.minimum_password_entropy`,
+  );
+  try {
+    const weak: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/change-password',
+      headers: { cookie },
+      payload: { currentPassword: user.password, newPassword: user.password },
+    });
+    assert.equal(weak.statusCode, 400);
+    assert.equal(weak.json<{ code: string }>().code, 'INVALID_PASSWORD');
+    assert.equal((await login(user)).statusCode, 200);
+
+    const changed: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/change-password',
+      headers: { cookie },
+      payload: { currentPassword: user.password, newPassword },
+    });
+    assert.equal(changed.statusCode, 204);
+    const session: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie },
+    });
+    assert.equal(session.statusCode, 200);
+    assert.equal(session.json<{ passwordChangeRequired: boolean }>().passwordChangeRequired, false);
+    assert.equal((await login(user)).statusCode, 401);
+    const newLogin: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/login',
+      payload: { email: user.email, password: newPassword },
+    });
+    assert.equal(newLogin.statusCode, 200);
+  } finally {
+    await database.pool.query(
+      'UPDATE instance_authentication_settings SET minimum_password_entropy = 60',
+    );
+  }
+});
+
+test('accounts without a password can set their first password through their existing session', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'first-self-service-password@example.test',
+  });
+  const loginResponse: LightMyRequestResponse = await login(user);
+  const cookie: string = sessionCookie(loginResponse.headers['set-cookie']);
+  await database.pool.query('UPDATE user_account SET password_hash = NULL WHERE id = $1', [
+    user.userId,
+  ]);
+  const changed: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/change-password',
+    headers: { cookie },
+    payload: { newPassword: user.password },
+  });
+  assert.equal(changed.statusCode, 204);
+  const session: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+  assert.equal(session.statusCode, 200);
+  assert.equal(session.json<{ hasPassword: boolean }>().hasPassword, true);
+  assert.equal((await login(user)).statusCode, 200);
+});
+
+async function login(user: TestUser): Promise<LightMyRequestResponse> {
+  return await api.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: user.email, password: user.password },
+  });
+}
+
+function sessionCookie(header: string | string[] | undefined): string {
+  if (typeof header !== 'string') throw new Error('Login response did not set a session cookie.');
+  return header;
+}
+
+function assertAuthenticationRequired(statusCode: number, body: unknown): void {
+  assert.equal(statusCode, 401);
+  assert.deepEqual(body, {
+    code: 'AUTHENTICATION_REQUIRED',
+    error: 'Authentication is required.',
+  });
+}

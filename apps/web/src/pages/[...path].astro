@@ -1,0 +1,76 @@
+---
+import ApplicationPage from '../components/ApplicationPage.astro';
+import LegalDocumentPage from '../components/LegalDocumentPage.astro';
+import CookbookPage from '../features/cookbook/server/CookbookPage.astro';
+import RecipePage from '../features/cookbook/server/RecipePage.astro';
+import { loadServerCookbookPage, loadServerRecipePage } from '../lib/server/cookbook';
+import { loadLegalDocuments } from '../lib/server/legal-documents';
+import { translations } from '../i18n';
+import { resolveRequestLocale } from '../i18n/locale-preference';
+import type { Locale } from '../i18n';
+
+export const prerender = false;
+
+const recipePage = await loadServerRecipePage(
+  Astro.url.pathname,
+  Astro.request.headers.get('cookie'),
+);
+let pathNotFound: boolean = false;
+const cookbookPage =
+  recipePage === null
+    ? await loadServerCookbookPage(
+        Astro.url.pathname,
+        Astro.request.headers.get('cookie'),
+        isTenantRoot(Astro.url.pathname),
+        Astro.url.search,
+        (): void => {
+          pathNotFound = true;
+        },
+      )
+    : null;
+const locale: Locale = resolveRequestLocale(
+  Astro.request.headers.get('cookie'),
+  import.meta.env.PUBLIC_DEFAULT_LOCALE,
+);
+const legalDocuments =
+  Astro.url.pathname === '/privacy-statement' || Astro.url.pathname === '/imprint'
+    ? await loadLegalDocuments()
+    : null;
+
+if (pathNotFound) Astro.response.status = 404;
+
+function isTenantRoot(pathname: string): boolean {
+  return pathname.split('/').filter((segment: string): boolean => segment.length > 0).length === 1;
+}
+---
+
+{
+  Astro.url.pathname === '/privacy-statement' ? (
+    <LegalDocumentPage
+      locale={locale}
+      markdown={legalDocuments?.privacyStatementMarkdown ?? ''}
+      title={translations[locale].buildFooter.privacyStatement}
+    />
+  ) : Astro.url.pathname === '/imprint' ? (
+    <LegalDocumentPage
+      locale={locale}
+      markdown={legalDocuments?.imprintMarkdown ?? ''}
+      title={translations[locale].buildFooter.imprint}
+    />
+  ) : recipePage !== null ? (
+    <RecipePage
+      cookbook={recipePage.cookbook}
+      categoryId={recipePage.location.categoryId}
+      locale={locale}
+      recipe={recipePage.recipe}
+    />
+  ) : cookbookPage !== null ? (
+    <CookbookPage
+      cookbook={cookbookPage.cookbook}
+      categoryId={cookbookPage.location.categoryId}
+      locale={locale}
+    />
+  ) : (
+    <ApplicationPage path={Astro.url.pathname} notFound={pathNotFound} />
+  )
+}

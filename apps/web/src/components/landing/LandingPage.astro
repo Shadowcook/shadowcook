@@ -1,0 +1,84 @@
+---
+import HeadBar from '../HeadBar';
+import BuildFooter from '../BuildFooter.astro';
+import Favicon from '../Favicon.astro';
+import RecipePreview from './RecipePreview.astro';
+import LandingFeatures from './LandingFeatures.astro';
+import { translations } from '../../i18n';
+import type { Locale, Translation } from '../../i18n';
+import { resolveRequestLocale } from '../../i18n/locale-preference';
+import { buildCommit } from '../../lib/server/build-info';
+import { loadHeadBarSession, type HeadBarSession } from '../../lib/server/head-bar-session';
+import { publicCanonicalUrl } from '../../lib/server/public-metadata';
+import '../../styles/global.css';
+import '../../styles/cookbook.css';
+import '../../styles/landing.css';
+
+const locale: Locale = resolveRequestLocale(
+  Astro.request.headers.get('cookie'),
+  import.meta.env.PUBLIC_DEFAULT_LOCALE,
+);
+const text: Translation = translations[locale];
+const session: HeadBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
+const canonicalUrl: string = publicCanonicalUrl(Astro.url, '/');
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <Favicon />
+    <title>{text.landing.title}</title>
+    <meta name="description" content={text.landing.description} />
+    <link rel="canonical" href={canonicalUrl} />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={text.landing.title} />
+    <meta property="og:description" content={text.landing.description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content={text.landing.title} />
+    <meta name="twitter:description" content={text.landing.description} />
+  </head>
+  <body class="landing-page">
+    <HeadBar client:load locale={locale} initialSession={session} currentPath="/" />
+    <main class="landing">
+      <section class="landing-hero" aria-labelledby="landing-title">
+        <p class="eyebrow">{text.landing.eyebrow}</p>
+        <h1 id="landing-title">{text.landing.headline}</h1>
+        <p class="landing-hero__subline">{text.landing.subline}</p>
+        <div class="landing-actions">
+          <a class="landing-button" href="/explore">{text.headBar.explore}</a>
+          <a class="landing-button landing-button--secondary" href="/register"
+            >{text.landing.create}</a
+          >
+        </div>
+        {
+          session.authenticated && (
+            <a class="landing-personal" href="/explore">
+              {text.headBar.myCookbooks} <span aria-hidden="true">→</span>
+            </a>
+          )
+        }
+      </section>
+      <section class="landing-workflow" aria-labelledby="landing-workflow-title">
+        <div class="landing-workflow__intro">
+          <span class="landing-rule" aria-hidden="true"></span>
+          <h2 id="landing-workflow-title">{text.landing.togetherTitle}</h2>
+          <p>{text.landing.togetherDescription}</p>
+        </div>
+        <RecipePreview text={text} />
+      </section>
+      <LandingFeatures text={text} />
+      <section class="landing-discover" aria-labelledby="landing-discover-title">
+        <img src="/shadowcook-logo.png" alt="" width="72" height="72" loading="lazy" />
+        <h2 id="landing-discover-title">{text.landing.discoverTitle}</h2>
+        <p>{text.landing.discoverDescription}</p>
+        <a class="landing-button" href="/explore"
+          >{text.landing.discover} <span aria-hidden="true">→</span></a
+        >
+      </section>
+    </main>
+    <BuildFooter text={text} buildCommit={buildCommit()} />
+  </body>
+</html>

@@ -1,0 +1,7 @@
+---
+import ApplicationPage from '../components/ApplicationPage.astro';
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+
+<ApplicationPage path="/explore" />

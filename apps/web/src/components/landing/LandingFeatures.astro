@@ -1,0 +1,42 @@
+---
+import type { Translation } from '../../i18n';
+interface Properties {
+  text: Translation;
+}
+const { text } = Astro.props;
+---
+
+<section class="landing-features" aria-labelledby="landing-features-title">
+  <p class="eyebrow" id="landing-features-title">{text.landing.featuresLabel}</p>
+  <div class="landing-features__grid">
+    <section>
+      <span class="landing-number" aria-hidden="true">01</span>
+      <h2>{text.landing.ownershipTitle}</h2>
+      <p>{text.landing.ownershipDescription}</p>
+    </section>
+    <section>
+      <span class="landing-number" aria-hidden="true">02</span>
+      <h2>{text.landing.organizeTitle}</h2>
+      <p>{text.landing.organizeDescription}</p>
+    </section>
+    <section>
+      <span class="landing-number" aria-hidden="true">03</span>
+      <h2>{text.landing.sharingTitle}</h2>
+      <p>{text.landing.sharingDescription}</p>
+    </section>
+  </div>
+</section>
+<section class="landing-open" aria-labelledby="landing-open-title">
+  <div>
+    <h2 id="landing-open-title">{text.landing.openTitle}</h2>
+    <p>{text.landing.openDescription}</p>
+  </div>
+  <div class="landing-links">
+    <a href="https://github.com/Shadowcook/shadowcook"
+      >{text.landing.source} <span aria-hidden="true">↗</span></a
+    >
+    <a href="https://github.com/Shadowcook/shadowcook/blob/beta/LICENSE"
+      >{text.landing.license} <span aria-hidden="true">↗</span></a
+    >
+  </div>
+</section>

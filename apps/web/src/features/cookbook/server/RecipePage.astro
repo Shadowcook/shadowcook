@@ -1,0 +1,74 @@
+---
+import BuildFooter from '../../../components/BuildFooter.astro';
+import Favicon from '../../../components/Favicon.astro';
+import HeadBar from '../../../components/HeadBar';
+import { translations } from '../../../i18n';
+import type { Locale, Translation } from '../../../i18n';
+import { buildCommit } from '../../../lib/server/build-info';
+import { loadHeadBarSession } from '../../../lib/server/head-bar-session';
+import CookbookScreen from '../CookbookScreen';
+import type { CookbookResponse, Recipe, RecipeDetail } from '../model/types';
+import { recipeJsonLd } from './recipe-structured-data';
+import '../../../styles/global.css';
+import '../../../styles/cookbook.css';
+
+interface Properties {
+  cookbook: CookbookResponse;
+  categoryId: string | null;
+  locale: Locale;
+  recipe: RecipeDetail;
+}
+
+const { cookbook, categoryId, locale, recipe } = Astro.props;
+const text: Translation = translations[locale];
+const deployedBuildCommit: string | undefined = buildCommit();
+const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
+const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+const canonicalUrl: string = `${Astro.url.origin}${Astro.url.pathname}`;
+const tenantSlug: string =
+  Astro.url.pathname.split('/').filter((segment: string): boolean => segment.length > 0)[0] ?? '';
+const categoryIds: string[] = recipeCategories(cookbook, recipe.public_id);
+const structuredData = recipeJsonLd(
+  recipe,
+  cookbook.categories,
+  categoryIds,
+  cookbookName,
+  canonicalUrl,
+  text,
+);
+const structuredDataJson: string = JSON.stringify(structuredData).replace(/</g, '\\u003c');
+
+function recipeCategories(response: CookbookResponse, publicId: string): string[] {
+  const recipeSummary: Recipe | undefined = response.recipes.find(
+    (candidate: Recipe): boolean => candidate.public_id === publicId,
+  );
+  return recipeSummary?.category_public_ids ?? [];
+}
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={recipe.summary ?? text.metadata.description} />
+    <Favicon />
+    <link rel="canonical" href={canonicalUrl} />
+    <title>{recipe.title} · {text.metadata.title}</title>
+    <script type="application/ld+json" set:html={structuredDataJson} />
+  </head>
+  <body class="cookbook-page">
+    <HeadBar client:load initialSession={headBarSession} locale={locale} />
+    <main class="application-shell">
+      <CookbookScreen
+        client:load
+        initialCategoryId={categoryId}
+        initialCookbook={cookbook}
+        initialRecipe={recipe}
+        initialTenantSlug={tenantSlug}
+        locale={locale}
+      />
+    </main>
+    <BuildFooter buildCommit={deployedBuildCommit} text={text} />
+  </body>
+</html>

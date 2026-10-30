@@ -1,0 +1,59 @@
+---
+import BuildFooter from '../../../components/BuildFooter.astro';
+import Favicon from '../../../components/Favicon.astro';
+import HeadBar from '../../../components/HeadBar';
+import { translations } from '../../../i18n';
+import type { Locale, Translation } from '../../../i18n';
+import { buildCommit } from '../../../lib/server/build-info';
+import { loadHeadBarSession } from '../../../lib/server/head-bar-session';
+import CookbookScreen from '../CookbookScreen';
+import type { CookbookResponse } from '../model/types';
+import { recipeDietFilter } from '../model/recipe-metadata';
+import '../../../styles/global.css';
+import '../../../styles/cookbook.css';
+
+interface Properties {
+  cookbook: CookbookResponse;
+  categoryId: string | null;
+  locale: Locale;
+}
+
+const { cookbook, categoryId, locale } = Astro.props;
+const text: Translation = translations[locale];
+const deployedBuildCommit: string | undefined = buildCommit();
+const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
+const cookbookName: string = cookbook.tenant?.display_name ?? text.dashboard.cookbook;
+const tenantSlug: string = requestedTenantSlug();
+
+function requestedTenantSlug(): string {
+  const segment: string | undefined = Astro.url.pathname
+    .split('/')
+    .filter((value: string): boolean => value.length > 0)[0];
+  return segment === undefined ? '' : decodeURIComponent(segment);
+}
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="description" content={text.metadata.description} />
+    <Favicon />
+    <title>{cookbookName} · {text.metadata.title}</title>
+  </head>
+  <body class="cookbook-page">
+    <HeadBar client:load initialSession={headBarSession} locale={locale} />
+    <main class="application-shell">
+      <CookbookScreen
+        client:load
+        initialCategoryId={categoryId}
+        initialCookbook={cookbook}
+        initialTenantSlug={tenantSlug}
+        initialDiet={recipeDietFilter(Astro.url.searchParams.get('diet'))}
+        locale={locale}
+      />
+    </main>
+    <BuildFooter buildCommit={deployedBuildCommit} text={text} />
+  </body>
+</html>

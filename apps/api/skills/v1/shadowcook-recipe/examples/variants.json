@@ -1,0 +1,166 @@
+{
+  "format": "shadowcook-recipe",
+  "formatVersion": 1,
+  "ingredients": [
+    {
+      "key": "tomatoes",
+      "name": "Tomaten",
+      "aliases": ["Paradeiser"]
+    },
+    {
+      "key": "water",
+      "name": "Wasser"
+    },
+    {
+      "key": "basil",
+      "name": "Basilikum"
+    }
+  ],
+  "units": [
+    {
+      "key": "g",
+      "name": "Gram",
+      "symbol": "g",
+      "conversion": {
+        "dimension": "MASS",
+        "baseFactor": "1",
+        "baseOffset": "0"
+      }
+    },
+    {
+      "key": "ml",
+      "name": "Millilitre",
+      "symbol": "ml",
+      "conversion": {
+        "dimension": "VOLUME",
+        "baseFactor": "1",
+        "baseOffset": "0"
+      }
+    },
+    {
+      "key": "pinch",
+      "name": "Pinch",
+      "symbol": "pinch"
+    }
+  ],
+  "recipe": {
+    "title": "Tomatensuppe mit frischer Variante",
+    "summary": "Gemeinsame Zubereitung mit optionalem Basilikum-Schritt.",
+    "categoryPaths": [["Hauptgerichte", "Suppen"]],
+    "diet": "VEGAN",
+    "metadata": {
+      "difficulty": "EASY",
+      "totalMinutes": 30,
+      "activeMinutes": 10,
+      "servings": 2,
+      "utensils": "Topf\nPürierstab"
+    },
+    "steps": [
+      {
+        "key": "prepare",
+        "instruction": "Tomaten klein schneiden und mit dem Wasser in den Topf geben. Alles im Topf vermischen.",
+        "entries": [
+          {
+            "key": "tomatoes-prepare",
+            "kind": "ingredient",
+            "ingredientKey": "tomatoes",
+            "alias": "Paradeiser",
+            "amount": "500",
+            "unitKey": "g",
+            "note": "reif"
+          },
+          {
+            "key": "water-prepare",
+            "kind": "ingredient",
+            "ingredientKey": "water",
+            "amount": "250",
+            "unitKey": "ml"
+          },
+          {
+            "key": "work-prepare",
+            "kind": "special",
+            "specialKind": "WORK_STEP"
+          }
+        ]
+      },
+      {
+        "key": "simmer",
+        "instruction": "Zum Kochen bringen.\n20 Minuten bei geringer Hitze köcheln, dann pürieren.\nBeim Pürieren auf heiße Spritzer achten.",
+        "entries": [
+          {
+            "key": "heat-simmer",
+            "kind": "special",
+            "specialKind": "HEAT",
+            "note": "Geringe Hitze"
+          },
+          {
+            "key": "cook-simmer",
+            "kind": "special",
+            "specialKind": "COOK",
+            "note": "20 min"
+          },
+          {
+            "key": "important-simmer",
+            "kind": "special",
+            "specialKind": "IMPORTANT"
+          }
+        ]
+      },
+      {
+        "key": "fresh-finish",
+        "instruction": "Basilikum erst kurz vor dem Servieren unterheben.",
+        "entries": [
+          {
+            "key": "basil-finish",
+            "kind": "ingredient",
+            "ingredientKey": "basil",
+            "amount": "5",
+            "unitKey": "g",
+            "isOptional": true,
+            "note": "frisch gehackt"
+          },
+          {
+            "key": "add-finish",
+            "kind": "special",
+            "specialKind": "ADD"
+          }
+        ]
+      },
+      {
+        "key": "serve",
+        "instruction": "Nach Geschmack abschmecken und die fertige Suppe heiß servieren.",
+        "entries": [
+          {
+            "key": "prepared-soup",
+            "kind": "text",
+            "text": "Vorbereitete Suppe",
+            "note": "heiß"
+          },
+          {
+            "key": "info-serve",
+            "kind": "special",
+            "specialKind": "INFO"
+          }
+        ]
+      }
+    ],
+    "variants": [
+      {
+        "key": "classic",
+        "name": "Klassisch",
+        "slug": "klassisch",
+        "isDefault": true,
+        "isVisible": true,
+        "includedStepKeys": ["prepare", "simmer", "serve"]
+      },
+      {
+        "key": "fresh",
+        "name": "Mit Basilikum",
+        "slug": "mit-basilikum",
+        "isDefault": false,
+        "isVisible": true,
+        "includedStepKeys": ["prepare", "simmer", "fresh-finish", "serve"]
+      }
+    ]
+  }
+}

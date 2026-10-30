@@ -2,14 +2,14 @@
 /old/
 
 # Dependencies
-/node_modules/
+node_modules/
 /bower_components/
 /jspm_packages/
 
 # Build output and generated files
-/dist/
-/build/
-/out/
+dist/
+build/
+out/
 /.next/
 /.nuxt/
 /.output/
@@ -18,14 +18,17 @@
 /.cache/
 /.parcel-cache/
 /.turbo/
-/.vite/
+.vite/
+.astro/
 /.vercel/
 /.netlify/
 /.serverless/
 /.aws-sam/
-/*.tsbuildinfo
+*.tsbuildinfo
 
 # Test and coverage output
+__pycache__/
+*.py[cod]
 /coverage/
 /.nyc_output/
 /test-results/
@@ -34,6 +37,8 @@
 
 # Logs and runtime data
 logs/
+backups/
+restore-logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
@@ -68,3 +73,18 @@ Thumbs.db
 *.swp
 *.swo
 *~
+/personal_agents.md
+development-seed.json
+development-content-seed.json
+/ingredient-cleanup.csv
+/.run/
+/.aws/
+deployments/package/secrets/
+/development-content-seed-empty.json
+assets/fontawesome/
+
+# Recipe image storage
+**/var/media/
+
+# Generated skill archive (downloads are built from source by the API)
+/apps/api/skills.tar.xz

@@ -1,0 +1,236 @@
+.landing {
+  width: min(1120px, calc(100% - 3rem));
+  margin: auto;
+}
+.landing a:focus-visible {
+  outline: 3px solid #a7472e;
+  outline-offset: 5px;
+}
+.landing-hero {
+  max-width: 900px;
+  margin: auto;
+  padding: 5.5rem 0 3.5rem;
+  text-align: center;
+}
+.landing-hero h1 {
+  margin: 1.2rem auto;
+  max-width: 17ch;
+  font-size: clamp(2.6rem, 6vw, 5.2rem);
+  line-height: 1.05;
+  font-weight: 400;
+  letter-spacing: -0.045em;
+  text-wrap: balance;
+}
+.landing-hero__subline {
+  margin: 1.7rem auto;
+  max-width: 35ch;
+  color: #665349;
+  font-size: clamp(1.15rem, 2vw, 1.45rem);
+  line-height: 1.6;
+  text-wrap: balance;
+}
+.landing-actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+  margin-top: 2rem;
+}
+.landing-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  min-height: 3rem;
+  padding: 0.9rem 1.3rem;
+  border: 1px solid #953c26;
+  border-radius: 0.35rem;
+  background: #a7472e;
+  color: #fffaf0;
+  text-decoration: none;
+  font:
+    600 0.95rem/1.4 Arial,
+    sans-serif;
+}
+.landing-button:hover {
+  background: #873721;
+}
+.landing-button--secondary {
+  background: transparent;
+  color: #873721;
+}
+.landing-button--secondary:hover {
+  background: #eadfd2;
+}
+.landing-personal {
+  display: inline-block;
+  margin-top: 1.2rem;
+  color: #873721;
+}
+.landing-workflow {
+  display: grid;
+  grid-template-columns: minmax(0, 0.65fr) minmax(0, 1.6fr);
+  align-items: center;
+  gap: 2.5rem;
+  padding: 2rem 0 5rem;
+}
+.landing h2 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.7rem, 3vw, 2.5rem);
+  line-height: 1.15;
+  font-weight: 400;
+  letter-spacing: -0.025em;
+  text-wrap: balance;
+}
+.landing-workflow__intro p,
+.landing-features p,
+.landing-open p,
+.landing-discover p {
+  color: #665349;
+  font:
+    1rem/1.8 Arial,
+    sans-serif;
+}
+.landing-rule {
+  display: block;
+  width: 3rem;
+  height: 3px;
+  margin-bottom: 1.5rem;
+  background: #a7472e;
+}
+.landing-preview {
+  min-width: 0;
+  margin: 0;
+  border: 1px solid #d7cabb;
+  border-radius: 0.5rem;
+  background: #fffdf9;
+  box-shadow: 0 1.5rem 3rem -2rem #66534966;
+  overflow: hidden;
+}
+.landing-preview__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 1.3rem;
+  background: #eee4d6;
+  font:
+    0.8rem/1.5 Arial,
+    sans-serif;
+}
+.landing-preview__recipe {
+  padding: 1.5rem;
+}
+.landing-preview__recipe h2 {
+  font-size: 1.8rem;
+  margin-bottom: 1.8rem;
+}
+.landing-preview .recipe-steps > li,
+.landing-preview .recipe-detail__heading {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 1.2rem;
+}
+.landing-preview .recipe-steps ul li {
+  grid-template-columns: 3.2rem minmax(0, 1fr);
+}
+.landing-preview figcaption {
+  padding: 0 1.5rem 1rem;
+  color: #665349;
+  font:
+    0.75rem/1.6 Arial,
+    sans-serif;
+}
+.landing-features {
+  padding: 3rem 0 4rem;
+  border-top: 1px solid #d7cabb;
+}
+.landing-features__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3rem;
+  margin-top: 2rem;
+}
+.landing-features h2 {
+  font-size: 1.75rem;
+}
+.landing-number {
+  display: block;
+  margin-bottom: 1.5rem;
+  color: #a7472e;
+  font:
+    0.85rem Arial,
+    sans-serif;
+}
+.landing-open {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 3rem;
+  padding: 2.5rem 0;
+  border-block: 1px solid #d7cabb;
+}
+.landing-open > div:first-child {
+  max-width: 42rem;
+}
+.landing-links {
+  display: grid;
+  flex-shrink: 0;
+  gap: 1rem;
+}
+.landing-links a {
+  color: #873721;
+}
+.landing-discover {
+  padding: 5rem 1rem;
+  text-align: center;
+}
+.landing-discover h2 {
+  max-width: 22ch;
+  margin: 1rem auto;
+}
+.landing-discover p {
+  max-width: 53ch;
+  margin: 1rem auto 2rem;
+}
+@media (max-width: 960px) {
+  .landing-workflow {
+    grid-template-columns: 1fr;
+  }
+  .landing-workflow__intro {
+    max-width: 40rem;
+  }
+  .landing-preview {
+    width: 100%;
+  }
+}
+@media (max-width: 600px) {
+  .landing {
+    width: calc(100% - 2rem);
+  }
+  .landing-hero {
+    padding-top: 3rem;
+  }
+  .landing-actions {
+    flex-direction: column;
+  }
+  .landing-features__grid {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+  .landing-open {
+    align-items: start;
+    flex-direction: column;
+    gap: 1rem;
+  }
+  .landing-preview .recipe-detail__heading {
+    display: none;
+  }
+  .landing-preview .recipe-steps > li {
+    grid-template-columns: 1fr;
+  }
+  .landing-preview .recipe-steps ul li {
+    grid-template-columns: 3.2rem minmax(0, 1fr);
+  }
+  .landing-discover {
+    padding-inline: 0;
+  }
+}

@@ -1,0 +1,289 @@
+{
+  "principal": [
+    {
+      "id": "90000000-0000-4000-8000-000000000001",
+      "principal_type": "USER"
+    },
+    {
+      "id": "90000000-0000-4000-8000-000000000002",
+      "principal_type": "USER"
+    }
+  ],
+  "user_account": [
+    {
+      "id": "91000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000001",
+      "public_id": "91000000-0000-4000-8000-000000000011",
+      "email": "user@local",
+      "display_name": "Local cookbook owner",
+      "password_hash": {
+        "$passwordHash": "user",
+        "minimumLength": 1
+      }
+    },
+    {
+      "id": "91000000-0000-4000-8000-000000000002",
+      "principal_id": "90000000-0000-4000-8000-000000000002",
+      "public_id": "91000000-0000-4000-8000-000000000012",
+      "email": "guest@local",
+      "display_name": "Local cookbook guest",
+      "password_hash": {
+        "$passwordHash": "guest",
+        "minimumLength": 1
+      }
+    }
+  ],
+  "tenant": [
+    {
+      "id": "10000000-0000-4000-8000-000000000001",
+      "public_id": "10000000-0000-4000-8000-000000000002",
+      "display_name": "Local cookbook",
+      "description": "Development recipes for pasta, weeknight dinners, and desserts.",
+      "slug": "local-cookbook"
+    }
+  ],
+  "tenant_role": [
+    {
+      "id": "92000000-0000-4000-8000-000000000001",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Owner"
+    },
+    {
+      "id": "92000000-0000-4000-8000-000000000002",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Editor"
+    },
+    {
+      "id": "92000000-0000-4000-8000-000000000003",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Viewer"
+    }
+  ],
+  "tenant_role_permission": [
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "tenant:manage"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:revision:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:create"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:visibility-update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:delete"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "recipe:publish"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:create"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "variant:delete"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "ingredient:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "ingredient:create"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "ingredient:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "category:read"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "category:update"
+    },
+    {
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001",
+      "permission_code": "service-account:manage"
+    }
+  ],
+  "tenant_membership": [
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000001"
+    },
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000002"
+    }
+  ],
+  "tenant_membership_role": [
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000001",
+      "tenant_role_id": "92000000-0000-4000-8000-000000000001"
+    },
+    {
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "principal_id": "90000000-0000-4000-8000-000000000002",
+      "tenant_role_id": "92000000-0000-4000-8000-000000000003"
+    }
+  ],
+  "instance_mail_settings": [
+    {
+      "singleton": true,
+      "smtp_host": "smtp.example.invalid",
+      "smtp_port": 587,
+      "transport_security": "STARTTLS",
+      "username": null,
+      "encrypted_password": null,
+      "from_email": "shadowcook@example.invalid",
+      "from_name": "Shadowcook development",
+      "updated_by_principal_id": {
+        "$seedRef": "bootstrapAdministratorPrincipalId"
+      }
+    }
+  ],
+  "ingredient": [
+    {
+      "id": "30000000-0000-4000-8000-000000000001",
+      "public_id": "30000000-0000-4000-8000-000000000011",
+      "canonical_name": "pasta"
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000002",
+      "public_id": "30000000-0000-4000-8000-000000000012",
+      "canonical_name": "tomatoes"
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000003",
+      "public_id": "30000000-0000-4000-8000-000000000013",
+      "canonical_name": "carrots"
+    },
+    {
+      "id": "30000000-0000-4000-8000-000000000004",
+      "public_id": "30000000-0000-4000-8000-000000000014",
+      "canonical_name": "apples"
+    }
+  ],
+  "category": [
+    {
+      "id": "50000000-0000-4000-8000-000000000001",
+      "public_id": "50000000-0000-4000-8000-000000000011",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "name": "Example recipes",
+      "slug": "example-recipes",
+      "sort_order": 0
+    }
+  ],
+  "recipe": [
+    {
+      "id": "60000000-0000-4000-8000-000000000001",
+      "public_id": "60000000-0000-4000-8000-000000000011",
+      "tenant_id": "10000000-0000-4000-8000-000000000001",
+      "lineage_public_id": "60000000-0000-4000-8000-000000000021",
+      "slug": "tomato-pasta",
+      "visibility_override": "PRIVATE",
+      "published_revision_id": "61000000-0000-4000-8000-000000000001",
+      "created_at": "2026-10-20T08:00:00Z"
+    }
+  ],
+  "recipe_revision": [
+    {
+      "id": "61000000-0000-4000-8000-000000000001",
+      "recipe_id": "60000000-0000-4000-8000-000000000001",
+      "revision_no": 1,
+      "status": "PUBLISHED",
+      "title": "Tomato pasta",
+      "summary": "An example recipe with optional recipe metadata.",
+      "created_by_principal_id": "90000000-0000-4000-8000-000000000001",
+      "created_at": "2026-10-20T08:00:00Z",
+      "published_at": "2026-10-20T08:00:00Z"
+    }
+  ],
+  "recipe_revision_category": [
+    {
+      "recipe_revision_id": "61000000-0000-4000-8000-000000000001",
+      "category_id": "50000000-0000-4000-8000-000000000001"
+    }
+  ],
+  "recipe_variant": [
+    {
+      "id": "62000000-0000-4000-8000-000000000001",
+      "recipe_revision_id": "61000000-0000-4000-8000-000000000001",
+      "variant_key": "62000000-0000-4000-8000-000000000011",
+      "name": "Original",
+      "slug": "original",
+      "is_default": true,
+      "difficulty": "EASY",
+      "total_minutes": 30,
+      "active_minutes": 15,
+      "kcal": 800,
+      "servings": 2,
+      "utensils": "Large pot\nColander",
+      "diet": "VEGAN"
+    }
+  ],
+  "recipe_step": [
+    {
+      "id": "63000000-0000-4000-8000-000000000001",
+      "recipe_revision_id": "61000000-0000-4000-8000-000000000001",
+      "step_key": "63000000-0000-4000-8000-000000000011",
+      "sort_order": 0,
+      "instruction": "Cook the pasta, prepare the tomato sauce, and combine before serving."
+    }
+  ],
+  "recipe_variant_step_override": [
+    {
+      "variant_id": "62000000-0000-4000-8000-000000000001",
+      "step_id": "63000000-0000-4000-8000-000000000001",
+      "state": "INCLUDE"
+    }
+  ],
+  "unit": [
+    {
+      "id": "40000000-0000-4000-8000-000000000001",
+      "public_id": "40000000-0000-4000-8000-000000000011",
+      "name": "gram",
+      "symbol": "g",
+      "dimension": "MASS",
+      "base_factor": 1,
+      "base_offset": 0
+    },
+    {
+      "id": "40000000-0000-4000-8000-000000000002",
+      "public_id": "40000000-0000-4000-8000-000000000012",
+      "name": "millilitre",
+      "symbol": "ml",
+      "dimension": "VOLUME",
+      "base_factor": 1,
+      "base_offset": 0
+    }
+  ]
+}

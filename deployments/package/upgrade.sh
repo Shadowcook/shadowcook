@@ -1,0 +1,192 @@
+#!/usr/bin/env sh
+
+set -eu
+
+usage() {
+  printf '%s\n' "Usage: $0 <git-ref>" >&2
+  exit 64
+}
+
+if [ "$#" -ne 1 ]; then
+  usage
+fi
+
+git_ref=$1
+case "${git_ref}" in
+  '' | -* | *"
+"*)
+    printf '%s\n' 'The Git ref must be a non-empty branch, tag, or commit hash.' >&2
+    exit 64
+    ;;
+esac
+
+deployment_directory=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+environment_file="${deployment_directory}/.env"
+
+if [ ! -f "${environment_file}" ]; then
+  printf '%s\n' "Missing ${environment_file}. Copy .env.example to .env and configure the deployment first." >&2
+  exit 66
+fi
+
+read_environment_value() {
+  key=$1
+
+  awk -v key="${key}" '
+  index($0, key "=") == 1 {
+    value = substr($0, index($0, "=") + 1)
+  }
+  END {
+    sub(/\r$/, "", value)
+    print value
+  }
+' "${environment_file}"
+}
+
+source_repository_url=$(read_environment_value SHADOWCOOK_SOURCE_REPOSITORY_URL)
+
+if [ -z "${source_repository_url}" ]; then
+  printf '%s\n' 'SHADOWCOOK_SOURCE_REPOSITORY_URL must be set in .env.' >&2
+  exit 65
+fi
+
+public_web_origin=$(read_environment_value PUBLIC_WEB_ORIGIN)
+
+if [ -z "${public_web_origin}" ]; then
+  printf '%s\n' 'PUBLIC_WEB_ORIGIN must be set in .env.' >&2
+  exit 65
+fi
+
+cd "${deployment_directory}"
+compose_configuration=$(docker compose config)
+project_name=$(docker compose config --environment | awk -F= '$1 == "COMPOSE_PROJECT_NAME" { print $2 }')
+
+read_service_image() {
+  service_name=$1
+
+  printf '%s\n' "${compose_configuration}" | awk -v service="${service_name}" '
+    /^  [^ ]/ {
+      selected = ($0 == "  " service ":")
+    }
+    selected && /^    image: / {
+      print $2
+    }
+  '
+}
+
+api_image=$(read_service_image api)
+web_image=$(read_service_image web)
+
+if [ -z "${project_name}" ] || [ -z "${api_image}" ] || [ -z "${web_image}" ]; then
+  printf '%s\n' 'Cannot resolve the Compose project name and application images.' >&2
+  exit 65
+fi
+
+verify_image_ownership() {
+  image_name=$1
+  image_project=$(docker image inspect \
+    --format '{{ index .Config.Labels "net.shadowcook.project" }}' \
+    "${image_name}" 2>/dev/null || true)
+
+  case "${image_project}" in
+    '' | '<no value>' | "${project_name}") return ;;
+  esac
+
+  printf '%s\n' "${image_name} belongs to Compose project ${image_project}, not ${project_name}." >&2
+  printf '%s\n' 'Set a separate SHADOWCOOK_IMAGE_TAG for this instance before upgrading.' >&2
+  exit 65
+}
+
+verify_image_ownership "${api_image}"
+verify_image_ownership "${web_image}"
+
+temporary_directory=$(mktemp -d)
+environment_backup="${temporary_directory}/.env"
+upgrade_completed=false
+
+cleanup() {
+  if [ "${upgrade_completed}" != true ]; then
+    cp "${environment_backup}" "${environment_file}"
+  fi
+  rm -rf "${temporary_directory}"
+}
+
+cp "${environment_file}" "${environment_backup}"
+trap cleanup EXIT HUP INT TERM
+
+git init --bare --quiet "${temporary_directory}/repository.git"
+git -C "${temporary_directory}/repository.git" fetch --quiet --depth=1 "${source_repository_url}" "${git_ref}"
+build_commit=$(git -C "${temporary_directory}/repository.git" rev-parse --verify 'FETCH_HEAD^{commit}')
+
+case "${build_commit}" in
+  *[!0123456789abcdef]* | '')
+    printf '%s\n' 'The resolved Git ref is not a commit.' >&2
+    exit 65
+    ;;
+esac
+
+update_environment_value() {
+  key=$1
+  value=$2
+  output_file="${temporary_directory}/environment"
+
+  awk -v key="${key}" -v value="${value}" '
+    BEGIN {
+      updated = 0
+    }
+    $0 ~ "^" key "=" {
+      print key "=" value
+      updated = 1
+      next
+    }
+    {
+      print
+    }
+    END {
+      if (updated == 0) {
+        print key "=" value
+      }
+    }
+  ' "${environment_file}" > "${output_file}"
+
+  mv "${output_file}" "${environment_file}"
+}
+
+update_environment_value SHADOWCOOK_SOURCE_REF "${build_commit}"
+update_environment_value SHADOWCOOK_BUILD_COMMIT "${build_commit}"
+
+verify_shadowcook_image_label() {
+  image_name=$1
+  image_label=$(docker image inspect \
+    --format '{{ index .Config.Labels "net.shadowcook.deployment" }}' \
+    "${image_name}" 2>/dev/null || true)
+
+  if [ "${image_label}" != true ]; then
+    printf '%s\n' "${image_name} is missing the required net.shadowcook.deployment=true label." >&2
+    printf '%s\n' 'The requested Git ref must contain the current deployments/docker/Dockerfile.' >&2
+    exit 65
+  fi
+
+  image_project=$(docker image inspect \
+    --format '{{ index .Config.Labels "net.shadowcook.project" }}' \
+    "${image_name}" 2>/dev/null || true)
+
+  if [ "${image_project}" != "${project_name}" ]; then
+    printf '%s\n' "${image_name} is missing the required net.shadowcook.project=${project_name} label." >&2
+    printf '%s\n' 'Use the Compose configurations shipped in this deployment package.' >&2
+    exit 65
+  fi
+}
+
+docker compose build \
+  --build-arg "SHADOWCOOK_BUILD_COMMIT=${build_commit}" \
+  --build-arg "SHADOWCOOK_BUILD_PROJECT=${project_name}" \
+  --build-arg "PUBLIC_WEB_ORIGIN=${public_web_origin}"
+verify_shadowcook_image_label "${api_image}"
+verify_shadowcook_image_label "${web_image}"
+docker compose up --no-build -d
+
+upgrade_completed=true
+docker image prune --all --force \
+  --filter "label=net.shadowcook.project=${project_name}"
+
+printf '%s\n' "Upgraded Shadowcook to ${build_commit}"

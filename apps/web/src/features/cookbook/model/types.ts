@@ -1,0 +1,135 @@
+import type { UnitTranslations } from '../../../i18n/unit-localization';
+import type { RecipeDiet, RecipeFacts } from './recipe-metadata';
+
+export interface IngredientUsage {
+  sort_order: number;
+  amount: string | null;
+  unit_public_id: string | null;
+  unit_symbol: string | null;
+  unit_localization_key: string | null;
+  unit_translations: UnitTranslations;
+  ingredient_public_id: string | null;
+  ingredient_name: string;
+  is_catalog_ingredient: boolean;
+  special_kind: string | null;
+  note: string | null;
+  is_optional: boolean;
+}
+
+export interface RecipeStep {
+  public_id: string;
+  sort_order: number;
+  instruction: string;
+  ingredients: IngredientUsage[];
+}
+
+export interface RecipeDetail extends RecipeFacts {
+  image_url?: string | null;
+  public_id: string;
+  cookbook_name: string;
+  version: number;
+  slug: string;
+  title: string;
+  summary: string | null;
+  creator_display_name: string | null;
+  contributors: RecipeContributor[];
+  can_edit: boolean;
+  can_share: boolean;
+  selectedVariant: string;
+  variants: RecipeVariant[];
+  steps: RecipeStep[];
+  recipe_links?: RecipeLink[];
+}
+export interface RecipeContributor {
+  display_name: string;
+}
+export interface RecipeLink {
+  public_id: string;
+  slug: string;
+  title: string;
+}
+export interface RecipeVariant extends Pick<RecipeFacts, 'metadata' | 'diet'> {
+  variant_key: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  is_visible: boolean;
+}
+
+export interface Category {
+  public_id: string;
+  parent_public_id: string | null;
+  name: string;
+  slug: string;
+  sort_order: number;
+}
+
+export interface Recipe {
+  image_url?: string | null;
+  public_id: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  diet: RecipeDiet | null;
+  category_public_ids: string[];
+  variants: RecipeVariant[];
+}
+
+export interface RecipeManagementResponse {
+  recipes: Recipe[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecipes: number;
+}
+
+export interface CookbookResponse {
+  tenant: { public_id: string; display_name: string; frontpage_heading: string | null } | null;
+  categories: Category[];
+  recipes: Recipe[];
+  frontpage: CookbookFrontpage;
+  canManageCategories: boolean;
+  canManageRecipes: boolean;
+  canDeleteRecipes: boolean;
+  canCreateRecipes: boolean;
+  canManageUsers: boolean;
+  canManageIngredients: boolean;
+  canManageUnits: boolean;
+  canManageServiceAccounts: boolean;
+  canCreateAiContexts: boolean;
+}
+
+export interface CookbookFrontpage {
+  recipes: Recipe[];
+  page: number;
+  pageSize: number;
+  totalPages: number;
+  totalRecipes: number;
+}
+
+export interface EditableRecipe extends RecipeFacts {
+  image_url?: string | null;
+  publicId: string;
+  slug: string;
+  title: string;
+  summary: string | null;
+  categoryPublicIds: string[];
+  visibilityOverride: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
+  discoverabilityOverride: 'DISCOVERABLE' | 'UNLISTED' | null;
+  isFeatured: boolean;
+  effectiveVisibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
+  effectiveDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
+  canChangeVisibility: boolean;
+  publishedVersion: number | null;
+  hasPublishedRevision: boolean;
+  isDraft: boolean;
+}
+export interface CookbookTenant {
+  public_id: string;
+  display_name: string;
+  description: string | null;
+  slug: string;
+  recipe_count: number;
+  owner_name?: string | null;
+  disabled_at: string | null;
+}

@@ -1,0 +1,33 @@
+{
+  "name": "shadowcook",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.24.0",
+  "scripts": {
+    "build": "npm --prefix packages/db run build && npm --prefix apps/api run build && npm --prefix apps/web run build",
+    "check": "npm --prefix packages/db run check && npm --prefix apps/api run check && npm --prefix apps/development-tools run check && npm --prefix apps/web run check",
+    "test": "node scripts/run-tests.mjs",
+    "test:unit": "npm --prefix apps/api run test:unit && npm --prefix apps/web run test:unit",
+    "test:skill": "npm --prefix apps/api run test:skill",
+    "test:api": "npm --prefix packages/db run build && npm --prefix apps/api run test:api",
+    "test:contract": "npm --prefix packages/db run build && npm --prefix apps/api run test:contract",
+    "test:e2e": "npm --prefix apps/web run test:e2e",
+    "test:migrations": "npm --prefix packages/db run build && npm --prefix apps/api run test:migrations",
+    "dev:api": "npm --prefix packages/db run build && npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "format": "prettier --write --plugin=prettier-plugin-astro apps/api/src apps/development-tools/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md package.json apps/api/package.json apps/development-tools/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/development-tools/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
+    "format:check": "prettier --check --plugin=prettier-plugin-astro apps/api/src apps/development-tools/src apps/web/src packages/db/src contracts/openapi.yaml docs/ARCHITECTURE.md docs/implementation_progress.md package.json apps/api/package.json apps/development-tools/package.json apps/web/package.json packages/db/package.json tsconfig.json apps/api/tsconfig.json apps/development-tools/tsconfig.json apps/web/tsconfig.json packages/db/tsconfig.json apps/web/astro.config.ts pnpm-workspace.yaml development-seed.example.json initial-deployment-seed.json prettier.config.mjs",
+    "start:api": "npm --prefix apps/api run start",
+    "maintenance": "npm --prefix apps/api run maintenance",
+    "export:development-content-seed": "npm --prefix apps/development-tools run export-development-content-seed --",
+    "reset:dev-db": "npm --prefix apps/api run reset:dev-db",
+    "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
+    "package:deployment": "sh scripts/package-deployment.sh",
+    "backup:db": "bash scripts/backup-database.sh",
+    "restore:db": "bash scripts/restore-database.sh"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.8",
+    "prettier-plugin-astro": "^0.14.1"
+  }
+}

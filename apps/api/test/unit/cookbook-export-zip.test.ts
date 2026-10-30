@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import { test } from 'node:test';
+import { crc32, inflateRawSync } from 'node:zlib';
+import { createCookbookZip } from '../../src/cookbook/export-zip.js';
+
+test('ZIP contains a DEFLATE-compressed UTF-8 JSON entry with matching directory, size and checksum', async (): Promise<void> => {
+  const json: string = JSON.stringify({ title: 'Crème brûlée 🍲', recipes: [] });
+  const archive: Buffer = await createCookbookZip(json, new Date('2026-10-13T19:04:08Z'));
+  assert.equal(archive.readUInt32LE(0), 0x04034b50);
+  assert.equal(archive.readUInt16LE(6), 0x0800);
+  assert.equal(archive.readUInt16LE(8), 8);
+  assert.equal(archive.readUInt16LE(10), (19 << 11) | (4 << 5) | 4);
+  assert.equal(archive.readUInt16LE(12), ((2026 - 1980) << 9) | (10 << 5) | 13);
+  const nameLength: number = archive.readUInt16LE(26);
+  assert.equal(archive.subarray(30, 30 + nameLength).toString('utf8'), 'cookbook.json');
+  const size: number = archive.readUInt32LE(18);
+  const content: Buffer = inflateRawSync(archive.subarray(30 + nameLength, 30 + nameLength + size));
+  assert.equal(content.toString('utf8'), json);
+  assert.equal(content.length, archive.readUInt32LE(22));
+  assert.equal(crc32(content), archive.readUInt32LE(14));
+  const endOffset: number = archive.length - 22;
+  assert.equal(archive.readUInt32LE(endOffset), 0x06054b50);
+  assert.equal(archive.readUInt16LE(endOffset + 10), 1);
+  const centralOffset: number = archive.readUInt32LE(endOffset + 16);
+  assert.equal(archive.readUInt32LE(centralOffset), 0x02014b50);
+  assert.equal(archive.readUInt32LE(centralOffset + 16), crc32(content));
+  assert.equal(archive.readUInt32LE(centralOffset + 20), size);
+  assert.equal(archive.readUInt32LE(centralOffset + 24), content.length);
+  assert.equal(archive.readUInt32LE(centralOffset + 42), 0);
+  assert.equal(archive.subarray(centralOffset + 46, endOffset).toString('utf8'), 'cookbook.json');
+  assert.equal(archive.readUInt32LE(endOffset + 12), endOffset - centralOffset);
+});

@@ -1,0 +1,389 @@
+import type { ColumnType, Generated } from 'kysely';
+
+export type Timestamp = ColumnType<Date, Date | string, Date | string>;
+export type Uuid = ColumnType<string, string | undefined, string>;
+
+export interface TenantTable {
+  id: Generated<Uuid>;
+  public_id: Generated<Uuid>;
+  display_name: string;
+  description: string | null;
+  slug: string;
+  default_recipe_visibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
+  default_recipe_discoverability: 'DISCOVERABLE' | 'UNLISTED';
+  show_on_start_page: Generated<boolean>;
+  frontpage_recipe_count: Generated<number>;
+  frontpage_heading: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+  owner_principal_id: string | null;
+}
+
+export interface InstanceFrontpageSettingsTable {
+  singleton: Generated<boolean>;
+  site_name: string;
+  slogan: string;
+  cookbooks_per_page: number;
+  updated_by_principal_id: string;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface InstanceLegalDocumentsTable {
+  singleton: Generated<boolean>;
+  privacy_statement_markdown: string;
+  imprint_markdown: string;
+  updated_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+export interface InstanceEmailTemplateTable {
+  template_key: string;
+  subject_template: string;
+  body_template: string;
+  updated_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface InstanceReportSettingsTable {
+  singleton: Generated<boolean>;
+  recipient_email: string | null;
+  updated_at: Generated<Timestamp>;
+  updated_by_principal_id: string | null;
+}
+export interface ContentReportTable {
+  public_id: Generated<Uuid>;
+  reporter_user_id: string;
+  target_type: 'RECIPE' | 'USER' | 'COOKBOOK';
+  target_public_id: string;
+  reason: 'ILLEGAL_CONTENT' | 'IMPROPER_NAME' | 'HARASSMENT' | 'SPAM' | 'OTHER';
+  description: string;
+  status: Generated<'OPEN' | 'UNDER_INVESTIGATION' | 'CLOSED'>;
+  result:
+    | 'BLOCKED'
+    | 'UNFOUNDED'
+    | 'USER_DELETED'
+    | 'COOKBOOK_DELETED'
+    | 'RECIPE_DELETED'
+    | 'OTHER'
+    | null;
+  result_note: Generated<string>;
+  assigned_admin_user_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+export interface ContentReportNotificationTable {
+  report_public_id: string;
+  sent_at: Timestamp | null;
+  attempts: Generated<number>;
+  next_attempt_at: Generated<Timestamp>;
+}
+
+export interface UserAccountTable {
+  id: Generated<Uuid>;
+  principal_id: string;
+  public_id: Generated<Uuid>;
+  email: string;
+  display_name: string;
+  first_name: Generated<string | null>;
+  last_name: Generated<string | null>;
+  password_hash: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+  password_change_required: Generated<boolean>;
+  password_changed_at: Timestamp | null;
+  last_login_at: Timestamp | null;
+  disabled_at: Timestamp | null;
+  deleted_at: Timestamp | null;
+}
+
+export interface PasswordLoginFailureTable {
+  id: Generated<string>;
+  client_ip: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface UserSessionTable {
+  id: Generated<Uuid>;
+  user_account_id: string;
+  token_hash: Buffer;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+  last_seen_at: Timestamp;
+  revoked_at: Timestamp | null;
+  frontpage_shuffle_seed: string | null;
+}
+
+export interface PasswordResetTokenTable {
+  id: Generated<Uuid>;
+  user_account_id: string;
+  token_hash: Buffer;
+  force_password_change: Generated<boolean>;
+  expires_at: Timestamp;
+  consumed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface AccountEmailChangeTable {
+  user_account_id: string;
+  new_email: string;
+  token_hash: Buffer;
+  expires_at: Timestamp;
+  last_sent_at: Timestamp;
+  send_count: number;
+}
+
+export interface PendingRegistrationTable {
+  first_name: Generated<string | null>;
+  last_name: Generated<string | null>;
+  display_name: Generated<string | null>;
+  id: Generated<Uuid>;
+  email: string;
+  password_hash: string;
+  tenant_name: string | null;
+  verification_token_hash: Buffer;
+  created_at: Generated<Timestamp>;
+  expires_at: Timestamp;
+}
+
+export interface RegistrationRateEventTable {
+  id: Generated<Uuid>;
+  event_type: 'REGISTRATION' | 'VERIFICATION_RESEND';
+  requested_ip: string | null;
+  normalized_email: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface InstanceRegistrationSettingsTable {
+  singleton: Generated<boolean>;
+  enabled: Generated<boolean>;
+  turnstile_enabled: Generated<boolean>;
+  max_cookbooks_per_owner: Generated<number>;
+  updated_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface UserInvitationTable {
+  id: Generated<Uuid>;
+  tenant_id: string | null;
+  tenant_role_id: string | null;
+  instance_role_id: string | null;
+  invited_email: string;
+  token_hash: Buffer;
+  expires_at: Timestamp;
+  accepted_at: Timestamp | null;
+  created_by_principal_id: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface RecipeTable {
+  id: Generated<Uuid>;
+  tenant_id: string;
+  public_id: Generated<Uuid>;
+  lineage_public_id: string;
+  slug: string;
+  visibility_override: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC' | null;
+  discoverability_override: 'DISCOVERABLE' | 'UNLISTED' | null;
+  is_featured: Generated<boolean>;
+  published_revision_id: string | null;
+  draft_revision_id: string | null;
+  created_at: Generated<Timestamp>;
+  updated_at: Generated<Timestamp>;
+}
+
+export interface RecipeVariantTable {
+  id: Generated<Uuid>;
+  recipe_revision_id: string;
+  variant_key: string;
+  name: string;
+  slug: string;
+  is_default: boolean;
+  is_visible: boolean;
+  difficulty: 'EASY' | 'MEDIUM' | 'DEMANDING' | null;
+  total_minutes: number | null;
+  active_minutes: number | null;
+  kcal: number | null;
+  servings: number | null;
+  utensils: string | null;
+  diet: 'VEGAN' | 'VEGETARIAN' | 'OMNI' | null;
+}
+
+export interface RecipeRevisionTable {
+  id: Generated<Uuid>;
+  recipe_id: string;
+  public_id: Generated<Uuid>;
+  revision_no: number;
+  status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
+  title: string;
+  summary: string | null;
+  version: Generated<number>;
+  created_by_principal_id: string | null;
+  created_at: Generated<Timestamp>;
+  published_at: Timestamp | null;
+}
+
+export interface RecipeShareLinkTable {
+  id: Generated<Uuid>;
+  recipe_id: string;
+  name: string | null;
+  token: string;
+  token_hash: Buffer;
+  created_by_principal_id: string | null;
+  expires_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface AiContextGrantTable {
+  id: Generated<Uuid>;
+  tenant_id: string;
+  created_by_principal_id: string;
+  scope_type: 'TENANT' | 'RECIPE' | 'CATEGORY';
+  scope_public_id: string;
+  bootstrap_token_hash: Buffer;
+  bootstrap_expires_at: Timestamp;
+  bootstrap_consumed_at: Timestamp | null;
+  access_token_hash: Buffer | null;
+  expires_at: Timestamp;
+  last_used_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthClientTable {
+  id: Generated<Uuid>;
+  client_id: string;
+  client_name: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthClientRedirectUriTable {
+  oauth_client_id: string;
+  redirect_uri: string;
+}
+
+export interface OAuthAuthorizationCodeTable {
+  id: Generated<Uuid>;
+  code_hash: Buffer;
+  principal_id: string;
+  client_id: string;
+  redirect_uri: string;
+  resource: string;
+  scope: string;
+  code_challenge: string;
+  expires_at: Timestamp;
+  consumed_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthAccessTokenTable {
+  id: Generated<Uuid>;
+  token_hash: Buffer;
+  principal_id: string;
+  client_id: string;
+  resource: string;
+  scope: string;
+  expires_at: Timestamp;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface OAuthRefreshTokenTable {
+  id: Generated<Uuid>;
+  token_hash: Buffer;
+  principal_id: string;
+  client_id: string;
+  resource: string;
+  scope: string;
+  expires_at: Timestamp;
+  consumed_at: Timestamp | null;
+  revoked_at: Timestamp | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface UnitTable {
+  id: Generated<Uuid>;
+  owner_tenant_id: string | null;
+  public_id: Generated<Uuid>;
+  name: string;
+  symbol: string;
+  localization_key: string | null;
+  dimension: 'MASS' | 'VOLUME' | 'COUNT' | 'TEMPERATURE' | null;
+  base_factor: string | null;
+  base_offset: string | null;
+  created_at: Generated<Timestamp>;
+}
+
+export interface UnitTranslationTable {
+  unit_id: string;
+  locale: string;
+  name: string;
+  symbol: string;
+}
+
+export interface IngredientTable {
+  id: Generated<Uuid>;
+  owner_tenant_id: string;
+  public_id: Generated<Uuid>;
+  canonical_name: string;
+  created_at: Generated<Timestamp>;
+}
+
+export interface IngredientAliasTable {
+  id: Generated<Uuid>;
+  ingredient_id: string;
+  public_id: Generated<Uuid>;
+  alias: string;
+}
+
+export interface ApplicationSeedTable {
+  id: string;
+  applied_at: Generated<Timestamp>;
+}
+
+/**
+ * The complete database contains additional domain tables created by the
+ * initial migration. These core tables are typed now because they are the
+ * first persistence boundary used by the API.
+ */
+export interface Database {
+  instance_report_settings: InstanceReportSettingsTable;
+  content_report: ContentReportTable;
+  content_report_notification: ContentReportNotificationTable;
+  instance_frontpage_settings: InstanceFrontpageSettingsTable;
+  instance_legal_documents: InstanceLegalDocumentsTable;
+  instance_email_template: InstanceEmailTemplateTable;
+  tenant: TenantTable;
+  user_account: UserAccountTable;
+  user_session: UserSessionTable;
+  password_login_failure: PasswordLoginFailureTable;
+  password_reset_token: PasswordResetTokenTable;
+  account_email_change: AccountEmailChangeTable;
+  pending_registration: PendingRegistrationTable;
+  registration_rate_event: RegistrationRateEventTable;
+  instance_registration_settings: InstanceRegistrationSettingsTable;
+  user_invitation: UserInvitationTable;
+  recipe: RecipeTable;
+  recipe_revision: RecipeRevisionTable;
+  recipe_variant: RecipeVariantTable;
+  recipe_revision_contributor: RecipeRevisionContributorTable;
+  recipe_share_link: RecipeShareLinkTable;
+  ai_context_grant: AiContextGrantTable;
+  oauth_client: OAuthClientTable;
+  oauth_client_redirect_uri: OAuthClientRedirectUriTable;
+  oauth_authorization_code: OAuthAuthorizationCodeTable;
+  oauth_access_token: OAuthAccessTokenTable;
+  oauth_refresh_token: OAuthRefreshTokenTable;
+  unit: UnitTable;
+  unit_translation: UnitTranslationTable;
+  ingredient: IngredientTable;
+  ingredient_alias: IngredientAliasTable;
+  application_seed: ApplicationSeedTable;
+}
+
+export interface RecipeRevisionContributorTable {
+  recipe_revision_id: Uuid;
+  principal_id: Uuid;
+}

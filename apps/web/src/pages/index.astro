@@ -1,0 +1,7 @@
+---
+import LandingPage from '../components/landing/LandingPage.astro';
+export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+---
+
+<LandingPage />
