@@ -9,6 +9,7 @@ interface RecipePolicySettingsProperties {
 }
 
 interface RecipePolicy {
+  recipeRetentionDays: number;
   defaultVisibility: 'PRIVATE' | 'MEMBERS_ONLY' | 'PUBLIC';
   defaultDiscoverability: 'DISCOVERABLE' | 'UNLISTED';
   showOnStartPage: boolean;
@@ -55,6 +56,20 @@ export default function RecipePolicySettings({
       <p className="eyebrow">{text.tenantNavigation.settings}</p>
       <h1>{text.recipePolicy.title}</h1>
       <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void save(event)}>
+        <label>
+          {text.recipeTrash.retentionDays}
+          <input
+            type="number"
+            min={1}
+            max={36500}
+            required
+            value={policy.recipeRetentionDays}
+            onChange={(event: ChangeEvent<HTMLInputElement>): void =>
+              setPolicy({ ...policy, recipeRetentionDays: Number(event.currentTarget.value) })
+            }
+          />
+          <span className="field-hint">{text.recipeTrash.retentionHint}</span>
+        </label>
         <label>
           {text.recipePolicy.defaultVisibility}
           <select

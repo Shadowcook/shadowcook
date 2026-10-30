@@ -5,6 +5,18 @@ import type { RecipeImportTranslation } from '../features/cookbook/import/transl
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  recipeTrash: {
+    title: string;
+    empty: string;
+    delete: string;
+    restore: string;
+    confirmation: string;
+    confirmationLabel: string;
+    confirmationWord: string;
+    expiresAt: string;
+    retentionDays: string;
+    retentionHint: string;
+  };
   landing: LandingTranslation;
   notFound: { title: string; description: string };
   explore: { title: string; description: string };

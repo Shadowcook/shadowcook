@@ -22,6 +22,7 @@ const cookbook: CookbookResponse = {
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
+  canDeleteRecipes: false,
   canCreateRecipes: false,
   canManageUsers: false,
   canManageIngredients: false,

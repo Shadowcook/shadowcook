@@ -1,9 +1,11 @@
+import { cleanupRecipeTrash } from './recipe-trash-cleanup.js';
 import { enforceRecipeImageRetention } from './recipe-image-retention.js';
 import { readdir, rm, stat } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import type { Pool, QueryResult } from 'pg';
 
 export async function cleanupRecipeImages(pool: Pool, directory: string): Promise<void> {
+  await cleanupRecipeTrash(pool, directory);
   await enforceRecipeImageRetention(pool, directory);
   const removed: QueryResult<{ storage_key: string }> = await pool.query<{ storage_key: string }>(
     `DELETE FROM media_asset WHERE created_at < now() - interval '24 hours'

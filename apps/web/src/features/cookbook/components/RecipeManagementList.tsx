@@ -1,3 +1,4 @@
+import RecipeDeleteButton from './RecipeDeleteButton';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX } from 'react';
 import { translations } from '../../../i18n';
@@ -11,8 +12,10 @@ interface RecipeManagementListProperties {
   locale: Locale;
   tenantSlug: string;
   canCreateRecipes: boolean;
+  canDeleteRecipes: boolean;
   onEdit: (publicId: string) => void;
   onCreate: () => void;
+  onChanged: () => Promise<unknown>;
 }
 
 export default function RecipeManagementList(
@@ -97,15 +100,29 @@ export default function RecipeManagementList(
                 <strong>{recipe.title}</strong>
                 {recipe.summary === null ? null : <span>{recipe.summary}</span>}
               </div>
-              <button
-                type="button"
-                className="button--secondary"
-                onClick={(): void => properties.onEdit(recipe.public_id)}
-                aria-label={text.recipeEditor.edit}
-                title={text.recipeEditor.edit}
-              >
-                <AdminIcon name="edit" />
-              </button>
+              <span className="draft-list__actions">
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => properties.onEdit(recipe.public_id)}
+                  aria-label={text.recipeEditor.edit}
+                  title={text.recipeEditor.edit}
+                >
+                  <AdminIcon name="edit" />
+                </button>
+                {properties.canDeleteRecipes ? (
+                  <RecipeDeleteButton
+                    text={text}
+                    tenantSlug={properties.tenantSlug}
+                    publicId={recipe.public_id}
+                    title={recipe.title}
+                    onDeleted={async (): Promise<void> => {
+                      await loadRecipes(response?.page ?? 1, filter);
+                      await properties.onChanged();
+                    }}
+                  />
+                ) : null}
+              </span>
             </li>
           ))}
         </ul>

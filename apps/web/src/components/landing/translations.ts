@@ -45,9 +45,9 @@ export const landingEnglish: LandingTranslation = {
   organizeTitle: 'Organize recipes your way.',
   organizeDescription:
     'Build a category hierarchy that makes sense to you. A recipe can belong in more than one category.',
-  sharingTitle: 'Made to be shared.',
+  sharingTitle: 'Sharing on your terms.',
   sharingDescription:
-    'A short, direct link opens your cookbook or a specific recipe. Share public recipes with the people you cook for.',
+    'You decide who can see your recipes: keep them private, share them with your cookbook members, or make them public. Share your cookbook or individual recipes through short, direct links.',
   openTitle: 'Built on open source.',
   openDescription:
     'Shadowcook is open source, licensed under AGPL-3.0-only. Read the code, follow development, or contribute.',
@@ -79,9 +79,9 @@ export const landingGerman: LandingTranslation = {
   organizeTitle: 'Ordnung, wie sie zu dir passt.',
   organizeDescription:
     'Baue deine eigene Kategorienhierarchie auf. Ein Rezept kann dabei mehreren Kategorien zugeordnet sein.',
-  sharingTitle: 'Zum Teilen gemacht.',
+  sharingTitle: 'Teilen nach deinen Regeln.',
   sharingDescription:
-    'Ein kurzer, direkter Link öffnet dein Kochbuch oder ein bestimmtes Rezept. Teile öffentliche Rezepte mit den Menschen, für die du kochst.',
+    'Du bestimmst, wer deine Rezepte sehen darf: privat, nur für Mitglieder deines Kochbuchs oder öffentlich. Teile dein Kochbuch oder einzelne Rezepte über kurze, direkte Links.',
   openTitle: 'Als Open Source entwickelt.',
   openDescription:
     'Shadowcook ist Open Source unter AGPL-3.0-only. Schau dir den Code an, verfolge die Entwicklung oder wirke mit.',

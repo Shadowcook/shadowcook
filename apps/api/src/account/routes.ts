@@ -33,7 +33,7 @@ export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
         showOnStartPage: boolean;
       }>(
         `SELECT tenant.display_name AS name, tenant.slug,
-          (SELECT count(*)::integer FROM recipe WHERE recipe.tenant_id = tenant.id) AS "recipeCount",
+          (SELECT count(*)::integer FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id) AS "recipeCount",
           (SELECT count(*)::integer FROM tenant_membership WHERE tenant_membership.tenant_id = tenant.id) AS "userCount",
           tenant.show_on_start_page AS "showOnStartPage"
          FROM tenant WHERE tenant.owner_principal_id = $1 ORDER BY tenant.display_name`,

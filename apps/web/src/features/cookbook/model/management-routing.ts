@@ -11,6 +11,8 @@ export function managementRoute(pathname: string): ManagementRoute {
     .filter((segment: string): boolean => segment.length > 0);
   const isCategoryEditor: boolean = segments.length === 2 && segments[1] === 'categories';
 
+  if (segments.length === 3 && segments[1] === 'manage' && segments[2] === 'trash')
+    return { editorPath: 'trash', isCategoryEditor };
   if (segments.length === 2 && segments[1] === 'drafts')
     return { editorPath: 'drafts', isCategoryEditor };
   if (segments.length === 3 && segments[1] === 'recipes' && segments[2] === 'new')

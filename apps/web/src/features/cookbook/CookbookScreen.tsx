@@ -1,3 +1,4 @@
+import RecipeTrash from './components/RecipeTrash';
 import { postLoginDestination } from '../../lib/login-navigation';
 import { isSystemPath } from '../../lib/system-routing';
 import { useEffect, useState } from 'react';
@@ -76,6 +77,7 @@ const emptyCookbook: CookbookResponse = {
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
+  canDeleteRecipes: false,
   canCreateRecipes: false,
   canManageUsers: false,
   canManageIngredients: false,
@@ -575,33 +577,37 @@ export default function CookbookScreen({
               cookbook={cookbook}
               tenantSlug={tenantSlug}
               activeView={
-                isCategoryEditor
-                  ? 'categories'
-                  : editorPath === 'manage'
-                    ? 'none'
-                    : editorPath === 'drafts'
-                      ? 'drafts'
-                      : editorPath === 'manage-recipes'
-                        ? 'recipes'
-                        : editorPath === 'manage-users'
-                          ? 'users'
-                          : editorPath === 'manage-ingredients'
-                            ? 'ingredients'
-                            : editorPath === 'manage-units'
-                              ? 'units'
-                              : editorPath === 'manage-recipe-policy'
-                                ? 'settings'
-                                : editorPath === 'manage-service-accounts'
-                                  ? 'service-accounts'
-                                  : editorPath !== null
-                                    ? 'editor'
-                                    : 'recipes'
+                editorPath === 'trash'
+                  ? 'trash'
+                  : isCategoryEditor
+                    ? 'categories'
+                    : editorPath === 'manage'
+                      ? 'none'
+                      : editorPath === 'drafts'
+                        ? 'drafts'
+                        : editorPath === 'manage-recipes'
+                          ? 'recipes'
+                          : editorPath === 'manage-users'
+                            ? 'users'
+                            : editorPath === 'manage-ingredients'
+                              ? 'ingredients'
+                              : editorPath === 'manage-units'
+                                ? 'units'
+                                : editorPath === 'manage-recipe-policy'
+                                  ? 'settings'
+                                  : editorPath === 'manage-service-accounts'
+                                    ? 'service-accounts'
+                                    : editorPath !== null
+                                      ? 'editor'
+                                      : 'recipes'
               }
             />
           ) : null}
           <div className="tenant-content">
             {isManagementAccessDenied ? (
               <AccessDeniedScreen text={text} />
+            ) : editorPath === 'trash' ? (
+              <RecipeTrash text={text} tenantSlug={tenantSlug} onChanged={loadCookbook} />
             ) : editorPath === 'manage' ? (
               <ManagementPlaceholder text={text} />
             ) : editorPath === 'manage-users' && tenantSlug.length > 0 ? (
@@ -624,6 +630,7 @@ export default function CookbookScreen({
               />
             ) : editorPath === 'drafts' && tenantSlug.length > 0 ? (
               <DraftRecipeList
+                canDeleteRecipes={cookbook.canDeleteRecipes === true}
                 locale={locale}
                 canCreateRecipes={cookbook.canCreateRecipes}
                 tenantSlug={tenantSlug}
@@ -633,6 +640,8 @@ export default function CookbookScreen({
               />
             ) : editorPath === 'manage-recipes' ? (
               <RecipeManagementList
+                onChanged={loadCookbook}
+                canDeleteRecipes={cookbook.canDeleteRecipes === true}
                 locale={locale}
                 canCreateRecipes={cookbook.canCreateRecipes}
                 tenantSlug={tenantSlug}

@@ -292,7 +292,7 @@ async function scopePublicIdForInput(
   }
   const table: string = type === 'RECIPE' ? 'recipe' : 'category';
   const result = await pool.query(
-    `SELECT public_id FROM ${table} WHERE tenant_id = $1 AND public_id = $2`,
+    `SELECT public_id FROM ${table} WHERE tenant_id = $1 AND public_id = $2${type === 'RECIPE' ? ' AND deleted_at IS NULL' : ''}`,
     [tenantId, publicId],
   );
   return result.rows[0]?.public_id ?? null;
@@ -340,7 +340,7 @@ async function overviewForGrant(pool: Pool, grant: GrantRow): Promise<unknown> {
      SELECT DISTINCT recipe.public_id, recipe.slug, revision.title, revision.summary
      FROM recipe INNER JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
-     WHERE recipe.tenant_id = $1 AND (
+     WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND (
        ($3 = 'TENANT') OR
        ($3 = 'RECIPE' AND recipe.public_id = $2) OR
        ($3 = 'CATEGORY' AND recipe_revision_category.category_id IN (SELECT id FROM subtree))
@@ -380,7 +380,7 @@ async function recipeForGrant(
      SELECT recipe.public_id, recipe.slug, revision.id AS revision_id, revision.title, revision.summary, ${recipeFactsSql('revision')}
      FROM recipe INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
-     WHERE recipe.tenant_id = $1 AND recipe.public_id = $4 AND (
+     WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $4 AND (
        ($3 = 'TENANT') OR
        ($3 = 'RECIPE' AND recipe.public_id = $2) OR
        ($3 = 'CATEGORY' AND recipe_revision_category.category_id IN (SELECT id FROM subtree))
@@ -450,7 +450,7 @@ async function scopedRecipe(
      SELECT recipe.id, recipe.draft_revision_id FROM recipe
      LEFT JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
-     WHERE recipe.tenant_id = $1 AND recipe.public_id = $4 AND (
+     WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $4 AND (
        ($3 = 'TENANT') OR
        ($3 = 'RECIPE' AND recipe.public_id = $2) OR
        ($3 = 'CATEGORY' AND recipe_revision_category.category_id IN (SELECT id FROM subtree))

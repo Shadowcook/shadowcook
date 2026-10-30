@@ -1073,6 +1073,13 @@
   border: 1px solid #eadfd2;
   background: #fffdf9;
 }
+.draft-list__actions {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  gap: 0.5rem;
+  margin-left: auto;
+}
 .draft-list div {
   display: grid;
   gap: 0.2rem;

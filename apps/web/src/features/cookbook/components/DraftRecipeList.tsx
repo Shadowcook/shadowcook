@@ -1,3 +1,4 @@
+import RecipeDeleteButton from './RecipeDeleteButton';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import { translations } from '../../../i18n';
@@ -11,6 +12,7 @@ interface DraftRecipeListProperties {
   locale: Locale;
   tenantSlug: string;
   canCreateRecipes: boolean;
+  canDeleteRecipes: boolean;
   onEdit: (publicId: string) => void;
   onCreate: () => void;
   onChanged: () => Promise<unknown>;
@@ -69,15 +71,33 @@ export default function DraftRecipeList(properties: DraftRecipeListProperties): 
                   await properties.onChanged();
                 }}
               />
-              <button
-                type="button"
-                className="button--secondary"
-                onClick={(): void => properties.onEdit(recipe.publicId)}
-                aria-label={text.recipeEditor.edit}
-                title={text.recipeEditor.edit}
-              >
-                <AdminIcon name="edit" />
-              </button>
+              <span className="draft-list__actions">
+                <button
+                  type="button"
+                  className="button--secondary"
+                  onClick={(): void => properties.onEdit(recipe.publicId)}
+                  aria-label={text.recipeEditor.edit}
+                  title={text.recipeEditor.edit}
+                >
+                  <AdminIcon name="edit" />
+                </button>
+                {properties.canDeleteRecipes ? (
+                  <RecipeDeleteButton
+                    text={text}
+                    tenantSlug={properties.tenantSlug}
+                    publicId={recipe.publicId}
+                    title={recipe.title}
+                    onDeleted={async (): Promise<void> => {
+                      setRecipes((current: EditableRecipe[]): EditableRecipe[] =>
+                        current.filter(
+                          (item: EditableRecipe): boolean => item.publicId !== recipe.publicId,
+                        ),
+                      );
+                      await properties.onChanged();
+                    }}
+                  />
+                ) : null}
+              </span>
             </li>
           ))}
         </ul>

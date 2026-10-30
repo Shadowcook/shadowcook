@@ -34,7 +34,7 @@ export function registerRecipeDraftDiscardRoutes(api: FastifyInstance, pool: Poo
       await client.query('BEGIN');
       const result: QueryResult<RecipeDraftState> = await client.query<RecipeDraftState>(
         `SELECT id, draft_revision_id, published_revision_id
-         FROM recipe WHERE tenant_id = $1 AND public_id = $2 FOR UPDATE`,
+         FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE`,
         [tenantId, params.publicId],
       );
       const recipe: RecipeDraftState | undefined = result.rows[0];

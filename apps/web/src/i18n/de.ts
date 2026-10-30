@@ -4,6 +4,21 @@ import { recipeImportGerman } from '../features/cookbook/import/translations.ts'
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  recipeTrash: {
+    title: 'Papierkorb',
+    empty: 'Der Papierkorb ist leer.',
+    delete: 'Rezept löschen',
+    restore: 'Wiederherstellen',
+    confirmation:
+      '„{title}“ in den Papierkorb verschieben? Es wird sofort ausgeblendet und nach Ablauf der Aufbewahrungsfrist mit allen Versionen und Bildern endgültig gelöscht.',
+    confirmationLabel: 'Zur Bestätigung „delete“ eingeben.',
+    confirmationWord: 'delete',
+    expiresAt: 'Endgültige Löschung am',
+    retentionDays: 'Aufbewahrung im Papierkorb (Tage)',
+    retentionHint:
+      'Standard: 30 Tage. Änderungen gelten für Rezepte, die ab jetzt gelöscht werden.',
+  },
+
   notFound: {
     title: 'Seite nicht gefunden',
     description:

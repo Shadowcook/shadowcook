@@ -4,6 +4,20 @@ import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  recipeTrash: {
+    title: 'Trash Bin',
+    empty: 'The trash bin is empty.',
+    delete: 'Delete recipe',
+    restore: 'Restore',
+    confirmation:
+      'Move “{title}” to the trash bin? It will be hidden immediately and permanently removed with all versions and images after the retention period.',
+    confirmationLabel: 'Type “delete” to confirm.',
+    confirmationWord: 'delete',
+    expiresAt: 'Permanently deleted on',
+    retentionDays: 'Trash retention (days)',
+    retentionHint: 'Default: 30 days. Changes apply to recipes deleted from now on.',
+  },
+
   notFound: {
     title: 'Page not found',
     description: 'This page is unavailable. Explore the cookbooks to find another recipe.',

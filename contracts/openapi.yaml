@@ -2974,6 +2974,7 @@ paths:
                     frontpage,
                     canManageCategories,
                     canManageRecipes,
+                    canDeleteRecipes,
                     canCreateRecipes,
                     canManageUsers,
                     canManageIngredients,
@@ -3005,6 +3006,9 @@ paths:
                     $ref: '#/components/schemas/CookbookFrontpage'
                   canManageCategories:
                     type: boolean
+                  canDeleteRecipes:
+                    type: boolean
+                    description: Granted by the tenant recipe:delete permission.
                   canManageRecipes:
                     type: boolean
                   canCreateRecipes:
@@ -3496,7 +3500,71 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404': { $ref: '#/components/responses/TenantNotFound' }
+  /cookbook/tenants/{tenantSlug}/trash:
+    get:
+      operationId: listRecipeTrash
+      summary: List unexpired soft-deleted recipes; requires tenant recipe:delete permission.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - { name: tenantSlug, in: path, required: true, schema: { type: string } }
+      responses:
+        '200':
+          description: Recipes retained in the trash bin.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [recipes]
+                properties:
+                  recipes:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [publicId, slug, title, deletedAt, expiresAt]
+                      properties:
+                        publicId: { type: string, format: uuid }
+                        slug: { type: string }
+                        title: { type: string }
+                        deletedAt: { type: string, format: date-time }
+                        expiresAt: { type: string, format: date-time }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: TENANT_NOT_FOUND or RECIPE_NOT_FOUND; recipe missing, already deleted, or retention expired.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+  /cookbook/tenants/{tenantSlug}/trash/{publicId}/restore:
+    post:
+      operationId: restoreDeletedRecipe
+      summary: Restore an unexpired recipe with its original slug and revisions; requires tenant recipe:delete.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - { name: tenantSlug, in: path, required: true, schema: { type: string } }
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Recipe restored. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: TENANT_NOT_FOUND or RECIPE_NOT_FOUND; recipe missing, already deleted, or retention expired.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}:
+    delete:
+      operationId: softDeleteRecipe
+      summary: Move a recipe into the trash bin; requires tenant recipe:delete.
+      description: Immediately hides all recipe content from ordinary access. Retention is snapshotted from the cookbook policy at deletion. The slug remains reserved until permanent cleanup. A startup and hourly cleanup removes expired recipes, all revisions and dependent history, and unshared images. Filesystem failures are retried through a durable queue.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      parameters:
+        - { name: tenantSlug, in: path, required: true, schema: { type: string } }
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204': { description: Recipe moved into trash. }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/TenantPermissionRequired' }
+        '404':
+          description: TENANT_NOT_FOUND or RECIPE_NOT_FOUND; recipe missing, already deleted, or retention expired.
+          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
     patch:
       operationId: updateRecipeMetadata
       summary: Updates immediate recipe metadata without creating a recipe draft or revision.
@@ -5790,6 +5858,12 @@ components:
           description,
         ]
       properties:
+        recipeRetentionDays:
+          type: integer
+          minimum: 1
+          maximum: 36500
+          default: 30
+          description: Trash retention for future deletions in this cookbook; omitted PATCH values retain the current setting. Requires tenant:manage.
         defaultVisibility: { type: string, enum: [PRIVATE, MEMBERS_ONLY, PUBLIC] }
         defaultDiscoverability: { type: string, enum: [DISCOVERABLE, UNLISTED] }
         showOnStartPage: { type: boolean }

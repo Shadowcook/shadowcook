@@ -18,6 +18,7 @@ const viewer: CookbookResponse = {
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
+  canDeleteRecipes: false,
   canCreateRecipes: false,
   canManageUsers: false,
   canManageIngredients: false,
@@ -31,6 +32,7 @@ test('Viewer has no Manage Cookbook button destination and every management deep
   const paths: string[] = [
     'manage',
     'manage/recipes',
+    'manage/trash',
     'manage/users',
     'manage/ingredients',
     'manage/units',
@@ -89,4 +91,16 @@ test('recipe update permission alone cannot open the creation editor', (): void 
     ),
     false,
   );
+});
+
+test('trash deep links require delete permission and support delete-only managers', (): void => {
+  const route: ReturnType<typeof managementRoute> = managementRoute('/cookbook/manage/trash');
+  assert.equal(route.editorPath, 'trash');
+  assert.equal(
+    isCookbookManagementAccessDenied({ ...viewer, canManageRecipes: true }, route),
+    true,
+  );
+  const manager: CookbookResponse = { ...viewer, canDeleteRecipes: true };
+  assert.equal(cookbookManagementPath(manager, 'cookbook'), '/cookbook/manage/trash');
+  assert.equal(isCookbookManagementAccessDenied(manager, route), false);
 });

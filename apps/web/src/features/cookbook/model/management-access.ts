@@ -7,6 +7,7 @@ export function cookbookManagementPath(
 ): string | null {
   const tenantPath: string = `/${encodeURIComponent(tenantSlug)}`;
   if (cookbook.canManageRecipes) return `${tenantPath}/manage/recipes`;
+  if (cookbook.canDeleteRecipes) return `${tenantPath}/manage/trash`;
   if (cookbook.canManageCategories) return `${tenantPath}/categories`;
   if (cookbook.canManageUsers) return `${tenantPath}/manage/settings`;
   if (cookbook.canManageServiceAccounts) return `${tenantPath}/manage/service-accounts`;
@@ -23,6 +24,8 @@ export function isCookbookManagementAccessDenied(
   switch (route.editorPath) {
     case null:
       return false;
+    case 'trash':
+      return cookbook.canDeleteRecipes !== true;
     case 'new':
     case 'import':
       return !cookbook.canCreateRecipes;

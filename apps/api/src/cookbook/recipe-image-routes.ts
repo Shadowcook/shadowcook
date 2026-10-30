@@ -29,14 +29,18 @@ export function registerRecipeImageRoutes(
   ensureDraft: EnsureDraft,
 ): void {
   let cleaning: boolean = false;
-  const cleanupTimer: NodeJS.Timeout = setInterval((): void => {
+  const cleanup: () => Promise<void> = async (): Promise<void> => {
     if (cleaning) return;
     cleaning = true;
-    void cleanupRecipeImages(pool, recipeMediaDirectory())
+    await cleanupRecipeImages(pool, recipeMediaDirectory())
       .catch((error: unknown): void => api.log.error(error))
       .finally((): void => {
         cleaning = false;
       });
+  };
+  api.addHook('onReady', cleanup);
+  const cleanupTimer: NodeJS.Timeout = setInterval((): void => {
+    void cleanup();
   }, 3_600_000);
   cleanupTimer.unref();
   api.addHook('onClose', async (): Promise<void> => {
@@ -153,7 +157,7 @@ export function registerRecipeImageRoutes(
        WHERE asset.public_id = $1 AND EXISTS (
          SELECT 1 FROM recipe_revision_media AS media
          INNER JOIN recipe_revision AS revision ON revision.id = media.recipe_revision_id
-         INNER JOIN recipe ON recipe.id = revision.recipe_id
+         INNER JOIN recipe ON recipe.id = revision.recipe_id AND recipe.deleted_at IS NULL
          INNER JOIN tenant ON tenant.id = recipe.tenant_id
          WHERE media.media_asset_id = asset.id AND tenant.disabled_at IS NULL AND (
            EXISTS (SELECT 1 FROM tenant_membership_role AS role

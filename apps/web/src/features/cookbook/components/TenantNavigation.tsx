@@ -7,6 +7,7 @@ interface TenantNavigationProperties {
   text: Translation;
   cookbook: CookbookResponse;
   activeView:
+    | 'trash'
     | 'none'
     | 'recipes'
     | 'drafts'
@@ -120,6 +121,18 @@ export default function TenantNavigation(properties: TenantNavigationProperties)
             href={`/${encodeURIComponent(tenantSlug)}/manage/units`}
           >
             {text.tenantNavigation.units}
+          </a>
+        ) : null}
+        {cookbook.canDeleteRecipes ? (
+          <a
+            className={
+              activeView === 'trash'
+                ? 'tenant-navigation__link tenant-navigation__link--active'
+                : 'tenant-navigation__link'
+            }
+            href={`/${encodeURIComponent(tenantSlug)}/manage/trash`}
+          >
+            {text.recipeTrash.title}
           </a>
         ) : null}
       </nav>

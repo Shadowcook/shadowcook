@@ -26,6 +26,7 @@ export async function pruneRecipeImageHistory(
      USING recipe_revision AS revision
      WHERE revision.id = media.recipe_revision_id AND revision.recipe_id = $1
        AND revision.status = 'ARCHIVED' AND media.usage_kind = 'COVER'
+       AND EXISTS (SELECT 1 FROM recipe WHERE recipe.id = revision.recipe_id AND recipe.deleted_at IS NULL)
        AND NOT EXISTS (SELECT 1 FROM retained_images WHERE media_asset_id = media.media_asset_id)
      RETURNING media.media_asset_id`,
     [recipeId, retainedPublishedImages],

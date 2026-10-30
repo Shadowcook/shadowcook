@@ -23,7 +23,13 @@ interface MessageDialogBaseProperties {
 export type MessageDialogProperties = MessageDialogBaseProperties &
   (
     | { kind: 'information' | 'error'; dismissLabel?: string }
-    | { kind: 'confirmation'; confirmLabel?: string; cancelLabel?: string; onConfirm: () => void }
+    | {
+        kind: 'confirmation';
+        confirmLabel?: string;
+        cancelLabel?: string;
+        confirmDisabled?: boolean;
+        onConfirm: () => void;
+      }
   );
 
 const icons: Readonly<Record<DialogKind, IconDefinition>> = {
@@ -67,7 +73,11 @@ export default function MessageDialog(properties: MessageDialogProperties): JSX.
             >
               {properties.cancelLabel ?? properties.text.cancel}
             </button>
-            <button type="button" disabled={properties.busy} onClick={properties.onConfirm}>
+            <button
+              type="button"
+              disabled={properties.busy || properties.confirmDisabled}
+              onClick={properties.onConfirm}
+            >
               {properties.confirmLabel ?? properties.text.confirm}
             </button>
           </>
