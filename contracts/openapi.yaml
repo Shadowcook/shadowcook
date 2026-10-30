@@ -3,6 +3,110 @@ info:
   title: Shadowcook API
   version: 0.1.0
 paths:
+  /cookbook/tenants/{tenantSlug}/recipes/{publicId}/image:
+    parameters:
+      - { name: tenantSlug, in: path, required: true, schema: { type: string } }
+      - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+    put:
+      operationId: setRecipeImage
+      summary: Replace the draft cover image, creating a draft when needed. Requires recipe:update.
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [image]
+              properties:
+                image:
+                  type: string
+                  maxLength: 1400000
+                  contentEncoding: base64
+                  description: Base64 JPEG, exactly 1200 by 800 pixels. Server strips metadata and re-encodes. Maximum stored main image 500000 bytes; thumbnail 60000 bytes.
+      responses:
+        '204': { description: Image saved in draft }
+        '400':
+          description: INVALID_RECIPE_IMAGE or malformed JSON
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/ApiError' }
+                  - { $ref: '#/components/schemas/RecipeImageRequestError' }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          description: Tenant permission required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: Recipe or tenant not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '413':
+          description: Request exceeds 1410000 bytes
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecipeImageRequestError' }
+        '415':
+          description: Unsupported request content type
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/RecipeImageRequestError' }
+    delete:
+      operationId: removeRecipeImage
+      summary: Remove the draft cover image, creating a draft when needed. Requires recipe:update.
+      security:
+        - sessionCookie: []
+        - bearerAuth: []
+      responses:
+        '204': { description: Image removed from draft }
+        '401':
+          description: Authentication required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          description: Tenant permission required
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: Recipe or tenant not found
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+  /cookbook/media/{publicId}:
+    get:
+      operationId: getRecipeImage
+      summary: Read a cover image with recipe visibility, editor permission or a valid share token.
+      security:
+        - {}
+        - sessionCookie: []
+        - bearerAuth: []
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: size, in: query, schema: { type: string, enum: [thumbnail] } }
+        - { name: shareToken, in: query, schema: { type: string } }
+      responses:
+        '200':
+          description: JPEG image (1200 by 800 pixels), or thumbnail (360 by 240 pixels). Private, no-store cache policy.
+          content:
+            image/jpeg:
+              schema: { type: string, format: binary }
+        '404':
+          description: Image absent or inaccessible
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /cookbook/tenants/{tenantSlug}/recipe-imports/preview:
     post:
       operationId: previewRecipeImport
@@ -2960,6 +3064,47 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CookbookTenantSelection'
+  /admin/media-settings:
+    get:
+      operationId: getInstanceMediaSettings
+      summary: Returns instance-wide recipe-image retention settings.
+      description: Requires instance:administer for a user principal.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      responses:
+        '200':
+          description: Persisted media settings. The initial limit is five published images per recipe.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/InstanceMediaSettings' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
+    put:
+      operationId: updateInstanceMediaSettings
+      summary: Updates instance-wide recipe-image retention settings.
+      description: >-
+        Requires instance:administer for a user principal. Zero preserves unlimited published
+        image history; positive values include the current published image. The active draft
+        image is protected separately. Changes apply on the next publication or hourly cleanup
+        without a process restart. Unlimited history does not disable orphan-media cleanup.
+        Increasing the limit cannot restore already deleted images.
+      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/InstanceMediaSettings' }
+      responses:
+        '204': { description: Media settings saved. }
+        '400':
+          description: INVALID_MEDIA_SETTINGS; the limit must be a non-negative integer.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
   /admin/frontpage-settings:
     get:
       operationId: getInstanceFrontpageSettings
@@ -3038,6 +3183,10 @@ paths:
         Requires tenant:manage in the selected enabled cookbook and a completed sign-in.
         Reads one consistent database snapshot without pagination or visibility filtering.
         The ZIP contains one UTF-8 cookbook.json file conforming to CookbookExport.
+        Each revision embeds its cover JPEG as Base64 in image, or null when absent.
+        Images include drafts and retained archived covers; expired historical references are null.
+        No external image URLs or storage paths
+        are needed. Thumbnails are omitted and can be regenerated from the embedded JPEG.
         References use public IDs and revision-scoped step, variant, and usage keys;
         numeric quantities and conversion factors are decimal strings without precision loss.
         Operational credentials, accounts, memberships, live sharing grants, and cryptographic
@@ -3068,6 +3217,18 @@ paths:
           description: TENANT_PERMISSION_REQUIRED or PASSWORD_CHANGE_REQUIRED.
           content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
         '404': { $ref: '#/components/responses/TenantNotFound' }
+        '500':
+          description: Export failed, including a missing cover image or checksum mismatch. No archive is returned.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [statusCode, error, message]
+                properties:
+                  statusCode: { type: integer, const: 500 }
+                  code: { type: string }
+                  error: { type: string }
+                  message: { type: string }
   /cookbook/tenants/{tenantSlug}/recipe-policy:
     get:
       operationId: getTenantRecipePolicy
@@ -3432,6 +3593,15 @@ paths:
     post:
       operationId: publishRecipeDraft
       summary: Publishes the current draft when it has at least one category.
+      description: >-
+        Retains the configured number of most recently published distinct cover-image assets per recipe (default five; zero means unlimited),
+        including the current cover when present. Repeated publication of the same asset
+        consumes one slot. Cover references outside this window are removed from archived
+        revisions; all recipe revisions and text remain available. The active draft image
+        and assets referenced elsewhere remain protected. Newly unreferenced expired image
+        and thumbnail files are removed after commit. Existing histories are also checked
+        by hourly maintenance. Historical detail and export responses return null for
+        expired image references.
       security: [{ sessionCookie: [] }]
       parameters:
         [
@@ -5212,12 +5382,25 @@ components:
         draft_revision_public_id: { type: [string, 'null'], format: uuid }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+    ExportRecipeImage:
+      type: object
+      additionalProperties: false
+      required: [content_type, encoding, data]
+      properties:
+        content_type: { type: string, const: image/jpeg }
+        encoding: { type: string, const: base64 }
+        data:
+          type: string
+          contentEncoding: base64
+          contentMediaType: image/jpeg
+          description: Exact stored 1200 by 800 JPEG bytes, encoded as Base64 without a data URL prefix. The thumbnail is not included.
     ExportRevision:
       description: Top-level metadata and diet project the selected variant, or the default variant when no selection exists. Legacy recipe writes of these fields update the default variant only.
       type: object
       additionalProperties: false
       required:
         [
+          image,
           public_id,
           recipe_public_id,
           revision_no,
@@ -5234,6 +5417,11 @@ components:
           diet,
         ]
       properties:
+        image:
+          description: Embedded cover image for this revision. Null when absent or expired under the configured image-retention policy. Older version 1 archives may omit this field.
+          oneOf:
+            - { $ref: '#/components/schemas/ExportRecipeImage' }
+            - { type: 'null' }
         metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
         diet: { $ref: '#/components/schemas/RecipeDiet' }
         public_id: { type: string, format: uuid }
@@ -5608,6 +5796,17 @@ components:
         frontpageRecipeCount: { type: integer, minimum: 1, maximum: 100 }
         frontpageHeading: { type: [string, 'null'], minLength: 1, maxLength: 80 }
         description: { type: [string, 'null'], minLength: 1, maxLength: 280 }
+    InstanceMediaSettings:
+      type: object
+      additionalProperties: false
+      required: [maxPublishedRecipeImages]
+      properties:
+        maxPublishedRecipeImages:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          default: 5
+          description: Maximum distinct published cover assets per recipe, including the current image. Zero means unlimited. The active draft image is excluded from this count.
     InstanceFrontpageSettings:
       type: object
       additionalProperties: false
@@ -5765,6 +5964,9 @@ components:
           updatedAt,
         ]
       properties:
+        image_url:
+          type: [string, 'null']
+          description: Same-origin media URL; shared responses include the share token. Null when no cover image exists or its historical reference has expired under the configured image-retention policy.
         metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
         diet: { $ref: '#/components/schemas/RecipeDiet' }
         createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
@@ -5814,6 +6016,9 @@ components:
           variants,
         ]
       properties:
+        image_url:
+          type: [string, 'null']
+          description: Same-origin media URL; shared responses include the share token. Null when no cover image exists or its historical reference has expired under the configured image-retention policy.
         publicId: { type: string, format: uuid }
         version: { type: integer, minimum: 1 }
         status: { type: string, enum: [PUBLISHED, ARCHIVED] }
@@ -5934,6 +6139,9 @@ components:
           updatedAt,
         ]
       properties:
+        image_url:
+          type: [string, 'null']
+          description: Same-origin media URL; shared responses include the share token. Null when no cover image exists or its historical reference has expired under the configured image-retention policy.
         metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
         diet: { $ref: '#/components/schemas/RecipeDiet' }
         createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
@@ -6203,6 +6411,9 @@ components:
       additionalProperties: false
       required: [public_id, slug, title, summary, diet, category_public_ids, variants]
       properties:
+        image_url:
+          type: [string, 'null']
+          description: Same-origin media URL; shared responses include the share token. Null when no cover image exists or its historical reference has expired under the configured image-retention policy.
         public_id:
           type: string
           format: uuid
@@ -6273,6 +6484,9 @@ components:
           updatedAt,
         ]
       properties:
+        image_url:
+          type: [string, 'null']
+          description: Same-origin media URL; shared responses include the share token. Null when no cover image exists or its historical reference has expired under the configured image-retention policy.
         metadata: { $ref: '#/components/schemas/RecipeContentMetadata' }
         diet: { $ref: '#/components/schemas/RecipeDiet' }
         createdAt: { $ref: '#/components/schemas/RecipeCreatedAt' }
@@ -6608,6 +6822,14 @@ components:
       properties:
         stepId: { type: string, format: uuid }
         state: { type: string, enum: [INCLUDE] }
+    RecipeImageRequestError:
+      type: object
+      required: [statusCode, code, error, message]
+      properties:
+        statusCode: { type: integer, enum: [400, 413, 415] }
+        code: { type: string }
+        error: { type: string }
+        message: { type: string }
     ApiError:
       type: object
       additionalProperties: false
@@ -6621,6 +6843,10 @@ components:
             - INSTANCE_PERMISSION_REQUIRED
             - TENANT_PERMISSION_REQUIRED
             - TENANT_NOT_FOUND
+            - INVALID_MEDIA_SETTINGS
+            - INVALID_RECIPE_IMAGE
+            - IMAGE_NOT_FOUND
+            - FST_ERR_CTP_BODY_TOO_LARGE
             - INVALID_REPORT
             - INVALID_REPORT_SETTINGS
             - INVALID_REPORT_FILTER

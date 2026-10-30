@@ -2,6 +2,7 @@ import type { Pool, PoolClient, QueryResult, QueryResultRow } from 'pg';
 import { unitTranslationsSql } from '../unit-translations.js';
 import { revisionContributorNamesSql } from './recipe-contributors.js';
 import { recipeMetadataSql, variantFactsSql } from './recipe-facts.js';
+import { exportRevisionImages } from './export-images.js';
 import { exportImportSources } from './export-import-sources.js';
 import type {
   CookbookExport,
@@ -11,6 +12,7 @@ import type {
   ExportIngredientAlias,
   ExportIngredientUsage,
   ExportRecipe,
+  ExportRecipeImage,
   ExportRevision,
   ExportStep,
   ExportUnit,
@@ -84,7 +86,9 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
        WHERE recipe.tenant_id = $1 ORDER BY recipe.public_id`,
       tenantId,
     );
-    const revisions: ExportRevision[] = await exportRows<ExportRevision>(
+    const revisionRows: Omit<ExportRevision, 'image'>[] = await exportRows<
+      Omit<ExportRevision, 'image'>
+    >(
       client,
       `SELECT revision.public_id, recipe.public_id AS recipe_public_id,
         revision.revision_no, revision.status, revision.title, revision.summary, revision.version, ${recipeMetadataSql('revision')},
@@ -100,6 +104,16 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
        LEFT JOIN service_account ON service_account.principal_id = revision.created_by_principal_id
        WHERE recipe.tenant_id = $1 ORDER BY recipe.public_id, revision.revision_no`,
       tenantId,
+    );
+    const imagesByRevision: Map<string, ExportRecipeImage> = await exportRevisionImages(
+      client,
+      tenantId,
+    );
+    const revisions: ExportRevision[] = revisionRows.map(
+      (revision: Omit<ExportRevision, 'image'>): ExportRevision => ({
+        ...revision,
+        image: imagesByRevision.get(revision.public_id) ?? null,
+      }),
     );
     const variants: ExportVariant[] = await exportRows<ExportVariant>(
       client,

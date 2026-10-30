@@ -510,6 +510,40 @@ export const de: Translation = {
     invalidParent: 'Die ausgewählte übergeordnete Kategorie ist ungültig.',
     accessDenied: 'Du hast keine Berechtigung, Kategorien in diesem Kochbuch zu verwalten.',
   },
+  adminMedia: {
+    navigation: 'Medien',
+    title: 'Medieneinstellungen',
+    description:
+      'Lege fest, wie viele veröffentlichte Rezeptbilder die Instanz pro Rezept aufbewahrt.',
+    limit: 'Veröffentlichte Bilder pro Rezept',
+    limitHelp:
+      'Mit 1 oder mehr begrenzt du die Anzahl einschließlich des aktuellen veröffentlichten Bildes. 0 bedeutet unbegrenzt. Das aktive Entwurfsbild bleibt zusätzlich geschützt.',
+    applyHelp:
+      'Änderungen gelten beim nächsten Veröffentlichen oder bei der stündlichen Bereinigung. Alte Rezeptversionen bleiben ohne abgelaufene Bilder lesbar. Eine höhere Grenze stellt bereits gelöschte Bilder nicht wieder her.',
+    save: 'Medieneinstellungen speichern',
+    saved: 'Medieneinstellungen gespeichert.',
+    invalidLimit: 'Gib eine ganze Zahl von 0 bis 2.147.483.647 ein. 0 bedeutet unbegrenzt.',
+  },
+  recipeImage: {
+    title: 'Rezeptbild',
+    alt: 'Rezeptbild',
+    help: 'Ein Bild pro Rezept. JPEG, PNG oder WebP bis 30 MB und 40 Megapixel. Den Ausschnitt wählst du hier; gespeichert werden 1200 × 800 Pixel.',
+    select: 'Bild auswählen',
+    remove: 'Bild entfernen',
+    crop: 'Bild anpassen',
+    cropHelp:
+      'Verschiebe das Bild direkt in der Vorschau oder passe Zoom und Position mit den Reglern an. Zoome heraus, um Platz um das Bild zu lassen; freie Flächen erhalten die Kochbuch-Hintergrundfarbe. Nur der sichtbare Ausschnitt wird hochgeladen. Veröffentliche den Entwurf, damit das Bild sichtbar wird.',
+    cancel: 'Abbrechen',
+    save: 'Bild im Entwurf speichern',
+    saving: 'Wird gespeichert…',
+    preview: 'Vorschau des Bildausschnitts',
+    zoom: 'Zoom',
+    horizontal: 'Horizontale Position',
+    vertical: 'Vertikale Position',
+    invalidFile: 'Bitte wähle ein JPEG-, PNG- oder WebP-Bild bis 30 MB und 40 Megapixel.',
+    invalidImage:
+      'Das Bild konnte nicht verarbeitet werden. Bitte versuche ein anderes Bild oder einen anderen Ausschnitt.',
+  },
   recipeEditor: {
     title: 'Rezept bearbeiten',
     create: 'Rezept anlegen',
@@ -733,7 +767,7 @@ export const de: Translation = {
     download: 'Kochbuch herunterladen',
     downloading: 'Download wird vorbereitet…',
     description:
-      'Alle Rezepte, Entwürfe, Rezeptversionen, Kategorien, Zutaten, Einheiten und Kochbucheinstellungen als gezippte JSON-Datei herunterladen.',
+      'Alle Rezepte mit Bildern, Entwürfe, Rezeptversionen, Kategorien, Zutaten, Einheiten und Kochbucheinstellungen als gezippte JSON-Datei herunterladen.',
     errorTitle: 'Kochbuch-Download fehlgeschlagen',
     failed: 'Das Kochbuch konnte nicht heruntergeladen werden. Bitte versuche es erneut.',
     authenticationRequired: 'Bitte melde dich erneut an, um dein Kochbuch herunterzuladen.',

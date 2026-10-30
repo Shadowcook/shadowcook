@@ -1,3 +1,4 @@
+import AdminMediaSettings from './components/AdminMediaSettings';
 import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
 import AdminMailSettings from './components/AdminMailSettings';
@@ -202,6 +203,19 @@ export default function AdminArea({
               </a>
               <a
                 className={
+                  currentPath === '/admin/settings/media'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/media"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/media')
+                }
+              >
+                {text.adminMedia.navigation}
+              </a>
+              <a
+                className={
                   currentPath === '/admin/settings/frontpage'
                     ? 'admin-navigation__sublink admin-navigation__sublink--active'
                     : 'admin-navigation__sublink'
@@ -313,6 +327,7 @@ function page(
   if (path === '/admin/settings/registration') return <AdminRegistrationSettings locale={locale} />;
   if (path === '/admin/settings/cookbook-slug-blocked-terms')
     return <AdminCookbookSlugBlockedTerms locale={locale} />;
+  if (path === '/admin/settings/media') return <AdminMediaSettings locale={locale} />;
   if (path === '/admin/settings/frontpage') return <AdminFrontpageSettings locale={locale} />;
   if (path === '/admin/settings/legal-documents') return <AdminLegalDocuments locale={locale} />;
   if (path === '/admin/tenants/new') return <AdminTenantCreate locale={locale} />;
@@ -344,6 +359,16 @@ function page(
         >
           <span>{text.admin.cookbookSlugBlockedTerms}</span>
           <strong>{text.admin.cookbookSlugBlockedTermsTitle}</strong>
+        </a>
+        <a
+          className="admin-card"
+          href="/admin/settings/media"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/media')
+          }
+        >
+          <span>{text.adminMedia.navigation}</span>
+          <strong>{text.adminMedia.title}</strong>
         </a>
         <a
           className="admin-card"

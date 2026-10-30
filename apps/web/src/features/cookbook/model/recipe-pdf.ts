@@ -38,8 +38,9 @@ export function createRecipePdfDefinition(
   text: Translation,
   linkContext?: RecipePdfLinkContext,
   logoDataUrl?: string,
+  imageDataUrl?: string,
 ): TDocumentDefinitions {
-  const content: Content[] = createRecipePdfCover(recipe, text);
+  const content: Content[] = createRecipePdfCover(recipe, text, imageDataUrl);
   const stepRows: RecipePdfStepRow[] = recipe.steps.map(
     (step: RecipeStep, index: number): RecipePdfStepRow => [
       {

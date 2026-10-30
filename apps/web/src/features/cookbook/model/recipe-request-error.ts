@@ -5,6 +5,8 @@ export function recipeRequestError(error: unknown, text: Translation): string {
   if (!(error instanceof ApiRequestError)) return text.recipeEditor.connectionFailed;
 
   const messages: Readonly<Record<string, string>> = {
+    INVALID_RECIPE_IMAGE: text.recipeImage.invalidImage,
+    FST_ERR_CTP_BODY_TOO_LARGE: text.recipeImage.invalidImage,
     RECIPE_CONFLICT: text.recipeEditor.slugConflict,
     INVALID_RECIPE: text.recipeEditor.invalidRecipe,
     INVALID_RECIPE_CATEGORY: text.recipeEditor.invalidCategory,

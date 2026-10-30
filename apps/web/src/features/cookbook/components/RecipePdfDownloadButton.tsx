@@ -28,7 +28,13 @@ export default function RecipePdfDownloadButton({
       const pdfDownload: typeof import('../model/download-recipe-pdf') =
         await import('../model/download-recipe-pdf');
       await pdfDownload.downloadRecipePdf(recipe, text, tenantSlug);
-    } catch {
+    } catch (error: unknown) {
+      console.error({
+        time: new Date().toISOString(),
+        component: 'recipe-pdf',
+        event: 'download-failed',
+        error,
+      });
       setFailed(true);
     } finally {
       setBusy(false);

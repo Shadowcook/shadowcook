@@ -51,6 +51,9 @@ export default defineConfig({
     allowedDomains: allowedPublicDomain(process.env.PUBLIC_WEB_ORIGIN),
   },
   vite: {
+    optimizeDeps: {
+      include: ['pdfmake/build/pdfmake.js', 'pdfmake/build/vfs_fonts.js'],
+    },
     server: {
       proxy: {
         '/api': {

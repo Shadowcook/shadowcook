@@ -59,7 +59,14 @@ export interface ExportRecipe {
   updated_at: string;
 }
 
+export interface ExportRecipeImage {
+  content_type: 'image/jpeg';
+  encoding: 'base64';
+  data: string;
+}
+
 export interface ExportRevision {
+  image: ExportRecipeImage | null;
   metadata: RecipeContentMetadata;
   diet: RecipeDiet | null;
   public_id: string;

@@ -1,3 +1,4 @@
+import { registerMediaSettingsRoutes } from './admin/media-settings-routes.js';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
 import { registerAuthenticationRoutes } from './auth/routes.js';
@@ -80,6 +81,7 @@ export function createApi(
   registerAdminEmailTemplateRoutes(api, pool);
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
   registerFrontpageSettingsRoutes(api, pool);
+  registerMediaSettingsRoutes(api, pool);
   registerLegalDocumentRoutes(api, pool);
   registerTenantRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerUnitRoutes(api, pool);

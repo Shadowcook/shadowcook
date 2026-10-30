@@ -24,6 +24,7 @@ export interface RecipeStep {
 }
 
 export interface RecipeDetail extends RecipeFacts {
+  image_url?: string | null;
   public_id: string;
   cookbook_name: string;
   version: number;
@@ -64,6 +65,7 @@ export interface Category {
 }
 
 export interface Recipe {
+  image_url?: string | null;
   public_id: string;
   slug: string;
   title: string;
@@ -105,6 +107,7 @@ export interface CookbookFrontpage {
 }
 
 export interface EditableRecipe extends RecipeFacts {
+  image_url?: string | null;
   publicId: string;
   slug: string;
   title: string;

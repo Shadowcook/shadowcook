@@ -16,6 +16,9 @@ importers:
 
   apps/api:
     dependencies:
+      sharp:
+        specifier: 0.34.5
+        version: 0.34.5
       '@fastify/cors':
         specifier: ^11.1.0
         version: 11.3.0

@@ -495,6 +495,38 @@ export const en: Translation = {
     invalidParent: 'The selected parent category is invalid.',
     accessDenied: 'You do not have permission to manage categories in this cookbook.',
   },
+  adminMedia: {
+    navigation: 'Media',
+    title: 'Media settings',
+    description: 'Configure how many published recipe images the instance retains per recipe.',
+    limit: 'Published images per recipe',
+    limitHelp:
+      'Use 1 or more to set a limit, including the current published image. Use 0 for unlimited history. The active draft image is always protected separately.',
+    applyHelp:
+      'Changes apply on the next publication or hourly cleanup. Older recipe versions remain readable without expired images. Increasing the limit does not restore images that have already been deleted.',
+    save: 'Save media settings',
+    saved: 'Media settings saved.',
+    invalidLimit: 'Enter a whole number from 0 to 2,147,483,647. Use 0 for unlimited history.',
+  },
+  recipeImage: {
+    title: 'Recipe image',
+    alt: 'Recipe image',
+    help: 'One image per recipe. JPEG, PNG or WebP up to 30 MB and 40 megapixels. Choose the crop here; the saved image is 1200 × 800 pixels.',
+    select: 'Choose image',
+    remove: 'Remove image',
+    crop: 'Adjust image',
+    cropHelp:
+      'Drag the image in the preview or adjust zoom and position with the sliders. Zoom out to leave space around the image; empty areas use the cookbook background color. Only the visible crop will be uploaded. Publish the draft to make the image visible.',
+    cancel: 'Cancel',
+    save: 'Save image to draft',
+    saving: 'Saving…',
+    preview: 'Image crop preview',
+    zoom: 'Zoom',
+    horizontal: 'Horizontal position',
+    vertical: 'Vertical position',
+    invalidFile: 'Please choose a JPEG, PNG or WebP image up to 30 MB and 40 megapixels.',
+    invalidImage: 'The image could not be processed. Try another image or crop.',
+  },
   recipeEditor: {
     title: 'Edit recipe',
     create: 'Create recipe',
@@ -709,7 +741,7 @@ export const en: Translation = {
     download: 'Download Cookbook',
     downloading: 'Preparing download…',
     description:
-      'Download all recipes, drafts, recipe history, categories, ingredients, units, and cookbook settings as zipped JSON.',
+      'Download all recipes with images, drafts, recipe history, categories, ingredients, units, and cookbook settings as zipped JSON.',
     errorTitle: 'Cookbook download failed',
     failed: 'The cookbook could not be downloaded. Please try again.',
     authenticationRequired: 'Please sign in again to download your cookbook.',

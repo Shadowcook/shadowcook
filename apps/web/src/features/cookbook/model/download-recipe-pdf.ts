@@ -16,8 +16,17 @@ export async function downloadRecipePdf(
   const linkContext: RecipePdfLinkContext | undefined =
     tenantSlug === undefined ? undefined : { tenantSlug, origin: window.location.origin };
   const logoDataUrl: string = await loadRecipePdfLogo();
+  let imageDataUrl: string | undefined;
+  if (recipe.image_url) {
+    const response: Response = await fetch(recipe.image_url, { credentials: 'same-origin' });
+    if (!response.ok) throw new Error('PDF_IMAGE_LOAD_FAILED');
+    const bytes: Uint8Array = new Uint8Array(await response.arrayBuffer());
+    let binary: string = '';
+    for (const byte of bytes) binary += String.fromCharCode(byte);
+    imageDataUrl = `data:image/jpeg;base64,${btoa(binary)}`;
+  }
   const content: Blob = await pdfMake
-    .createPdf(createRecipePdfDefinition(recipe, text, linkContext, logoDataUrl))
+    .createPdf(createRecipePdfDefinition(recipe, text, linkContext, logoDataUrl, imageDataUrl))
     .getBlob();
   const url: string = URL.createObjectURL(content);
   const link: HTMLAnchorElement = document.createElement('a');

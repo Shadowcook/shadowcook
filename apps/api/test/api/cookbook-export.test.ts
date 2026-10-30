@@ -1,5 +1,10 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, rename, rm, writeFile } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import sharp from 'sharp';
 import { crc32, inflateRawSync } from 'node:zlib';
 import type { FastifyInstance, LightMyRequestResponse } from 'fastify';
 import type { PoolClient } from 'pg';
@@ -36,8 +41,15 @@ let cookbook: OwnedCookbook;
 let owner: TestUser;
 let ownerCookie: string;
 let otherCookbook: TestTenant;
+let mediaDirectory: string;
+let publishedImage: Buffer;
+let draftImage: Buffer;
+let publishedStorageKey: string;
+const previousMediaDirectory: string | undefined = process.env.SHADOWCOOK_MEDIA_DIRECTORY;
 
 before(async (): Promise<void> => {
+  mediaDirectory = await mkdtemp(join(tmpdir(), 'shadowcook-export-images-'));
+  process.env.SHADOWCOOK_MEDIA_DIRECTORY = mediaDirectory;
   database = await createDisposablePostgresDatabase();
   api = createTestApi(database.pool);
   await api.ready();
@@ -171,11 +183,41 @@ before(async (): Promise<void> => {
   ownerCookie = await login(owner);
   otherCookbook = await createTestTenant(database.pool, 'other-export-cookbook');
   await createTestCategory(database.pool, otherCookbook.id, 'Foreign category', 'foreign-category');
+  await database.pool.query(
+    `WITH foreign_recipe AS (
+       INSERT INTO recipe (tenant_id, lineage_public_id, slug)
+       VALUES ($1, gen_random_uuid(), 'foreign-image-recipe') RETURNING id
+     ), foreign_revision AS (
+       INSERT INTO recipe_revision (recipe_id, revision_no, status, title)
+       SELECT id, 1, 'DRAFT', 'Foreign image recipe' FROM foreign_recipe RETURNING id
+     ), foreign_asset AS (
+       INSERT INTO media_asset (tenant_id, storage_key, content_type, byte_size, checksum)
+       VALUES ($1, $2, 'image/jpeg', 0, $3) RETURNING id
+     )
+     INSERT INTO recipe_revision_media (recipe_revision_id, media_asset_id, usage_kind)
+     SELECT foreign_revision.id, foreign_asset.id, 'COVER' FROM foreign_revision CROSS JOIN foreign_asset`,
+    [otherCookbook.id, randomUUID(), Buffer.alloc(32)],
+  );
+  publishedImage = await sharp({
+    create: { width: 1200, height: 800, channels: 3, background: 'red' },
+  })
+    .jpeg()
+    .toBuffer();
+  draftImage = await sharp({
+    create: { width: 1200, height: 800, channels: 3, background: 'green' },
+  })
+    .jpeg()
+    .toBuffer();
+  publishedStorageKey = await seedImage(publishedImage, ['ARCHIVED', 'PUBLISHED']);
+  await seedImage(draftImage, ['DRAFT']);
 });
 
 after(async (): Promise<void> => {
   if (api !== undefined) await api.close();
   if (database !== undefined) await database.close();
+  if (mediaDirectory !== undefined) await rm(mediaDirectory, { recursive: true, force: true });
+  if (previousMediaDirectory === undefined) delete process.env.SHADOWCOOK_MEDIA_DIRECTORY;
+  else process.env.SHADOWCOOK_MEDIA_DIRECTORY = previousMediaDirectory;
 });
 
 test('download preserves private and unpublished content, full history and all portable references', async (): Promise<void> => {
@@ -250,6 +292,21 @@ test('download preserves private and unpublished content, full history and all p
   assert.equal(recipe.visibility_override, 'PRIVATE');
   assert.equal(revisions[0]!.title, 'Crème brûlée 🍲');
   assert.equal(revisions[0]!.summary, 'Nicht übersetzen');
+  for (const revision of revisions) {
+    assert.ok(revision.image);
+    assert.equal(revision.image.content_type, 'image/jpeg');
+    assert.equal(revision.image.encoding, 'base64');
+    assert.deepEqual(
+      Buffer.from(revision.image.data, 'base64'),
+      revision.status === 'DRAFT' ? draftImage : publishedImage,
+    );
+  }
+  assert.equal(
+    data.revisions.find(
+      (revision: ExportRevision): boolean => revision.title === 'Unpublished recipe',
+    )!.image,
+    null,
+  );
   assert.equal(revisions[0]!.author_display_name, 'Test user');
   assert.deepEqual(revisions[0]!.contributor_display_names, ['Test user']);
   for (const variant of data.variants) {
@@ -293,6 +350,32 @@ test('download preserves private and unpublished content, full history and all p
     json,
     /Foreign category|export-owner@example|password|token|principal_id|tenant_id|"id":/,
   );
+});
+
+test('missing or corrupted cover files fail the export without returning an incomplete archive', async (): Promise<void> => {
+  const imagePath: string = join(mediaDirectory, publishedStorageKey, 'image.jpg');
+  const savedPath: string = `${imagePath}.saved`;
+  await rename(imagePath, savedPath);
+  try {
+    const missing: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: exportPath(),
+      headers: { cookie: ownerCookie },
+    });
+    assert.equal(missing.statusCode, 500);
+    assert.match(missing.headers['content-type'] ?? '', /^application\/json/);
+    assert.equal(missing.headers['cache-control'], 'no-store');
+    await writeFile(imagePath, draftImage);
+    const corrupted: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: exportPath(),
+      headers: { cookie: ownerCookie },
+    });
+    assert.equal(corrupted.statusCode, 500);
+    assert.match(corrupted.headers['content-type'] ?? '', /^application\/json/);
+  } finally {
+    await rename(savedPath, imagePath);
+  }
 });
 
 test('export includes more than one recipe-management page', async (): Promise<void> => {
@@ -461,4 +544,24 @@ async function login(user: TestUser): Promise<string> {
   });
   assert.equal(response.statusCode, 200);
   return response.headers['set-cookie'] as string;
+}
+
+async function seedImage(bytes: Buffer, statuses: string[]): Promise<string> {
+  const storageKey: string = randomUUID();
+  await mkdir(join(mediaDirectory, storageKey));
+  // No thumbnail file: the export contains only the canonical JPEG.
+  await writeFile(join(mediaDirectory, storageKey, 'image.jpg'), bytes);
+  const asset: { rows: { id: string }[] } = await database.pool.query<{ id: string }>(
+    `INSERT INTO media_asset (tenant_id, storage_key, content_type, byte_size, checksum)
+     VALUES ($1, $2, 'image/jpeg', $3, $4) RETURNING id`,
+    [cookbook.id, storageKey, bytes.length, createHash('sha256').update(bytes).digest()],
+  );
+  await database.pool.query(
+    `INSERT INTO recipe_revision_media (recipe_revision_id, media_asset_id, usage_kind)
+     SELECT revision.id, $2, 'COVER' FROM recipe_revision AS revision
+     INNER JOIN recipe ON recipe.id = revision.recipe_id
+     WHERE recipe.tenant_id = $1 AND recipe.slug = 'creme-brulee' AND revision.status = ANY($3::text[])`,
+    [cookbook.id, asset.rows[0]!.id, statuses],
+  );
+  return storageKey;
 }

@@ -103,6 +103,15 @@ export default function RecipeDetailView({
       </div>
       <div className="recipe-detail__overview">
         <div className="recipe-detail__overview-content">
+          {recipe.image_url ? (
+            <img
+              className="recipe-detail__image"
+              src={recipe.image_url}
+              alt={text.recipeImage.alt}
+              width={1200}
+              height={800}
+            />
+          ) : null}
           {recipe.summary === null ? null : (
             <p className="recipe-detail__summary">{recipe.summary}</p>
           )}

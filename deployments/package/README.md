@@ -193,6 +193,40 @@ docker compose up -d
 outside version control and retain the same key with database backups: it is
 required to decrypt operational secrets stored in PostgreSQL.
 
+## Recipe image storage
+
+Both Compose variants store recipe images in the persistent, project-scoped
+`recipe_media` Docker volume, mounted at `/var/lib/shadowcook/media` in the API
+container. Like the bundled PostgreSQL volume, Docker manages its host location.
+The deployment `.env` does not configure a media host path.
+
+Instance administrators configure published image history at
+`/admin/settings/media`. The default retains five distinct published images per
+recipe plus its active draft image. Set a positive number to change the limit,
+or zero for unlimited published image history. Changes apply on the next
+publication or hourly cleanup; orphan-upload cleanup remains active. Raising
+the limit does not restore previously deleted images.
+
+Operators can configure an external storage backend through a Docker volume
+driver or a Compose override for `volumes.recipe_media`. A filesystem mounted on
+the host can back a volume configured with the local driver's bind options.
+Configure the backing storage before creating the volume and starting the API.
+Changing an existing backend requires copying existing images; it does not move
+them automatically. Manage external mounts through the volume configuration,
+rather than mounting directly over Docker-managed internal volume directories.
+See the [Docker volume documentation](https://docs.docker.com/engine/storage/volumes/).
+
+The API uses filesystem operations for reading and writing image files,
+creating and listing directories, reading file metadata, and recursively
+removing unused image directories. Storage must support these operations and
+provide access for API container UID/GID `1000:1000`. Shadowcook has no native
+S3 backend. An S3 filesystem or volume driver requires compatibility validation;
+S3 mounts do not necessarily provide full filesystem semantics. See the
+[Mountpoint for Amazon S3 documentation](https://docs.aws.amazon.com/AmazonS3/latest/userguide/mountpoint-usage.html).
+
+Back up the media volume or its external storage alongside the database and
+instance secret. The database backup script includes no image files.
+
 ## Database backup
 
 Run the backup script from the deployment directory:

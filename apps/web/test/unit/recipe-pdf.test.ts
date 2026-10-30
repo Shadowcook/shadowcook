@@ -36,6 +36,8 @@ const logoBytes: Buffer = readFileSync(
   new URL('../../src/assets/shadowcook-logo.png', import.meta.url),
 );
 const logoDataUrl: string = `data:image/png;base64,${logoBytes.toString('base64')}`;
+const coverBytes: Buffer = readFileSync(new URL('../fixtures/pdf-cover.jpg', import.meta.url));
+const coverDataUrl: string = `data:image/jpeg;base64,${coverBytes.toString('base64')}`;
 
 test('PDF covers render the localized vegan or vegetarian label and matching green icon below the title', async (): Promise<void> => {
   for (const text of [en, de]) {
@@ -468,14 +470,22 @@ test('PDF filenames identify the selected variant and remove unsafe filename cha
   assert.ok(!/[\u0000/\\:*?"<>|]/.test(recipePdfFilename(recipe)));
 });
 
-test('the browser downloads a real PDF and releases its temporary object URL', async (context: TestContext): Promise<void> => {
+test('the browser downloads a PDF with a JPEG cover and releases its temporary object URL', async (context: TestContext): Promise<void> => {
   const recipe: RecipeDetail = pdfRecipeFixture();
+  recipe.image_url = '/api/cookbook/media/00000000-0000-4000-8000-000000000001';
+  const requests: string[] = [];
   context.mock.method(
     globalThis,
     'fetch',
     async (url: string, options: RequestInit): Promise<Response> => {
-      assert.equal(url, '/shadowcook-logo.png');
+      requests.push(url);
       assert.equal(options.credentials, 'same-origin');
+      if (url === recipe.image_url) {
+        return new Response(new Uint8Array(coverBytes), {
+          headers: { 'content-type': 'image/jpeg' },
+        });
+      }
+      assert.equal(url, '/shadowcook-logo.png');
       return new Response(new Uint8Array(logoBytes), { headers: { 'content-type': 'image/png' } });
     },
   );
@@ -542,6 +552,7 @@ test('the browser downloads a real PDF and releases its temporary object URL', a
     (): void => {},
   );
   await downloadRecipePdf(recipe, de, 'ursula');
+  assert.deepEqual(requests, ['/shadowcook-logo.png', recipe.image_url]);
   assert.ok(clicked);
   assert.ok(removed);
   assert.equal(anchor.download, 'kaesekuchen-ohne-zucker.pdf');
@@ -554,8 +565,30 @@ test('the browser downloads a real PDF and releases its temporary object URL', a
       .toString(),
     '%PDF-',
   );
+  assert.ok(Buffer.from(await blob.arrayBuffer()).includes(Buffer.from('/DCTDecode')));
   assert.equal(revoke.mock.callCount(), 0);
   assert.ok(cleanup);
   cleanup();
   assert.equal(revoke.mock.callCount(), 1);
+});
+
+test('recipe PDF embeds a supplied cover image into a valid PDF', async (): Promise<void> => {
+  const recipe: RecipeDetail = pdfRecipeFixture();
+  recipe.image_url = '/api/cookbook/media/00000000-0000-4000-8000-000000000001';
+  const definition: TDocumentDefinitions = createRecipePdfDefinition(
+    recipe,
+    en,
+    undefined,
+    undefined,
+    coverDataUrl,
+  );
+  const serialized: string = JSON.stringify(definition.content);
+  assert.ok(serialized.includes(coverDataUrl));
+  const blob: Blob = await pdfMake.createPdf(definition).getBlob();
+  assert.equal(
+    Buffer.from(await blob.arrayBuffer())
+      .subarray(0, 5)
+      .toString(),
+    '%PDF-',
+  );
 });

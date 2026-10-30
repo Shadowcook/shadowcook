@@ -78,3 +78,6 @@ development-content-seed.json
 deployments/package/secrets/
 /development-content-seed-empty.json
 assets/fontawesome/
+
+# Recipe image storage
+var/media/

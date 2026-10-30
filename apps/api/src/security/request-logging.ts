@@ -38,7 +38,10 @@ function redactRequestUrl(url: string): string {
   if (queryIndex === -1) return safePathname;
 
   const parameters: URLSearchParams = new URLSearchParams(url.slice(queryIndex + 1));
-  if (!parameters.has('access_token')) return `${safePathname}${url.slice(queryIndex)}`;
-  parameters.set('access_token', '[REDACTED]');
+  if (!parameters.has('access_token') && !parameters.has('shareToken'))
+    return `${safePathname}${url.slice(queryIndex)}`;
+  for (const key of ['access_token', 'shareToken']) {
+    if (parameters.has(key)) parameters.set(key, '[REDACTED]');
+  }
   return `${safePathname}?${parameters.toString()}`;
 }

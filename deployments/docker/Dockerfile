@@ -50,6 +50,7 @@ LABEL net.shadowcook.deployment="true" \
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
 ENV PORT=3000
+ENV SHADOWCOOK_MEDIA_DIRECTORY=/var/lib/shadowcook/media
 
 WORKDIR /workspace/apps/api
 
@@ -57,6 +58,8 @@ COPY --from=build /runtime/api ./
 COPY --from=build /workspace/apps/api/dist ./dist
 COPY --from=build /workspace/apps/api/skills ./skills
 COPY --from=build /workspace/initial-deployment-seed.json /workspace/initial-deployment-seed.json
+
+RUN mkdir -p /var/lib/shadowcook/media && chown node:node /var/lib/shadowcook/media
 
 USER node
 

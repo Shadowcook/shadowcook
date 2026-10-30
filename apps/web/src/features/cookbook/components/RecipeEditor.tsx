@@ -1,3 +1,4 @@
+import RecipeImageEditor from './RecipeImageEditor';
 import { useEffect, useId, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
@@ -84,7 +85,8 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
   const [isSavingSteps, setIsSavingSteps] = useState<boolean>(false);
   const [stepsActionsContainer, setStepsActionsContainer] = useState<HTMLDivElement | null>(null);
   const draftFormId: string = useId();
-  const isBusy: boolean = isSaving || isSavingSteps;
+  const [isSavingImage, setIsSavingImage] = useState<boolean>(false);
+  const isBusy: boolean = isSaving || isSavingSteps || isSavingImage;
   const [tab, setTab] = useState<'recipe' | 'steps' | 'variants' | 'revisions'>('recipe');
   const [variantsVersion, setVariantsVersion] = useState<number>(0);
   const [shareLinks, setShareLinks] = useState<RecipeShareLink[]>([]);
@@ -431,6 +433,26 @@ export default function RecipeEditor(properties: RecipeEditorProperties): JSX.El
       </RecipeEditorActionBar>
       {recipe !== null && recipe.isDraft && form.categoryPublicIds.length === 0 ? (
         <p className="hint">{text.recipeEditor.publishNeedsCategory}</p>
+      ) : null}
+      {tab === 'recipe' && recipe !== null ? (
+        <RecipeImageEditor
+          text={text}
+          tenantSlug={properties.tenantSlug}
+          publicId={recipe.publicId}
+          imageUrl={recipe.image_url ?? null}
+          disabled={isBusy}
+          onBusy={setIsSavingImage}
+          onChanged={async (): Promise<void> => {
+            setRecipe((current: EditableRecipe | null): EditableRecipe | null =>
+              current === null ? null : { ...current, isDraft: true },
+            );
+            const updated: EditableRecipe = await request<EditableRecipe>(
+              `/cookbook/tenants/${encodeURIComponent(properties.tenantSlug)}/recipes/${recipe.publicId}/draft`,
+            );
+            setRecipe(updated);
+            await properties.onChanged();
+          }}
+        />
       ) : null}
       {tab === 'recipe' ? (
         <form

@@ -1,3 +1,4 @@
+import { recipeImageSql } from './recipe-image-routes.js';
 import { randomUUID } from 'node:crypto';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
@@ -30,6 +31,7 @@ interface CategoryRow {
 }
 
 interface RecipeRow {
+  image_url: string | null;
   public_id: string;
   slug: string;
   title: string;
@@ -40,6 +42,7 @@ interface RecipeRow {
 }
 
 interface RecipeDetailRow extends RecipeFactsRow {
+  image_url: string | null;
   tenant_id: string;
   cookbook_name: string;
   public_id: string;
@@ -280,7 +283,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const recipes = await pool.query<RecipeRow>(
       `
-      SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+      SELECT ${recipeImageSql('recipe_revision')}, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
         ${recipeSummaryVariantsSql} AS variants,
         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
       FROM recipe
@@ -354,7 +357,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const page: number = Math.min(frontpagePage, Math.max(totalFrontpagePages, 1));
     const frontpageRecipes = await pool.query<RecipeRow>(
-      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+      `SELECT ${recipeImageSql('recipe_revision')}, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
         ${recipeSummaryVariantsSql} AS variants,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
        FROM recipe
@@ -504,7 +507,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         user === null || user.disabled_at !== null ? null : user.principal_id;
       const recipeResult = await pool.query<RecipeDetailRow>(
         `
-      SELECT recipe.tenant_id, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
+      SELECT ${recipeImageSql('recipe_revision')}, recipe.tenant_id, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary,
         tenant.display_name AS cookbook_name, recipe_revision.version, ${recipeFactsSql('recipe_revision')},
         ${recipeCreatorDisplayNameSql()} AS creator_display_name,
         ${recipeContributorsSql()} AS contributors,
@@ -618,6 +621,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         detailSteps.map((step: RecipeStepRow): string => step.instruction),
       );
       return reply.send({
+        image_url: recipe.image_url,
         public_id: recipe.public_id,
         slug: recipe.slug,
         title: recipe.title,

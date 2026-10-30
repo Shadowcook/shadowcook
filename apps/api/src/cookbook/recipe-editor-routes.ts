@@ -1,3 +1,6 @@
+import { pruneRecipeImageHistory } from './recipe-image-retention.js';
+import { recipeMediaDirectory, removeRecipeImageFiles } from './recipe-image-storage.js';
+import { registerRecipeImageRoutes, recipeImageSql } from './recipe-image-routes.js';
 import { createHash, randomBytes } from 'node:crypto';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { Pool, PoolClient, QueryResult } from 'pg';
@@ -68,6 +71,7 @@ interface VariantRow extends Pick<RecipeFactsRow, 'metadata' | 'diet'> {
 }
 
 interface DraftRow extends RecipeFactsRow {
+  image_url: string | null;
   public_id: string;
   slug: string;
   title: string;
@@ -84,6 +88,7 @@ interface DraftRow extends RecipeFactsRow {
   has_draft_revision: boolean;
 }
 interface ManagedRecipeRow {
+  image_url: string | null;
   public_id: string;
   slug: string;
   title: string;
@@ -106,6 +111,7 @@ interface RevisionListRow {
   title: string;
 }
 interface RevisionSnapshotRow extends RecipeFactsRow {
+  image_url: string | null;
   public_id: string;
   version: number;
   status: 'PUBLISHED' | 'ARCHIVED';
@@ -128,6 +134,7 @@ interface RevisionVariantRow extends Pick<RecipeFactsRow, 'metadata' | 'diet'> {
   included_step_keys: string[];
 }
 interface SharedRecipeRow extends RecipeFactsRow {
+  image_url: string | null;
   public_id: string;
   tenant_slug: string;
   cookbook_name: string;
@@ -180,6 +187,7 @@ function parseManagedRecipeFilter(value: unknown): string {
 export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): void {
   registerRecipeDraftDiscardRoutes(api, pool);
   registerRecipeSlugRoutes(api, pool);
+  registerRecipeImageRoutes(api, pool, ensureDraft);
 
   api.get('/cookbook/tenants/:tenantSlug/editor-catalogue', async (request, reply) => {
     const tenantSlug: string = (request.params as { tenantSlug: string }).tenantSlug;
@@ -472,7 +480,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
   api.get('/cookbook/share-links/:token', async (request, reply) => {
     const token: string = (request.params as { token: string }).token;
     const result = await pool.query<SharedRecipeRow>(
-      `SELECT recipe.public_id, tenant.slug AS tenant_slug, recipe.slug, revision.title, revision.summary, revision.id AS revision_id,
+      `SELECT ${recipeImageSql('revision')}, recipe.public_id, tenant.slug AS tenant_slug, recipe.slug, revision.title, revision.summary, revision.id AS revision_id,
         tenant.display_name AS cookbook_name, revision.version, ${recipeFactsSql('revision')},
         ${recipeCreatorDisplayNameSql()} AS creator_display_name,
         ${recipeContributorsSql()} AS contributors
@@ -521,6 +529,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       [steps.rows.map((step: SharedRecipeStepRow): string => step.public_id)],
     );
     return reply.send({
+      image_url:
+        recipe.image_url === null
+          ? null
+          : `${recipe.image_url}?shareToken=${encodeURIComponent(token)}`,
       public_id: recipe.public_id,
       tenant_slug: recipe.tenant_slug,
       cookbook_name: recipe.cookbook_name,
@@ -685,7 +697,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const totalPages: number = Math.ceil(totalRecipes / managedRecipePageSize);
     const resolvedPage: number = Math.min(page, Math.max(totalPages, 1));
     const recipes = await pool.query<ManagedRecipeRow>(
-      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
+      `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${recipeImageSql('recipe_revision')}, ${defaultVariantDietSql('recipe_revision')} AS diet,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
        FROM recipe
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
@@ -915,7 +927,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       if (tenantId === null) return;
       const params = request.params as { publicId: string; revisionPublicId: string };
       const revision = await pool.query<RevisionSnapshotRow>(
-        `SELECT revision.public_id, revision.version, revision.status, revision.published_at, revision.title, revision.summary, ${recipeFactsSql('revision')}
+        `SELECT ${recipeImageSql('revision')}, revision.public_id, revision.version, revision.status, revision.published_at, revision.title, revision.summary, ${recipeFactsSql('revision')}
          FROM recipe_revision AS revision
          INNER JOIN recipe ON recipe.id = revision.recipe_id
          WHERE recipe.tenant_id = $1 AND recipe.public_id = $2 AND revision.public_id = $3
@@ -1421,7 +1433,13 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         'UPDATE recipe SET published_revision_id = $1, draft_revision_id = NULL, updated_at = now() WHERE id = $2',
         [current.draft_revision_id, current.id],
       );
+      const removedImageKeys: string[] = await pruneRecipeImageHistory(client, current.id);
       await client.query('COMMIT');
+      try {
+        await removeRecipeImageFiles(recipeMediaDirectory(), removedImageKeys);
+      } catch (error: unknown) {
+        request.log.error(error);
+      }
       const user = await currentAuthenticatedPrincipal(pool, request);
       return reply.send(
         draftResponse(
@@ -1773,6 +1791,11 @@ async function createDraftFromPublished(
     [publishedId, principalId],
   );
   const draftId: string = revision.rows[0]!.id;
+  await client.query(
+    `INSERT INTO recipe_revision_media (recipe_revision_id, media_asset_id, usage_kind, sort_order)
+     SELECT $1, media_asset_id, usage_kind, sort_order FROM recipe_revision_media WHERE recipe_revision_id = $2`,
+    [draftId, publishedId],
+  );
   await recordRecipeContributor(client, draftId, principalId);
   await client.query(
     `INSERT INTO recipe_revision_category (recipe_revision_id, category_id)
@@ -1834,7 +1857,7 @@ async function currentRevisionId(
   return result.rows[0]?.id ?? null;
 }
 
-async function ensureDraft(
+export async function ensureDraft(
   client: PoolClient,
   tenantId: string,
   publicId: string,
@@ -1947,7 +1970,7 @@ async function draftForRecipe(
 }
 
 function draftSelectSql(condition: string): string {
-  return `SELECT recipe.public_id, recipe.slug, revision.title, revision.summary, ${recipeFactsSql('revision', 'published')},
+  return `SELECT ${recipeImageSql('revision')}, recipe.public_id, recipe.slug, revision.title, revision.summary, ${recipeFactsSql('revision', 'published')},
     COALESCE(array_agg(category.public_id) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids,
     recipe.visibility_override, recipe.discoverability_override, recipe.is_featured,
     tenant.default_recipe_visibility, tenant.default_recipe_discoverability,
@@ -1973,6 +1996,7 @@ function draftSelectSql(condition: string): string {
 
 function draftResponse(row: DraftRow): object {
   return {
+    image_url: row.image_url,
     metadata: row.metadata,
     diet: row.diet,
     createdAt: row.createdAt,
@@ -2004,6 +2028,7 @@ function revisionListResponse(row: RevisionListRow): object {
 }
 function revisionSnapshotResponse(row: RevisionSnapshotRow): object {
   return {
+    image_url: row.image_url,
     metadata: row.metadata,
     diet: row.diet,
     createdAt: row.createdAt,

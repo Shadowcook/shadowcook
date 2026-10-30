@@ -7,7 +7,11 @@ import { createRecipePdfDiet } from './recipe-pdf-diet.ts';
 
 const coverWidth: number = 515.28;
 
-export function createRecipePdfCover(recipe: RecipeDetail, text: Translation): Content[] {
+export function createRecipePdfCover(
+  recipe: RecipeDetail,
+  text: Translation,
+  imageDataUrl?: string,
+): Content[] {
   const items: ShoppingListItem[] = aggregateShoppingList(recipe);
   const content: Content[] = [
     { text: recipe.cookbook_name, style: 'coverCookbook' },
@@ -40,10 +44,19 @@ export function createRecipePdfCover(recipe: RecipeDetail, text: Translation): C
   }
 
   const imageHeight: number = items.length > 30 ? 100 : 160;
-  content.push({
-    canvas: [{ type: 'rect', x: 0, y: 0, w: coverWidth, h: imageHeight, r: 4, color: '#f4eee6' }],
-    margin: [0, 12, 0, 22],
-  });
+  if (imageDataUrl !== undefined) {
+    content.push({
+      image: imageDataUrl,
+      fit: [coverWidth, 240],
+      alignment: 'center',
+      margin: [0, 12, 0, 22],
+    });
+  } else {
+    content.push({
+      canvas: [{ type: 'rect', x: 0, y: 0, w: coverWidth, h: imageHeight, r: 4, color: '#f4eee6' }],
+      margin: [0, 12, 0, 22],
+    });
+  }
 
   if (recipe.summary !== null && recipe.summary.length > 0) {
     content.push({ text: recipe.summary, fontSize: 11, margin: [0, 0, 0, 22] });

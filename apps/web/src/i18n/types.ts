@@ -459,6 +459,35 @@ export interface Translation {
     invalidParent: string;
     accessDenied: string;
   };
+  adminMedia: {
+    navigation: string;
+    title: string;
+    description: string;
+    limit: string;
+    limitHelp: string;
+    applyHelp: string;
+    save: string;
+    saved: string;
+    invalidLimit: string;
+  };
+  recipeImage: {
+    title: string;
+    alt: string;
+    help: string;
+    select: string;
+    remove: string;
+    crop: string;
+    cropHelp: string;
+    cancel: string;
+    save: string;
+    saving: string;
+    preview: string;
+    zoom: string;
+    horizontal: string;
+    vertical: string;
+    invalidFile: string;
+    invalidImage: string;
+  };
   recipeEditor: {
     title: string;
     create: string;

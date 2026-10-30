@@ -259,9 +259,23 @@ export default function CookbookDashboard(properties: CookbookDashboardPropertie
                         recipe,
                       )}
                     >
-                      <div className="recipe-card__heading">
-                        <h2>{recipe.title}</h2>
-                        <RecipeDietIcon diet={recipe.diet} text={text} />
+                      <div
+                        className={`recipe-card__header${recipe.image_url ? ' recipe-card__header--with-image' : ''}`}
+                      >
+                        {recipe.image_url ? (
+                          <img
+                            className="recipe-card__image"
+                            src={`${recipe.image_url}?size=thumbnail`}
+                            alt=""
+                            width={360}
+                            height={240}
+                            loading="lazy"
+                          />
+                        ) : null}
+                        <div className="recipe-card__heading">
+                          <h2>{recipe.title}</h2>
+                          <RecipeDietIcon diet={recipe.diet} text={text} />
+                        </div>
                       </div>
                       <RecipeVariantLabels variants={recipe.variants} text={text} />
                       {recipe.summary === null ? null : <p>{recipe.summary}</p>}
