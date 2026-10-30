@@ -47,7 +47,6 @@ export default function RecipeDetailView({
       <a className="button--secondary recipe-detail__back" href={backHref}>
         {text.dashboard.backToRecipes}
       </a>
-      <p className="eyebrow">{text.dashboard.recipes}</p>
       <div className="recipe-detail__title">
         <h2>
           {recipe.title} <RecipeDietIcon diet={recipe.diet} text={text} showLabel />
