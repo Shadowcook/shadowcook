@@ -6,9 +6,6 @@
 - English is the default UI language. Every user-visible UI string, including metadata, accessibility labels, validation feedback, and client-rendered API errors, must be resolved through the UI locale system rather than hardcoded in components.
 - Authored recipe content remains in the language entered by its author and must not be translated by the UI locale system.
 - Modularize code. Do not put everything in one big file. Make code reusable where it makes sense.
-- All relevant architectural decisions must be documented in `docs/ARCHITECTURE.md`. Never write down reason or explain. Only hard facts. No need to track or comment changes.
-- Implementation progress must be documented in `docs/implementation_progress.md`.
-- Not every bugfix needs to be tracked in `docs/implementation_progress.md`. Rather track the feature implementation only against the `docs/ARCHITECTURE.md`.
 - The API contract must be complete and up to date in `contracts/openapi.yaml`. Any implemented API route, request body, response body, authentication scheme, or changed field must be represented there without gaps.
 - Log times must always be UTC, never the local time zone. However, time stamps in the UI can be displayed in the users preferred time format. But the backend or logfile must always have UTC time.
 - Do not display unnecessary trailing decimal places in the UI.
@@ -24,6 +21,18 @@
 - `/assets/fontawesome` is a local reference library for finding icon candidates. If no matching icon exists, create a custom SVG.
 - Alert/Confirmation popups must never be browser-native `alert()`. Always use Project native dialog box
 - `apps/api/skills` is only for agents that create recipes on the deployed system. It is not for development purposes.
+
+## Documentation rules
+
+- `docs/ARCHITECTURE.md` describes only implemented capabilities, current behavior, data rules, interfaces, and security boundaries. Verify claims against the local implementation. Schema tables, dependencies, or scaffolding alone do not constitute an implemented capability.
+- Keep the architecture factual and organized by topic. Do not include design rationale, change tracking, implementation status, release plans, speculative designs, or unimplemented requirements. Document required design rationale in a separate ADR; the architecture records the resulting facts and consistency guarantees.
+- The architecture is neither an ADR nor a change tracker. Update existing capability descriptions in place to state the current behavior. Do not append dated entries, implementation narratives, before/after comparisons, decision histories, alternatives, or justifications. Record required decision rationale in separate ADRs and feature implementation history in `docs/implementation_progress.md`.
+- `docs/roadmap.md` is the single collection of unimplemented capabilities, outstanding requirements, and feature ideas. Keep all items under one `Backlog` section. Do not assign priorities, releases, milestones, or delivery dates unless the user establishes a concrete plan.
+- Merge overlapping backlog items and preserve their requirements. Do not recreate a separate `feature_ideas.md` or duplicate future feature specifications in the architecture.
+- When implementing a backlog item, document the delivered behavior in the architecture and remove the completed scope from the backlog in the same task. For partial implementations, document only the working capabilities in the architecture and retain the outstanding scope in the backlog.
+- When a capability is removed or disabled, update its architecture description. Keep any intended future implementation in the backlog.
+- Document feature implementation progress in `docs/implementation_progress.md` against the corresponding architecture capabilities. Routine bugfixes and documentation-only changes do not require feature progress entries. Keep implementation history out of the architecture and roadmap.
+- Keep documentation links and heading anchors valid when moving or renaming content. Update affected references and check formatting. Avoid duplicate capability descriptions and stale chapter-number references.
 
 ## Personal developer preferences
 
@@ -43,6 +52,6 @@ This file will not be checked in into the repository. Therefore, check the local
   - Delivery mode BETA-2:
     - <timestamp>_beta_2_<description>.sql
     - do not touch *_initial_schema.sql
-    - do not touch *_beta-1_*.sql
+    - do not touch _*beta-1*_.sql
   - and so forth in this fashion
 - once, the delivery mode is "Production", we will create update scripts per each change.

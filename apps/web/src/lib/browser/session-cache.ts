@@ -1,5 +1,5 @@
 const cacheLifetimeMilliseconds: number = 15 * 60 * 1000;
-const sessionCacheKey: string = 'shadowcook.browser-session.v1';
+const legacySessionCacheKey: string = 'shadowcook.browser-session.v1';
 const adminAccessCacheKey: string = 'shadowcook.admin-access.v1';
 
 export type BrowserSessionState =
@@ -13,20 +13,10 @@ interface CachedValue {
   value: unknown;
 }
 
-export function cachedBrowserSession(): BrowserSessionState | null {
-  const cached: CachedValue | null = cachedValue(sessionCacheKey);
-  if (cached === null || !isBrowserSessionState(cached.value)) return null;
-  return cached.value;
-}
-
-export function cacheBrowserSession(session: BrowserSessionState): void {
-  cacheValue(sessionCacheKey, session);
-}
-
 export function clearBrowserSessionCache(): void {
   const storage: Storage | null = browserStorage();
   if (storage === null) return;
-  storage.removeItem(sessionCacheKey);
+  storage.removeItem(legacySessionCacheKey);
   clearAdminAccessCache();
 }
 
@@ -87,19 +77,5 @@ function isCachedValue(value: unknown): value is CachedValue {
     'cachedAt' in value &&
     typeof value.cachedAt === 'number' &&
     'value' in value
-  );
-}
-
-function isBrowserSessionState(value: unknown): value is BrowserSessionState {
-  if (typeof value !== 'object' || value === null || !('authenticated' in value)) return false;
-  if (value.authenticated === false) return true;
-  return (
-    value.authenticated === true &&
-    'email' in value &&
-    typeof value.email === 'string' &&
-    'hasPassword' in value &&
-    typeof value.hasPassword === 'boolean' &&
-    'passwordChangeRequired' in value &&
-    typeof value.passwordChangeRequired === 'boolean'
   );
 }

@@ -107,8 +107,6 @@ Migration tests use a freshly created disposable PostgreSQL database, never a sh
 - Verify UTC timestamps for migration ledger, sessions, tokens, invitations, revisions, share links, and audit-relevant timestamps.
 - Test database-enforced constraints that protect application assumptions: tenant-local slug uniqueness, reserved slugs, unique/default variant rules, revision-status rules, foreign keys, enum/check constraints, and deletion guards.
 
-The legacy-import workspace needs separate integration fixtures based on a minimal legacy HSQLDB source. Test dry-run rollback, empty-target enforcement, deterministic slug collisions, unit/special-entry mapping, authored usage-note preservation, and one published default variant per imported recipe.
-
 ## Unit tests
 
 Unit tests are appropriate only for deterministic code without PostgreSQL or HTTP transport. The current high-value candidates are:
@@ -149,7 +147,7 @@ Implement the suite in the following order. Each stage is independently useful a
 2. Add health, authentication, authorization, tenant-isolation, visibility, draft/read separation, and recipe publish lifecycle integration tests.
 3. Add OpenAPI response/schema validation and one canonical success/error test for every operation family; expand until all 119 operation IDs are covered.
 4. Add catalogue, category, unit-conversion, tenant-user, invitation, registration, service-account, share-link, and AI-context integration flows.
-5. Add migration, seed, and legacy-import integration tests.
+5. Add migration and seed integration tests.
 6. Add the listed browser journeys, then run them in CI on every change that affects `apps/web`, `apps/api`, `packages/db`, or `contracts/openapi.yaml`.
 
 ## Test maintenance rules

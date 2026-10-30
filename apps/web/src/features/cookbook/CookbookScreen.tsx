@@ -6,11 +6,7 @@ import type { ChangeEvent, JSX, MouseEvent, SubmitEvent } from 'react';
 import { translations } from '../../i18n';
 import type { Locale, Translation } from '../../i18n';
 import { ApiRequestError, jsonRequest, request } from '../../lib/api/client';
-import {
-  cacheBrowserSession,
-  clearAdminAccessCache,
-  clearBrowserSessionCache,
-} from '../../lib/browser/session-cache';
+import { clearAdminAccessCache, clearBrowserSessionCache } from '../../lib/browser/session-cache';
 import type { BrowserSessionState } from '../../lib/browser/session-cache';
 import CookbookDashboard from './components/CookbookDashboard';
 import CategoryEditor from './components/CategoryEditor';
@@ -193,17 +189,16 @@ export default function CookbookScreen({
         hasPassword: response.hasPassword,
         passwordChangeRequired: response.passwordChangeRequired,
       };
-      cacheBrowserSession(session);
-      await restoreCachedSession(session);
+      await applySession(session);
     } catch (error: unknown) {
       const session: BrowserSessionState = { authenticated: false };
       if (error instanceof ApiRequestError && error.code === 'AUTHENTICATION_REQUIRED')
         clearBrowserSessionCache();
-      await restoreCachedSession(session);
+      await applySession(session);
     }
   }
 
-  async function restoreCachedSession(session: BrowserSessionState): Promise<void> {
+  async function applySession(session: BrowserSessionState): Promise<void> {
     if (isReauthenticationRequest(window.location.pathname, window.location.search)) {
       setScreen('login');
       return;
@@ -239,12 +234,6 @@ export default function CookbookScreen({
 
   async function completeLogin(response: LoginResponse): Promise<void> {
     clearAdminAccessCache();
-    cacheBrowserSession({
-      authenticated: true,
-      email,
-      hasPassword: response.hasPassword,
-      passwordChangeRequired: response.passwordChangeRequired,
-    });
     if (response.passwordChangeRequired) {
       setHasPassword(response.hasPassword);
       setScreen('change-password');
@@ -315,12 +304,6 @@ export default function CookbookScreen({
       setCurrentPassword('');
       setNewPassword('');
       setHasPassword(true);
-      cacheBrowserSession({
-        authenticated: true,
-        email,
-        hasPassword: true,
-        passwordChangeRequired: false,
-      });
       await completeLogin({ hasPassword: true, passwordChangeRequired: false });
     } catch (error: unknown) {
       setMessage(errorMessage(error, locale));

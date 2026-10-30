@@ -39,7 +39,7 @@ const defaultOutputFileName: string = 'development-content-seed.json';
 
 function loadEnvironment(): void {
   const projectRoot: URL = new URL('../../../', import.meta.url);
-  const path: string = fileURLToPath(new URL('.env.migration', projectRoot));
+  const path: string = fileURLToPath(new URL('.env.development-tools', projectRoot));
   if (existsSync(path)) process.loadEnvFile(path);
 }
 

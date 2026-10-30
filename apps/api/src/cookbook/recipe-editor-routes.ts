@@ -391,7 +391,6 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         current.draft_revision_id ??
         (await createDraftFromPublished(
           client,
-          current.id,
           current.published_revision_id,
           user?.principal_id ?? null,
         ));
@@ -1043,7 +1042,6 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         current.draft_revision_id ??
         (await createDraftFromPublished(
           client,
-          current.id,
           current.published_revision_id,
           user?.principal_id ?? null,
         ));
@@ -1791,7 +1789,6 @@ function parseVariantInput(value: unknown): VariantInput | null {
 
 async function createDraftFromPublished(
   client: PoolClient,
-  recipeId: string,
   publishedId: string | null,
   principalId: string | null,
 ): Promise<string> {
@@ -1890,7 +1887,6 @@ export async function ensureDraft(
   }
   const draftId: string = await createDraftFromPublished(
     client,
-    current.id,
     current.published_revision_id,
     principalId,
   );

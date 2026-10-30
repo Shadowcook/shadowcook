@@ -24,9 +24,11 @@ out/
 /.netlify/
 /.serverless/
 /.aws-sam/
-/*.tsbuildinfo
+*.tsbuildinfo
 
 # Test and coverage output
+__pycache__/
+*.py[cod]
 /coverage/
 /.nyc_output/
 /test-results/
@@ -74,10 +76,15 @@ Thumbs.db
 /personal_agents.md
 development-seed.json
 development-content-seed.json
+/ingredient-cleanup.csv
 /.run/
+/.aws/
 deployments/package/secrets/
 /development-content-seed-empty.json
 assets/fontawesome/
 
 # Recipe image storage
-var/media/
+**/var/media/
+
+# Generated skill archive (downloads are built from source by the API)
+/apps/api/skills.tar.xz

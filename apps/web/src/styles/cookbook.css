@@ -268,15 +268,6 @@
   width: 1rem;
   height: 1rem;
 }
-.category-disclosure__icon--expand {
-  display: none;
-}
-.category-disclosure:not(.category-disclosure--expanded) .category-disclosure__icon--expand {
-  display: block;
-}
-.category-disclosure:not(.category-disclosure--expanded) .category-disclosure__icon--collapse {
-  display: none;
-}
 .category-disclosure:hover {
   color: #fffaf0;
   background: #314d42;
