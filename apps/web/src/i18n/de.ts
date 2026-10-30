@@ -1,8 +1,20 @@
+import { landingGerman } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { recipeImportGerman } from '../features/cookbook/import/translations.ts';
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  notFound: {
+    title: 'Seite nicht gefunden',
+    description:
+      'Diese Seite ist nicht verfügbar. Entdecke die Kochbücher und finde ein anderes Rezept.',
+  },
+  landing: landingGerman,
+  explore: {
+    title: 'Kochbücher entdecken · Shadowcook',
+    description:
+      'Entdecke öffentliche Kochbücher und finde deine eigenen Kochbücher auf Shadowcook.',
+  },
   recipeImport: recipeImportGerman,
   recipeMetadata: {
     title: 'Rezeptangaben',
@@ -36,6 +48,8 @@ export const de: Translation = {
     applicationName: 'Shadowcook',
   },
   headBar: {
+    explore: 'Kochbücher entdecken',
+    myCookbooks: 'Meine Kochbücher',
     userMenu: 'Benutzermenü',
     signOutFailed: 'Abmeldung fehlgeschlagen. Bitte versuche es erneut.',
     register: 'Registrieren',
@@ -372,14 +386,14 @@ export const de: Translation = {
     settingsTitle: 'Einstellungen',
     settingsDescription: 'Verwalte instanzweite Betriebseinstellungen.',
     openSmtp: 'SMTP-Versand konfigurieren',
-    frontpage: 'Startseite',
-    frontpageTitle: 'Startseiteneinstellungen',
+    frontpage: 'Kochbuchübersicht / Explore',
+    frontpageTitle: 'Einstellungen der Kochbuchübersicht',
     frontpageDescription: 'Konfiguriere die öffentliche Kochbuchauswahl.',
     siteName: 'Website-Name',
     siteSlogan: 'Slogan',
     cookbooksPerPage: 'Kochbücher pro Seite',
     saveFrontpage: 'Startseiteneinstellungen speichern',
-    frontpageSaved: 'Startseiteneinstellungen gespeichert.',
+    frontpageSaved: 'Einstellungen der Kochbuchübersicht gespeichert.',
     legalDocuments: 'Rechtliche Dokumente',
     legalDocumentsDescription:
       'Pflege die öffentliche Datenschutzerklärung und das Impressum als Markdown.',

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { faRightToBracket, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import { faCompass, faRightToBracket, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
@@ -20,9 +20,14 @@ const signedOut: HeadBarSession = {
 interface Properties {
   initialSession?: HeadBarSession;
   locale: Locale;
+  currentPath?: string;
 }
 
-export default function HeadBar({ locale, initialSession = signedOut }: Properties): JSX.Element {
+export default function HeadBar({
+  locale,
+  initialSession = signedOut,
+  currentPath = '',
+}: Properties): JSX.Element {
   const text: Translation = translations[locale];
   const [session, setSession] = useState<HeadBarSession>(initialSession);
   const [signInHref, setSignInHref] = useState<string>('/login');
@@ -84,6 +89,16 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
         <span className="head-bar__wordmark">{text.brandName}</span>
       </a>
       <div className="head-bar__controls">
+        <a
+          className="head-bar__explore head-bar__icon-button"
+          href="/explore"
+          aria-label={text.headBar.explore}
+          title={text.headBar.explore}
+          aria-current={currentPath === '/explore' ? 'page' : undefined}
+        >
+          <FontAwesomeIcon icon={faCompass} aria-hidden="true" />
+          <span>{text.headBar.explore}</span>
+        </a>
         <LanguageSwitch locale={locale} />
         {session.authenticated ? (
           <HeadBarDropdown label={text.headBar.userMenu} icon={faUser}>
@@ -91,6 +106,7 @@ export default function HeadBar({ locale, initialSession = signedOut }: Properti
               <strong>{session.displayName}</strong>
               <span>{session.email}</span>
             </div>
+            <a href="/explore">{text.headBar.myCookbooks}</a>
             <a href="/settings">{text.headBar.accountSettings}</a>
             {session.canAccessAdministration ? <a href="/admin">{text.admin.title}</a> : null}
             <button type="button" disabled={signingOut} onClick={(): void => void signOut()}>
@@ -161,7 +177,7 @@ async function restoreSession(setSession: (session: HeadBarSession) => void): Pr
 }
 
 function loginHref(): string {
-  if (window.location.pathname === '/login') return '/login';
+  if (['/', '/explore', '/login'].includes(window.location.pathname)) return '/login';
   const requestedPath: string = `${window.location.pathname}${window.location.search}`;
   return `/login?next=${encodeURIComponent(requestedPath)}`;
 }

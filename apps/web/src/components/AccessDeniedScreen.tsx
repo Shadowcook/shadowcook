@@ -8,7 +8,7 @@ export default function AccessDeniedScreen({ text }: { text: Translation }): JSX
       <p className="message" role="alert">
         {text.accessDenied.description}
       </p>
-      <a className="button-link" href="/">
+      <a className="button-link" href="/explore">
         {text.accessDenied.backToCookbook}
       </a>
     </section>

@@ -1,0 +1,21 @@
+---
+import RecipeSteps from '../../features/cookbook/components/RecipeSteps';
+import type { Translation } from '../../i18n';
+import { exampleRecipeTitle, exampleRecipeSteps } from './example-recipe';
+interface Properties {
+  text: Translation;
+}
+const { text } = Astro.props;
+---
+
+<figure class="landing-preview" aria-labelledby="recipe-preview-caption">
+  <div class="landing-preview__bar">
+    <img src="/shadowcook-logo.png" alt="" width="28" height="28" />
+    <span>{text.landing.previewLabel}</span>
+  </div>
+  <div class="landing-preview__recipe">
+    <h2>{exampleRecipeTitle}</h2>
+    <RecipeSteps steps={exampleRecipeSteps} text={text} />
+  </div>
+  <figcaption id="recipe-preview-caption">{text.landing.previewCaption}</figcaption>
+</figure>

@@ -1,9 +1,13 @@
+import type { LandingTranslation } from '../components/landing/translations';
 import type { ReportTranslation } from '../features/reports/types';
 import type { RecipeImportTranslation } from '../features/cookbook/import/translations';
 
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  landing: LandingTranslation;
+  notFound: { title: string; description: string };
+  explore: { title: string; description: string };
   recipeImport: RecipeImportTranslation;
   recipeMetadata: {
     title: string;
@@ -37,6 +41,8 @@ export interface Translation {
     applicationName: string;
   };
   headBar: {
+    explore: string;
+    myCookbooks: string;
     userMenu: string;
     signOutFailed: string;
     register: string;

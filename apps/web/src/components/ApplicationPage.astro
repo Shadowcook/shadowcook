@@ -13,26 +13,33 @@ import Favicon from './Favicon.astro';
 import HeadBar from './HeadBar';
 import { translations } from '../i18n';
 import { resolveRequestLocale } from '../i18n/locale-preference';
-import type { Locale } from '../i18n';
+import type { Locale, Translation } from '../i18n';
 import { buildCommit } from '../lib/server/build-info';
 import { loadAdminAreaState, loadHeadBarSession } from '../lib/server/head-bar-session';
 import { loadServerTenantCookbook } from '../lib/server/cookbook';
 import type { CookbookResponse } from '../features/cookbook/model/types';
 import { managementRoute } from '../features/cookbook/model/management-routing';
 import type { ManagementRoute } from '../features/cookbook/model/management-routing';
+import { publicCanonicalUrl } from '../lib/server/public-metadata';
 import '../styles/global.css';
 
 const locale: Locale = resolveRequestLocale(
   Astro.request.headers.get('cookie'),
   import.meta.env.PUBLIC_DEFAULT_LOCALE,
 );
-const text = translations[locale];
+const text: Translation = translations[locale];
 const deployedBuildCommit: string | undefined = buildCommit();
 const headBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
 interface Properties {
   path: string;
+  notFound?: boolean;
 }
-const { path } = Astro.props;
+const { path, notFound = false } = Astro.props;
+const pageMetadata: { title: string; description: string } = notFound
+  ? text.notFound
+  : path === '/explore'
+    ? text.explore
+    : text.metadata;
 const isAdministrationPath: boolean = path === '/admin' || path.startsWith('/admin/');
 const isAccountSettingsPath: boolean =
   (path === '/settings' || path.startsWith('/settings/')) &&
@@ -46,6 +53,8 @@ const isTenantManagementPath: boolean =
   /\/recipes\/[^/]+\/edit$/.test(path);
 const isCookbookPath: boolean =
   path !== '/' &&
+  path !== '/explore' &&
+  path !== '/login' &&
   !path.startsWith('/invitations/') &&
   !path.startsWith('/password-reset/') &&
   path !== '/register' &&
@@ -72,19 +81,32 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width" />
-    <meta name="description" content={text.metadata.description} />
+    <meta name="description" content={pageMetadata.description} />
     <Favicon />
-    <title>{text.metadata.title}</title>
+    <title>{pageMetadata.title}</title>
+    {
+      path === '/explore' && (
+        <link rel="canonical" href={publicCanonicalUrl(Astro.url, '/explore')} />
+      )
+    }
   </head>
   <body class={isCookbookPath ? 'cookbook-page' : undefined}>
-    <HeadBar client:load initialSession={headBarSession} locale={locale} />
+    <HeadBar currentPath={path} client:load initialSession={headBarSession} locale={locale} />
     <main
       class={isAdministrationPath || isTenantManagementPath || isAccountSettingsPath
         ? 'application-shell application-shell--admin'
         : 'application-shell'}
     >
       {
-        path === '/' ? (
+        notFound ? (
+          <section class="panel">
+            <h1>{text.notFound.title}</h1>
+            <p>{text.notFound.description}</p>
+            <a class="button-link" href="/explore">
+              {text.headBar.explore}
+            </a>
+          </section>
+        ) : path === '/explore' ? (
           <TenantSelection client:load locale={locale} />
         ) : path.startsWith('/invitations/') ? (
           <InvitationScreen

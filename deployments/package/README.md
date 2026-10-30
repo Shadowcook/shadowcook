@@ -14,8 +14,8 @@ pnpm package:deployment
 
 The command writes `dist/shadowcook-deployment-<version>.tar.gz`. Its contents
 are the Dockerfile, Compose configurations, `.env.example`, `upgrade.sh`, `backup-database.sh`,
-`restore-database.sh`, `database-tools.sh`, and
-this guide.
+`restore-database.sh`, `database-tools.sh`, the Apache and Nginx reverse-proxy
+examples, and this guide.
 Extract the archive on the server, then continue in its top-level directory.
 
 `apache.reverse-proxy-example.conf` proxies HTTPS traffic to the bundled web
@@ -24,14 +24,44 @@ listener. Enable Apache's `headers`, `proxy`, `proxy_http`, `rewrite`, and
 `PUBLIC_WEB_ORIGIN` to the same HTTPS origin in `.env`. The HTTPS virtual host
 must forward `X-Forwarded-Proto`, `X-Forwarded-Port`, and `X-Forwarded-Host`.
 
+`nginx.reverse-proxy-example.conf` is the equivalent Nginx configuration. Install it
+inside Nginx's `http` context, replace the hostname and certificate paths, and set
+`PUBLIC_WEB_ORIGIN` to the same HTTPS origin. Set the HTTP-01 challenge webroot to
+the directory used by your ACME client. Use either the Apache or the Nginx example.
+Both examples terminate HTTPS at the host proxy and forward to the loopback web listener.
+
+### Optional custom landing website
+
+Both examples contain disabled custom-landing rules. Run your own website at
+`http://127.0.0.1:8080`, or replace this address in the commented directives.
+Uncomment the two Apache directives or all three Nginx location blocks, following
+the instructions in the configuration file. Keep Apache's custom rules before
+its general Shadowcook rules. Validate with `apachectl configtest` or `nginx -t`
+before reloading the chosen proxy.
+
+The custom website receives exactly `/`, `/landing`, and `/landing/*` with paths
+and query parameters preserved. It must serve those paths itself. For example,
+`/landing/contact` stays `/landing/contact` upstream. Put its images, scripts, and
+styles under `/landing/assets/` and use absolute asset URLs from the root page.
+Link to `/explore` for cookbook discovery and optionally `/register` and `/login`.
+All other paths continue to reach Shadowcook, including `/landing-kitchen`,
+cookbook and recipe URLs, legal documents, authentication, API and MCP routes.
+The `landing` cookbook slug is reserved. Existing installations must check for
+slug collisions before enabling the custom website; do not rename existing cookbooks
+without a migration plan. With the optional rules commented out, Shadowcook's
+built-in landing page remains active.
+
+### Forwarded headers and access logs
+
 AI context URLs contain credentials: bootstrap tokens in `/api/ai-context/{token}`
 and optional reader tokens in the `access_token` query parameter. Exclude these
 URLs from reverse-proxy, CDN, and access logs or redact their credentials before
 logging. The API redacts these credentials in its own request logs and unknown-route
 responses. This does not configure logging in external infrastructure.
 
-The example removes incoming `X-Forwarded-For`, `Forwarded`, and `X-Real-IP`
-headers before Apache adds the observed visitor IP. Apply these directives to
+The Apache example removes incoming `X-Forwarded-For`, `Forwarded`, and `X-Real-IP`
+headers before Apache adds the observed visitor IP. The Nginx example sets
+`X-Forwarded-For` to `$remote_addr` and removes `Forwarded` and `X-Real-IP`. Apply these directives to
 existing virtual hosts when upgrading. The web runtime sanitizes the IP chain
 from its socket peer before proxying requests to the API. Both layers accept
 forwarded IPs only from `SHADOWCOOK_WEB_TRUSTED_PROXIES` and

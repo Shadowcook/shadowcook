@@ -1451,3 +1451,22 @@ body:has(.application-dialog[open]) {
     grid-template-columns: 1fr;
   }
 }
+
+.head-bar__explore.head-bar__icon-button {
+  display: inline-flex;
+  width: auto;
+  gap: 0.45rem;
+  padding: 0.5rem;
+  text-decoration: none;
+  font:
+    0.85rem Arial,
+    sans-serif;
+}
+.head-bar__explore[aria-current='page'] {
+  background: #eadfd2;
+}
+@media (max-width: 700px) {
+  .head-bar__explore span {
+    display: none;
+  }
+}

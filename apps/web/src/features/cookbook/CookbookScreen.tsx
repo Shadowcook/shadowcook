@@ -1,3 +1,5 @@
+import { postLoginDestination } from '../../lib/login-navigation';
+import { isSystemPath } from '../../lib/system-routing';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, MouseEvent, SubmitEvent } from 'react';
 import { translations } from '../../i18n';
@@ -454,7 +456,7 @@ export default function CookbookScreen({
       return response;
     } catch (error: unknown) {
       if (error instanceof ApiRequestError && error.code === 'TENANT_NOT_FOUND')
-        window.location.replace('/');
+        window.location.replace('/explore');
       setCookbook(emptyCookbook);
       return emptyCookbook;
     }
@@ -743,38 +745,14 @@ function isLoginPath(): boolean {
   return window.location.pathname === loginPath;
 }
 function postLoginPath(): string {
-  if (!isLoginPath()) return `${window.location.pathname}${window.location.search}`;
-  const requestedPath: string | null = new URLSearchParams(window.location.search).get('next');
-  return requestedPath !== null &&
-    requestedPath.startsWith('/') &&
-    !requestedPath.startsWith('//') &&
-    !requestedPath.includes('\\')
-    ? requestedPath
-    : '/';
+  return postLoginDestination(window.location.pathname, window.location.search);
 }
 function tenantSlugFromPath(): string | null {
-  if (typeof window === 'undefined') return null;
-  const segment: string | undefined = window.location.pathname
-    .split('/')
-    .filter((value: string): boolean => value.length > 0)[0];
-  if (
-    segment === undefined ||
-    [
-      'admin',
-      'api',
-      'assets',
-      'auth',
-      'health',
-      'login',
-      'logout',
-      'recipes',
-      'settings',
-      'invitations',
-    ].includes(segment)
-  )
-    return null;
-  return decodeURIComponent(segment);
+  if (typeof window === 'undefined' || isSystemPath(window.location.pathname)) return null;
+  const segment: string | undefined = window.location.pathname.split('/').filter(Boolean)[0];
+  return segment === undefined ? null : decodeURIComponent(segment);
 }
+
 function sharedRecipeToken(): string | null {
   if (typeof window === 'undefined') return null;
   const segments: string[] = window.location.pathname

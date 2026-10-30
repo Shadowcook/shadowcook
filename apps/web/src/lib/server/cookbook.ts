@@ -1,3 +1,6 @@
+import type { ManagementRoute } from '../../features/cookbook/model/management-routing';
+import { managementRoute } from '../../features/cookbook/model/management-routing';
+import { isSystemPath } from '../system-routing';
 import { resolveCookbookLocation } from '../../features/cookbook/model/routing';
 import type { CookbookLocation } from '../../features/cookbook/model/routing';
 import type { CookbookResponse, RecipeDetail } from '../../features/cookbook/model/types';
@@ -53,6 +56,7 @@ export async function loadServerCookbookPage(
   cookie: string | null,
   refreshFrontpageShuffle: boolean = false,
   search: string = '',
+  onNotFound?: () => void,
 ): Promise<ServerCookbookPage | null> {
   const tenantSlug: string | null = tenantSlugFromPath(pathname);
   if (tenantSlug === null) return null;
@@ -61,23 +65,30 @@ export async function loadServerCookbookPage(
   const cookbook: CookbookResponse | null = await getJson<CookbookResponse>(
     `/cookbook?tenantSlug=${encodeURIComponent(tenantSlug)}${refreshFrontpageShuffle ? '&refreshFrontpageShuffle=true' : ''}${diet === '' ? '' : `&diet=${diet}`}`,
     cookie,
+    onNotFound,
   );
   if (cookbook === null) return null;
 
   const location: CookbookLocation = resolveCookbookLocation(cookbook, pathname);
-  if (!isCookbookPath(pathname, location)) return null;
+  if (!isCookbookPath(pathname, location)) {
+    const route: ManagementRoute = managementRoute(pathname);
+    if (route.editorPath === null && !route.isCategoryEditor) onNotFound?.();
+    return null;
+  }
   return { cookbook, location };
 }
 
 async function getJson<ResponseBody>(
   path: string,
   cookie: string | null,
+  onNotFound?: () => void,
 ): Promise<ResponseBody | null> {
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
   try {
     const response: Response = await fetch(new URL(path, apiOrigin), {
       headers: cookie === null || cookie.length === 0 ? {} : { cookie },
     });
+    if (response.status === 404) onNotFound?.();
     if (!response.ok) return null;
     return (await response.json()) as ResponseBody;
   } catch (_error: unknown) {
@@ -86,6 +97,7 @@ async function getJson<ResponseBody>(
 }
 
 function tenantSlugFromPath(pathname: string): string | null {
+  if (isSystemPath(pathname)) return null;
   const segments: string[] = pathname
     .split('/')
     .filter((segment: string): boolean => segment.length > 0);
@@ -97,5 +109,6 @@ function isCookbookPath(pathname: string, location: CookbookLocation): boolean {
   const segments: string[] = pathname
     .split('/')
     .filter((segment: string): boolean => segment.length > 0);
-  return segments.length === 1 || location.categoryId !== null || location.recipe !== null;
+  if (segments.includes('recipes')) return location.recipe !== null;
+  return segments.length === 1 || location.categoryId !== null;
 }

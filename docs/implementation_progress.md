@@ -1,5 +1,13 @@
 # Shadowcook 2.0 implementation progress
 
+### Product landing page and cookbook discovery
+
+- `/` serves the localized public product landing page with SSR marketing content, original branding, a labeled example using the shared recipe-step renderer, responsive sections, localized metadata, and links to registration and Explore (architecture section 4).
+- Deployment packages include Apache and Nginx proxy examples with commented instructions and optional routing of `/`, `/landing`, and `/landing/*` to an operator-provided landing website. The default continues to serve the built-in page (architecture section 4.5).
+- `/explore` retains the existing tenant selection, My Cookbooks, search, pagination, shuffle, and stored overview settings. Header navigation and login defaults point to Explore; validated deep-link login destinations and logout behavior are retained.
+- The API reserves `explore` and `landing` through its existing central slug policy. The available local database contains neither tenant slug. No database schema or API payload changes are introduced. Other installations require the documented preflight collision check.
+- Unit, API and built-Astro integration coverage includes redirect validation, slug rejection, localized root HTML, Explorer classification, system routes, and short cookbook/category/recipe/variant URLs.
+
 ## Completed architecture features
 
 ### Public recipe authoring skill

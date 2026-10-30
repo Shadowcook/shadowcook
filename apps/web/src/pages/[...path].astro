@@ -15,6 +15,7 @@ const recipePage = await loadServerRecipePage(
   Astro.url.pathname,
   Astro.request.headers.get('cookie'),
 );
+let pathNotFound: boolean = false;
 const cookbookPage =
   recipePage === null
     ? await loadServerCookbookPage(
@@ -22,6 +23,9 @@ const cookbookPage =
         Astro.request.headers.get('cookie'),
         isTenantRoot(Astro.url.pathname),
         Astro.url.search,
+        (): void => {
+          pathNotFound = true;
+        },
       )
     : null;
 const locale: Locale = resolveRequestLocale(
@@ -32,6 +36,8 @@ const legalDocuments =
   Astro.url.pathname === '/privacy-statement' || Astro.url.pathname === '/imprint'
     ? await loadLegalDocuments()
     : null;
+
+if (pathNotFound) Astro.response.status = 404;
 
 function isTenantRoot(pathname: string): boolean {
   return pathname.split('/').filter((segment: string): boolean => segment.length > 0).length === 1;
@@ -65,6 +71,6 @@ function isTenantRoot(pathname: string): boolean {
       locale={locale}
     />
   ) : (
-    <ApplicationPage path={Astro.url.pathname} />
+    <ApplicationPage path={Astro.url.pathname} notFound={pathNotFound} />
   )
 }

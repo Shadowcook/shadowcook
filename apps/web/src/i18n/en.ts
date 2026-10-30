@@ -1,8 +1,18 @@
+import { landingEnglish } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  notFound: {
+    title: 'Page not found',
+    description: 'This page is unavailable. Explore the cookbooks to find another recipe.',
+  },
+  landing: landingEnglish,
+  explore: {
+    title: 'Explore Cookbooks · Shadowcook',
+    description: 'Discover public cookbooks and find your own cookbooks on Shadowcook.',
+  },
   recipeImport: recipeImportEnglish,
   recipeMetadata: {
     title: 'Recipe details',
@@ -36,6 +46,8 @@ export const en: Translation = {
     applicationName: 'Shadowcook',
   },
   headBar: {
+    explore: 'Explore Cookbooks',
+    myCookbooks: 'My Cookbooks',
     userMenu: 'User menu',
     signOutFailed: 'Sign-out failed. Please try again.',
     register: 'Register',
@@ -365,14 +377,14 @@ export const en: Translation = {
     settingsTitle: 'Settings',
     settingsDescription: 'Manage instance-wide operational settings.',
     openSmtp: 'Configure SMTP delivery',
-    frontpage: 'Front page',
-    frontpageTitle: 'Front page settings',
+    frontpage: 'Cookbook overview / Explore',
+    frontpageTitle: 'Cookbook overview settings',
     frontpageDescription: 'Configure the public cookbook selection page.',
     siteName: 'Website name',
     siteSlogan: 'Slogan',
     cookbooksPerPage: 'Cookbooks per page',
     saveFrontpage: 'Save front page settings',
-    frontpageSaved: 'Front page settings saved.',
+    frontpageSaved: 'Cookbook overview settings saved.',
     legalDocuments: 'Legal documents',
     legalDocumentsDescription: 'Manage the public privacy statement and imprint as Markdown.',
     legalDocumentsSaved: 'Legal documents saved.',

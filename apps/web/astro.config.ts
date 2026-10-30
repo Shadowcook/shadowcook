@@ -43,6 +43,7 @@ function allowedPublicDomain(originValue: string | undefined): AllowedDomain[] {
 
 export default defineConfig({
   adapter: node({ mode: 'standalone' }),
+  devToolbar: { enabled: false },
   output: 'server',
   publicDir: './src/assets',
   integrations: [react()],
@@ -52,7 +53,13 @@ export default defineConfig({
   },
   vite: {
     optimizeDeps: {
-      include: ['pdfmake/build/pdfmake.js', 'pdfmake/build/vfs_fonts.js'],
+      include: [
+        '@fortawesome/fontawesome-svg-core',
+        '@fortawesome/free-solid-svg-icons',
+        '@fortawesome/react-fontawesome',
+        'pdfmake/build/pdfmake.js',
+        'pdfmake/build/vfs_fonts.js',
+      ],
     },
     server: {
       proxy: {

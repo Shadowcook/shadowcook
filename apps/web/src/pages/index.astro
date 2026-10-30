@@ -1,7 +1,7 @@
 ---
-import ApplicationPage from '../components/ApplicationPage.astro';
-
+import LandingPage from '../components/landing/LandingPage.astro';
 export const prerender = false;
+Astro.response.headers.set('Cache-Control', 'private, no-store');
 ---
 
-<ApplicationPage path={Astro.url.pathname} />
+<LandingPage />
