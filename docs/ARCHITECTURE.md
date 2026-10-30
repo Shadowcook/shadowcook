@@ -41,10 +41,13 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 - The API process executes database migrations before binding its HTTP listener.
 - Database migrations run in the API process and do not require a dedicated migration container.
 - Database migration statements are stored as `YYYYmmddHHiiss_descriptive_name.sql` files in `packages/db/src/migrations/sql`, where the prefix is a UTC timestamp. The database package loads every SQL file in lexicographic filename order as a runtime asset.
+- Fresh databases are initialized by `20261030204936_initial_schema.sql`, which defines the complete schema and built-in permissions, instance roles, legal-document defaults, report settings, and media settings. Standard units are loaded separately by the initial-deployment seed.
+- The database package build replaces the compiled SQL asset directory with the current source migration files.
 - Migration execution uses a PostgreSQL advisory lock named `shadowcook-schema-migration`.
 - Each migration is executed in one database transaction.
 - Applied migration identifiers, SHA-256 checksums, and UTC application timestamps are stored in `application_schema_migration`.
 - A migration checksum mismatch or an unknown applied migration stops API startup.
+- Existing schema objects are not adopted automatically. A matching migration identifier and checksum in the ledger are required to skip baseline execution on an initialized database.
 - The API process loads an optional repository-root `.env` file in local development. Process environment variables take precedence.
 
 ### Test execution and isolation
@@ -182,7 +185,6 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 - The local `development-seed.json` stores development accounts, tenant configuration, roles, memberships, SMTP configuration, and units. It does not store ingredients, categories, or recipes.
 - The optional local `development-content-seed.json` stores tenant categories, recipes, revisions, variants, steps, ingredient usages, and the ingredients, aliases, and units required by those usages. It is loaded after `development-seed.json`.
 - `pnpm export:development-content-seed` reads the tenant selected by `TARGET_DB_TENANT_SLUG` from `.env.development-tools` and validates the optional content seed. `pnpm export:development-content-seed --execute` writes the file at `DEVELOPMENT_CONTENT_SEED_PATH` or `development-content-seed.json`.
-- `pnpm export:ingredient-cleanup-csv --execute` writes every catalogued ingredient in `development-content-seed.json` to `ingredient-cleanup.csv` with the columns `Zutat`, `Neuer Zutat-Name`, `Zusaetzlicher Modifier`, and `Alias`. `pnpm ingest:ingredient-cleanup-csv --execute` resolves ingredient and alias names case-insensitively, merges a new name that already identifies a catalogued ingredient, resolves subsequent alias targets for merged ingredients, appends non-empty modifiers to matching ingredient-usage notes, creates resulting ingredient aliases, and atomically updates the content seed. The optional `INGREDIENT_CLEANUP_CSV_PATH` and `DEVELOPMENT_CONTENT_SEED_PATH` variables select paths relative to the repository root.
 - The repository-root `initial-deployment-seed.json` is versioned deployment data. An initial-deployment seed is applied once and is not reapplied after an administrator changes or deletes seeded records.
 
 ## Mail delivery

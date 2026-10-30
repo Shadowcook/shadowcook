@@ -1,6 +1,6 @@
 {
   "name": "shadowcook",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@11.24.0",
   "scripts": {
@@ -20,8 +20,6 @@
     "start:api": "npm --prefix apps/api run start",
     "maintenance": "npm --prefix apps/api run maintenance",
     "export:development-content-seed": "npm --prefix apps/development-tools run export-development-content-seed --",
-    "export:ingredient-cleanup-csv": "npm --prefix apps/development-tools run export-ingredient-cleanup-csv --",
-    "ingest:ingredient-cleanup-csv": "npm --prefix apps/development-tools run ingest-ingredient-cleanup-csv --",
     "reset:dev-db": "npm --prefix apps/api run reset:dev-db",
     "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
     "package:deployment": "sh scripts/package-deployment.sh",

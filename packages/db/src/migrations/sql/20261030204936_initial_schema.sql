@@ -1,3 +1,45 @@
+-- Initial database schema. Applied transactionally by the migration runner.
+
+CREATE EXTENSION IF NOT EXISTS unaccent;
+
+CREATE FUNCTION normalize_search_text(source_text text)
+RETURNS text
+LANGUAGE sql
+STABLE
+RETURNS NULL ON NULL INPUT
+AS $$
+  SELECT btrim(regexp_replace(lower(unaccent(source_text)), '[^a-z0-9]+', ' ', 'g'));
+$$;
+
+CREATE FUNCTION recipe_search_match_rank(title text, summary text, search_text text)
+RETURNS integer
+LANGUAGE sql
+STABLE
+AS $$
+  WITH normalized AS (
+    SELECT normalize_search_text(title) AS normalized_title,
+      normalize_search_text(COALESCE(summary, '')) AS normalized_summary,
+      normalize_search_text(search_text) AS normalized_search
+  )
+  SELECT CASE
+    WHEN normalized_search = '' OR normalized_title = normalized_search THEN 0
+    WHEN (' ' || normalized_title || ' ') LIKE '% ' || normalized_search || ' %' THEN 1
+    WHEN NOT EXISTS (
+      SELECT 1
+      FROM regexp_split_to_table(normalized_search, ' ') AS search_token
+      WHERE (' ' || normalized_title) NOT LIKE '% ' || search_token || '%'
+    ) THEN 2
+    WHEN (' ' || normalized_summary || ' ') LIKE '% ' || normalized_search || ' %' THEN 3
+    WHEN NOT EXISTS (
+      SELECT 1
+      FROM regexp_split_to_table(normalized_search, ' ') AS search_token
+      WHERE (' ' || normalized_summary) NOT LIKE '% ' || search_token || '%'
+    ) THEN 4
+    ELSE 5
+  END
+  FROM normalized;
+$$;
+
 
 CREATE TABLE tenant (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -11,7 +53,9 @@ CREATE TABLE tenant (
   frontpage_heading text CHECK (frontpage_heading IS NULL OR length(trim(frontpage_heading)) BETWEEN 1 AND 80),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  disabled_at timestamptz
+  disabled_at timestamptz,
+  show_on_start_page boolean NOT NULL DEFAULT true,
+  recipe_retention_days integer NOT NULL DEFAULT 30 CHECK (recipe_retention_days BETWEEN 1 AND 36500)
 );
 
 CREATE TABLE tenant_identity_key (
@@ -66,7 +110,9 @@ CREATE TABLE user_account (
   disabled_at timestamptz,
   deleted_at timestamptz,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  first_name text CHECK (length(trim(first_name)) BETWEEN 1 AND 120),
+  last_name text CHECK (length(trim(last_name)) BETWEEN 1 AND 120)
 );
 
 CREATE TABLE service_account (
@@ -114,6 +160,11 @@ CREATE TABLE tenant_membership_role (
   FOREIGN KEY (tenant_id, principal_id) REFERENCES tenant_membership(tenant_id, principal_id) ON DELETE CASCADE,
   FOREIGN KEY (tenant_role_id, tenant_id) REFERENCES tenant_role(id, tenant_id) ON DELETE CASCADE
 );
+
+ALTER TABLE tenant
+  ADD COLUMN owner_principal_id uuid REFERENCES principal(id) ON DELETE RESTRICT,
+  ADD CONSTRAINT tenant_owner_membership_fk
+    FOREIGN KEY (id, owner_principal_id) REFERENCES tenant_membership(tenant_id, principal_id) ON DELETE RESTRICT;
 
 CREATE TABLE instance_role (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -543,12 +594,11 @@ CREATE INDEX email_one_time_code_rate_ip_idx ON email_one_time_code(requested_ip
 
 CREATE TABLE ingredient (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_tenant_id uuid REFERENCES tenant(id) ON DELETE CASCADE,
+  owner_tenant_id uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   canonical_name text NOT NULL CHECK (length(trim(canonical_name)) > 0),
-  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\.[a-z]+(?:\.[a-z]+)*$'),
   created_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE NULLS NOT DISTINCT (owner_tenant_id, canonical_name)
+  UNIQUE (owner_tenant_id, canonical_name)
 );
 
 CREATE TABLE ingredient_alias (
@@ -557,7 +607,6 @@ CREATE TABLE ingredient_alias (
   text_override text,
   public_id uuid NOT NULL UNIQUE DEFAULT gen_random_uuid(),
   alias text NOT NULL CHECK (length(trim(alias)) > 0),
-  localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^ingredient\.[a-z]+(?:\.[a-z]+)*$'),
   UNIQUE (ingredient_id, alias)
 );
 
@@ -568,13 +617,18 @@ CREATE TABLE unit (
   name text NOT NULL CHECK (length(trim(name)) > 0),
   symbol text NOT NULL CHECK (length(trim(symbol)) > 0),
   localization_key text UNIQUE CHECK (localization_key IS NULL OR localization_key ~ '^unit\.[a-z]+(?:\.[a-z]+)*$'),
-  dimension text NOT NULL CHECK (dimension IN ('MASS', 'VOLUME', 'COUNT', 'TEMPERATURE')),
-  base_factor numeric(24, 12) NOT NULL CHECK (base_factor > 0),
-  base_offset numeric(24, 12) NOT NULL DEFAULT 0,
+  dimension text CHECK (dimension IS NULL OR dimension IN ('MASS', 'VOLUME', 'COUNT', 'TEMPERATURE')),
+  base_factor numeric(24, 12),
+  base_offset numeric(24, 12),
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE NULLS NOT DISTINCT (owner_tenant_id, name),
   UNIQUE NULLS NOT DISTINCT (owner_tenant_id, symbol),
-  CHECK (dimension = 'TEMPERATURE' OR base_offset = 0)
+  CONSTRAINT unit_convertibility_check CHECK (
+    (dimension IS NULL AND base_factor IS NULL AND base_offset IS NULL)
+    OR
+    (dimension IS NOT NULL AND base_factor IS NOT NULL AND base_factor > 0 AND base_offset IS NOT NULL
+      AND (dimension = 'TEMPERATURE' OR base_offset = 0))
+  )
 );
 
 CREATE TABLE category (
@@ -618,7 +672,10 @@ CREATE TABLE recipe (
   is_featured boolean NOT NULL DEFAULT true,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (tenant_id, slug)
+  UNIQUE (tenant_id, slug),
+  deleted_at timestamptz,
+  deletion_retention_days integer CHECK (deletion_retention_days BETWEEN 1 AND 36500),
+  CONSTRAINT recipe_deletion_state CHECK ((deleted_at IS NULL) = (deletion_retention_days IS NULL))
 );
 
 CREATE TABLE recipe_revision (
@@ -690,7 +747,15 @@ CREATE TABLE recipe_variant (
   is_visible boolean NOT NULL DEFAULT true,
   CHECK (NOT is_default OR is_visible),
   UNIQUE (recipe_revision_id, variant_key),
-  UNIQUE (recipe_revision_id, slug)
+  UNIQUE (recipe_revision_id, slug),
+  difficulty text CHECK (difficulty IN ('EASY', 'MEDIUM', 'DEMANDING')),
+  total_minutes integer CHECK (total_minutes BETWEEN 0 AND 5256000),
+  active_minutes integer CHECK (active_minutes BETWEEN 0 AND 5256000),
+  kcal double precision CHECK (kcal BETWEEN 0 AND 1000000000),
+  servings double precision CHECK (servings > 0 AND servings <= 1000000),
+  utensils text CHECK (length(utensils) <= 4000 AND length(trim(utensils)) > 0),
+  diet text CHECK (diet IN ('VEGAN', 'VEGETARIAN', 'OMNI')),
+  CONSTRAINT recipe_variant_duration_check CHECK (active_minutes <= total_minutes)
 );
 
 CREATE UNIQUE INDEX recipe_variant_one_default ON recipe_variant(recipe_revision_id) WHERE is_default;
@@ -820,8 +885,8 @@ CREATE TABLE tenant_invitation (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   tenant_id uuid NOT NULL REFERENCES tenant(id) ON DELETE CASCADE,
   invited_email text NOT NULL,
-  first_name text NOT NULL CHECK (length(trim(first_name)) > 0),
-  last_name text NOT NULL CHECK (length(trim(last_name)) > 0),
+  first_name text CHECK (length(trim(first_name)) > 0),
+  last_name text CHECK (length(trim(last_name)) > 0),
   tenant_role_id uuid NOT NULL REFERENCES tenant_role(id) ON DELETE CASCADE,
   token_hash bytea NOT NULL UNIQUE,
   expires_at timestamptz NOT NULL,
@@ -889,12 +954,15 @@ CREATE TABLE pending_registration (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   email text NOT NULL,
   password_hash text NOT NULL,
-  tenant_name text NOT NULL CHECK (length(trim(tenant_name)) BETWEEN 1 AND 120),
+  tenant_name text CHECK (tenant_name IS NULL OR length(trim(tenant_name)) BETWEEN 1 AND 120),
   verification_token_hash bytea NOT NULL UNIQUE,
   created_at timestamptz NOT NULL DEFAULT now(),
   expires_at timestamptz NOT NULL,
   CHECK (expires_at > created_at),
-  UNIQUE (email)
+  UNIQUE (email),
+  first_name text CHECK (length(trim(first_name)) BETWEEN 1 AND 120),
+  last_name text CHECK (length(trim(last_name)) BETWEEN 1 AND 120),
+  display_name text CHECK (length(trim(display_name)) BETWEEN 1 AND 120)
 );
 
 CREATE TABLE instance_registration_settings (
@@ -903,7 +971,8 @@ CREATE TABLE instance_registration_settings (
   turnstile_enabled boolean NOT NULL DEFAULT false,
   updated_by_principal_id uuid REFERENCES principal(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
-  updated_at timestamptz NOT NULL DEFAULT now()
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  max_cookbooks_per_owner integer NOT NULL DEFAULT 1 CHECK (max_cookbooks_per_owner BETWEEN 1 AND 100)
 );
 
 CREATE TABLE registration_rate_event (
@@ -933,6 +1002,211 @@ CREATE TABLE user_invitation (
   FOREIGN KEY (tenant_role_id, tenant_id) REFERENCES tenant_role(id, tenant_id) ON DELETE CASCADE
 );
 CREATE INDEX user_invitation_email_active_idx ON user_invitation(invited_email) WHERE accepted_at IS NULL;
+
+CREATE TABLE instance_email_template (
+  template_key text PRIMARY KEY CHECK (template_key IN (
+    'CONTENT_REPORT', 'REGISTRATION_VERIFICATION', 'EMAIL_CHANGE_VERIFICATION', 'LOGIN_CODE',
+    'PASSWORD_RESET', 'ADMIN_PASSWORD_RESET',
+    'INSTANCE_USER_INVITATION', 'COOKBOOK_USER_INVITATION', 'COOKBOOK_OWNER_INVITATION'
+  )),
+  subject_template text NOT NULL CHECK (length(trim(subject_template)) BETWEEN 1 AND 300),
+  body_template text NOT NULL CHECK (length(trim(body_template)) BETWEEN 1 AND 20000),
+  updated_by_principal_id uuid REFERENCES principal(id) ON DELETE SET NULL,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE instance_cookbook_slug_blocked_term (
+  term text PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  created_by_principal_id uuid REFERENCES principal(id) ON DELETE SET NULL,
+  CONSTRAINT instance_cookbook_slug_blocked_term_format
+    CHECK (term ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$')
+);
+
+CREATE TABLE oauth_client (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  client_id text NOT NULL UNIQUE,
+  client_name text NOT NULL CHECK (length(trim(client_name)) > 0),
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE oauth_client_redirect_uri (
+  oauth_client_id uuid NOT NULL REFERENCES oauth_client(id) ON DELETE CASCADE,
+  redirect_uri text NOT NULL,
+  PRIMARY KEY (oauth_client_id, redirect_uri)
+);
+
+CREATE TABLE oauth_authorization_code (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  code_hash bytea NOT NULL UNIQUE,
+  principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
+  client_id text NOT NULL,
+  redirect_uri text NOT NULL,
+  resource text NOT NULL,
+  scope text NOT NULL,
+  code_challenge text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (expires_at > created_at)
+);
+
+CREATE TABLE oauth_access_token (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash bytea NOT NULL UNIQUE,
+  principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
+  client_id text NOT NULL,
+  resource text NOT NULL,
+  scope text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  revoked_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (expires_at > created_at)
+);
+
+CREATE TABLE oauth_refresh_token (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  token_hash bytea NOT NULL UNIQUE,
+  principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
+  client_id text NOT NULL,
+  resource text NOT NULL,
+  scope text NOT NULL,
+  expires_at timestamptz NOT NULL,
+  consumed_at timestamptz,
+  revoked_at timestamptz,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  CHECK (expires_at > created_at)
+);
+
+CREATE INDEX oauth_access_token_active_lookup_idx
+  ON oauth_access_token(token_hash)
+  WHERE revoked_at IS NULL;
+
+CREATE INDEX oauth_refresh_token_active_lookup_idx
+  ON oauth_refresh_token(token_hash)
+  WHERE revoked_at IS NULL AND consumed_at IS NULL;
+
+CREATE TABLE unit_translation (
+  unit_id uuid NOT NULL REFERENCES unit(id) ON DELETE CASCADE,
+  locale text NOT NULL CHECK (locale <> 'en' AND locale ~ '^[a-z]{2,3}(-[a-z]{4})?(-([a-z]{2}|[0-9]{3}))?$'),
+  name text NOT NULL CHECK (length(trim(name)) BETWEEN 1 AND 100),
+  symbol text NOT NULL CHECK (length(trim(symbol)) BETWEEN 1 AND 100),
+  PRIMARY KEY (unit_id, locale)
+);
+
+CREATE TABLE account_email_change (
+  user_account_id uuid PRIMARY KEY REFERENCES user_account(id) ON DELETE CASCADE,
+  new_email text NOT NULL CHECK (new_email = lower(trim(new_email)) AND length(new_email) BETWEEN 3 AND 254),
+  token_hash bytea NOT NULL UNIQUE CHECK (octet_length(token_hash) = 32),
+  expires_at timestamptz NOT NULL,
+  last_sent_at timestamptz NOT NULL,
+  send_count integer NOT NULL CHECK (send_count > 0)
+);
+
+CREATE TABLE instance_report_settings (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  recipient_email text CHECK (recipient_email IS NULL OR length(trim(recipient_email)) BETWEEN 3 AND 254),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by_principal_id uuid REFERENCES principal(id) ON DELETE RESTRICT
+);
+INSERT INTO instance_report_settings (singleton) VALUES (true);
+
+CREATE TABLE content_report (
+  public_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reporter_user_id uuid NOT NULL REFERENCES user_account(id) ON DELETE RESTRICT,
+  target_type text NOT NULL CHECK (target_type IN ('RECIPE', 'USER', 'COOKBOOK')),
+  target_public_id uuid NOT NULL,
+  reason text NOT NULL CHECK (reason IN ('ILLEGAL_CONTENT', 'IMPROPER_NAME', 'HARASSMENT', 'SPAM', 'OTHER')),
+  description text NOT NULL CHECK (length(trim(description)) BETWEEN 1 AND 5000),
+  status text NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'UNDER_INVESTIGATION', 'CLOSED')),
+  result text CHECK (result IN ('BLOCKED', 'UNFOUNDED', 'USER_DELETED', 'COOKBOOK_DELETED', 'RECIPE_DELETED', 'OTHER')),
+  result_note text NOT NULL DEFAULT '' CHECK (length(result_note) <= 5000),
+  assigned_admin_user_id uuid REFERENCES user_account(id) ON DELETE RESTRICT,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  CHECK ((status = 'CLOSED') = (result IS NOT NULL))
+);
+CREATE INDEX content_report_status_created_idx ON content_report(status, created_at DESC);
+CREATE INDEX content_report_reporter_created_idx ON content_report(reporter_user_id, created_at DESC);
+
+CREATE TABLE content_report_notification (
+  report_public_id uuid PRIMARY KEY REFERENCES content_report(public_id) ON DELETE CASCADE,
+  sent_at timestamptz,
+  attempts integer NOT NULL DEFAULT 0 CHECK (attempts >= 0),
+  next_attempt_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX content_report_notification_pending_idx ON content_report_notification(next_attempt_at) WHERE sent_at IS NULL;
+
+CREATE TABLE recipe_revision_contributor (
+  recipe_revision_id uuid NOT NULL REFERENCES recipe_revision(id) ON DELETE CASCADE,
+  principal_id uuid NOT NULL REFERENCES principal(id) ON DELETE RESTRICT,
+  PRIMARY KEY (recipe_revision_id, principal_id)
+);
+
+CREATE INDEX recipe_revision_contributor_principal_idx
+  ON recipe_revision_contributor (principal_id);
+
+CREATE TABLE password_login_failure (
+  id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  client_ip inet NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT clock_timestamp()
+);
+
+CREATE INDEX password_login_failure_client_time_idx
+  ON password_login_failure (client_ip, created_at);
+
+CREATE INDEX password_login_failure_created_at_idx
+  ON password_login_failure (created_at);
+
+CREATE TABLE recipe_import_source (
+  recipe_id uuid PRIMARY KEY REFERENCES recipe(id) ON DELETE CASCADE,
+  instance_url text NOT NULL,
+  tenant_public_id uuid NOT NULL,
+  remote_recipe_public_id uuid NOT NULL,
+  remote_revision_public_id uuid
+);
+
+CREATE TABLE recipe_import_ingredient_source (
+  recipe_id uuid NOT NULL REFERENCES recipe(id) ON DELETE CASCADE,
+  instance_url text NOT NULL,
+  remote_tenant_public_id uuid NOT NULL,
+  remote_ingredient_public_id uuid NOT NULL,
+  ingredient_id uuid NOT NULL REFERENCES ingredient(id) ON DELETE CASCADE,
+  PRIMARY KEY (recipe_id, instance_url, remote_tenant_public_id, remote_ingredient_public_id)
+);
+
+CREATE TABLE recipe_import_unit_source (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  recipe_id uuid NOT NULL REFERENCES recipe(id) ON DELETE CASCADE,
+  instance_url text NOT NULL,
+  remote_tenant_public_id uuid,
+  remote_unit_public_id uuid NOT NULL,
+  unit_id uuid NOT NULL REFERENCES unit(id) ON DELETE CASCADE,
+  UNIQUE NULLS NOT DISTINCT (recipe_id, instance_url, remote_tenant_public_id, remote_unit_public_id)
+);
+
+CREATE UNIQUE INDEX recipe_revision_one_cover_image
+  ON recipe_revision_media (recipe_revision_id)
+  WHERE usage_kind = 'COVER';
+
+CREATE TABLE instance_media_settings (
+  singleton boolean PRIMARY KEY DEFAULT true CHECK (singleton),
+  max_published_recipe_images integer NOT NULL DEFAULT 5 CHECK (max_published_recipe_images >= 0),
+  updated_at timestamptz NOT NULL DEFAULT now(),
+  updated_by_principal_id uuid REFERENCES principal(id) ON DELETE RESTRICT
+);
+
+INSERT INTO instance_media_settings (singleton) VALUES (true);
+
+CREATE INDEX recipe_trash_expiration ON recipe (deleted_at)
+  WHERE deleted_at IS NOT NULL;
+CREATE TABLE recipe_media_deletion_queue (
+  storage_key text PRIMARY KEY,
+  queued_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX recipe_variant_diet_idx ON recipe_variant (diet) WHERE diet IS NOT NULL;
 
 INSERT INTO permission (code, description) VALUES
   ('instance:administer', 'Administer the Shadowcook instance.'),

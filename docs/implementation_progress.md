@@ -51,6 +51,8 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 
 ### Platform, persistence, and development data
 
+- The 24 initial/Beta schema migrations are consolidated into one initial schema for fresh installations. Schema and built-in seed equivalence were verified against the previous migration chain in isolated PostgreSQL databases. Migration tests cover the baseline ledger, repeatability, unit seeding and translations, contributor cascades, search functions, and independent variant metadata; database builds remove obsolete compiled SQL assets (architecture: [Database migration execution](ARCHITECTURE.md#database-migration-execution); decision: [Consolidated schema baseline](adr/0001-consolidated-schema-baseline.md)).
+
 - Operational PostgreSQL backups are available through `pnpm backup:db` and the deployment package's `backup-database.sh`, with selected `.env` credentials, private UTC timestamp directories, custom-format dumps, archive validation, checksums, and retained partial files on failure. Bundled Compose deployments execute PostgreSQL tools inside the running database container and stream backup files to the host (architecture: [Operational database backup and restore](ARCHITECTURE.md#operational-database-backup-and-restore)).
 - Operational PostgreSQL recovery is available through `pnpm restore:db` and the deployment package's `restore-database.sh`, with checksum and archive validation, explicit execution, transactional replacement of backed-up objects and data, optional missing-database creation, shared connection helpers, and private UTC restore logs (architecture: [Operational database backup and restore](ARCHITECTURE.md#operational-database-backup-and-restore)).
 - The pnpm workspace contains the Fastify API, Astro web application, database package, and OpenAPI contract.
@@ -68,7 +70,7 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 - The tracked initial-deployment seed creates localized instance-owned units.
 - `pnpm reset:shadowcook-db` and its `pnpm reset:dev-db` alias recreate only the `public` schema of the development `shadowcook` database.
 - `pnpm export:development-content-seed` validates the selected development tenant for a JSON category and recipe content export; its `--execute` mode writes the optional local development content seed.
-- Development ingredient cleanup exports all catalogued content-seed ingredients to a four-column CSV and ingests validated renames, recipe-note modifiers, and aliases back into the content seed.
+- The one-time ingredient-cleanup CSV tools were removed after the cleaned ingredient data was imported into production.
 
 ### Cookbook, public web, and localization
 

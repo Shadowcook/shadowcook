@@ -100,7 +100,7 @@ Migration tests use a freshly created disposable PostgreSQL database, never a sh
 
 - Apply all migrations to an empty database and verify the resulting tables, constraints, indexes, triggers, functions, seed records, and expected permissions.
 - Run `migrateDatabase` a second time and verify that no migration is rerun and the migration ledger is unchanged.
-- Start from a database at each prior released migration state, apply the remaining migrations, and verify preserved tenant, user, recipe, revision, and catalogue data.
+- Start from the consolidated initial baseline and each subsequent released migration state, apply the remaining migrations, and verify preserved tenant, user, recipe, revision, and catalogue data.
 - Verify failure and rollback for a deliberately failing migration in a test-only migration fixture: no partial schema/data changes and no ledger entry remain.
 - Verify unknown applied IDs and checksum mismatches stop migration before API startup.
 - Verify advisory-lock behavior with two concurrent migration attempts.

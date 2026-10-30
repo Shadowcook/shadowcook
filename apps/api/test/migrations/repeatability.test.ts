@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { after, before, test } from 'node:test';
 import { migrateDatabase } from '@shadowcook/db';
 import type { PoolClient, QueryResult } from 'pg';
@@ -38,7 +37,9 @@ test('migrations are repeatable without changing the migration ledger', async ()
     'SELECT id, checksum FROM application_schema_migration ORDER BY id',
   );
   assert.deepEqual(afterResult.rows, beforeResult.rows);
-  assert.ok(afterResult.rows.length > 0);
+  assert.equal(afterResult.rows.length, 1);
+  assert.match(afterResult.rows[0]!.id, /^\d{14}_initial_schema$/);
+  assert.match(afterResult.rows[0]!.checksum, /^[a-f0-9]{64}$/);
 });
 
 test('initial deployment seed stores complete conversions for all standard units', async (): Promise<void> => {
@@ -58,7 +59,7 @@ test('initial deployment seed stores complete conversions for all standard units
   }
 });
 
-test('the contributor migration backfills existing creators and cascades discarded revision memberships', async (): Promise<void> => {
+test('revision contributor memberships cascade when a revision is discarded', async (): Promise<void> => {
   const tenant: TestTenant = await createTestTenant(database.pool, 'contributor-backfill');
   const client: PoolClient = await database.pool.connect();
   try {
@@ -74,15 +75,10 @@ test('the contributor migration backfills existing creators and cascades discard
       "INSERT INTO recipe_revision (recipe_id, revision_no, status, title, created_by_principal_id) VALUES ($1, 1, 'DRAFT', 'Existing draft', $2) RETURNING id",
       [recipe.rows[0]!.id, principal.rows[0]!.id],
     );
-    await client.query('DROP TABLE recipe_revision_contributor');
-    const sql: string = readFileSync(
-      new URL(
-        '../../../../packages/db/src/migrations/sql/20261013205649_beta_2_recipe_contributors.sql',
-        import.meta.url,
-      ),
-      'utf8',
+    await client.query(
+      'INSERT INTO recipe_revision_contributor (recipe_revision_id, principal_id) VALUES ($1, $2)',
+      [revision.rows[0]!.id, principal.rows[0]!.id],
     );
-    await client.query(sql);
     const contributions: QueryResult<{ recipe_revision_id: string; principal_id: string }> =
       await client.query<{ recipe_revision_id: string; principal_id: string }>(
         'SELECT recipe_revision_id, principal_id FROM recipe_revision_contributor WHERE recipe_revision_id = $1',
@@ -135,22 +131,14 @@ test('normalized recipe search transliterates text, separates words, and ranks m
   });
 });
 
-test('unit translation migration preserves existing default edits and populates German versions', async (): Promise<void> => {
+test('initial deployment units include German translations and preserve edits on repeated seeding', async (): Promise<void> => {
   const client: PoolClient = await database.pool.connect();
   try {
     await client.query('BEGIN');
-    await client.query('DROP TABLE unit_translation');
     await client.query(
       "UPDATE unit SET name = 'custom teaspoon', symbol = 'custom tsp' WHERE localization_key = 'unit.volume.teaspoon.metric'",
     );
-    const sql: string = readFileSync(
-      new URL(
-        '../../../../packages/db/src/migrations/sql/20261011191926_beta_2_unit_translations.sql',
-        import.meta.url,
-      ),
-      'utf8',
-    );
-    await client.query(sql);
+    await seedInitialDeployment(database.pool);
     const result: QueryResult<MigratedUnitRow> = await client.query<MigratedUnitRow>(
       `SELECT unit.name, unit.symbol, translation.name AS translated_name, translation.symbol AS translated_symbol
        FROM unit INNER JOIN unit_translation AS translation ON translation.unit_id = unit.id
@@ -172,7 +160,7 @@ test('unit translation migration preserves existing default edits and populates 
   }
 });
 
-test('variant metadata migration copies legacy values to every variant and removes revision columns', async (): Promise<void> => {
+test('variant preparation metadata is stored independently of revisions and other variants', async (): Promise<void> => {
   const tenant: TestTenant = await createTestTenant(database.pool, 'variant-facts-backfill');
   const client: PoolClient = await database.pool.connect();
   try {
@@ -186,43 +174,27 @@ test('variant metadata migration copies legacy values to every variant and remov
       "INSERT INTO recipe_revision (recipe_id, revision_no, status, title) VALUES ($1, 1, 'DRAFT', 'Existing') RETURNING id",
       [recipe.rows[0]!.id],
     );
-    for (const isDefault of [true, false])
+    for (const isDefault of [true, false]) {
       await client.query(
-        'INSERT INTO recipe_variant (recipe_revision_id, variant_key, name, slug, is_default, is_visible) VALUES ($1, gen_random_uuid(), $2, $2, $3, true)',
-        [revision.rows[0]!.id, isDefault ? 'default' : 'alternative', isDefault],
+        `INSERT INTO recipe_variant (
+          recipe_revision_id, variant_key, name, slug, is_default, is_visible, diet, total_minutes
+        ) VALUES ($1, gen_random_uuid(), $2, $2, $3, true, $4, $5)`,
+        [
+          revision.rows[0]!.id,
+          isDefault ? 'default' : 'alternative',
+          isDefault,
+          isDefault ? 'VEGAN' : 'VEGETARIAN',
+          isDefault ? 90 : 30,
+        ],
       );
-    await client.query(
-      'ALTER TABLE recipe_variant DROP COLUMN difficulty, DROP COLUMN total_minutes, DROP COLUMN active_minutes, DROP COLUMN kcal, DROP COLUMN servings, DROP COLUMN utensils, DROP COLUMN diet',
-    );
-    await client.query(
-      readFileSync(
-        new URL(
-          '../../../../packages/db/src/migrations/sql/20261020080239_beta_2_recipe_metadata.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-    );
-    await client.query(
-      "UPDATE recipe_revision SET diet = 'VEGAN', total_minutes = 90, active_minutes = 20, kcal = 800, servings = 4, utensils = 'Whisk', difficulty = 'EASY' WHERE id = $1",
-      [revision.rows[0]!.id],
-    );
-    await client.query(
-      readFileSync(
-        new URL(
-          '../../../../packages/db/src/migrations/sql/20261029202409_beta_2_variant_metadata.sql',
-          import.meta.url,
-        ),
-        'utf8',
-      ),
-    );
+    }
     const variants: QueryResult<{ diet: string; total_minutes: number }> = await client.query(
-      'SELECT diet, total_minutes FROM recipe_variant WHERE recipe_revision_id = $1',
+      'SELECT diet, total_minutes FROM recipe_variant WHERE recipe_revision_id = $1 ORDER BY is_default DESC',
       [revision.rows[0]!.id],
     );
     assert.deepEqual(variants.rows, [
       { diet: 'VEGAN', total_minutes: 90 },
-      { diet: 'VEGAN', total_minutes: 90 },
+      { diet: 'VEGETARIAN', total_minutes: 30 },
     ]);
     const columns: QueryResult<{ column_name: string }> = await client.query(
       "SELECT column_name FROM information_schema.columns WHERE table_name = 'recipe_revision' AND column_name IN ('diet', 'total_minutes', 'active_minutes', 'kcal', 'servings', 'utensils', 'difficulty')",
