@@ -153,6 +153,7 @@ test('registration retains names through replacement and email verification with
     const email: string =
       tenantName === null ? 'registration-profile@example.test' : 'cookbook-profile@example.test';
     const user: TestUser = await createTestUser(database.pool, { email: `password-${email}` });
+    let browserCookie: string = '';
     for (const displayName of ['Original display name', profile.displayName]) {
       const response: LightMyRequestResponse = await api.inject({
         method: 'POST',
@@ -169,6 +170,8 @@ test('registration retains names through replacement and email verification with
         },
       });
       assert.equal(response.statusCode, 202);
+      assert.equal(response.cookies.length, 1);
+      browserCookie = String(response.headers['set-cookie']).split(';', 1)[0]!;
     }
     const pending: QueryResult<{ first_name: string; last_name: string; display_name: string }> =
       await database.pool.query(
@@ -185,17 +188,56 @@ test('registration retains names through replacement and email verification with
       [email],
     );
     assert.equal(beforeVerification.rows[0]?.count, 0);
-    const token: string | undefined = mailText.match(/\/verify-email\/([A-Za-z0-9_-]+)/)?.[1];
+    let token: string | undefined = mailText.match(/\/verify-email\/([A-Za-z0-9_-]+)/)?.[1];
     assert.ok(token);
+    if (tenantName !== null) {
+      const previousToken: string = token;
+      const resent: LightMyRequestResponse = await api.inject({
+        method: 'POST',
+        url: '/registration/resend-verification',
+        payload: { email },
+      });
+      assert.equal(resent.statusCode, 202);
+      assert.equal(resent.headers['set-cookie'], undefined);
+      token = mailText.match(/\/verify-email\/([A-Za-z0-9_-]+)/)?.[1];
+      assert.ok(token);
+      assert.notEqual(token, previousToken);
+      const obsolete: LightMyRequestResponse = await api.inject({
+        method: 'POST',
+        url: '/registration/verify',
+        payload: { token: previousToken },
+        headers: { cookie: browserCookie },
+      });
+      assert.equal(obsolete.statusCode, 400);
+      assert.equal(obsolete.headers['set-cookie'], undefined);
+    }
     const verification: LightMyRequestResponse = await api.inject({
       method: 'POST',
       url: '/registration/verify',
       payload: { token },
+      headers: { cookie: browserCookie },
     });
     assert.equal(verification.statusCode, 201);
     assert.deepEqual(verification.json(), {
       tenantSlug: tenantName === null ? null : 'profile-cookbook',
+      authenticated: true,
     });
+    const sessionCookie: string | undefined = verification.cookies.find(
+      (cookie): boolean => cookie.name === 'shadowcook_session',
+    )?.value;
+    assert.ok(sessionCookie);
+    const session: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie: `shadowcook_session=${sessionCookie}` },
+    });
+    assert.equal(session.statusCode, 200);
+    assert.equal(session.json<{ email: string }>().email, email);
+    assert.equal(
+      verification.cookies.find((cookie): boolean => cookie.name === 'shadowcook_registration')
+        ?.maxAge,
+      0,
+    );
     const account: QueryResult<{ first_name: string; last_name: string; display_name: string }> =
       await database.pool.query(
         'SELECT first_name, last_name, display_name FROM user_account WHERE email = $1',
@@ -213,6 +255,7 @@ test('registration retains names through replacement and email verification with
       payload: { token },
     });
     assert.equal(reused.statusCode, 400);
+    assert.equal(reused.headers['set-cookie'], undefined);
   }
 });
 
@@ -229,6 +272,11 @@ test('pending registrations created before the name migration still verify', asy
     payload: { token },
   });
   assert.equal(response.statusCode, 201);
+  assert.equal(response.json<{ authenticated: boolean }>().authenticated, false);
+  assert.equal(
+    response.cookies.some((cookie): boolean => cookie.name === 'shadowcook_session'),
+    false,
+  );
   const account: QueryResult<{
     first_name: string | null;
     last_name: string | null;

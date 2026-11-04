@@ -8,6 +8,7 @@ import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
 import { subscribeToProfileUpdates } from '../lib/browser/profile-events';
+import { subscribeToSessionChanges } from '../lib/browser/session-events';
 import type { HeadBarSession } from '../lib/server/head-bar-session';
 import HeadBarDropdown from './HeadBarDropdown';
 import LanguageSwitch from './LanguageSwitch';
@@ -35,6 +36,12 @@ function HeadBar({
   const [signInHref, setSignInHref] = useState<string>('/login');
   const [signOutError, setSignOutError] = useState<string>('');
   const [signingOut, setSigningOut] = useState<boolean>(false);
+
+  useEffect((): (() => void) => {
+    return subscribeToSessionChanges((): void => {
+      void restoreSession(setSession);
+    });
+  }, []);
 
   useEffect((): void => {
     void restoreSession(setSession);

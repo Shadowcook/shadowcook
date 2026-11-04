@@ -66,6 +66,7 @@ export function createApi(
     instanceSecretKey,
     publicWebOrigin,
     registrationConfig,
+    secureCookies,
   );
   registerRegistrationSettingsRoutes(api, pool, registrationConfig);
   registerCookbookSlugRoutes(api, pool);

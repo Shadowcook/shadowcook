@@ -1078,6 +1078,7 @@ paths:
     post:
       operationId: createPendingRegistration
       summary: Creates an email-verification pending registration without creating a user.
+      description: Sets an opaque HttpOnly, SameSite=Lax registration browser cookie, with Secure when configured and a lifetime matching pending registrations. Successful submissions bind it to the pending credentials using the instance secret. Generic acknowledgements use indistinguishable random cookies.
       requestBody:
         required: true
         content:
@@ -1118,9 +1119,17 @@ paths:
       responses:
         default: { $ref: '#/components/responses/UnexpectedError' }
         '202':
-          {
-            description: The generic registration acknowledgement; it does not disclose account existence.,
-          }
+          description: The generic registration acknowledgement; it does not disclose account existence.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
         '400': { description: Registration details or Turnstile verification are invalid. }
         '403': { description: Public registration is disabled. }
         '429': { description: Registration request limit reached. }
@@ -1147,7 +1156,12 @@ paths:
     post:
       operationId: verifyPendingRegistration
       summary: Consumes a registration verification token and atomically creates the user and an optional cookbook.
-      description: Supports anonymous verification. An active session with a different email address is rejected without consuming the token or creating an account.
+      description: Supports anonymous verification. An active session with a different email address is rejected without consuming the token or creating an account. A matching registration browser cookie and configured instance secret additionally create a fresh session in the account transaction. Missing or invalid browser proof creates the account without signing in. Success clears the registration cookie; verification tokens remain single-use. Resending a link preserves browser proof; replacing the pending credentials invalidates it.
+      parameters:
+        - in: cookie
+          name: shadowcook_registration
+          required: false
+          schema: { type: string, pattern: '^[a-f0-9]{64}$' }
       security: [{}, { sessionCookie: [] }]
       requestBody:
         required: true
@@ -1162,14 +1176,19 @@ paths:
       responses:
         default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
-          description: User and optional cookbook were created.
+          description: User and optional cookbook were created. A session cookie is set only when authenticated is true.
+          headers:
+            Set-Cookie:
+              description: Clears the registration cookie and, for the originating browser, sets the HttpOnly session cookie.
+              schema: { type: string }
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [tenantSlug]
+                required: [tenantSlug, authenticated]
                 properties:
+                  authenticated: { type: boolean }
                   tenantSlug: { type: [string, 'null'] }
         '400': { description: Verification token is invalid, expired, or already consumed. }
         '403':
