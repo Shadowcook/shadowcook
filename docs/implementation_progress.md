@@ -213,6 +213,8 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 
 - [x] New variants inherit the current default variant’s preparation metadata and diet in the API and creation dialog. Explicit creation values override inherited fields; later edits remain independent.
 
+- Registration-verification mail provides pending first name, last name, and display name on initial delivery and resend. The default greeting uses first name; legacy pending registrations fall back to display name or email, and stored custom templates retain their content (architecture: [Registration and account settings](ARCHITECTURE.md#registration-and-account-settings)).
+
 ### Recipe cover image
 
 - Implemented the recipe cover image described in `docs/ARCHITECTURE.md`: draft upload/replacement/removal, browser crop preview, bounded JPEG encoding and thumbnail generation, filesystem storage, visibility checks, revision references, orphan cleanup and persistent deployment volume.

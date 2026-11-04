@@ -3960,6 +3960,7 @@ paths:
     get:
       operationId: listInstanceEmailTemplates
       summary: Returns resolved system email templates and permitted placeholders.
+      description: Registration verification supports first_name, last_name, and display_name from the pending registration on initial delivery and resends. Its built-in greeting uses first_name. recipient_name uses the pending display name, falling back to first name and email. first_name falls back to display name and email; display_name falls back to first name and email; a missing last_name is empty. Customized templates retain their contents.
       security: [{ sessionCookie: [] }]
       responses:
         default: { $ref: '#/components/responses/UnexpectedError' }

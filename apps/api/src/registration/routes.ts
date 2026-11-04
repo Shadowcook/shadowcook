@@ -39,6 +39,11 @@ interface ResendBody {
 interface VerifyBody {
   token: string;
 }
+interface RegistrationMailProfile {
+  firstName: string | null;
+  lastName: string | null;
+  displayName: string | null;
+}
 interface TurnstileResponse {
   success?: boolean;
 }
@@ -144,6 +149,7 @@ export function registerPublicRegistrationRoutes(
         token,
         publicWebOrigin,
         tenantName,
+        body,
       );
       if (!delivered) throw new Error('SMTP is not configured.');
     } catch (error: unknown) {
@@ -181,8 +187,10 @@ export function registerPublicRegistrationRoutes(
         return reply.code(202).send(genericRegistrationResponse);
       }
       const token: string = randomBytes(32).toString('base64url');
-      const pending = await pool.query<{ id: string; tenant_name: string | null }>(
-        'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id, tenant_name',
+      const pending = await pool.query<
+        RegistrationMailProfile & { id: string; tenant_name: string | null }
+      >(
+        'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id, tenant_name, first_name AS "firstName", last_name AS "lastName", display_name AS "displayName"',
         [hashToken(token), email],
       );
       if (pending.rows[0] !== undefined) {
@@ -194,6 +202,7 @@ export function registerPublicRegistrationRoutes(
             token,
             publicWebOrigin,
             pending.rows[0].tenant_name,
+            pending.rows[0],
           );
         } catch (error: unknown) {
           request.log.warn({ err: error }, 'Registration verification email resend failed');
@@ -397,8 +406,13 @@ async function sendVerificationMail(
   token: string,
   origin: string,
   cookbookName: string | null,
+  profile: RegistrationMailProfile,
 ): Promise<boolean> {
   return sendTemplatedInstanceMail(pool, key, email, 'REGISTRATION_VERIFICATION', {
+    first_name: profile.firstName ?? profile.displayName ?? email,
+    last_name: profile.lastName ?? '',
+    display_name: profile.displayName ?? profile.firstName ?? email,
+    recipient_name: profile.displayName ?? profile.firstName ?? email,
     action_url: `${origin}/verify-email/${token}`,
     cookbook_name: cookbookName ?? '',
     expires_in: '24 hours',

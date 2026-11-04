@@ -2,7 +2,13 @@ import OfflineNotice from './errors/OfflineNotice';
 import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import { faCompass, faRightToBracket, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons';
+import {
+  faCompass,
+  faRightFromBracket,
+  faRightToBracket,
+  faUser,
+  faUserPlus,
+} from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
@@ -112,40 +118,62 @@ function HeadBar({
           </a>
           <LanguageSwitch locale={locale} />
           {session.authenticated ? (
-            <HeadBarDropdown label={text.headBar.userMenu} icon={faUser}>
-              <div className="head-bar__user-identity">
-                <strong>{session.displayName}</strong>
-                <span>{session.email}</span>
+            <>
+              <HeadBarDropdown label={text.headBar.userMenu} icon={faUser}>
+                <div className="head-bar__user-identity">
+                  <strong>{session.displayName}</strong>
+                  <span>{session.email}</span>
+                </div>
+                <a href="/explore">{text.headBar.myCookbooks}</a>
+                <a href="/settings">{text.headBar.accountSettings}</a>
+                {session.canAccessAdministration ? <a href="/admin">{text.admin.title}</a> : null}
+              </HeadBarDropdown>
+              <div className="head-bar__sign-out">
+                <button
+                  className="head-bar__icon-button"
+                  type="button"
+                  aria-label={text.dashboard.logout}
+                  title={text.dashboard.logout}
+                  aria-busy={signingOut}
+                  disabled={signingOut}
+                  onClick={(): void => void signOut()}
+                >
+                  <FontAwesomeIcon icon={faRightFromBracket} aria-hidden="true" />
+                </button>
+                {signOutError.length === 0 ? null : (
+                  <p className="head-bar__sign-out-error" role="alert">
+                    {signOutError}
+                  </p>
+                )}
               </div>
-              <a href="/explore">{text.headBar.myCookbooks}</a>
-              <a href="/settings">{text.headBar.accountSettings}</a>
-              {session.canAccessAdministration ? <a href="/admin">{text.admin.title}</a> : null}
-              <button type="button" disabled={signingOut} onClick={(): void => void signOut()}>
-                {text.dashboard.logout}
-              </button>
-              {signOutError.length === 0 ? null : (
-                <p className="head-bar__menu-message" role="alert">
-                  {signOutError}
-                </p>
-              )}
-            </HeadBarDropdown>
+            </>
           ) : (
             <div className="head-bar__actions">
               <a
-                className="head-bar__icon-button"
+                className="head-bar__text-button head-bar__register"
                 href="/register"
                 aria-label={text.headBar.register}
                 title={text.headBar.register}
               >
-                <FontAwesomeIcon icon={faUserPlus} aria-hidden="true" />
+                <FontAwesomeIcon
+                  className="head-bar__action-icon"
+                  icon={faUserPlus}
+                  aria-hidden="true"
+                />
+                {text.headBar.register}
               </a>
               <a
-                className="head-bar__icon-button"
+                className="head-bar__text-button head-bar__sign-in"
                 href={signInHref}
                 aria-label={text.dashboard.login}
                 title={text.dashboard.login}
               >
-                <FontAwesomeIcon icon={faRightToBracket} aria-hidden="true" />
+                <FontAwesomeIcon
+                  className="head-bar__action-icon"
+                  icon={faRightToBracket}
+                  aria-hidden="true"
+                />
+                {text.dashboard.login}
               </a>
             </div>
           )}
