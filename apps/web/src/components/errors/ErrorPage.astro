@@ -1,6 +1,10 @@
 ---
 import ErrorState from './ErrorState';
 import Favicon from '../Favicon.astro';
+import HeadBar from '../HeadBar';
+import BuildFooter from '../BuildFooter.astro';
+import { buildCommit } from '../../lib/server/build-info';
+import { loadHeadBarSession, type HeadBarSession } from '../../lib/server/head-bar-session';
 import { translations } from '../../i18n';
 import type { Translation, Locale } from '../../i18n';
 import '../../styles/global.css';
@@ -12,6 +16,11 @@ interface Props {
 }
 const { locale, status, requestId, retryAfterSeconds } = Astro.props;
 const text: Translation = translations[locale];
+const deployedBuildCommit: string | undefined = buildCommit();
+const headBarSession: HeadBarSession | undefined = await loadHeadBarSession(
+  Astro.request.headers.get('cookie'),
+  AbortSignal.timeout(1500),
+).catch((): undefined => undefined);
 ---
 
 <!doctype html>
@@ -22,8 +31,13 @@ const text: Translation = translations[locale];
       content="noindex"
     /><Favicon /><title>{text.metadata.title}</title></head
   >
-  <body
-    ><header class="error-state__brand"><a href="/">{text.brandName}</a></header>
+  <body>
+    <HeadBar
+      client:load
+      currentPath={Astro.url.pathname}
+      initialSession={headBarSession}
+      locale={locale}
+    />
     <main class="application-shell">
       <ErrorState
         client:load
@@ -34,5 +48,6 @@ const text: Translation = translations[locale];
         returnTo={Astro.url.pathname + Astro.url.search}
       />
     </main>
+    <BuildFooter buildCommit={deployedBuildCommit} text={text} />
   </body>
 </html>

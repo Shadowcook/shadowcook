@@ -25,11 +25,22 @@ const signedOutSession: HeadBarSession = {
   canAccessAdministration: false,
 };
 
-export async function loadHeadBarSession(cookie: string | null): Promise<HeadBarSession> {
-  const session: SessionResponse | null = await getJson<SessionResponse>('/auth/session', cookie);
+export async function loadHeadBarSession(
+  cookie: string | null,
+  signal?: AbortSignal,
+): Promise<HeadBarSession> {
+  const session: SessionResponse | null = await getJson<SessionResponse>(
+    '/auth/session',
+    cookie,
+    signal,
+  );
   if (session === null) return signedOutSession;
 
-  const administrationResponse: Response | null = await getResponse('/admin/tenants', cookie);
+  const administrationResponse: Response | null = await getResponse(
+    '/admin/tenants',
+    cookie,
+    signal,
+  );
   return {
     authenticated: true,
     email: session.email,
@@ -56,17 +67,23 @@ export async function loadAdminAreaState(cookie: string | null): Promise<AdminAr
 async function getJson<ResponseBody>(
   path: string,
   cookie: string | null,
+  signal?: AbortSignal,
 ): Promise<ResponseBody | null> {
-  const response: Response | null = await getResponse(path, cookie);
+  const response: Response | null = await getResponse(path, cookie, signal);
   if (response === null || !response.ok) return null;
   return (await response.json()) as ResponseBody;
 }
 
-async function getResponse(path: string, cookie: string | null): Promise<Response | null> {
+async function getResponse(
+  path: string,
+  cookie: string | null,
+  signal?: AbortSignal,
+): Promise<Response | null> {
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
   try {
     return await fetch(new URL(path, apiOrigin), {
       headers: cookie === null || cookie.length === 0 ? {} : { cookie },
+      signal,
     });
   } catch (_error: unknown) {
     return null;

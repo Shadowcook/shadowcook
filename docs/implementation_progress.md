@@ -4,6 +4,8 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 
 ### Error handling and error pages
 
+- Added separate, self-contained 500/502/503/504 proxy reference pages in English and German, with a shared manual generator and operator instructions. The references are not part of build or deployment packaging (architecture: [Error handling and recovery](ARCHITECTURE.md#error-handling-and-recovery)).
+
 - Added localized read error states, per-island React boundaries, an offline notice, safe API error parsing, support identifiers and rate-limit timing. Cookbook failures retain their server/network classification; management refresh failures retain the editor. Mutation feedback remains contextual (architecture: [Error handling and recovery](ARCHITECTURE.md#error-handling-and-recovery)).
 - Added central Fastify exceptions and correlation headers, OpenAPI default errors, a generated static Apache page, package inclusion, selective proxy configuration, isolated smoke tests and a manual staging checklist. Active host and Cloudflare configuration remain operator-managed.
 

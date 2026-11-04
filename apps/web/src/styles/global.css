@@ -1485,10 +1485,6 @@ body:has(.application-dialog[open]) {
   gap: 1rem;
   margin-top: 2rem;
 }
-.error-state__brand {
-  padding: 1.5rem;
-  font-size: 1.8rem;
-}
 .error-state code {
   overflow-wrap: anywhere;
   user-select: all;
