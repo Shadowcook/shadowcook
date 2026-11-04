@@ -1,3 +1,4 @@
+import { ApiRequestError, responseError } from '../api/client.ts';
 const defaultApiOrigin: string = 'http://localhost:3000';
 
 export interface HeadBarSession {
@@ -39,7 +40,10 @@ export async function loadHeadBarSession(cookie: string | null): Promise<HeadBar
 
 export async function loadAdminAreaState(cookie: string | null): Promise<AdminAreaState> {
   const accessResponse: Response | null = await getResponse('/admin/tenants', cookie);
-  if (accessResponse?.ok !== true) {
+  if (accessResponse === null) throw new ApiRequestError('UPSTREAM_UNAVAILABLE', 503);
+  if (!accessResponse.ok && accessResponse.status !== 401 && accessResponse.status !== 403)
+    throw await responseError(accessResponse);
+  if (accessResponse.ok !== true) {
     return {
       access: accessResponse?.status === 401 ? 'unauthenticated' : 'denied',
       isAdministrator: false,

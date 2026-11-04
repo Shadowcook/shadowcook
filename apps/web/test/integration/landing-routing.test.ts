@@ -34,6 +34,7 @@ const requests: string[] = [];
 let api: Server;
 let web: Server;
 let origin: string;
+let recipeStatus: number = 200;
 const previousOrigin: string | undefined = process.env.SHADOWCOOK_API_ORIGIN;
 const previousAutostart: string | undefined = process.env.ASTRO_NODE_AUTOSTART;
 
@@ -42,12 +43,21 @@ before(async (): Promise<void> => {
     const path: string = request.url ?? '';
     requests.push(path);
     response.setHeader('content-type', 'application/json');
-    if (path === '/auth/session' && request.headers.cookie?.includes('session=test')) {
+    if (path.startsWith('/cookbook?tenantSlug=unavailable')) {
+      response.statusCode = 503;
+      response.end('<html>Database details must stay private</html>');
+    } else if (path === '/auth/session' && request.headers.cookie?.includes('session=test')) {
       response.end(JSON.stringify({ email: 'member@example.test', displayName: 'Member' }));
+    } else if (path === '/auth/session') {
+      response.statusCode = 401;
+      response.end('{}');
     } else if (path.startsWith('/cookbook?tenantSlug=family')) {
       response.end(JSON.stringify(cookbook));
     } else if (path.startsWith(`/cookbook/recipes/${recipe.public_id}`)) {
-      response.end(JSON.stringify(recipe));
+      response.statusCode = recipeStatus;
+      response.setHeader('x-request-id', 'recipe-read-support');
+      if (recipeStatus === 429) response.setHeader('retry-after', '30');
+      response.end(JSON.stringify(recipeStatus === 200 ? recipe : { code: 'REQUEST_FAILED' }));
     } else {
       response.statusCode = 404;
       response.end('{}');
@@ -159,7 +169,7 @@ test('missing cookbooks and category paths return a useful server-rendered 404',
   ]) {
     const response: Response = await fetch(`${origin}${path}`);
     assert.equal(response.status, 404, path);
-    assert.match(await response.text(), /href="\/explore"/);
+    assert.match(await response.text(), /href="\/"/);
   }
 });
 
@@ -178,3 +188,38 @@ async function close(server: Server): Promise<void> {
     server.closeAllConnections();
   });
 }
+
+test('temporary cookbook failures retain their status and never claim the resource is missing', async (): Promise<void> => {
+  const response: Response = await fetch(`${origin}/unavailable`);
+  const html: string = await response.text();
+  assert.equal(response.status, 503);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+  assert.match(html, /Something burned in the kitchen/);
+  assert.doesNotMatch(html, /Database details|<h1>Not on the menu/);
+});
+test('unknown reserved routes return 404 without becoming cookbook lookups', async (): Promise<void> => {
+  requests.length = 0;
+  const response: Response = await fetch(`${origin}/auth/not-a-page`);
+  assert.equal(response.status, 404);
+  assert.equal(
+    requests.some((path: string): boolean => path.startsWith('/cookbook?')),
+    false,
+  );
+});
+
+test('recipe reads preserve authorization, missing-resource and server statuses', async (): Promise<void> => {
+  try {
+    for (const status of [401, 403, 404, 429, 500, 503]) {
+      recipeStatus = status;
+      const response: Response = await fetch(`${origin}/family/recipes/${recipe.slug}`);
+      const html: string = await response.text();
+      assert.equal(response.status, status);
+      if (status !== 404) assert.match(html, /recipe-read-support/);
+      if (status >= 500) assert.doesNotMatch(html, /<h1>Not on the menu/);
+      if (status === 401) assert.match(html, /href="\/login\?next=/);
+      if (status === 403) assert.match(html, /<h1>Access denied/);
+    }
+  } finally {
+    recipeStatus = 200;
+  }
+});

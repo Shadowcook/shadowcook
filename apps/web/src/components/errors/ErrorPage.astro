@@ -1,0 +1,38 @@
+---
+import ErrorState from './ErrorState';
+import Favicon from '../Favicon.astro';
+import { translations } from '../../i18n';
+import type { Translation, Locale } from '../../i18n';
+import '../../styles/global.css';
+interface Props {
+  locale: Locale;
+  status: number;
+  requestId?: string;
+  retryAfterSeconds?: number;
+}
+const { locale, status, requestId, retryAfterSeconds } = Astro.props;
+const text: Translation = translations[locale];
+---
+
+<!doctype html>
+<html lang={locale}>
+  <head
+    ><meta charset="utf-8" /><meta name="viewport" content="width=device-width" /><meta
+      name="robots"
+      content="noindex"
+    /><Favicon /><title>{text.metadata.title}</title></head
+  >
+  <body
+    ><header class="error-state__brand"><a href="/">{text.brandName}</a></header>
+    <main class="application-shell">
+      <ErrorState
+        client:load
+        text={text.errorStates}
+        status={status}
+        requestId={requestId}
+        retryAfterSeconds={retryAfterSeconds}
+        returnTo={Astro.url.pathname + Astro.url.search}
+      />
+    </main>
+  </body>
+</html>

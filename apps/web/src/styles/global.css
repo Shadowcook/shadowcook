@@ -1470,3 +1470,31 @@ body:has(.application-dialog[open]) {
     display: none;
   }
 }
+
+.error-state {
+  max-width: 48rem;
+  margin: 3rem auto;
+}
+.error-state__status {
+  font-size: 2rem;
+  color: #745742;
+}
+.error-state__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+.error-state__brand {
+  padding: 1.5rem;
+  font-size: 1.8rem;
+}
+.error-state code {
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.error-state__offline {
+  margin: 0;
+  padding: 0.75rem 1.5rem;
+  text-align: center;
+}

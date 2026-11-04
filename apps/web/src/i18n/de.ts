@@ -1,9 +1,11 @@
+import { errorGerman } from './errors.ts';
 import { landingGerman } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { recipeImportGerman } from '../features/cookbook/import/translations.ts';
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  errorStates: errorGerman,
   recipeTrash: {
     title: 'Papierkorb',
     empty: 'Der Papierkorb ist leer.',

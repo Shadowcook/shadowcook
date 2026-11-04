@@ -2,6 +2,11 @@
 
 Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). Unimplemented capabilities and feature ideas are collected in the [roadmap backlog](roadmap.md#backlog).
 
+### Error handling and error pages
+
+- Added localized read error states, per-island React boundaries, an offline notice, safe API error parsing, support identifiers and rate-limit timing. Cookbook failures retain their server/network classification; management refresh failures retain the editor. Mutation feedback remains contextual (architecture: [Error handling and recovery](ARCHITECTURE.md#error-handling-and-recovery)).
+- Added central Fastify exceptions and correlation headers, OpenAPI default errors, a generated static Apache page, package inclusion, selective proxy configuration, isolated smoke tests and a manual staging checklist. Active host and Cloudflare configuration remain operator-managed.
+
 ### Product landing page and cookbook discovery
 
 - `/` serves the localized public product landing page with SSR marketing content, original branding, a labeled example using the shared recipe-step renderer, responsive sections, localized metadata, and links to registration and Explore (architecture: [Cookbook navigation, reading, and editing](ARCHITECTURE.md#cookbook-navigation-reading-and-editing)).

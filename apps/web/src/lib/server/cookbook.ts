@@ -1,3 +1,4 @@
+import { ApiRequestError, responseError } from '../api/client.ts';
 import type { ManagementRoute } from '../../features/cookbook/model/management-routing';
 import { managementRoute } from '../../features/cookbook/model/management-routing';
 import { isSystemPath } from '../system-routing';
@@ -46,7 +47,7 @@ export async function loadServerRecipePage(
     `/cookbook/recipes/${encodeURIComponent(cookbookPage.location.recipe.public_id)}${variantQuery}`,
     cookie,
   );
-  if (recipe === null) return null;
+  if (recipe === null) throw new ApiRequestError('RECIPE_NOT_FOUND', 404);
 
   return { cookbook: cookbookPage.cookbook, location: cookbookPage.location, recipe };
 }
@@ -88,11 +89,15 @@ async function getJson<ResponseBody>(
     const response: Response = await fetch(new URL(path, apiOrigin), {
       headers: cookie === null || cookie.length === 0 ? {} : { cookie },
     });
-    if (response.status === 404) onNotFound?.();
-    if (!response.ok) return null;
+    if (response.status === 404) {
+      onNotFound?.();
+      return null;
+    }
+    if (!response.ok) throw await responseError(response);
     return (await response.json()) as ResponseBody;
-  } catch (_error: unknown) {
-    return null;
+  } catch (error: unknown) {
+    if (error instanceof ApiRequestError) throw error;
+    throw new ApiRequestError('UPSTREAM_UNAVAILABLE', 503);
   }
 }
 

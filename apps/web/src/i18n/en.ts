@@ -1,9 +1,11 @@
+import { errorEnglish } from './errors.ts';
 import { landingEnglish } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  errorStates: errorEnglish,
   recipeTrash: {
     title: 'Trash Bin',
     empty: 'The trash bin is empty.',

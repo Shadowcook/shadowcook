@@ -1,3 +1,4 @@
+import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useRef, useState } from 'react';
 import type { JSX, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
@@ -24,7 +25,7 @@ declare global {
   }
 }
 
-export default function RegistrationScreen({ text }: { text: Translation }): JSX.Element {
+function RegistrationScreen({ text }: { text: Translation }): JSX.Element {
   const [email, setEmail] = useState<string>('');
   const [names, setNames] = useState<ProfileNames>({
     firstName: '',
@@ -225,7 +226,7 @@ export default function RegistrationScreen({ text }: { text: Translation }): JSX
   );
 }
 
-export function VerificationScreen({
+function VerificationScreenView({
   text,
   token,
 }: {
@@ -284,3 +285,6 @@ export function VerificationScreen({
     </section>
   );
 }
+
+export default withErrorBoundary(RegistrationScreen);
+export const VerificationScreen = withErrorBoundary(VerificationScreenView);

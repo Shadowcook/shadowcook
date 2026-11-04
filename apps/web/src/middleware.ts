@@ -1,3 +1,6 @@
+import { ApiRequestError } from './lib/api/client.ts';
+import { errorDocument } from './lib/server/error-document.ts';
+import { resolveRequestLocale } from './i18n/locale-preference.ts';
 import type { MiddlewareHandler } from 'astro';
 import { isAllowedRequestOrigin } from './lib/server/request-origin.ts';
 
@@ -10,6 +13,10 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
   if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url))
     return new Response(null, { status: 403 });
 
+  const locale: 'en' | 'de' = resolveRequestLocale(
+    context.request.headers.get('cookie'),
+    import.meta.env?.PUBLIC_DEFAULT_LOCALE,
+  );
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
   if (requiresAuthentication(context.url.pathname)) {
     let sessionIsValid: boolean = false;
@@ -18,14 +25,36 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
       const session: Response = await fetch(sessionUrl, {
         headers: { cookie: context.request.headers.get('cookie') ?? '' },
       });
+      if (session.status === 403) return errorDocument(locale, 403);
+      if (!session.ok && session.status !== 401) return errorDocument(locale, 503);
       sessionIsValid = session.ok;
     } catch (_error: unknown) {
-      sessionIsValid = false;
+      return errorDocument(locale, 503);
     }
     if (!sessionIsValid) return Response.redirect(loginUrl(context.url), 302);
   }
   const apiPath: string | null = apiProxyPath(context.url.pathname);
-  if (apiPath === null) return next();
+  if (apiPath === null) {
+    try {
+      const response: Response = await next();
+      if (
+        response.status >= 500 &&
+        response.headers.get('content-type')?.includes('text/html') &&
+        response.headers.get('x-robots-tag') !== 'noindex'
+      )
+        return errorDocument(locale, response.status);
+      return response;
+    } catch (error: unknown) {
+      console.error(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          component: 'web',
+          event: 'document-render-failed',
+        }),
+      );
+      return errorDocument(locale, error instanceof ApiRequestError ? (error.status ?? 503) : 500);
+    }
+  }
   const apiUrl: URL = new URL(`${apiPath}${context.url.search}`, apiOrigin);
   const requestBody: ArrayBuffer | undefined =
     context.request.method === 'GET' || context.request.method === 'HEAD'
@@ -37,12 +66,20 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
   headers.delete('x-real-ip');
   headers.set('accept-encoding', 'identity');
   logAuthenticationProxyRequest(context.url.pathname, context.request.method);
-  const response: Response = await fetch(apiUrl, {
-    method: context.request.method,
-    headers,
-    body: requestBody,
-    redirect: 'manual',
-  });
+  let response: Response;
+  try {
+    response = await fetch(apiUrl, {
+      method: context.request.method,
+      headers,
+      body: requestBody,
+      redirect: 'manual',
+    });
+  } catch (_error: unknown) {
+    return Response.json(
+      { code: 'UPSTREAM_UNAVAILABLE', error: 'Service unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+  }
   logAuthenticationProxyResponse(context.url.pathname, context.request.method, response);
   return response;
 };
@@ -51,6 +88,7 @@ function logAuthenticationProxyRequest(pathname: string, method: string): void {
   if (!isLoggedAuthenticationPath(pathname)) return;
   console.info(
     JSON.stringify({
+      time: new Date().toISOString(),
       component: 'api-proxy',
       event: 'authentication-request',
       method,
@@ -76,6 +114,7 @@ function logAuthenticationProxyResponse(
   }
   console.info(
     JSON.stringify({
+      time: new Date().toISOString(),
       component: 'api-proxy',
       event: 'authentication-response',
       method,
