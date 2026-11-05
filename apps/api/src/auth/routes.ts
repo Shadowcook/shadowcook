@@ -327,6 +327,7 @@ export function registerAuthenticationRoutes(
       'Session logout processed',
     );
     clearSessionCookie(reply, secureCookies);
+    reply.header('Cache-Control', 'no-store');
     return reply.code(204).send();
   });
 }

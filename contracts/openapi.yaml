@@ -1931,12 +1931,24 @@ paths:
     post:
       operationId: logout
       summary: Revokes the current browser session.
+      description: Idempotently revokes the session identified by the cookie and expires the browser cookie. Missing, expired, or already revoked sessions also succeed. Revocation does not require an enabled account or a completed password change.
       security:
         - sessionCookie: []
+        - {}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: { type: object }
       responses:
         default: { $ref: '#/components/responses/UnexpectedError' }
         '204':
-          description: The session was revoked.
+          description: The session is revoked or absent, and the browser session cookie is expired.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+            Cache-Control:
+              schema: { type: string, const: no-store }
   /auth/authentication-methods:
     get:
       operationId: getAuthenticationMethods

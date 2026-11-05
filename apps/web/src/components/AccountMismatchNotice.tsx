@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
-import { request } from '../lib/api/client';
+import { logout } from '../lib/api/logout';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
 import StatusMessage from './StatusMessage';
 
@@ -22,7 +22,7 @@ export default function AccountMismatchNotice({
     setSubmitting(true);
     setMessage('');
     try {
-      await request<void>('/auth/logout', { method: 'POST' });
+      await logout();
       clearBrowserSessionCache();
       window.location.assign(returnPath);
     } catch (_error: unknown) {

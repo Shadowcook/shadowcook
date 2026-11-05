@@ -555,6 +555,8 @@ service-account:manage
 - Tenant-user role assignment verifies every assigned role belongs to the managed tenant.
 - `user_session` stores a SHA-256 verifier of an opaque browser session token. The plaintext token is only held in the `shadowcook_session` HttpOnly cookie.
 - Non-development session cookies include the `Secure` attribute. Development session cookies omit it for local HTTP access.
+- `POST /auth/logout` revokes the session identified by the browser cookie directly and expires that cookie. Missing, expired, and already revoked sessions also return HTTP 204. Logout does not require an enabled account or a completed password change and leaves other browser sessions intact. Logout responses use `Cache-Control: no-store`.
+- Browser logout actions send an empty JSON object through the API proxy and retry once after a network error, timeout, or server error. Browser session caches are cleared and navigation occurs after the API confirms logout.
 - The web client loads session presentation state from the API and caches granted or denied administration-access results in per-tab session storage for 15 minutes. API authorization continues to validate the opaque session and permissions server-side for every protected request.
 - Administration navigation uses browser History API transitions within its React island. Administration URLs remain directly reachable and links preserve their normal behavior for modified clicks and new tabs.
 
@@ -587,6 +589,7 @@ service-account:manage
 - `POST /mcp` is a remote Model Context Protocol endpoint for active service-account bearer tokens and OAuth access tokens.
 - The public web proxy forwards `/mcp` directly to the API's `/mcp` endpoint. `/api/mcp` remains the canonical public resource URL with the default `PUBLIC_API_ORIGIN`. The `mcp` cookbook slug is reserved.
 - Astro's built-in Origin check is disabled. The web middleware checks request origins before API forwarding, session validation, and page rendering. Cross-origin or Origin-less unsafe requests with a form content type or no content type receive HTTP 403 with an empty body. `POST /api/oauth/token` with `application/x-www-form-urlencoded` is exempt from this check. Safe HTTP methods, same-origin requests, and non-form content types pass this origin check.
+- Web authentication proxy logs cover `/api/auth/logout`, `/api/oauth/authorize`, and `/api/oauth/token`, including origin-check rejections and upstream connection failures. UTC JSON records include the request method, path, Origin presence and match flags, content-type presence, response status, and failure reason where applicable. Cookies, tokens, request bodies, and query strings are excluded.
 - The MCP endpoint exposes tools for recipe search, draft retrieval, draft creation, draft metadata updates, and draft step replacement.
 - MCP tools do not publish or delete recipes.
 - MCP tool input schemas are defined in `apps/api/src/mcp/tool-schemas.ts`. Nullable fields use `anyOf` with separate non-null and null branches. UUID formats apply to the string branch. Tool argument objects reject additional properties; required fields and optional nullable fields are declared separately.
