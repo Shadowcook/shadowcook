@@ -1,4 +1,3 @@
-import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import type { Translation } from '../i18n';
@@ -12,7 +11,13 @@ import { reauthenticationLoginUrl } from '../lib/login-navigation';
 
 type PasswordResetState = 'loading' | 'form' | 'mismatch' | 'invalid' | 'completed';
 
-function PasswordResetScreen({ text, token }: { text: Translation; token: string }): JSX.Element {
+export default function PasswordResetScreen({
+  text,
+  token,
+}: {
+  text: Translation;
+  token: string;
+}): JSX.Element {
   const [newPassword, setNewPassword] = useState<string>('');
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -112,5 +117,3 @@ function PasswordResetScreen({ text, token }: { text: Translation; token: string
     </section>
   );
 }
-
-export default withErrorBoundary(PasswordResetScreen);

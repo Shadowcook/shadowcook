@@ -1,6 +1,3 @@
-import { recipeRequestError } from './model/recipe-request-error';
-import ErrorState from '../../components/errors/ErrorState';
-import { withErrorBoundary } from '../../components/errors/withErrorBoundary';
 import RecipeTrash from './components/RecipeTrash';
 import { postLoginDestination } from '../../lib/login-navigation';
 import { isSystemPath } from '../../lib/system-routing';
@@ -85,7 +82,7 @@ const emptyCookbook: CookbookResponse = {
   canCreateAiContexts: false,
 };
 
-function CookbookScreen({
+export default function CookbookScreen({
   locale,
   initialCookbook,
   initialCategoryId = null,
@@ -104,7 +101,6 @@ function CookbookScreen({
     : initialCookbook === undefined
       ? 'loading'
       : 'dashboard';
-  const [loadError, setLoadError] = useState<ApiRequestError | null>(null);
   const [screen, setScreen] = useState<Screen>(initialScreen);
   const [email, setEmail] = useState<string>('');
   const [password, setPassword] = useState<string>('');
@@ -340,8 +336,8 @@ function CookbookScreen({
               : recipe.selectedVariant,
           ),
         );
-    } catch (error: unknown) {
-      setRecipeError(recipeRequestError(error, text));
+    } catch (_error: unknown) {
+      setRecipeError(text.dashboard.recipeLoadFailed);
     }
   }
   function editSelectedRecipe(): void {
@@ -441,12 +437,13 @@ function CookbookScreen({
       const response: CookbookResponse = await request<CookbookResponse>(
         `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&recipeFilter=${encodeURIComponent(filter)}${diet === '' ? '' : `&diet=${diet}`}`,
       );
-      setLoadError(null);
       setCookbook(response);
       return response;
     } catch (error: unknown) {
-      setLoadError(error instanceof ApiRequestError ? error : new ApiRequestError('NETWORK_ERROR'));
-      return cookbook;
+      if (error instanceof ApiRequestError && error.code === 'TENANT_NOT_FOUND')
+        window.location.replace('/explore');
+      setCookbook(emptyCookbook);
+      return emptyCookbook;
     }
   }
   function changeRecipeFilter(filter: string): void {
@@ -511,26 +508,10 @@ function CookbookScreen({
           `/cookbook/recipes/${location.recipe.public_id}${location.variantSlug === null ? '' : `?variant=${encodeURIComponent(location.variantSlug)}`}`,
         ),
       );
-    } catch (error: unknown) {
-      setRecipeError(recipeRequestError(error, text));
+    } catch (_error: unknown) {
+      setRecipeError(text.dashboard.recipeLoadFailed);
     }
   }
-  if (loadError !== null && editorPath === null && !isCategoryEditor)
-    return (
-      <ErrorState
-        text={text.errorStates}
-        status={loadError.status}
-        network={loadError.status === undefined}
-        returnTo={
-          typeof window === 'undefined' ? '/' : window.location.pathname + window.location.search
-        }
-        requestId={loadError.requestId}
-        retryAfterSeconds={loadError.retryAfterSeconds}
-        onRetry={(): void => {
-          void loadCookbook();
-        }}
-      />
-    );
   if (screen === 'loading')
     return (
       <section className="panel loading-panel" aria-live="polite">
@@ -566,13 +547,6 @@ function CookbookScreen({
             {text.tenantNavigation.backToCookbook}
           </a>
         ) : null}
-        {loadError !== null && (
-          <p role="alert">
-            {loadError.status === undefined
-              ? text.errorStates.network.description
-              : text.errorStates.service.description}
-          </p>
-        )}
         <div
           className={
             (isCategoryEditor || editorPath !== null) && hasCookbookManagementAccess
@@ -783,20 +757,6 @@ function sharedRecipeToken(): string | null {
 function errorMessage(error: unknown, locale: Locale): string {
   const errors: Translation['errors'] = translations[locale].errors;
   if (!(error instanceof ApiRequestError)) return errors.requestFailed;
-  if (error.code === 'NETWORK_ERROR') return translations[locale].errorStates.network.description;
-  if (error.status !== undefined && error.status >= 500)
-    return translations[locale].errorStates.service.description;
-  if (error.status === 429)
-    return (
-      translations[locale].errorStates.limited.description +
-      (error.retryAfterSeconds === undefined
-        ? ''
-        : ' ' +
-          translations[locale].errorStates.wait.replace(
-            '{seconds}',
-            String(error.retryAfterSeconds),
-          ))
-    );
   const messages: Record<string, string> = {
     AUTHENTICATION_FAILED: errors.authenticationFailed,
     AUTHENTICATION_REQUIRED: errors.authenticationRequired,
@@ -812,5 +772,3 @@ function errorMessage(error: unknown, locale: Locale): string {
   };
   return messages[error.code] ?? errors.requestFailed;
 }
-
-export default withErrorBoundary(CookbookScreen);

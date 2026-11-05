@@ -1,7 +1,4 @@
 ---
-import ErrorPage from '../components/errors/ErrorPage.astro';
-import { ApiRequestError } from '../lib/api/client';
-import { isKnownSystemPage, isSystemPath } from '../lib/system-routing';
 import ApplicationPage from '../components/ApplicationPage.astro';
 import LegalDocumentPage from '../components/LegalDocumentPage.astro';
 import CookbookPage from '../features/cookbook/server/CookbookPage.astro';
@@ -14,28 +11,23 @@ import type { Locale } from '../i18n';
 
 export const prerender = false;
 
-let recipePage: Awaited<ReturnType<typeof loadServerRecipePage>> = null;
-let cookbookPage: Awaited<ReturnType<typeof loadServerCookbookPage>> = null;
+const recipePage = await loadServerRecipePage(
+  Astro.url.pathname,
+  Astro.request.headers.get('cookie'),
+);
 let pathNotFound: boolean = false;
-let pageError: ApiRequestError | null = null;
-try {
-  recipePage = await loadServerRecipePage(Astro.url.pathname, Astro.request.headers.get('cookie'));
-  cookbookPage =
-    recipePage === null
-      ? await loadServerCookbookPage(
-          Astro.url.pathname,
-          Astro.request.headers.get('cookie'),
-          isTenantRoot(Astro.url.pathname),
-          Astro.url.search,
-          (): void => {
-            pathNotFound = true;
-          },
-        )
-      : null;
-} catch (error: unknown) {
-  pageError =
-    error instanceof ApiRequestError ? error : new ApiRequestError('INTERNAL_SERVER_ERROR', 500);
-}
+const cookbookPage =
+  recipePage === null
+    ? await loadServerCookbookPage(
+        Astro.url.pathname,
+        Astro.request.headers.get('cookie'),
+        isTenantRoot(Astro.url.pathname),
+        Astro.url.search,
+        (): void => {
+          pathNotFound = true;
+        },
+      )
+    : null;
 const locale: Locale = resolveRequestLocale(
   Astro.request.headers.get('cookie'),
   import.meta.env.PUBLIC_DEFAULT_LOCALE,
@@ -45,13 +37,7 @@ const legalDocuments =
     ? await loadLegalDocuments()
     : null;
 
-if (isSystemPath(Astro.url.pathname) && !isKnownSystemPage(Astro.url.pathname)) pathNotFound = true;
-if (pathNotFound && pageError === null) pageError = new ApiRequestError('NOT_FOUND', 404);
-if (pageError !== null) {
-  Astro.response.status = pageError.status ?? 503;
-  Astro.response.headers.set('Cache-Control', 'no-store');
-  Astro.response.headers.set('X-Robots-Tag', 'noindex');
-}
+if (pathNotFound) Astro.response.status = 404;
 
 function isTenantRoot(pathname: string): boolean {
   return pathname.split('/').filter((segment: string): boolean => segment.length > 0).length === 1;
@@ -59,14 +45,7 @@ function isTenantRoot(pathname: string): boolean {
 ---
 
 {
-  pageError !== null ? (
-    <ErrorPage
-      locale={locale}
-      status={pageError.status ?? 503}
-      requestId={pageError.requestId}
-      retryAfterSeconds={pageError.retryAfterSeconds}
-    />
-  ) : Astro.url.pathname === '/privacy-statement' ? (
+  Astro.url.pathname === '/privacy-statement' ? (
     <LegalDocumentPage
       locale={locale}
       markdown={legalDocuments?.privacyStatementMarkdown ?? ''}

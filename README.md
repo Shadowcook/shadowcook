@@ -1,7 +1,3 @@
-## Development tools
-
-Use `pnpm clone:db` from a development checkout to copy production data into a test database. Configuration and operation are documented in the [database cloning guide](docs/database-cloning.md).
-
 ## License
 
 Shadowcook is licensed under the GNU Affero General Public

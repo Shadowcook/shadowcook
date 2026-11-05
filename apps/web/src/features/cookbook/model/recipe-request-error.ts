@@ -23,17 +23,6 @@ export function recipeRequestError(error: unknown, text: Translation): string {
     TENANT_NOT_FOUND: text.recipeEditor.tenantNotFound,
   };
   if (Object.hasOwn(messages, error.code)) return messages[error.code]!;
-  if (error.code === 'NETWORK_ERROR') return text.errorStates.network.description;
-  if (error.status === 429)
-    return (
-      text.errorStates.limited.description +
-      (error.retryAfterSeconds === undefined
-        ? ''
-        : ' ' + text.errorStates.wait.replace('{seconds}', String(error.retryAfterSeconds)))
-    );
-  if (error.status === 413) return text.recipeImage.invalidImage;
-  if (error.status === 422) return text.recipeEditor.invalidRecipe;
-  if (error.status === 409 && error.code === 'REQUEST_FAILED') return text.errorStates.conflict;
   if (error.status === 401) return text.recipeEditor.authenticationRequired;
   if (error.status === 403) return text.recipeEditor.permissionRequired;
   if (error.status !== undefined && error.status >= 500) return text.recipeEditor.serverError;

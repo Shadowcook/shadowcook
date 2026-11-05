@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../../../i18n';
-import ErrorState from '../../../components/errors/ErrorState';
-import { ApiRequestError, request } from '../../../lib/api/client';
+import { request } from '../../../lib/api/client';
 import type { RecipeDetail } from '../model/types';
 import RecipeDetailView from './RecipeDetailView';
 
@@ -16,28 +15,19 @@ interface SharedRecipeViewProperties {
 }
 export default function SharedRecipeView({ token, text }: SharedRecipeViewProperties): JSX.Element {
   const [recipe, setRecipe] = useState<SharedRecipe | null>(null);
-  const [failure, setFailure] = useState<ApiRequestError | null>(null);
-  const [attempt, setAttempt] = useState<number>(0);
+  const [failed, setFailed] = useState<boolean>(false);
   useEffect((): void => {
     void request<SharedRecipe>(`/cookbook/share-links/${encodeURIComponent(token)}`)
-      .then((loaded: SharedRecipe): void => {
-        setRecipe(loaded);
-        setFailure(null);
-      })
-      .catch((error: unknown): void =>
-        setFailure(error instanceof ApiRequestError ? error : new ApiRequestError('NETWORK_ERROR')),
-      );
-  }, [token, attempt]);
-  if (failure !== null)
+      .then(setRecipe)
+      .catch((): void => setFailed(true));
+  }, [token]);
+  if (failed)
     return (
-      <ErrorState
-        text={text.errorStates}
-        status={failure.status}
-        network={failure.status === undefined}
-        requestId={failure.requestId}
-        retryAfterSeconds={failure.retryAfterSeconds}
-        onRetry={(): void => setAttempt(attempt + 1)}
-      />
+      <section className="recipe-editor">
+        <p className="message" role="alert">
+          {text.errors.requestFailed}
+        </p>
+      </section>
     );
   if (recipe === null)
     return (

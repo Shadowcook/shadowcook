@@ -5,7 +5,6 @@ import type { RecipeImportTranslation } from '../features/cookbook/import/transl
 export type Locale = 'de' | 'en';
 
 export interface Translation {
-  errorStates: import('./errors').ErrorTranslation;
   recipeTrash: {
     title: string;
     empty: string;
@@ -121,14 +120,6 @@ export interface Translation {
     invalid: string;
   };
   registration: {
-    checkEmailTitle: string;
-    verificationTitle: string;
-    verificationSuccessTitle: string;
-    verificationFailedTitle: string;
-    verificationSignIn: string;
-    continueToCookbook: string;
-    continueToAccount: string;
-
     website: string;
     title: string;
     subtitle: string;

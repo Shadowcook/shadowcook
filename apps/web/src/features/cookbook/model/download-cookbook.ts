@@ -1,4 +1,4 @@
-import { ApiRequestError, responseError } from '../../../lib/api/client.ts';
+import { ApiRequestError } from '../../../lib/api/client.ts';
 
 export async function downloadCookbook(tenantSlug: string): Promise<void> {
   const response: Response = await fetch(
@@ -6,7 +6,12 @@ export async function downloadCookbook(tenantSlug: string): Promise<void> {
     { credentials: 'same-origin' },
   );
   if (!response.ok) {
-    throw await responseError(response);
+    const body: unknown = await response.json().catch((): null => null);
+    const code: string =
+      typeof body === 'object' && body !== null && 'code' in body && typeof body.code === 'string'
+        ? body.code
+        : 'REQUEST_FAILED';
+    throw new ApiRequestError(code);
   }
   if (response.headers.get('content-type')?.split(';')[0]?.trim() !== 'application/zip') {
     throw new ApiRequestError('REQUEST_FAILED');

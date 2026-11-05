@@ -1,9 +1,7 @@
-import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
-import ErrorState from './errors/ErrorState';
-import { ApiRequestError, request } from '../lib/api/client';
+import { request } from '../lib/api/client';
 import AccountProfileSettings from './AccountProfileSettings';
 import AccountEmailSettings from './AccountEmailSettings';
 import AccountCookbookSettings from './AccountCookbookSettings';
@@ -15,8 +13,13 @@ interface SettingsSection {
   label: string;
 }
 
-function AccountSettingsScreen({ text, path }: { text: Translation; path: string }): JSX.Element {
-  const [loadError, setLoadError] = useState<ApiRequestError | null>(null);
+export default function AccountSettingsScreen({
+  text,
+  path,
+}: {
+  text: Translation;
+  path: string;
+}): JSX.Element {
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [hasPassword, setHasPassword] = useState<boolean>(false);
   const section: string = path === '/settings' ? '/settings/profile' : path;
@@ -32,26 +35,9 @@ function AccountSettingsScreen({ text, path }: { text: Translation; path: string
         setHasPassword(session.hasPassword);
         setAuthenticated(true);
       })
-      .catch((error: unknown): void => {
-        if (error instanceof ApiRequestError && error.status === 401) setAuthenticated(false);
-        else
-          setLoadError(
-            error instanceof ApiRequestError ? error : new ApiRequestError('NETWORK_ERROR'),
-          );
-      });
+      .catch((): void => setAuthenticated(false));
   }, []);
 
-  if (loadError !== null)
-    return (
-      <ErrorState
-        text={text.errorStates}
-        status={loadError.status}
-        network={loadError.status === undefined}
-        returnTo={path}
-        requestId={loadError.requestId}
-        retryAfterSeconds={loadError.retryAfterSeconds}
-      />
-    );
   return (
     <section className="account-settings-area">
       <aside className="account-settings-navigation">
@@ -112,5 +98,3 @@ function AccountSettingsScreen({ text, path }: { text: Translation; path: string
     </section>
   );
 }
-
-export default withErrorBoundary(AccountSettingsScreen);

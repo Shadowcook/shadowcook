@@ -19,12 +19,6 @@ import {
 } from '../cookbook/owned-cookbook.js';
 import { cookbookSlugIsBlocked } from '../cookbook/slug-policy.js';
 import { parseAccountProfile, type AccountProfile } from '../account/profile.js';
-import { issueSession, setSessionCookie, type BrowserSession } from '../auth/browser-session.js';
-import {
-  clearRegistrationBrowserProof,
-  matchesRegistrationBrowser,
-  setRegistrationBrowserProof,
-} from './browser-proof.js';
 
 interface RegistrationBody extends AccountProfile {
   email: string;
@@ -38,11 +32,6 @@ interface ResendBody {
 }
 interface VerifyBody {
   token: string;
-}
-interface RegistrationMailProfile {
-  firstName: string | null;
-  lastName: string | null;
-  displayName: string | null;
 }
 interface TurnstileResponse {
   success?: boolean;
@@ -58,7 +47,6 @@ export function registerPublicRegistrationRoutes(
   instanceSecretKey: Buffer | null,
   publicWebOrigin: string,
   config: RegistrationConfig,
-  secureCookies: boolean,
 ): void {
   api.get('/registration/config', async (_request: FastifyRequest, reply: FastifyReply) => {
     return reply.send({
@@ -69,8 +57,6 @@ export function registerPublicRegistrationRoutes(
   });
 
   api.post('/registration', async (request: FastifyRequest, reply: FastifyReply) => {
-    reply.header('Cache-Control', 'no-store');
-    setRegistrationBrowserProof(reply, secureCookies, config.pendingLifetimeMilliseconds);
     if (!(await publicRegistrationEnabled(pool))) return registrationDisabled(reply);
     const body: RegistrationBody | null = parseRegistrationBody(request.body);
     if (body === null) return invalidRegistration(reply);
@@ -149,7 +135,6 @@ export function registerPublicRegistrationRoutes(
         token,
         publicWebOrigin,
         tenantName,
-        body,
       );
       if (!delivered) throw new Error('SMTP is not configured.');
     } catch (error: unknown) {
@@ -164,14 +149,6 @@ export function registerPublicRegistrationRoutes(
       });
     }
     request.log.info('Registration accepted');
-    setRegistrationBrowserProof(
-      reply,
-      secureCookies,
-      config.pendingLifetimeMilliseconds,
-      instanceSecretKey,
-      email,
-      passwordHash,
-    );
     return reply.code(202).send(genericRegistrationResponse);
   });
 
@@ -187,10 +164,8 @@ export function registerPublicRegistrationRoutes(
         return reply.code(202).send(genericRegistrationResponse);
       }
       const token: string = randomBytes(32).toString('base64url');
-      const pending = await pool.query<
-        RegistrationMailProfile & { id: string; tenant_name: string | null }
-      >(
-        'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id, tenant_name, first_name AS "firstName", last_name AS "lastName", display_name AS "displayName"',
+      const pending = await pool.query<{ id: string; tenant_name: string | null }>(
+        'UPDATE pending_registration SET verification_token_hash = $1 WHERE email = $2 AND expires_at > now() RETURNING id, tenant_name',
         [hashToken(token), email],
       );
       if (pending.rows[0] !== undefined) {
@@ -202,7 +177,6 @@ export function registerPublicRegistrationRoutes(
             token,
             publicWebOrigin,
             pending.rows[0].tenant_name,
-            pending.rows[0],
           );
         } catch (error: unknown) {
           request.log.warn({ err: error }, 'Registration verification email resend failed');
@@ -213,7 +187,6 @@ export function registerPublicRegistrationRoutes(
   );
 
   api.post('/registration/verify', async (request: FastifyRequest, reply: FastifyReply) => {
-    reply.header('Cache-Control', 'no-store');
     const body: VerifyBody | null = parseVerifyBody(request.body);
     if (body === null) return invalidVerification(reply);
     const client: PoolClient = await pool.connect();
@@ -276,21 +249,9 @@ export function registerPublicRegistrationRoutes(
               registration.tenant_name,
               await maximumCookbooksPerOwner(pool),
             );
-      const browserSession: BrowserSession | null = matchesRegistrationBrowser(
-        request,
-        instanceSecretKey,
-        registration.email,
-        registration.password_hash,
-      )
-        ? await issueSession(client, user.rows[0]!.id)
-        : null;
       await client.query('COMMIT');
-      if (browserSession !== null) setSessionCookie(reply, browserSession, secureCookies);
-      clearRegistrationBrowserProof(reply, secureCookies);
       request.log.info('Registration verification succeeded');
-      return reply
-        .code(201)
-        .send({ tenantSlug: tenant?.slug ?? null, authenticated: browserSession !== null });
+      return reply.code(201).send({ tenantSlug: tenant?.slug ?? null });
     } catch (error: unknown) {
       await client.query('ROLLBACK');
       if (error instanceof CookbookSlugBlockedError) return invalidVerification(reply);
@@ -406,13 +367,8 @@ async function sendVerificationMail(
   token: string,
   origin: string,
   cookbookName: string | null,
-  profile: RegistrationMailProfile,
 ): Promise<boolean> {
   return sendTemplatedInstanceMail(pool, key, email, 'REGISTRATION_VERIFICATION', {
-    first_name: profile.firstName ?? profile.displayName ?? email,
-    last_name: profile.lastName ?? '',
-    display_name: profile.displayName ?? profile.firstName ?? email,
-    recipient_name: profile.displayName ?? profile.firstName ?? email,
     action_url: `${origin}/verify-email/${token}`,
     cookbook_name: cookbookName ?? '',
     expires_in: '24 hours',

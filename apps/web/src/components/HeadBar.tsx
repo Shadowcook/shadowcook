@@ -1,20 +1,11 @@
-import OfflineNotice from './errors/OfflineNotice';
-import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
-import {
-  faCompass,
-  faRightFromBracket,
-  faRightToBracket,
-  faUser,
-  faUserPlus,
-} from '@fortawesome/free-solid-svg-icons';
+import { faCompass, faRightToBracket, faUser, faUserPlus } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
 import { subscribeToProfileUpdates } from '../lib/browser/profile-events';
-import { subscribeToSessionChanges } from '../lib/browser/session-events';
 import type { HeadBarSession } from '../lib/server/head-bar-session';
 import HeadBarDropdown from './HeadBarDropdown';
 import LanguageSwitch from './LanguageSwitch';
@@ -32,7 +23,7 @@ interface Properties {
   currentPath?: string;
 }
 
-function HeadBar({
+export default function HeadBar({
   locale,
   initialSession = signedOut,
   currentPath = '',
@@ -42,12 +33,6 @@ function HeadBar({
   const [signInHref, setSignInHref] = useState<string>('/login');
   const [signOutError, setSignOutError] = useState<string>('');
   const [signingOut, setSigningOut] = useState<boolean>(false);
-
-  useEffect((): (() => void) => {
-    return subscribeToSessionChanges((): void => {
-      void restoreSession(setSession);
-    });
-  }, []);
 
   useEffect((): void => {
     void restoreSession(setSession);
@@ -93,93 +78,68 @@ function HeadBar({
   }
 
   return (
-    <>
-      <OfflineNotice text={text.errorStates} />
-      <header className="head-bar">
+    <header className="head-bar">
+      <a
+        className="head-bar__home"
+        href="/"
+        aria-label={text.accessibility.applicationName}
+        title={text.accessibility.applicationName}
+      >
+        <img className="head-bar__logo" src="/shadowcook-logo.png" alt="" aria-hidden="true" />
+        <span className="head-bar__wordmark">{text.brandName}</span>
+      </a>
+      <div className="head-bar__controls">
         <a
-          className="head-bar__home"
-          href="/"
-          aria-label={text.accessibility.applicationName}
-          title={text.accessibility.applicationName}
+          className="head-bar__explore head-bar__icon-button"
+          href="/explore"
+          aria-label={text.headBar.explore}
+          title={text.headBar.explore}
+          aria-current={currentPath === '/explore' ? 'page' : undefined}
         >
-          <img className="head-bar__logo" src="/shadowcook-logo.png" alt="" aria-hidden="true" />
-          <span className="head-bar__wordmark">{text.brandName}</span>
+          <FontAwesomeIcon icon={faCompass} aria-hidden="true" />
+          <span>{text.headBar.explore}</span>
         </a>
-        <div className="head-bar__controls">
-          <a
-            className="head-bar__explore head-bar__icon-button"
-            href="/explore"
-            aria-label={text.headBar.explore}
-            title={text.headBar.explore}
-            aria-current={currentPath === '/explore' ? 'page' : undefined}
-          >
-            <FontAwesomeIcon icon={faCompass} aria-hidden="true" />
-            <span>{text.headBar.explore}</span>
-          </a>
-          <LanguageSwitch locale={locale} />
-          {session.authenticated ? (
-            <>
-              <HeadBarDropdown label={text.headBar.userMenu} icon={faUser}>
-                <div className="head-bar__user-identity">
-                  <strong>{session.displayName}</strong>
-                  <span>{session.email}</span>
-                </div>
-                <a href="/explore">{text.headBar.myCookbooks}</a>
-                <a href="/settings">{text.headBar.accountSettings}</a>
-                {session.canAccessAdministration ? <a href="/admin">{text.admin.title}</a> : null}
-              </HeadBarDropdown>
-              <div className="head-bar__sign-out">
-                <button
-                  className="head-bar__icon-button"
-                  type="button"
-                  aria-label={text.dashboard.logout}
-                  title={text.dashboard.logout}
-                  aria-busy={signingOut}
-                  disabled={signingOut}
-                  onClick={(): void => void signOut()}
-                >
-                  <FontAwesomeIcon icon={faRightFromBracket} aria-hidden="true" />
-                </button>
-                {signOutError.length === 0 ? null : (
-                  <p className="head-bar__sign-out-error" role="alert">
-                    {signOutError}
-                  </p>
-                )}
-              </div>
-            </>
-          ) : (
-            <div className="head-bar__actions">
-              <a
-                className="head-bar__text-button head-bar__register"
-                href="/register"
-                aria-label={text.headBar.register}
-                title={text.headBar.register}
-              >
-                <FontAwesomeIcon
-                  className="head-bar__action-icon"
-                  icon={faUserPlus}
-                  aria-hidden="true"
-                />
-                {text.headBar.register}
-              </a>
-              <a
-                className="head-bar__text-button head-bar__sign-in"
-                href={signInHref}
-                aria-label={text.dashboard.login}
-                title={text.dashboard.login}
-              >
-                <FontAwesomeIcon
-                  className="head-bar__action-icon"
-                  icon={faRightToBracket}
-                  aria-hidden="true"
-                />
-                {text.dashboard.login}
-              </a>
+        <LanguageSwitch locale={locale} />
+        {session.authenticated ? (
+          <HeadBarDropdown label={text.headBar.userMenu} icon={faUser}>
+            <div className="head-bar__user-identity">
+              <strong>{session.displayName}</strong>
+              <span>{session.email}</span>
             </div>
-          )}
-        </div>
-      </header>
-    </>
+            <a href="/explore">{text.headBar.myCookbooks}</a>
+            <a href="/settings">{text.headBar.accountSettings}</a>
+            {session.canAccessAdministration ? <a href="/admin">{text.admin.title}</a> : null}
+            <button type="button" disabled={signingOut} onClick={(): void => void signOut()}>
+              {text.dashboard.logout}
+            </button>
+            {signOutError.length === 0 ? null : (
+              <p className="head-bar__menu-message" role="alert">
+                {signOutError}
+              </p>
+            )}
+          </HeadBarDropdown>
+        ) : (
+          <div className="head-bar__actions">
+            <a
+              className="head-bar__icon-button"
+              href="/register"
+              aria-label={text.headBar.register}
+              title={text.headBar.register}
+            >
+              <FontAwesomeIcon icon={faUserPlus} aria-hidden="true" />
+            </a>
+            <a
+              className="head-bar__icon-button"
+              href={signInHref}
+              aria-label={text.dashboard.login}
+              title={text.dashboard.login}
+            >
+              <FontAwesomeIcon icon={faRightToBracket} aria-hidden="true" />
+            </a>
+          </div>
+        )}
+      </div>
+    </header>
   );
 }
 
@@ -221,5 +181,3 @@ function loginHref(): string {
   const requestedPath: string = `${window.location.pathname}${window.location.search}`;
   return `/login?next=${encodeURIComponent(requestedPath)}`;
 }
-
-export default withErrorBoundary(HeadBar);
