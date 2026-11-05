@@ -121,6 +121,14 @@ export interface Translation {
     invalid: string;
   };
   registration: {
+    checkEmailTitle: string;
+    verificationTitle: string;
+    verificationSuccessTitle: string;
+    verificationFailedTitle: string;
+    verificationSignIn: string;
+    continueToCookbook: string;
+    continueToAccount: string;
+
     website: string;
     title: string;
     subtitle: string;

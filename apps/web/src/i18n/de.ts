@@ -134,6 +134,13 @@ export const de: Translation = {
     invalid: 'Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.',
   },
   registration: {
+    checkEmailTitle: 'Fast geschafft — schau in dein Postfach!',
+    verificationTitle: 'Deine E-Mail wird bestätigt …',
+    verificationSuccessTitle: 'Willkommen in der Küche!',
+    verificationFailedTitle: 'Bestätige deine E-Mail-Adresse',
+    verificationSignIn: 'Dein Konto ist bereit! Melde dich an, um loszukochen.',
+    continueToCookbook: 'Dein Kochbuch öffnen',
+    continueToAccount: 'Lass uns loskochen',
     website: 'Website',
     title: 'Konto erstellen',
     subtitle:
@@ -147,10 +154,10 @@ export const de: Translation = {
     submit: 'Konto erstellen',
     submitting: 'Konto wird erstellt …',
     checkEmail:
-      'Prüfe deine E-Mails. Wir haben einen Bestätigungslink gesendet. Dein Shadowcook-Konto wird nach der Bestätigung erstellt.',
+      'Deine Registrierung ist angekommen! Folge dem Link in deiner E-Mail, um dein Konto zu aktivieren und loszukochen.',
     unavailable: 'Die öffentliche Registrierung ist derzeit nicht verfügbar.',
     verificationInvalid: 'Dieser Bestätigungslink ist ungültig oder abgelaufen.',
-    verificationSucceeded: 'Dein Konto wurde erstellt. Du kannst dich jetzt anmelden.',
+    verificationSucceeded: 'Dein Konto ist bereit und du bist angemeldet. Lass uns loskochen!',
     resend: 'Neuen Bestätigungslink senden',
     resendSent:
       'Falls eine ausstehende Registrierung für diese E-Mail-Adresse existiert, wurde eine neue Bestätigungs-E-Mail gesendet.',

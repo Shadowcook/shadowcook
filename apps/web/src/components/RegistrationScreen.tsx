@@ -5,8 +5,6 @@ import type { Translation } from '../i18n';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
 import { isValidCookbookName } from '../lib/cookbook-name';
 import StatusMessage from './StatusMessage';
-import AccountMismatchNotice from './AccountMismatchNotice';
-import { reauthenticationLoginUrl } from '../lib/login-navigation';
 import PasswordEntropyMeter from './PasswordEntropyMeter';
 import PasswordField from './PasswordField';
 import CookbookUrlPreview from './CookbookUrlPreview';
@@ -124,9 +122,10 @@ function RegistrationScreen({ text }: { text: Translation }): JSX.Element {
   }
   return (
     <section className="panel auth-panel">
-      <p className="eyebrow">{text.registration.title}</p>
-      <h1>{text.registration.title}</h1>
-      <p className="lede">{text.registration.subtitle}</p>
+      <h1>
+        {outcome === 'ACCEPTED' ? text.registration.checkEmailTitle : text.registration.title}
+      </h1>
+      {outcome === 'FORM' ? <p className="lede">{text.registration.subtitle}</p> : null}
       {!enabled ? (
         <StatusMessage message={text.registration.unavailable} />
       ) : outcome === 'ACCEPTED' ? (
@@ -226,65 +225,4 @@ function RegistrationScreen({ text }: { text: Translation }): JSX.Element {
   );
 }
 
-function VerificationScreenView({
-  text,
-  token,
-}: {
-  text: Translation;
-  token: string;
-}): JSX.Element {
-  const [message, setMessage] = useState<string>('');
-  const [email, setEmail] = useState<string>('');
-  const [completed, setCompleted] = useState<boolean>(false);
-  const [accountMismatch, setAccountMismatch] = useState<boolean>(false);
-  useEffect((): void => {
-    void request('/registration/verify', jsonRequest({ token }))
-      .then((): void => {
-        setCompleted(true);
-        setMessage(text.registration.verificationSucceeded);
-      })
-      .catch((error: unknown): void => {
-        if (error instanceof ApiRequestError && error.code === 'REGISTRATION_ACCOUNT_MISMATCH') {
-          setAccountMismatch(true);
-          setMessage('');
-        } else setMessage(text.registration.verificationInvalid);
-      });
-  }, [text.registration.verificationInvalid, text.registration.verificationSucceeded, token]);
-  async function resend(event: SubmitEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    await request('/registration/resend-verification', jsonRequest({ email }));
-    setMessage(text.registration.resendSent);
-  }
-  return (
-    <section className="panel auth-panel">
-      <h1>{text.registration.title}</h1>
-      <StatusMessage message={message} />
-      {accountMismatch ? (
-        <AccountMismatchNotice
-          text={text}
-          returnPath={`/verify-email/${encodeURIComponent(token)}`}
-        />
-      ) : !completed ? (
-        <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void resend(event)}>
-          <label>
-            {text.registration.email}
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event): void => setEmail(event.currentTarget.value)}
-            />
-          </label>
-          <button type="submit">{text.registration.resend}</button>
-        </form>
-      ) : (
-        <a className="button-link" href={reauthenticationLoginUrl('/')}>
-          {text.login.title}
-        </a>
-      )}
-    </section>
-  );
-}
-
 export default withErrorBoundary(RegistrationScreen);
-export const VerificationScreen = withErrorBoundary(VerificationScreenView);

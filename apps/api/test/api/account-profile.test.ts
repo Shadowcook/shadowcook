@@ -153,6 +153,7 @@ test('registration retains names through replacement and email verification with
     const email: string =
       tenantName === null ? 'registration-profile@example.test' : 'cookbook-profile@example.test';
     const user: TestUser = await createTestUser(database.pool, { email: `password-${email}` });
+    let browserCookie: string = '';
     for (const displayName of ['Original display name', profile.displayName]) {
       const response: LightMyRequestResponse = await api.inject({
         method: 'POST',
@@ -169,6 +170,9 @@ test('registration retains names through replacement and email verification with
         },
       });
       assert.equal(response.statusCode, 202);
+      assert.ok(mailText.startsWith(`Hello ${profile.firstName},\n`));
+      assert.equal(response.cookies.length, 1);
+      browserCookie = String(response.headers['set-cookie']).split(';', 1)[0]!;
     }
     const pending: QueryResult<{ first_name: string; last_name: string; display_name: string }> =
       await database.pool.query(
@@ -185,17 +189,57 @@ test('registration retains names through replacement and email verification with
       [email],
     );
     assert.equal(beforeVerification.rows[0]?.count, 0);
-    const token: string | undefined = mailText.match(/\/verify-email\/([A-Za-z0-9_-]+)/)?.[1];
+    let token: string | undefined = mailText.match(/\/verify-email\/([A-Za-z0-9_-]+)/)?.[1];
     assert.ok(token);
+    if (tenantName !== null) {
+      const previousToken: string = token;
+      const resent: LightMyRequestResponse = await api.inject({
+        method: 'POST',
+        url: '/registration/resend-verification',
+        payload: { email },
+      });
+      assert.equal(resent.statusCode, 202);
+      assert.ok(mailText.startsWith(`Hello ${profile.firstName},\n`));
+      assert.equal(resent.headers['set-cookie'], undefined);
+      token = mailText.match(/\/verify-email\/([A-Za-z0-9_-]+)/)?.[1];
+      assert.ok(token);
+      assert.notEqual(token, previousToken);
+      const obsolete: LightMyRequestResponse = await api.inject({
+        method: 'POST',
+        url: '/registration/verify',
+        payload: { token: previousToken },
+        headers: { cookie: browserCookie },
+      });
+      assert.equal(obsolete.statusCode, 400);
+      assert.equal(obsolete.headers['set-cookie'], undefined);
+    }
     const verification: LightMyRequestResponse = await api.inject({
       method: 'POST',
       url: '/registration/verify',
       payload: { token },
+      headers: { cookie: browserCookie },
     });
     assert.equal(verification.statusCode, 201);
     assert.deepEqual(verification.json(), {
       tenantSlug: tenantName === null ? null : 'profile-cookbook',
+      authenticated: true,
     });
+    const sessionCookie: string | undefined = verification.cookies.find(
+      (cookie): boolean => cookie.name === 'shadowcook_session',
+    )?.value;
+    assert.ok(sessionCookie);
+    const session: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: '/auth/session',
+      headers: { cookie: `shadowcook_session=${sessionCookie}` },
+    });
+    assert.equal(session.statusCode, 200);
+    assert.equal(session.json<{ email: string }>().email, email);
+    assert.equal(
+      verification.cookies.find((cookie): boolean => cookie.name === 'shadowcook_registration')
+        ?.maxAge,
+      0,
+    );
     const account: QueryResult<{ first_name: string; last_name: string; display_name: string }> =
       await database.pool.query(
         'SELECT first_name, last_name, display_name FROM user_account WHERE email = $1',
@@ -213,6 +257,7 @@ test('registration retains names through replacement and email verification with
       payload: { token },
     });
     assert.equal(reused.statusCode, 400);
+    assert.equal(reused.headers['set-cookie'], undefined);
   }
 });
 
@@ -229,6 +274,11 @@ test('pending registrations created before the name migration still verify', asy
     payload: { token },
   });
   assert.equal(response.statusCode, 201);
+  assert.equal(response.json<{ authenticated: boolean }>().authenticated, false);
+  assert.equal(
+    response.cookies.some((cookie): boolean => cookie.name === 'shadowcook_session'),
+    false,
+  );
   const account: QueryResult<{
     first_name: string | null;
     last_name: string | null;
@@ -254,3 +304,62 @@ async function loginCookie(user: TestUser): Promise<string> {
   assert.equal(typeof cookie, 'string');
   return cookie as string;
 }
+
+test('registration mail resolves all profile placeholders on initial delivery and resend, including legacy fallbacks', async (context: TestContext): Promise<void> => {
+  let mailText: string = '';
+  context.mock.method(nodemailer, 'createTransport', (): object => ({
+    sendMail: async (mail: { text: string }): Promise<void> => {
+      mailText = mail.text;
+    },
+  }));
+  await database.pool.query(
+    `INSERT INTO instance_email_template (template_key, subject_template, body_template)
+     VALUES ('REGISTRATION_VERIFICATION', 'For {{first_name}} {{last_name}}',
+       '{{first_name}}|{{last_name}}|{{display_name}}|{{recipient_name}}|{{recipient_email}}|{{action_url}}')`,
+  );
+  context.after(async (): Promise<void> => {
+    await database.pool.query(
+      "DELETE FROM instance_email_template WHERE template_key = 'REGISTRATION_VERIFICATION'",
+    );
+  });
+  const email: string = 'registration-mail-names@example.test';
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'registration-mail-password@example.test',
+  });
+  const registered: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/registration',
+    payload: {
+      ...profile,
+      email,
+      password: user.password,
+      tenantName: null,
+      turnstileToken: '',
+      website: '',
+    },
+  });
+  assert.equal(registered.statusCode, 202);
+  const expectedPrefix: string = `${profile.firstName}|${profile.lastName}|${profile.displayName}|${profile.displayName}|${email}|http://test-web.invalid/verify-email/`;
+  assert.ok(mailText.startsWith(expectedPrefix));
+  const resent: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/registration/resend-verification',
+    payload: { email },
+  });
+  assert.equal(resent.statusCode, 202);
+  assert.ok(mailText.startsWith(expectedPrefix));
+
+  const legacyEmail: string = 'legacy-registration-mail@example.test';
+  await database.pool.query(
+    `INSERT INTO pending_registration (email, password_hash, verification_token_hash, expires_at)
+     VALUES ($1, 'legacy-hash', $2, now() + interval '1 hour')`,
+    [legacyEmail, createHash('sha256').update('legacy-mail-token').digest()],
+  );
+  const legacyResent: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/registration/resend-verification',
+    payload: { email: legacyEmail },
+  });
+  assert.equal(legacyResent.statusCode, 202);
+  assert.ok(mailText.startsWith(`${legacyEmail}||${legacyEmail}|${legacyEmail}|${legacyEmail}|`));
+});
