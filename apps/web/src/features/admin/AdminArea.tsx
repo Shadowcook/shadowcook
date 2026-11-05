@@ -1,4 +1,3 @@
-import { withErrorBoundary } from '../../components/errors/withErrorBoundary';
 import AdminMediaSettings from './components/AdminMediaSettings';
 import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
@@ -29,7 +28,7 @@ interface Properties {
 }
 type AccessState = 'loading' | AdminAccessState;
 
-function AdminArea({
+export default function AdminArea({
   initialAccess,
   initialIsAdministrator = false,
   locale,
@@ -489,5 +488,3 @@ async function checkAdministrator(setAdministrator: (value: boolean) => void): P
   });
   setAdministrator(response.ok);
 }
-
-export default withErrorBoundary(AdminArea);

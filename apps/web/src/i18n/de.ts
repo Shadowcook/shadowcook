@@ -1,11 +1,9 @@
-import { errorGerman } from './errors.ts';
 import { landingGerman } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { recipeImportGerman } from '../features/cookbook/import/translations.ts';
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
-  errorStates: errorGerman,
   recipeTrash: {
     title: 'Papierkorb',
     empty: 'Der Papierkorb ist leer.',
@@ -134,13 +132,6 @@ export const de: Translation = {
     invalid: 'Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.',
   },
   registration: {
-    checkEmailTitle: 'Fast geschafft — schau in dein Postfach!',
-    verificationTitle: 'Deine E-Mail wird bestätigt …',
-    verificationSuccessTitle: 'Willkommen in der Küche!',
-    verificationFailedTitle: 'Bestätige deine E-Mail-Adresse',
-    verificationSignIn: 'Dein Konto ist bereit! Melde dich an, um loszukochen.',
-    continueToCookbook: 'Dein Kochbuch öffnen',
-    continueToAccount: 'Lass uns loskochen',
     website: 'Website',
     title: 'Konto erstellen',
     subtitle:
@@ -154,10 +145,10 @@ export const de: Translation = {
     submit: 'Konto erstellen',
     submitting: 'Konto wird erstellt …',
     checkEmail:
-      'Deine Registrierung ist angekommen! Folge dem Link in deiner E-Mail, um dein Konto zu aktivieren und loszukochen.',
+      'Prüfe deine E-Mails. Wir haben einen Bestätigungslink gesendet. Dein Shadowcook-Konto wird nach der Bestätigung erstellt.',
     unavailable: 'Die öffentliche Registrierung ist derzeit nicht verfügbar.',
     verificationInvalid: 'Dieser Bestätigungslink ist ungültig oder abgelaufen.',
-    verificationSucceeded: 'Dein Konto ist bereit und du bist angemeldet. Lass uns loskochen!',
+    verificationSucceeded: 'Dein Konto wurde erstellt. Du kannst dich jetzt anmelden.',
     resend: 'Neuen Bestätigungslink senden',
     resendSent:
       'Falls eine ausstehende Registrierung für diese E-Mail-Adresse existiert, wurde eine neue Bestätigungs-E-Mail gesendet.',

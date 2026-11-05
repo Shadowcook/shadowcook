@@ -53,14 +53,8 @@ export const emailTemplateDefinitions: readonly EmailTemplateDefinition[] = [
   {
     key: 'REGISTRATION_VERIFICATION',
     subject: 'Verify your {{instance_name}} email address',
-    body: 'Hello {{first_name}},\n\nVerify your email address to create your {{instance_name}} account: {{action_url}}\n\nThis link expires in {{expires_in}}.',
-    placeholders: [
-      ...commonPlaceholders,
-      'cookbook_name',
-      'first_name',
-      'last_name',
-      'display_name',
-    ],
+    body: 'Hello {{recipient_name}},\n\nVerify your email address to create your {{instance_name}} account: {{action_url}}\n\nThis link expires in {{expires_in}}.',
+    placeholders: [...commonPlaceholders, 'cookbook_name'],
   },
   {
     key: 'LOGIN_CODE',

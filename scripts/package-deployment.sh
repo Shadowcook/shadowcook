@@ -23,7 +23,6 @@ cp "${repository_root}/deployments/package/apache.reverse-proxy-example.conf" "$
 cp "${repository_root}/deployments/package/nginx.reverse-proxy-example.conf" "${temporary_directory}/${package_name}/nginx.reverse-proxy-example.conf"
 cp "${repository_root}/deployments/package/compose.yaml" "${temporary_directory}/${package_name}/compose.yaml"
 cp "${repository_root}/deployments/package/compose.external-postgres.yaml" "${temporary_directory}/${package_name}/compose.external-postgres.yaml"
-cp -R "${repository_root}/deployments/package/errors" "${temporary_directory}/${package_name}/errors"
 cp "${repository_root}/deployments/package/README.md" "${temporary_directory}/${package_name}/README.md"
 cp "${repository_root}/deployments/package/upgrade.sh" "${temporary_directory}/${package_name}/upgrade.sh"
 cp "${repository_root}/scripts/backup-database.sh" "${temporary_directory}/${package_name}/backup-database.sh"

@@ -1,4 +1,3 @@
-import { registerErrorHandling } from './security/error-handling.js';
 import { registerMediaSettingsRoutes } from './admin/media-settings-routes.js';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
@@ -50,7 +49,6 @@ export function createApi(
     },
   });
 
-  registerErrorHandling(api);
   api.setNotFoundHandler(replyWithNotFound);
   api.get('/health', async () => ({ status: 'ok' }));
   registerSkillRoutes(api);
@@ -66,7 +64,6 @@ export function createApi(
     instanceSecretKey,
     publicWebOrigin,
     registrationConfig,
-    secureCookies,
   );
   registerRegistrationSettingsRoutes(api, pool, registrationConfig);
   registerCookbookSlugRoutes(api, pool);
