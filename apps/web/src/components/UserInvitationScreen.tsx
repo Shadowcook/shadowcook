@@ -1,3 +1,4 @@
+import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../i18n';
@@ -15,13 +16,7 @@ interface Invitation {
   existingAccount: boolean;
 }
 
-export default function UserInvitationScreen({
-  locale,
-  token,
-}: {
-  locale: Locale;
-  token: string;
-}): JSX.Element {
+function UserInvitationScreen({ locale, token }: { locale: Locale; token: string }): JSX.Element {
   const text: Translation = translations[locale];
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [names, setNames] = useState<ProfileNames>({
@@ -166,3 +161,5 @@ export default function UserInvitationScreen({
     </section>
   );
 }
+
+export default withErrorBoundary(UserInvitationScreen);

@@ -1,3 +1,4 @@
+import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
@@ -17,7 +18,7 @@ interface EmailChangeVerification {
   reauthenticationRequired: boolean;
 }
 
-export default function EmailChangeVerificationScreen({
+function EmailChangeVerificationScreen({
   text,
   token,
 }: {
@@ -152,3 +153,5 @@ export default function EmailChangeVerificationScreen({
     </section>
   );
 }
+
+export default withErrorBoundary(EmailChangeVerificationScreen);

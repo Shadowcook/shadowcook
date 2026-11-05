@@ -2,6 +2,10 @@ openapi: 3.1.1
 info:
   title: Shadowcook API
   version: 0.1.0
+  description: >-
+    Responses include X-Request-ID for support correlation. Errors use Cache-Control no-store.
+    Domain errors retain their documented payloads. Framework and unexpected failures use
+    the common safe error payload. The web proxy returns 503 UPSTREAM_UNAVAILABLE if the API is unreachable.
 paths:
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/image:
     parameters:
@@ -27,40 +31,86 @@ paths:
                   contentEncoding: base64
                   description: Base64 JPEG, exactly 1200 by 800 pixels. Server strips metadata and re-encodes. Maximum stored main image 500000 bytes; thumbnail 60000 bytes.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Image saved in draft }
         '400':
           description: INVALID_RECIPE_IMAGE or malformed JSON
           content:
             application/json:
               schema:
-                oneOf:
-                  - { $ref: '#/components/schemas/ApiError' }
-                  - { $ref: '#/components/schemas/RecipeImageRequestError' }
+                {
+                  'anyOf':
+                    [
+                      {
+                        'oneOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/RecipeImageRequestError' },
+                          ],
+                      },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           description: Authentication required
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: Tenant permission required
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '404':
           description: Recipe or tenant not found
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '413':
           description: Request exceeds 1410000 bytes
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/RecipeImageRequestError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImageRequestError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '415':
           description: Unsupported request content type
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/RecipeImageRequestError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImageRequestError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
     delete:
       operationId: removeRecipeImage
       summary: Remove the draft cover image, creating a draft when needed. Requires recipe:update.
@@ -68,22 +118,44 @@ paths:
         - sessionCookie: []
         - bearerAuth: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Image removed from draft }
         '401':
           description: Authentication required
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: Tenant permission required
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '404':
           description: Recipe or tenant not found
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/media/{publicId}:
     get:
       operationId: getRecipeImage
@@ -97,6 +169,7 @@ paths:
         - { name: size, in: query, schema: { type: string, enum: [thumbnail] } }
         - { name: shareToken, in: query, schema: { type: string } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: JPEG image (1200 by 800 pixels), or thumbnail (360 by 240 pixels). Private, no-store cache policy.
           content:
@@ -106,7 +179,14 @@ paths:
           description: Image absent or inaccessible
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/tenants/{tenantSlug}/recipe-imports/preview:
     post:
       operationId: previewRecipeImport
@@ -139,6 +219,7 @@ paths:
             schema:
               $ref: '#/components/schemas/RecipeImportPreviewInput'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Validated preview.
           headers:
@@ -161,7 +242,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '403':
@@ -174,7 +261,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '404':
           description: TENANT_NOT_FOUND.
           headers:
@@ -185,7 +278,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '413':
           description: RECIPE_IMPORT_TOO_LARGE. HTTP request bodies are limited to 4194304
             bytes; recipe JSON text remains limited to 1048576 bytes.
@@ -197,14 +296,27 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '415':
           description: INVALID_RECIPE_IMPORT; unsupported request media type.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/RecipeImportError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/tenants/{tenantSlug}/recipe-imports:
     post:
       operationId: importRecipeDraft
@@ -236,6 +348,7 @@ paths:
             schema:
               $ref: '#/components/schemas/RecipeImportInput'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Draft created with new local public ID and selected URL slug.
           headers:
@@ -268,7 +381,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '403':
@@ -281,7 +400,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '404':
           description: TENANT_NOT_FOUND.
           headers:
@@ -292,7 +417,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '413':
           description: RECIPE_IMPORT_TOO_LARGE. HTTP request bodies are limited to 4194304
             bytes; recipe JSON text remains limited to 1048576 bytes.
@@ -304,14 +435,27 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '415':
           description: INVALID_RECIPE_IMPORT; unsupported request media type.
           headers:
             Cache-Control: { schema: { type: string, const: no-store } }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/RecipeImportError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '409':
           description: IMPORT_MAPPING_INVALID, IMPORT_UNIT_MISMATCH, IMPORT_CATALOGUE_CONFLICT,
             INVALID_RECIPE_CATEGORY or RECIPE_IMPORT_CONFLICT. No recipe or catalogue
@@ -324,7 +468,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/tenants/{tenantSlug}/recipe-imports/catalogue:
     get:
       operationId: searchRecipeImportCatalogue
@@ -356,6 +506,7 @@ paths:
             type: string
             maxLength: 200
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Matching visible catalogue entries.
           headers:
@@ -387,7 +538,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           $ref: '#/components/responses/AuthenticationRequired'
         '403':
@@ -400,7 +557,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '404':
           description: TENANT_NOT_FOUND.
           headers:
@@ -411,7 +574,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/RecipeImportError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/RecipeImportError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /skills/shadowcook-recipe/v1/SKILL.md:
     get:
       operationId: getRecipeAuthoringSkill
@@ -419,6 +588,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Public Shadowcook recipe authoring skill.
           headers:
@@ -434,6 +604,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Public Draft-07 schema for one portable Shadowcook recipe.
           headers:
@@ -454,6 +625,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Portable recipe format and semantic constraints.
           headers:
@@ -469,6 +641,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Supported recipe pictograms and their semantic uses.
           headers:
@@ -484,6 +657,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Simple portable recipe example.
           headers:
@@ -499,6 +673,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Portable recipe example with shared steps and variants.
           headers:
@@ -514,6 +689,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Downloadable Python validator for structural and semantic recipe checks.
           headers:
@@ -529,6 +705,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Python dependency constraints for the bundled recipe validator.
           headers:
@@ -544,6 +721,7 @@ paths:
       description: Public version 1 resource. No authentication, context grant, tenant selection or database access is required. Never attach AI-context tokens. The skill documents JSON delivery and human-reviewed draft import.
       security: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Downloads the complete recipe authoring skill folder.
           headers:
@@ -566,6 +744,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ContentReportInput' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Report saved.
           content:
@@ -586,7 +765,14 @@ paths:
             Retry-After: { schema: { type: integer }, description: Retry interval in seconds. }
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /reports/users:
     get:
       operationId: listReportableCookbookUsers
@@ -599,6 +785,7 @@ paths:
           required: true
           schema: { type: string, maxLength: 120 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Reportable users; empty when the cookbook is unavailable.
           content:
@@ -618,6 +805,7 @@ paths:
       summary: Returns the instance report notification email address.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Report settings; requires instance administration permission.
           content:
@@ -636,6 +824,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ReportSettings' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Settings saved. }
         '400': { $ref: '#/components/responses/ReportInvalid' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -654,6 +843,7 @@ paths:
           in: query
           schema: { type: integer, minimum: 1, default: 1 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Report page.
           content:
@@ -683,6 +873,7 @@ paths:
       summary: Returns a report ticket and active assignable administrators.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Report details; requires instance administration permission.
           content:
@@ -710,6 +901,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/ContentReportUpdate' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Ticket saved. }
         '400': { $ref: '#/components/responses/ReportInvalid' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -732,6 +924,7 @@ paths:
               pattern: '^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9].*$',
             }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Cookbook URL preview.
           content:
@@ -749,6 +942,7 @@ paths:
       operationId: getPublicRegistrationConfiguration
       summary: Returns whether public self-service registration is enabled.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Public registration configuration.
           content:
@@ -767,6 +961,7 @@ paths:
       summary: Returns the instance public-registration setting.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Registration settings.
           content:
@@ -798,6 +993,7 @@ paths:
                 turnstileEnabled: { type: boolean }
                 maxCookbooksPerOwner: { type: integer, minimum: 1, maximum: 100 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Registration setting updated. }
         '400': { description: Registration setting is invalid. }
         '403': { description: Instance administration permission is required. }
@@ -811,6 +1007,7 @@ paths:
       summary: Lists instance-administered terms that cannot occur in cookbook URL slugs.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Blocked cookbook URL terms.
           content:
@@ -846,6 +1043,7 @@ paths:
                     pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$',
                   }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Blocked term created.
           content:
@@ -871,6 +1069,7 @@ paths:
           required: true
           schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Blocked term deleted. }
         '401': { description: Authentication is required. }
         '403': { description: Instance administration permission is required. }
@@ -879,6 +1078,7 @@ paths:
     post:
       operationId: createPendingRegistration
       summary: Creates an email-verification pending registration without creating a user.
+      description: Sets an opaque HttpOnly, SameSite=Lax registration browser cookie, with Secure when configured and a lifetime matching pending registrations. Successful submissions bind it to the pending credentials using the instance secret. Generic acknowledgements use indistinguishable random cookies.
       requestBody:
         required: true
         content:
@@ -917,10 +1117,19 @@ paths:
                 turnstileToken: { type: string }
                 website: { type: string, description: Honeypot field which must be empty. }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '202':
-          {
-            description: The generic registration acknowledgement; it does not disclose account existence.,
-          }
+          description: The generic registration acknowledgement; it does not disclose account existence.
+          headers:
+            Set-Cookie:
+              schema: { type: string }
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message: { type: string }
         '400': { description: Registration details or Turnstile verification are invalid. }
         '403': { description: Public registration is disabled. }
         '429': { description: Registration request limit reached. }
@@ -940,13 +1149,19 @@ paths:
               properties:
                 email: { type: string, format: email }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '202': { description: Generic acknowledgement. }
         '403': { description: Public registration is disabled. }
   /registration/verify:
     post:
       operationId: verifyPendingRegistration
       summary: Consumes a registration verification token and atomically creates the user and an optional cookbook.
-      description: Supports anonymous verification. An active session with a different email address is rejected without consuming the token or creating an account.
+      description: Supports anonymous verification. An active session with a different email address is rejected without consuming the token or creating an account. A matching registration browser cookie and configured instance secret additionally create a fresh session in the account transaction. Missing or invalid browser proof creates the account without signing in. Success clears the registration cookie; verification tokens remain single-use. Resending a link preserves browser proof; replacing the pending credentials invalidates it.
+      parameters:
+        - in: cookie
+          name: shadowcook_registration
+          required: false
+          schema: { type: string, pattern: '^[a-f0-9]{64}$' }
       security: [{}, { sessionCookie: [] }]
       requestBody:
         required: true
@@ -959,28 +1174,42 @@ paths:
               properties:
                 token: { type: string }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
-          description: User and optional cookbook were created.
+          description: User and optional cookbook were created. A session cookie is set only when authenticated is true.
+          headers:
+            Set-Cookie:
+              description: Clears the registration cookie and, for the originating browser, sets the HttpOnly session cookie.
+              schema: { type: string }
           content:
             application/json:
               schema:
                 type: object
                 additionalProperties: false
-                required: [tenantSlug]
+                required: [tenantSlug, authenticated]
                 properties:
+                  authenticated: { type: boolean }
                   tenantSlug: { type: [string, 'null'] }
         '400': { description: Verification token is invalid, expired, or already consumed. }
         '403':
           description: REGISTRATION_ACCOUNT_MISMATCH. The active session belongs to another email address; the pending registration is preserved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /account/email-change:
     get:
       operationId: getAccountEmailChange
       summary: Returns the current email address and pending change of the authenticated account.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Email change status. Expired pending changes are omitted. Timestamps are UTC.
           content:
@@ -991,7 +1220,14 @@ paths:
           description: PASSWORD_CHANGE_REQUIRED.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
     post:
       operationId: requestAccountEmailChange
       summary: Sends a 24-hour confirmation link to a new email address without updating the account email.
@@ -1007,6 +1243,7 @@ paths:
               properties:
                 email: { type: string, format: email, maxLength: 254 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '202':
           description: Confirmation email sent; the current email remains unchanged.
           content:
@@ -1016,18 +1253,39 @@ paths:
           description: INVALID_EMAIL or EMAIL_UNCHANGED.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: PASSWORD_CHANGE_REQUIRED.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '409':
           description: EMAIL_UNAVAILABLE.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '429': { $ref: '#/components/responses/EmailChangeRateLimited' }
         '502': { $ref: '#/components/responses/EmailChangeDeliveryFailed' }
         '503': { $ref: '#/components/responses/EmailChangeSmtpRequired' }
@@ -1042,6 +1300,7 @@ paths:
           application/json:
             schema: { type: object }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '202':
           description: Confirmation email sent with a replacement token and a new expiration.
           content:
@@ -1051,18 +1310,39 @@ paths:
           description: EMAIL_UNCHANGED.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: PASSWORD_CHANGE_REQUIRED.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '409':
           description: NO_PENDING_EMAIL_CHANGE or EMAIL_UNAVAILABLE.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '429': { $ref: '#/components/responses/EmailChangeRateLimited' }
         '502': { $ref: '#/components/responses/EmailChangeDeliveryFailed' }
         '503': { $ref: '#/components/responses/EmailChangeSmtpRequired' }
@@ -1078,6 +1358,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EmailChangeVerificationToken' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Confirmation details for the signed-in account. Reading does not consume the token.
           content:
@@ -1087,13 +1368,27 @@ paths:
           description: INVALID_EMAIL_CHANGE_TOKEN. The token is malformed, expired, replaced, consumed, or belongs to a disabled or deleted account.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: EMAIL_CHANGE_ACCOUNT_MISMATCH or PASSWORD_CHANGE_REQUIRED. No confirmation details are disclosed and the token is preserved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /account/email-change/verify:
     post:
       operationId: verifyAccountEmailChange
@@ -1106,29 +1401,52 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/EmailChangeVerificationToken' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Email address updated and pending change consumed. }
         '400':
           description: INVALID_EMAIL_CHANGE_TOKEN. The token is malformed, expired, replaced, consumed, or belongs to a disabled or deleted account.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '409':
           description: EMAIL_UNAVAILABLE. The pending change is preserved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: EMAIL_CHANGE_ACCOUNT_MISMATCH, REAUTHENTICATION_REQUIRED, or PASSWORD_CHANGE_REQUIRED. The pending change is preserved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /account/profile:
     get:
       operationId: getAccountProfile
       summary: Returns the authenticated account's first name, last name, and display name.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Account profile. Existing accounts can have unset first and last names.
           content:
@@ -1145,12 +1463,26 @@ paths:
           description: Authentication is required.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: PASSWORD_CHANGE_REQUIRED. The account must change its password first.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
     put:
       operationId: updateAccountProfile
       summary: Updates all three names of the authenticated account.
@@ -1162,6 +1494,7 @@ paths:
             schema:
               $ref: '#/components/schemas/AccountProfile'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Updated account profile with trimmed names.
           content:
@@ -1171,23 +1504,45 @@ paths:
           description: INVALID_ACCOUNT_PROFILE. Each trimmed name must contain 1 to 120 characters.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           description: Authentication is required.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: PASSWORD_CHANGE_REQUIRED. The account must change its password first.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /account/cookbooks:
     get:
       operationId: getAccountCookbooks
       summary: Lists cookbooks owned by the authenticated account and its creation limit.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Owned cookbooks and creation limit.
           content:
@@ -1231,6 +1586,7 @@ paths:
                   pattern: '^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9].*$'
                   description: Leading and trailing whitespace is ignored. The trimmed name starts with an ASCII letter or digit and contains at least three ASCII letters or digits.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Cookbook created.
           content:
@@ -1265,6 +1621,7 @@ paths:
                   type: string
                   format: password
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Authentication succeeded. The response sets the HttpOnly session cookie.
           headers:
@@ -1287,19 +1644,37 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           description: Authentication failed.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: PASSWORD_LOGIN_DISABLED; password login is disabled by the instance.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '429':
           description: LOGIN_RATE_LIMITED; this client IP has ten failed password logins in the last 15 minutes.
           headers:
@@ -1309,16 +1684,28 @@ paths:
           content:
             application/json:
               schema:
-                allOf:
-                  - $ref: '#/components/schemas/ApiError'
-                  - type: object
-                    properties:
-                      code: { const: LOGIN_RATE_LIMITED }
+                {
+                  'anyOf':
+                    [
+                      {
+                        'allOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            {
+                              'type': 'object',
+                              'properties': { 'code': { 'const': 'LOGIN_RATE_LIMITED' } },
+                            },
+                          ],
+                      },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /auth/password-requirements:
     get:
       operationId: getPasswordRequirements
       summary: Returns the current instance minimum password entropy for local password-form feedback.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Password requirements.
           content:
@@ -1354,6 +1741,7 @@ paths:
                   format: password
                   description: Must meet the configured minimum estimated entropy.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204':
           description: The password was changed.
         '400':
@@ -1361,13 +1749,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401':
           description: AUTHENTICATION_REQUIRED for a missing session credential or AUTHENTICATION_FAILED for an invalid session or incorrect current password.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /auth/password-reset/request:
     post:
       operationId: requestPasswordReset
@@ -1383,6 +1783,7 @@ paths:
               properties:
                 email: { type: string, format: email }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: The request was accepted without account-existence disclosure. }
   /auth/password-reset/verification:
     post:
@@ -1400,6 +1801,7 @@ paths:
               properties:
                 token: { type: string, minLength: 1 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Valid password-reset link. Reading does not consume or extend it.
           content:
@@ -1414,12 +1816,26 @@ paths:
           description: INVALID_PASSWORD_RESET. Invalid, expired, consumed, or inactive-account token.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: PASSWORD_RESET_ACCOUNT_MISMATCH. The active session belongs to another account; the token is preserved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /auth/password-reset/complete:
     post:
       operationId: completePasswordReset
@@ -1442,6 +1858,7 @@ paths:
                     description: Must meet the configured minimum estimated entropy.,
                   }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204':
           description: The password was changed, the reset token was consumed, target-account sessions were revoked, and the browser session cookie was cleared.
           headers:
@@ -1453,12 +1870,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: PASSWORD_RESET_ACCOUNT_MISMATCH. The active session belongs to another account; the token is preserved.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /auth/session:
     get:
       operationId: getCurrentSession
@@ -1466,6 +1896,7 @@ paths:
       security:
         - sessionCookie: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: The active session.
           content:
@@ -1489,7 +1920,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /auth/logout:
     post:
       operationId: logout
@@ -1497,6 +1934,7 @@ paths:
       security:
         - sessionCookie: []
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204':
           description: The session was revoked.
   /auth/authentication-methods:
@@ -1504,6 +1942,7 @@ paths:
       operationId: getAuthenticationMethods
       summary: Returns publicly enabled browser sign-in methods.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Enabled methods.
           content:
@@ -1538,7 +1977,11 @@ paths:
                   },
               },
           }
-      responses: { '204': { description: The request was accepted. } }
+      responses:
+        {
+          default: { $ref: '#/components/responses/UnexpectedError' },
+          '204': { description: The request was accepted. },
+        }
   /auth/email-code/verify:
     post:
       operationId: verifyLoginEmailCode
@@ -1563,6 +2006,7 @@ paths:
               },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           {
             description: Authentication succeeded.,
@@ -1586,12 +2030,38 @@ paths:
         '400':
           {
             description: Invalid request,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '401':
           {
             description: Invalid or expired code,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
   /admin/authentication-settings:
     get:
@@ -1599,6 +2069,7 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '200':
             {
               description: Settings,
@@ -1663,16 +2134,43 @@ paths:
           }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Saved. },
           '400':
             {
               description: Invalid authentication settings,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: SMTP required for email-only mode,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
   /admin/units:
@@ -1682,6 +2180,7 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '200':
             {
               description: Units,
@@ -1711,6 +2210,7 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '201':
             {
               description: Unit created,
@@ -1719,12 +2219,38 @@ paths:
           '400':
             {
               description: Invalid unit,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: Unit name or symbol conflict,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
   /admin/units/convert:
@@ -1755,6 +2281,7 @@ paths:
           }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '200':
             {
               description: Converted amount,
@@ -1778,17 +2305,56 @@ paths:
           '400':
             {
               description: Invalid conversion,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '404':
             {
               description: Unit not found,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: Unit dimension mismatch,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
   /admin/units/{publicId}:
@@ -1803,21 +2369,61 @@ paths:
         content: { application/json: { schema: { $ref: '#/components/schemas/UnitInput' } } }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Unit updated. },
           '400':
             {
               description: Invalid unit,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '404':
             {
               description: Unit not found,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: Unit name or symbol conflict,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
     delete:
@@ -1828,16 +2434,43 @@ paths:
         [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Unit deleted. },
           '404':
             {
               description: Unit not found,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: Unit is used by recipe ingredients,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
   /admin/tenants:
@@ -1845,6 +2478,7 @@ paths:
       operationId: listTenants
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Tenant list and tenant-creation mail availability.
           content:
@@ -1874,31 +2508,97 @@ paths:
           }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '201': { description: Tenant and owner invitation created. },
           '400':
             {
               description: Invalid tenant,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: Tenant slug conflict,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '429':
             {
               description: Invitation-code request limit reached; no tenant was created,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '502':
             {
               description: SMTP delivery failed; no tenant was created,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '503':
             {
               description: 'SMTP is not configured; no tenant was created. Returns SMTP_REQUIRED.',
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
   /admin/tenants/{publicId}:
@@ -1930,21 +2630,61 @@ paths:
           }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Tenant updated. },
           '400':
             {
               description: Invalid update,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '409':
             {
               description: Tenant slug conflict,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
           '404':
             {
               description: Tenant not found,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
     delete:
@@ -1955,11 +2695,25 @@ paths:
         [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Tenant and tenant-owned data deleted. },
           '404':
             {
               description: Tenant not found,
-              content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+              content:
+                {
+                  application/json:
+                    {
+                      schema:
+                        {
+                          'anyOf':
+                            [
+                              { '$ref': '#/components/schemas/ApiError' },
+                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                            ],
+                        },
+                    },
+                },
             },
         }
   /admin/users:
@@ -1968,6 +2722,7 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '200':
             {
               description: Users,
@@ -2048,6 +2803,7 @@ paths:
       security: [{ sessionCookie: [] }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '200':
             {
               description: Instance roles,
@@ -2100,6 +2856,7 @@ paths:
               properties: { roleCodes: { type: array, items: { type: string }, uniqueItems: true } }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Instance roles replaced. },
           '400': { description: Invalid instance role assignment. },
           '401': { description: Authentication required. },
@@ -2114,6 +2871,7 @@ paths:
       parameters: [{ name: tenantSlug, in: query, required: true, schema: { type: string } }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '200':
             {
               description: Tenant users and roles,
@@ -2203,6 +2961,7 @@ paths:
                 { email: { type: string, format: email }, roleId: { type: string, format: uuid } }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '201': { description: Tenant invitation sent. },
           '400': { description: Invalid invitation or tenant role. },
           '401': { description: Authentication required. },
@@ -2241,6 +3000,7 @@ paths:
                 }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Tenant roles replaced. },
           '400': { description: Invalid tenant role assignment. },
           '401': { description: Authentication required. },
@@ -2271,6 +3031,7 @@ paths:
           }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: User updated. },
           '400': { description: Invalid user update. },
           '404': { description: Active user not found. },
@@ -2283,6 +3044,7 @@ paths:
         [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: User soft-deleted. },
           '404': { description: Active user not found. },
         }
@@ -2302,6 +3064,7 @@ paths:
               properties:
                 email: { type: string, format: email }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201': { description: Invitation email sent. }
         '400': { description: Invalid invitation email. }
         '409': { description: An active user already has this email address. }
@@ -2315,6 +3078,7 @@ paths:
         [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Reset email sent and existing sessions revoked. },
           '404': { description: Active user not found. },
           '502': { description: Password-reset email delivery failed. },
@@ -2327,6 +3091,7 @@ paths:
       security: [{}, { sessionCookie: [] }]
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Invitation details, account state, and current password requirement.
           content:
@@ -2341,7 +3106,20 @@ paths:
                   existingAccount: { type: boolean }
         '403':
           description: INVITATION_EMAIL_MISMATCH. The active session belongs to another email address.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '404': { description: Invitation unavailable. }
   /user-invitations/{token}/accept:
     post:
@@ -2369,14 +3147,41 @@ paths:
                     description: Must meet the configured minimum estimated entropy.,
                   }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Account created or an existing account joined the invited cookbook. }
         '400':
           description: Invalid invitation details, INVALID_ACCOUNT_PROFILE for missing or invalid names, or INVALID_PASSWORD.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { description: Existing invited account must sign in before accepting. }
         '403':
           description: INVITATION_EMAIL_MISMATCH. The active session does not match the invited account or email; the invitation is preserved.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '404': { description: Invitation unavailable. }
         '409':
           { description: An instance-user invitation cannot be accepted for an existing account. }
@@ -2387,6 +3192,7 @@ paths:
       security: [{}, { sessionCookie: [] }]
       parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Cookbook-owner invitation details and invited account state.
           content:
@@ -2401,10 +3207,36 @@ paths:
                   existingAccount: { type: boolean }
         '403':
           description: INVITATION_EMAIL_MISMATCH. The active session belongs to another email address.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '404':
           description: Invitation unavailable.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /invitations/{token}/accept:
     post:
       operationId: acceptTenantInvitation
@@ -2425,6 +3257,7 @@ paths:
                 lastName: { $ref: '#/components/schemas/ProfileName' }
                 displayName: { $ref: '#/components/schemas/ProfileName' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Invitation accepted and browser session started.
           headers:
@@ -2442,21 +3275,74 @@ paths:
                   passwordChangeRequired: { type: boolean }
         '400':
           description: INVALID_EMAIL_CODE for malformed code input or INVALID_ACCOUNT_PROFILE for missing or invalid names on a new account. Profile validation does not consume the email code.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401':
           description: Invalid email code.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '403':
           description: The active session uses a different email address.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '404':
           description: Invitation unavailable.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /health:
     get:
       operationId: getHealth
       summary: Returns API process readiness after database migrations have completed.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: The API process is accepting requests.
           content:
@@ -2489,6 +3375,7 @@ paths:
                 scopePublicId: { type: string, minLength: 1 }
                 durationHours: { type: integer, enum: [4, 8, 24] }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: The one-time access URL expires in thirty minutes; expiresAt is the reader grant expiry.
           content:
@@ -2503,10 +3390,36 @@ paths:
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '400':
           description: INVALID_AI_CONTEXT. Invalid scope type, scope identifier, or duration.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '404':
           description: TENANT_NOT_FOUND or AI_CONTEXT_SCOPE_NOT_FOUND.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /ai-context/{bootstrapToken}:
     get:
       operationId: exchangeAiContextLink
@@ -2515,6 +3428,7 @@ paths:
       parameters:
         - { name: bootstrapToken, in: path, required: true, schema: { type: string } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: AI context manifest and bearer token.
           headers:
@@ -2530,6 +3444,7 @@ paths:
       summary: Returns categories and recipes inside an AI context scope, preferring current draft metadata.
       security: [{ aiContextBearerAuth: [] }, { aiContextQueryAuth: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Scoped reader overview.
           headers:
@@ -2547,6 +3462,7 @@ paths:
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Scoped published recipe with visible variants and the default variant's steps.
           headers:
@@ -2565,6 +3481,7 @@ paths:
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Scoped immutable recipe revisions, newest version first.
           headers:
@@ -2596,6 +3513,7 @@ paths:
             schema: { type: string, format: uuid },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Scoped immutable recipe revision.
           headers:
@@ -2614,6 +3532,7 @@ paths:
       parameters:
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Scoped current recipe draft.
           headers:
@@ -2643,6 +3562,7 @@ paths:
                 method: { type: string }
                 params: {}
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200': { description: JSON-RPC response. }
         '202': { description: JSON-RPC notification accepted. }
         '400': { description: The JSON-RPC request is invalid. }
@@ -2652,6 +3572,7 @@ paths:
       operationId: getMcpProtectedResourceMetadata
       summary: Returns OAuth protected-resource metadata for the MCP endpoint.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Protected-resource metadata.
           content:
@@ -2662,6 +3583,7 @@ paths:
       operationId: getRootAliasMcpProtectedResourceMetadata
       summary: Returns canonical OAuth protected-resource metadata for the public /mcp alias.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Protected-resource metadata.
           content:
@@ -2672,6 +3594,7 @@ paths:
       operationId: getPathSpecificMcpProtectedResourceMetadata
       summary: Returns OAuth protected-resource metadata for the public /api/mcp endpoint.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Protected-resource metadata.
           content:
@@ -2682,6 +3605,7 @@ paths:
       operationId: getOAuthAuthorizationServerMetadata
       summary: Returns OAuth authorization-server metadata.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Authorization-server metadata.
           content:
@@ -2692,6 +3616,7 @@ paths:
       operationId: getPathSpecificOAuthAuthorizationServerMetadata
       summary: Returns OAuth authorization-server metadata for the public /api issuer.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Authorization-server metadata.
           content:
@@ -2718,6 +3643,7 @@ paths:
                   items: { type: string, format: uri }
                 client_name: { type: string, minLength: 1, maxLength: 160 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: OAuth client registered.
           content:
@@ -2749,6 +3675,7 @@ paths:
             schema: { type: string, const: S256 },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '302': { description: Redirects to Shadowcook sign-in or the client's redirect URI. }
         '400': { description: The authorization request or client is invalid. }
   /oauth/token:
@@ -2762,6 +3689,7 @@ paths:
           application/x-www-form-urlencoded:
             schema: { $ref: '#/components/schemas/OAuthTokenRequest' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: OAuth token response.
           content:
@@ -2774,6 +3702,7 @@ paths:
       summary: Returns non-secret SMTP settings for the instance.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: The mail settings state.
           content:
@@ -2783,12 +3712,38 @@ paths:
         '401':
           {
             description: Authentication is required,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '403':
           {
             description: An instance permission is required,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
     put:
       operationId: saveInstanceMailSettings
@@ -2801,26 +3756,79 @@ paths:
             schema:
               $ref: '#/components/schemas/InstanceMailSettingsInput'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: The mail settings were stored. }
         '400':
           {
             description: The settings are invalid,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '401':
           {
             description: Authentication is required,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '403':
           {
             description: An instance permission is required,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '503':
           {
             description: The instance encryption key is not configured,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
   /admin/mail-settings/test:
     post:
@@ -2838,43 +3846,124 @@ paths:
               properties:
                 recipient: { type: string, format: email }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: The test message was accepted for delivery. }
         '400':
           {
             description: The recipient is invalid,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '401':
           {
             description: Authentication is required,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '403':
           {
             description: An instance permission is required,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '409':
           {
             description: Mail is not configured,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '502':
           {
             description: SMTP delivery failed,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
         '503':
           {
             description: The instance encryption key is not configured,
-            content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } },
+            content:
+              {
+                application/json:
+                  {
+                    schema:
+                      {
+                        'anyOf':
+                          [
+                            { '$ref': '#/components/schemas/ApiError' },
+                            { '$ref': '#/components/schemas/UnhandledApiError' },
+                          ],
+                      },
+                  },
+              },
           }
   /admin/email-templates:
     get:
       operationId: listInstanceEmailTemplates
       summary: Returns resolved system email templates and permitted placeholders.
+      description: Registration verification supports first_name, last_name, and display_name from the pending registration on initial delivery and resends. Its built-in greeting uses first_name. recipient_name uses the pending display name, falling back to first name and email. first_name falls back to display name and email; display_name falls back to first name and email; a missing last_name is empty. Customized templates retain their contents.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: System email templates.
           content:
@@ -2917,6 +4006,7 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/InstanceEmailTemplateInput' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: The template was saved. }
         '400': { description: The template or a placeholder is invalid }
         '401': { description: Authentication is required }
@@ -2926,6 +4016,7 @@ paths:
       summary: Removes a customized template and restores the built-in default.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: The built-in default is active. }
         '401': { description: Authentication is required }
         '403': { description: An instance permission is required }
@@ -2959,6 +4050,7 @@ paths:
           description: Renews the authenticated session's featured-recipe ordering.
           schema: { type: boolean, default: false }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: The accessible cookbook overview.
           content:
@@ -3032,7 +4124,14 @@ paths:
           description: INVALID_RECIPE_FILTER. The diet filter is invalid.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '403':
           description: A password change is required before accessing the cookbook.
           content:
@@ -3044,7 +4143,13 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/tenants:
     get:
       operationId: listAccessibleCookbookTenants
@@ -3062,6 +4167,7 @@ paths:
           description: Keeps the randomized cookbook order stable while paging and filtering.
           schema: { type: string, maxLength: 100 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Accessible enabled cookbooks and the authenticated user's enabled cookbook memberships.
           content:
@@ -3075,6 +4181,7 @@ paths:
       description: Requires instance:administer for a user principal.
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Persisted media settings. The initial limit is five published images per recipe.
           headers:
@@ -3101,12 +4208,20 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/InstanceMediaSettings' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Media settings saved. }
         '400':
           description: INVALID_MEDIA_SETTINGS; the limit must be a non-negative integer.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/InstancePermissionRequired' }
   /admin/frontpage-settings:
@@ -3115,6 +4230,7 @@ paths:
       summary: Returns the instance root-page settings.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Instance root-page settings.
           content:
@@ -3136,6 +4252,7 @@ paths:
               { schema: { $ref: '#/components/schemas/InstanceFrontpageSettings' } },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Instance root-page settings updated. }
         '400': { description: Invalid root-page settings. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -3145,6 +4262,7 @@ paths:
       operationId: getPublicLegalDocuments
       summary: Returns the public privacy statement and imprint Markdown.
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Public legal documents.
           content:
@@ -3156,6 +4274,7 @@ paths:
       summary: Returns the editable instance legal documents.
       security: [{ sessionCookie: [] }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Instance legal documents.
           content:
@@ -3173,10 +4292,24 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/InstanceLegalDocuments' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Instance legal documents updated. }
         '400':
           description: Invalid legal documents.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/InstancePermissionRequired' }
   /cookbook/tenants/{tenantSlug}/export:
@@ -3199,6 +4332,7 @@ paths:
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: ZIP archive containing cookbook.json, including all drafts and revision history.
           headers:
@@ -3219,20 +4353,43 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403':
           description: TENANT_PERMISSION_REQUIRED or PASSWORD_CHANGE_REQUIRED.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '404': { $ref: '#/components/responses/TenantNotFound' }
         '500':
           description: Export failed, including a missing cover image or checksum mismatch. No archive is returned.
           content:
             application/json:
               schema:
-                type: object
-                required: [statusCode, error, message]
-                properties:
-                  statusCode: { type: integer, const: 500 }
-                  code: { type: string }
-                  error: { type: string }
-                  message: { type: string }
+                {
+                  'anyOf':
+                    [
+                      {
+                        'type': 'object',
+                        'required': ['statusCode', 'error', 'message'],
+                        'properties':
+                          {
+                            'statusCode': { 'type': 'integer', 'const': 500 },
+                            'code': { 'type': 'string' },
+                            'error': { 'type': 'string' },
+                            'message': { 'type': 'string' },
+                          },
+                      },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/tenants/{tenantSlug}/recipe-policy:
     get:
       operationId: getTenantRecipePolicy
@@ -3240,6 +4397,7 @@ paths:
       security: [{ sessionCookie: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Tenant recipe policy.
           content:
@@ -3256,6 +4414,7 @@ paths:
         content:
           { application/json: { schema: { $ref: '#/components/schemas/TenantRecipePolicy' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Tenant recipe policy updated. }
         '400': { description: Invalid recipe policy. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -3269,6 +4428,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Tenant categories.
           content:
@@ -3294,6 +4454,7 @@ paths:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/CategoryInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Category created.
           content:
@@ -3315,6 +4476,7 @@ paths:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/CategoryInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Category updated.
           content:
@@ -3333,6 +4495,7 @@ paths:
         - $ref: '#/components/parameters/TenantSlug'
         - $ref: '#/components/parameters/PublicId'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Category deleted. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
@@ -3352,6 +4515,7 @@ paths:
         content:
           { application/json: { schema: { $ref: '#/components/schemas/CategoryMoveInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Category order updated or already at the requested boundary. }
         '400': { $ref: '#/components/responses/InvalidCategory' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -3373,6 +4537,7 @@ paths:
           required: false
           schema: { type: string }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: The accessible published recipe.
           content:
@@ -3384,13 +4549,25 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
         '404':
           description: The recipe is not accessible or does not exist.
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ApiError'
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
   /cookbook/tenants/{tenantSlug}/drafts:
     get:
       operationId: listRecipeDrafts
@@ -3400,6 +4577,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Recipe drafts.
           content:
@@ -3415,7 +4593,20 @@ paths:
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: The requested cookbook is disabled or does not exist.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /cookbook/tenants/{tenantSlug}/recipes:
     get:
       operationId: listManagedRecipes
@@ -3433,6 +4624,7 @@ paths:
           description: Accent-insensitive recipe filter for titles and summaries. Non-alphanumeric ASCII characters are word separators. Exact title, title phrase, title token, summary phrase, and summary token matches are returned in that order.
           schema: { type: string, maxLength: 200 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Published recipes for management, ordered by normalized recipe match rank and then alphabetically by title.
           content:
@@ -3454,12 +4646,26 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RecipeCreateInput' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Draft created.
           content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
         '400':
           description: INVALID_RECIPE or INVALID_RECIPE_CATEGORY. The recipe data or selected categories are invalid.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404': { $ref: '#/components/responses/TenantNotFound' }
@@ -3481,6 +4687,7 @@ paths:
           required: false
           schema: { type: string, format: uuid }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Whether the supplied URL name is available in this cookbook.
           headers:
@@ -3496,7 +4703,20 @@ paths:
                   available: { type: boolean }
         '400':
           description: INVALID_RECIPE_SLUG_QUERY. The slug or excluded recipe identifier is invalid.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404': { $ref: '#/components/responses/TenantNotFound' }
@@ -3508,6 +4728,7 @@ paths:
       parameters:
         - { name: tenantSlug, in: path, required: true, schema: { type: string } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Recipes retained in the trash bin.
           content:
@@ -3533,7 +4754,20 @@ paths:
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: TENANT_NOT_FOUND or RECIPE_NOT_FOUND; recipe missing, already deleted, or retention expired.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /cookbook/tenants/{tenantSlug}/trash/{publicId}/restore:
     post:
       operationId: restoreDeletedRecipe
@@ -3543,12 +4777,26 @@ paths:
         - { name: tenantSlug, in: path, required: true, schema: { type: string } }
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Recipe restored. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: TENANT_NOT_FOUND or RECIPE_NOT_FOUND; recipe missing, already deleted, or retention expired.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}:
     delete:
       operationId: softDeleteRecipe
@@ -3559,12 +4807,26 @@ paths:
         - { name: tenantSlug, in: path, required: true, schema: { type: string } }
         - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Recipe moved into trash. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: TENANT_NOT_FOUND or RECIPE_NOT_FOUND; recipe missing, already deleted, or retention expired.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
     patch:
       operationId: updateRecipeMetadata
       summary: Updates immediate recipe metadata without creating a recipe draft or revision.
@@ -3580,17 +4842,44 @@ paths:
           application/json:
             schema: { $ref: '#/components/schemas/RecipeMetadataInput' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Recipe metadata saved.
           content: { application/json: { schema: { $ref: '#/components/schemas/EditableRecipe' } } }
         '400':
           description: INVALID_RECIPE. The recipe metadata is invalid.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: RECIPE_NOT_FOUND or TENANT_NOT_FOUND. The recipe or cookbook is unavailable.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '409': { $ref: '#/components/responses/RecipeSlugConflict' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft:
     delete:
@@ -3602,6 +4891,7 @@ paths:
         - { $ref: '#/components/parameters/TenantSlug' }
         - { $ref: '#/components/parameters/RecipePublicId' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Draft discarded. No response body. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
@@ -3609,7 +4899,14 @@ paths:
           description: The tenant is unavailable, or the recipe or active draft was not found. Error code is TENANT_NOT_FOUND or RECIPE_DRAFT_NOT_FOUND.
           content:
             application/json:
-              schema: { $ref: '#/components/schemas/ApiError' }
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                }
     get:
       operationId: getRecipeDraft
       summary: Returns the current editable revision or published revision.
@@ -3620,6 +4917,7 @@ paths:
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           {
             description: Recipe editor state,
@@ -3642,6 +4940,7 @@ paths:
             { application/json: { schema: { $ref: '#/components/schemas/RecipeDraftInput' } } },
         }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           {
             description: Draft saved,
@@ -3650,12 +4949,38 @@ paths:
           }
         '400':
           description: INVALID_RECIPE or INVALID_RECIPE_CATEGORY. The draft data or selected categories are invalid.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: RECIPE_NOT_FOUND or TENANT_NOT_FOUND. The recipe or cookbook is unavailable.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '409': { $ref: '#/components/responses/RecipeSlugConflict' }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/publish:
     post:
@@ -3677,6 +5002,7 @@ paths:
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           {
             description: Recipe published,
@@ -3688,7 +5014,20 @@ paths:
         '404': { $ref: '#/components/responses/RecipeUnavailable' }
         '409':
           description: PUBLISH_CATEGORY_REQUIRED. Assign at least one category before publishing.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/revisions:
     get:
       operationId: listRecipeRevisions
@@ -3700,6 +5039,7 @@ paths:
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Recipe revision history.
           content:
@@ -3732,6 +5072,7 @@ paths:
           },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Immutable recipe revision snapshot.
           content:
@@ -3751,6 +5092,7 @@ paths:
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Editable preparation steps.
           content:
@@ -3785,10 +5127,24 @@ paths:
                   type: array
                   items: { $ref: '#/components/schemas/RecipeDraftStepInput' }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Preparation steps saved. }
         '400':
           description: INVALID_RECIPE_STEPS. The recipe steps, variant keys, ingredient references, units, or amounts are invalid.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404': { $ref: '#/components/responses/RecipeUnavailable' }
@@ -3803,6 +5159,7 @@ paths:
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Recipe variants.
           content:
@@ -3842,6 +5199,7 @@ paths:
             { application/json: { schema: { $ref: '#/components/schemas/RecipeVariantInput' } } },
         }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Variant created.
           content:
@@ -3875,6 +5233,7 @@ paths:
             { application/json: { schema: { $ref: '#/components/schemas/RecipeVariantInput' } } },
         }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Variant updated. }
         '400': { $ref: '#/components/responses/RecipeVariantInvalid' }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -3901,6 +5260,7 @@ paths:
             },
         }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Variant deleted. }
         '400': { description: The variant or replacement default is invalid. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -3942,6 +5302,7 @@ paths:
             },
         }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Step memberships replaced. }
         '400': { description: The variant step-membership input is invalid. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
@@ -3955,6 +5316,7 @@ paths:
       parameters:
         - $ref: '#/components/parameters/TenantSlug'
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Recipe editor units and categories; requires recipe:create or recipe:update.
           content:
@@ -3982,6 +5344,7 @@ paths:
           required: false
           schema: { type: string }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Matching ingredients, with exact matches first and names sorted case-insensitively within each match group. Public IDs break ties.
           content:
@@ -4008,6 +5371,7 @@ paths:
           description: Accent-insensitive title search. Non-alphanumeric ASCII characters are word separators.
           schema: { type: string, maxLength: 200 }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Matching recipes.
           content:
@@ -4029,6 +5393,7 @@ paths:
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Tenant ingredients and their aliases sorted case-insensitively by name, with public IDs breaking ties.
           content:
@@ -4045,7 +5410,20 @@ paths:
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: The requested cookbook is disabled or does not exist.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
     post:
       operationId: createTenantIngredient
       summary: Creates a cookbook-owned ingredient and optional aliases.
@@ -4056,6 +5434,7 @@ paths:
         content:
           { application/json: { schema: { $ref: '#/components/schemas/TenantIngredientInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Ingredient created.
           content:
@@ -4074,7 +5453,11 @@ paths:
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/IngredientInput' } } }
-      responses: { '204': { description: Ingredient updated. } }
+      responses:
+        {
+          default: { $ref: '#/components/responses/UnexpectedError' },
+          '204': { description: Ingredient updated. },
+        }
     delete:
       operationId: deleteTenantIngredient
       security: [{ sessionCookie: [] }]
@@ -4085,6 +5468,7 @@ paths:
         ]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Ingredient deleted. },
           '409': { description: Ingredient is in use. },
         }
@@ -4103,6 +5487,7 @@ paths:
           { application/json: { schema: { $ref: '#/components/schemas/IngredientAliasInput' } } }
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '201':
             {
               description: Alias created,
@@ -4131,6 +5516,7 @@ paths:
               { schema: { $ref: '#/components/schemas/IngredientConsolidationInput' } },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Ingredient converted to an alias. }
         '400': { description: Invalid ingredient consolidation. }
         '404': { description: Source or target ingredient not found. }
@@ -4152,6 +5538,7 @@ paths:
               { schema: { $ref: '#/components/schemas/IngredientConsolidationInput' } },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Ingredient merged. }
         '400': { description: Invalid ingredient consolidation. }
         '404': { description: Source or target ingredient not found. }
@@ -4166,6 +5553,7 @@ paths:
           { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Ingredient converted to free-text recipe entries. }
         '404': { description: Source ingredient not found. }
   /cookbook/tenants/{tenantSlug}/ingredients/{publicId}/aliases/{aliasPublicId}:
@@ -4181,6 +5569,7 @@ paths:
         ]
       responses:
         {
+          default: { $ref: '#/components/responses/UnexpectedError' },
           '204': { description: Alias separated into an independent ingredient. },
           '404': { description: Alias not found. },
           '409': { description: An ingredient with the alias name already exists. },
@@ -4193,6 +5582,7 @@ paths:
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Tenant units.
           content:
@@ -4212,7 +5602,20 @@ paths:
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: The requested cookbook is disabled or does not exist.
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
     post:
       operationId: createTenantUnit
       summary: Creates a cookbook-owned unit of measure.
@@ -4222,6 +5625,7 @@ paths:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnitInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Unit created.
           content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnit' } } }
@@ -4243,20 +5647,60 @@ paths:
         required: true
         content: { application/json: { schema: { $ref: '#/components/schemas/TenantUnitInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Unit updated. }
         '400':
           description: Invalid unit input or conversion reference (INVALID_UNIT or INVALID_REFERENCE_UNIT).
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
         '404':
           description: Unit not found in the cookbook (UNIT_NOT_FOUND), or cookbook absent or disabled (TENANT_NOT_FOUND).
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
         '409':
           description: >-
             The default name or symbol conflicts with a visible unit (UNIT_CONFLICT),
             or a used unit's conversion would change (UNIT_IN_USE).
-          content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+          content:
+            {
+              application/json:
+                {
+                  schema:
+                    {
+                      'anyOf':
+                        [
+                          { '$ref': '#/components/schemas/ApiError' },
+                          { '$ref': '#/components/schemas/UnhandledApiError' },
+                        ],
+                    },
+                },
+            }
     delete:
       operationId: deleteTenantUnit
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
@@ -4265,7 +5709,12 @@ paths:
           { $ref: '#/components/parameters/TenantSlug' },
           { name: publicId, in: path, required: true, schema: { type: string, format: uuid } },
         ]
-      responses: { '204': { description: Unit deleted. }, '409': { description: Unit is in use. } }
+      responses:
+        {
+          default: { $ref: '#/components/responses/UnexpectedError' },
+          '204': { description: Unit deleted. },
+          '409': { description: Unit is in use. },
+        }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/share-links:
     get:
       operationId: listRecipeShareLinks
@@ -4277,6 +5726,7 @@ paths:
           { $ref: '#/components/parameters/RecipePublicId' },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Active share links.
           content:
@@ -4310,6 +5760,7 @@ paths:
                 name: { type: [string, 'null'], minLength: 1, maxLength: 160 }
                 expiresAt: { type: [string, 'null'], format: date-time }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           {
             description: Share link created,
@@ -4330,6 +5781,7 @@ paths:
           { name: shareLinkId, in: path, required: true, schema: { type: string, format: uuid } },
         ]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '204': { description: Share link revoked. }
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/TenantPermissionRequired' }
@@ -4341,6 +5793,7 @@ paths:
       security: [{ sessionCookie: [] }, { bearerAuth: [] }]
       parameters: [{ $ref: '#/components/parameters/TenantSlug' }]
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           description: Service accounts and assignable tenant roles.
           content:
@@ -4366,6 +5819,7 @@ paths:
         content:
           { application/json: { schema: { $ref: '#/components/schemas/ServiceAccountInput' } } }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Service account created.
           content:
@@ -4388,7 +5842,11 @@ paths:
         required: true
         content:
           { application/json: { schema: { $ref: '#/components/schemas/ServiceAccountInput' } } }
-      responses: { '204': { description: Service account updated. } }
+      responses:
+        {
+          default: { $ref: '#/components/responses/UnexpectedError' },
+          '204': { description: Service account updated. },
+        }
     delete:
       operationId: disableServiceAccount
       summary: Disables a service account and revokes all of its API tokens.
@@ -4398,7 +5856,11 @@ paths:
           { $ref: '#/components/parameters/TenantSlug' },
           { $ref: '#/components/parameters/PublicId' },
         ]
-      responses: { '204': { description: Service account disabled. } }
+      responses:
+        {
+          default: { $ref: '#/components/responses/UnexpectedError' },
+          '204': { description: Service account disabled. },
+        }
   /cookbook/tenants/{tenantSlug}/service-accounts/{publicId}/tokens:
     post:
       operationId: createServiceAccountToken
@@ -4416,6 +5878,7 @@ paths:
             application/json: { schema: { $ref: '#/components/schemas/ServiceAccountTokenInput' } },
           }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '201':
           description: Token created. Persist the token now; it cannot be retrieved again.
           content:
@@ -4434,7 +5897,11 @@ paths:
           { $ref: '#/components/parameters/PublicId' },
           { name: tokenId, in: path, required: true, schema: { type: string, format: uuid } },
         ]
-      responses: { '204': { description: Token revoked. } }
+      responses:
+        {
+          default: { $ref: '#/components/responses/UnexpectedError' },
+          '204': { description: Token revoked. },
+        }
   /cookbook/share-links/{token}:
     get:
       operationId: getSharedRecipe
@@ -4445,6 +5912,7 @@ paths:
           required: true
           schema: { type: string }
       responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
         '200':
           {
             description: Shared recipe,
@@ -4469,48 +5937,172 @@ components:
       required: true
       schema: { type: string, format: uuid }
   responses:
+    UnexpectedError:
+      description: Safe framework request failure, unexpected server failure, or unavailable web proxy upstream. Internal details are omitted. Unknown routes return 404 with NOT_FOUND.
+      headers:
+        X-Request-ID:
+          description: Server-generated correlation identifier, if the request reaches the API.
+          schema: { type: string }
+        Retry-After:
+          description: Optional known wait interval, as seconds or an HTTP date.
+          schema: { type: string }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/UnhandledApiError' }
     RecipeSlugConflict:
       description: RECIPE_CONFLICT. The recipe URL name is already used by another recipe in this cookbook.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     RecipeUnavailable:
       description: RECIPE_NOT_FOUND or TENANT_NOT_FOUND. The recipe, editable revision, or cookbook is unavailable.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     RecipeVariantInvalid:
       description: INVALID_RECIPE_VARIANT. The variant identifier, name, URL name, or settings are invalid.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     RecipeVariantConflict:
       description: RECIPE_VARIANT_CONFLICT. Another variant in this recipe already uses the URL name.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     AiContextBootstrapUnavailable:
       description: AI_CONTEXT_UNAVAILABLE. The bootstrap link is unknown, expired, consumed, revoked, or its cookbook is disabled.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     AiContextReaderUnavailable:
       description: AI_CONTEXT_UNAVAILABLE. The AI reader token is missing, malformed, unknown, expired, or revoked, the access_token parameter is repeated, or both Authorization and access_token are supplied.
       headers:
         Cache-Control: { schema: { type: string, const: no-store } }
         Referrer-Policy: { schema: { type: string, const: no-referrer } }
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     AiContextRecipeUnavailable:
       description: RECIPE_NOT_FOUND. The recipe or requested revision is outside the grant scope or unavailable; the draft endpoint also returns this response when no current draft exists.
       headers:
         Cache-Control: { schema: { type: string, const: no-store } }
         Referrer-Policy: { schema: { type: string, const: no-referrer } }
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     ReportInvalid:
       description: Invalid report, ticket update, assignee, filter, or report settings. Codes are INVALID_REPORT, INVALID_REPORT_UPDATE, INVALID_REPORT_ASSIGNEE, INVALID_REPORT_FILTER, or INVALID_REPORT_SETTINGS.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+          schema:
+            {
+              'anyOf':
+                [
+                  { '$ref': '#/components/schemas/ApiError' },
+                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                ],
+            }
     ReportForbidden:
       description: PASSWORD_CHANGE_REQUIRED or INSTANCE_PERMISSION_REQUIRED.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+          schema:
+            {
+              'anyOf':
+                [
+                  { '$ref': '#/components/schemas/ApiError' },
+                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                ],
+            }
     ReportNotFound:
       description: REPORT_TARGET_NOT_FOUND or REPORT_NOT_FOUND.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+          schema:
+            {
+              'anyOf':
+                [
+                  { '$ref': '#/components/schemas/ApiError' },
+                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                ],
+            }
     EmailChangeRateLimited:
       description: EMAIL_CHANGE_RATE_LIMITED. The account must wait before requesting another email.
       headers:
@@ -4519,42 +6111,176 @@ components:
           schema: { type: integer, minimum: 1 }
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+          schema:
+            {
+              'anyOf':
+                [
+                  { '$ref': '#/components/schemas/ApiError' },
+                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                ],
+            }
     EmailChangeDeliveryFailed:
       description: EMAIL_CHANGE_DELIVERY_FAILED. SMTP delivery failed; the previous pending change is preserved.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+          schema:
+            {
+              'anyOf':
+                [
+                  { '$ref': '#/components/schemas/ApiError' },
+                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                ],
+            }
     EmailChangeSmtpRequired:
       description: SMTP_REQUIRED. Instance email delivery is not configured; pending changes are preserved.
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/ApiError' }
+          schema:
+            {
+              'anyOf':
+                [
+                  { '$ref': '#/components/schemas/ApiError' },
+                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                ],
+            }
     AuthenticationRequired:
       description: Authentication is required.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     InstancePermissionRequired:
       description: The active user lacks the required instance permission.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     TenantPermissionRequired:
       description: The active user lacks the required tenant permission.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     TenantNotFound:
       description: The tenant does not exist or is disabled.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     CategoryNotFound:
       description: The category was not found.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     InvalidCategory:
       description: The category input or parent relation is invalid.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     CategoryConflict:
       description: A category with the supplied URL name already exists.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
     CategoryInUse:
       description: The category or one of its descendants is used by a recipe revision.
-      content: { application/json: { schema: { $ref: '#/components/schemas/ApiError' } } }
+      content:
+        {
+          application/json:
+            {
+              schema:
+                {
+                  'anyOf':
+                    [
+                      { '$ref': '#/components/schemas/ApiError' },
+                      { '$ref': '#/components/schemas/UnhandledApiError' },
+                    ],
+                },
+            },
+        }
   schemas:
+    UnhandledApiError:
+      type: object
+      description: Safe framework request error, unhandled server exception, or unavailable web proxy upstream.
+      required: [error]
+      properties:
+        statusCode: { type: integer, minimum: 400, maximum: 599 }
+        code: { type: string }
+        error: { type: string }
+        message: { type: string }
     AiContextScope:
       type: object
       additionalProperties: false

@@ -2,6 +2,13 @@
 
 Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). Unimplemented capabilities and feature ideas are collected in the [roadmap backlog](roadmap.md#backlog).
 
+### Error handling and error pages
+
+- Added separate, self-contained 500/502/503/504 proxy reference pages in English and German, with a shared manual generator and operator instructions. The references are not part of build or deployment packaging (architecture: [Error handling and recovery](ARCHITECTURE.md#error-handling-and-recovery)).
+
+- Added localized read error states, per-island React boundaries, an offline notice, safe API error parsing, support identifiers and rate-limit timing. Cookbook failures retain their server/network classification; management refresh failures retain the editor. Mutation feedback remains contextual (architecture: [Error handling and recovery](ARCHITECTURE.md#error-handling-and-recovery)).
+- Added central Fastify exceptions and correlation headers, OpenAPI default errors, a generated static Apache page, package inclusion, selective proxy configuration, isolated smoke tests and a manual staging checklist. Active host and Cloudflare configuration remain operator-managed.
+
 ### Product landing page and cookbook discovery
 
 - `/` serves the localized public product landing page with SSR marketing content, original branding, a labeled example using the shared recipe-step renderer, responsive sections, localized metadata, and links to registration and Explore (architecture: [Cookbook navigation, reading, and editing](ARCHITECTURE.md#cookbook-navigation-reading-and-editing)).
@@ -50,6 +57,9 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 - A BETA-2 migration adds normalized report, notification, and instance-report-setting tables. The OpenAPI contract includes report submission, reportable-user selection, settings, ticket management, and the cookbook public identifier.
 
 ### Platform, persistence, and development data
+
+- Production-data test clones are available from a development checkout through `pnpm clone:db` and `scripts/clone-database.sh`, with `.env.db-clone.example` in the repository root. The tool stages and validates a source snapshot, replaces profiles and credentials, disables copied mail delivery, preserves business data, and publishes through a transactional target-schema replacement. Separate source/target configuration, read-only preflight, source/target identity guards, temporary-data cleanup, and isolated PostgreSQL integration tests are included (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
+- Test clones end with hidden password entry and confirmation for an additional `admin@local` account. The API password policy and hashing, transactional administrator setup, immediate password login, and explicit stdin automation are covered by isolated integration tests, including a real terminal test for hidden entry, mismatch, and policy retries (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
 
 - The 24 initial/Beta schema migrations are consolidated into one initial schema for fresh installations. Schema and built-in seed equivalence were verified against the previous migration chain in isolated PostgreSQL databases. Migration tests cover the baseline ledger, repeatability, unit seeding and translations, contributor cascades, search functions, and independent variant metadata; database builds remove obsolete compiled SQL assets (architecture: [Database migration execution](ARCHITECTURE.md#database-migration-execution); decision: [Consolidated schema baseline](adr/0001-consolidated-schema-baseline.md)).
 
@@ -206,6 +216,8 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 
 - [x] New variants inherit the current default variant’s preparation metadata and diet in the API and creation dialog. Explicit creation values override inherited fields; later edits remain independent.
 
+- Registration-verification mail provides pending first name, last name, and display name on initial delivery and resend. The default greeting uses first name; legacy pending registrations fall back to display name or email, and stored custom templates retain their content (architecture: [Registration and account settings](ARCHITECTURE.md#registration-and-account-settings)).
+
 ### Recipe cover image
 
 - Implemented the recipe cover image described in `docs/ARCHITECTURE.md`: draft upload/replacement/removal, browser crop preview, bounded JPEG encoding and thumbnail generation, filesystem storage, visibility checks, revision references, orphan cleanup and persistent deployment volume.
@@ -222,3 +234,5 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 - Instance administrators configure the recipe-image retention limit through `/admin/settings/media`, with localized validation, persisted default five, positive limits from one, and zero for unlimited. Publication and hourly cleanup use the current database setting; orphan cleanup remains enabled at zero (architecture: [Recipe cover images and storage](ARCHITECTURE.md#recipe-cover-images-and-storage)). The BETA-2 migration creates normalized instance media settings, and the administrative API is documented in OpenAPI.
 
 - Recipe trash and permanent deletion implemented: BETA-2 migration, default 30-day cookbook-controlled retention, snapshotted deletion policies, tenant-authorized deletion/restoration, localized management actions and deep-linkable trash, hidden deleted recipes across normal access paths, retained slugs, startup/hourly cascading purge and durable image deletion retries. API contract updated (architecture: [Recipe trash and permanent deletion](ARCHITECTURE.md#recipe-trash-and-permanent-deletion)).
+
+- Registration uses localized inbox and welcome views with state-specific headings. Email verification signs in the originating browser using credential-bound HttpOnly browser proof and a fresh session committed atomically with account creation; other browsers retain explicit login. Success continues to the new cookbook or cookbook settings and refreshes the session header (architecture: [Registration and account settings](ARCHITECTURE.md#registration-and-account-settings)).

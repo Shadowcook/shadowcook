@@ -1,9 +1,11 @@
+import { errorEnglish } from './errors.ts';
 import { landingEnglish } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  errorStates: errorEnglish,
   recipeTrash: {
     title: 'Trash Bin',
     empty: 'The trash bin is empty.',
@@ -129,6 +131,13 @@ export const en: Translation = {
     invalid: 'This password-reset link is invalid or has expired.',
   },
   registration: {
+    checkEmailTitle: 'Almost there — check your inbox!',
+    verificationTitle: 'Confirming your email …',
+    verificationSuccessTitle: 'Welcome to the kitchen!',
+    verificationFailedTitle: 'Let’s get your email confirmed',
+    verificationSignIn: 'Your account is ready! Sign in to start cooking.',
+    continueToCookbook: 'Open your cookbook',
+    continueToAccount: 'Let’s get cooking',
     website: 'Website',
     title: 'Create your account',
     subtitle: 'Create an account first. You can create a cookbook now or later after signing in.',
@@ -141,10 +150,10 @@ export const en: Translation = {
     submit: 'Create account',
     submitting: 'Creating account …',
     checkEmail:
-      'Check your email. We sent a verification link to your email address. Your Shadowcook account will be created after you verify it.',
+      'Your registration is in! Follow the link in your email to activate your account and start cooking.',
     unavailable: 'Public registration is currently unavailable.',
     verificationInvalid: 'This verification link is invalid or expired.',
-    verificationSucceeded: 'Your account has been created. You can now sign in.',
+    verificationSucceeded: 'Your account is ready, and you’re signed in. Let’s get cooking!',
     resend: 'Send another verification email',
     resendSent:
       'If a pending registration exists for this email address, a new verification email has been sent.',
