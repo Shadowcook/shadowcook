@@ -10,8 +10,17 @@ const protectedResourceMetadataPath: string = '/.well-known/oauth-protected-reso
 const authorizationServerMetadataPath: string = '/.well-known/oauth-authorization-server';
 
 export const onRequest: MiddlewareHandler = async (context, next): Promise<Response> => {
-  if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url))
-    return new Response(null, { status: 403 });
+  logAuthenticationProxyRequest(context.request, context.url);
+  if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url)) {
+    const response: Response = new Response(null, { status: 403 });
+    logAuthenticationProxyResponse(
+      context.url.pathname,
+      context.request.method,
+      response,
+      'origin-rejected',
+    );
+    return response;
+  }
 
   const locale: 'en' | 'de' = resolveRequestLocale(
     context.request.headers.get('cookie'),
@@ -65,7 +74,6 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
   headers.delete('forwarded');
   headers.delete('x-real-ip');
   headers.set('accept-encoding', 'identity');
-  logAuthenticationProxyRequest(context.url.pathname, context.request.method);
   let response: Response;
   try {
     response = await fetch(apiUrl, {
@@ -75,24 +83,34 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
       redirect: 'manual',
     });
   } catch (_error: unknown) {
-    return Response.json(
+    const unavailable: Response = Response.json(
       { code: 'UPSTREAM_UNAVAILABLE', error: 'Service unavailable' },
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     );
+    logAuthenticationProxyResponse(
+      context.url.pathname,
+      context.request.method,
+      unavailable,
+      'upstream-unavailable',
+    );
+    return unavailable;
   }
   logAuthenticationProxyResponse(context.url.pathname, context.request.method, response);
   return response;
 };
 
-function logAuthenticationProxyRequest(pathname: string, method: string): void {
-  if (!isLoggedAuthenticationPath(pathname)) return;
+function logAuthenticationProxyRequest(request: Request, url: URL): void {
+  if (!isLoggedAuthenticationPath(url.pathname)) return;
   console.info(
     JSON.stringify({
       time: new Date().toISOString(),
       component: 'api-proxy',
       event: 'authentication-request',
-      method,
-      path: pathname,
+      method: request.method,
+      path: url.pathname,
+      originPresent: request.headers.has('origin'),
+      originMatches: request.headers.get('origin') === url.origin,
+      contentTypePresent: request.headers.has('content-type'),
     }),
   );
 }
@@ -101,6 +119,7 @@ function logAuthenticationProxyResponse(
   pathname: string,
   method: string,
   response: Response,
+  failureReason?: 'origin-rejected' | 'upstream-unavailable',
 ): void {
   if (!isLoggedAuthenticationPath(pathname)) return;
   const location: string | null = response.headers.get('location');
@@ -120,6 +139,7 @@ function logAuthenticationProxyResponse(
       method,
       path: pathname,
       status: response.status,
+      failureReason,
       redirectPath,
       contentEncoding: response.headers.get('content-encoding'),
       hasSetCookie: response.headers.has('set-cookie'),

@@ -13,6 +13,8 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { translations } from '../i18n';
 import type { Locale, Translation } from '../i18n';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
+import { logout } from '../lib/api/logout';
+import { ApiRequestError } from '../lib/api/client';
 import { subscribeToProfileUpdates } from '../lib/browser/profile-events';
 import { subscribeToSessionChanges } from '../lib/browser/session-events';
 import type { HeadBarSession } from '../lib/server/head-bar-session';
@@ -61,31 +63,22 @@ function HeadBar({
   }, []);
 
   async function signOut(): Promise<void> {
+    if (signingOut) return;
     setSigningOut(true);
     setSignOutError('');
-    const abortController: AbortController = new AbortController();
-    const timeoutId: number = window.setTimeout((): void => abortController.abort(), 10000);
     try {
-      const response: Response = await fetch('/api/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-        signal: abortController.signal,
-      });
-      if (!response.ok) {
-        console.error('Sign-out request returned an unsuccessful response.', {
-          status: response.status,
-        });
-        setSignOutError(text.headBar.signOutFailed);
-        return;
-      }
+      await logout();
     } catch (error: unknown) {
       console.error('Sign-out request failed.', {
+        time: new Date().toISOString(),
         name: error instanceof Error ? error.name : 'unknown',
+        status: error instanceof ApiRequestError ? error.status : undefined,
+        code: error instanceof ApiRequestError ? error.code : undefined,
+        requestId: error instanceof ApiRequestError ? error.requestId : undefined,
       });
       setSignOutError(text.headBar.signOutFailed);
       return;
     } finally {
-      window.clearTimeout(timeoutId);
       setSigningOut(false);
     }
     clearBrowserSessionCache();

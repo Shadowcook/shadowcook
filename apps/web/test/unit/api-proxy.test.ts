@@ -30,6 +30,92 @@ function unexpectedWebFallback(): Promise<Response> {
   assert.fail('API requests must not render a web page.');
 }
 
+test('logout origin rejections are logged before forwarding without exposing credentials', async (context: TestContext): Promise<void> => {
+  const records: string[] = [];
+  context.mock.method(console, 'info', (record: string): void => {
+    records.push(record);
+  });
+  context.mock.method(globalThis, 'fetch', async (): Promise<Response> => {
+    assert.fail('Rejected requests must not reach the API.');
+  });
+  const response: Response = await proxyRequest(
+    new Request('https://web.invalid/api/auth/logout?token=secret-query', {
+      method: 'POST',
+      headers: { origin: 'http://web.invalid', cookie: 'shadowcook_session=secret-cookie' },
+    }),
+    unexpectedWebFallback,
+  );
+  assert.equal(response.status, 403);
+  assert.equal(await response.text(), '');
+  assert.equal(records.length, 2);
+  const incoming: Record<string, unknown> = JSON.parse(records[0]!);
+  const rejected: Record<string, unknown> = JSON.parse(records[1]!);
+  assert.equal(incoming.event, 'authentication-request');
+  assert.equal(incoming.originPresent, true);
+  assert.equal(incoming.originMatches, false);
+  assert.equal(incoming.contentTypePresent, false);
+  assert.equal(rejected.status, 403);
+  assert.equal(rejected.failureReason, 'origin-rejected');
+  assert.match(String(rejected.time), /Z$/);
+  assert.doesNotMatch(records.join('\n'), /secret-query|secret-cookie/);
+});
+
+test('logout upstream failures are logged with their stage', async (context: TestContext): Promise<void> => {
+  configureApiOrigin(context);
+  const records: string[] = [];
+  context.mock.method(console, 'info', (record: string): void => {
+    records.push(record);
+  });
+  context.mock.method(globalThis, 'fetch', async (): Promise<Response> => {
+    throw new TypeError('Connection refused');
+  });
+  const response: Response = await proxyRequest(
+    new Request('https://web.invalid/api/auth/logout', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    }),
+    unexpectedWebFallback,
+  );
+  assert.equal(response.status, 503);
+  const failed: Record<string, unknown> = JSON.parse(records[1]!);
+  assert.equal(failed.status, 503);
+  assert.equal(failed.failureReason, 'upstream-unavailable');
+});
+
+test('JSON logout without Origin reaches the API and preserves cookie expiration', async (context: TestContext): Promise<void> => {
+  configureApiOrigin(context);
+  const expiredCookie: string = 'shadowcook_session=; Path=/; HttpOnly; SameSite=Lax; Max-Age=0';
+  context.mock.method(
+    globalThis,
+    'fetch',
+    async (url: URL, options: RequestInit): Promise<Response> => {
+      assert.equal(url.href, 'http://api.internal:3000/auth/logout');
+      assert.equal(options.method, 'POST');
+      const headers: Headers = new Headers(options.headers);
+      assert.equal(headers.get('cookie'), 'shadowcook_session=current-session');
+      assert.equal(headers.get('content-type'), 'application/json');
+      assert.ok(options.body instanceof ArrayBuffer);
+      assert.equal(new TextDecoder().decode(options.body), '{}');
+      return new Response(null, {
+        status: 204,
+        headers: { 'set-cookie': expiredCookie, 'cache-control': 'no-store' },
+      });
+    },
+  );
+  const response: Response = await proxyRequest(
+    new Request('http://web.invalid/api/auth/logout', {
+      method: 'POST',
+      headers: { cookie: 'shadowcook_session=current-session', 'content-type': 'application/json' },
+      body: '{}',
+    }),
+    unexpectedWebFallback,
+  );
+  assert.equal(response.status, 204);
+  assert.equal(response.headers.get('set-cookie'), expiredCookie);
+  assert.equal(response.headers.get('cache-control'), 'no-store');
+});
+
 test('cookbook ZIP downloads preserve binary content, attachment headers and authentication through the proxy', async (context: TestContext): Promise<void> => {
   configureApiOrigin(context);
   const bytes: Uint8Array = new Uint8Array([0x50, 0x4b, 3, 4, 0, 0xff]);

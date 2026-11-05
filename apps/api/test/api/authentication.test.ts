@@ -104,6 +104,74 @@ test('disabled users cannot create sessions', async (): Promise<void> => {
   });
 });
 
+test('logout is idempotent and preserves other browser sessions', async (): Promise<void> => {
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'logout-repeat@example.test',
+  });
+  const cookie: string = sessionCookie((await login(user)).headers['set-cookie']);
+  const otherCookie: string = sessionCookie((await login(user)).headers['set-cookie']);
+  for (const headers of [{ cookie }, { cookie }, {}]) {
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/logout',
+      headers,
+      payload: {},
+    });
+    assert.equal(response.statusCode, 204);
+    assert.match(String(response.headers['set-cookie']), /Max-Age=0/);
+    assert.equal(response.headers['cache-control'], 'no-store');
+  }
+  const revoked: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie },
+  });
+  assert.equal(revoked.statusCode, 401);
+  const other: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: '/auth/session',
+    headers: { cookie: otherCookie },
+  });
+  assert.equal(other.statusCode, 200);
+});
+
+for (const state of ['password-change-required', 'disabled', 'expired']) {
+  test(`logout revokes a ${state} session without authentication preconditions`, async (): Promise<void> => {
+    const user: TestUser = await createTestUser(database.pool, {
+      email: `logout-${state}@example.test`,
+    });
+    const cookie: string = sessionCookie((await login(user)).headers['set-cookie']);
+    if (state === 'password-change-required') {
+      await database.pool.query(
+        'UPDATE user_account SET password_change_required = true WHERE id = $1',
+        [user.userId],
+      );
+    } else if (state === 'disabled') {
+      await database.pool.query('UPDATE user_account SET disabled_at = now() WHERE id = $1', [
+        user.userId,
+      ]);
+    } else {
+      await database.pool.query(
+        "UPDATE user_session SET created_at = now() - interval '2 days', expires_at = now() - interval '1 day' WHERE user_account_id = $1",
+        [user.userId],
+      );
+    }
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: '/auth/logout',
+      headers: { cookie },
+      payload: {},
+    });
+    assert.equal(response.statusCode, 204);
+    assert.match(String(response.headers['set-cookie']), /Max-Age=0/);
+    const active: { rows: { count: string }[] } = await database.pool.query<{ count: string }>(
+      'SELECT count(*) FROM user_session WHERE user_account_id = $1 AND revoked_at IS NULL',
+      [user.userId],
+    );
+    assert.equal(active.rows[0].count, '0');
+  });
+}
+
 test('deactivating a user invalidates an existing session', async (): Promise<void> => {
   const user: TestUser = await createTestUser(database.pool, {
     email: 'deactivated-session@example.test',
