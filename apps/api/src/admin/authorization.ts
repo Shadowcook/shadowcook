@@ -81,7 +81,7 @@ export async function requireTenantAnyPermission(
           AND tenant_role_permission.permission_code = ANY($2::text[])
       ) AS permitted
       FROM tenant
-      WHERE tenant.slug = $3 AND tenant.disabled_at IS NULL
+      WHERE tenant.slug = $3 AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required
     `,
     [principal.principal_id, permissionCodes, tenantSlug],
   );

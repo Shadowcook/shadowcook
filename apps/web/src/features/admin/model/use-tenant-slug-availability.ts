@@ -2,15 +2,19 @@ import { useEffect, useState } from 'react';
 import { request } from '../../../lib/api/client';
 
 export type TenantSlugStatus =
-  'idle' | 'invalid' | 'checking' | 'available' | 'unavailable' | 'failed';
+  'idle' | 'invalid' | 'checking' | 'available' | 'collision' | 'unavailable' | 'failed';
 
 interface SlugCheck {
   key: string;
   status: TenantSlugStatus;
 }
 
-export function useTenantSlugAvailability(publicId: string | null, slug: string): TenantSlugStatus {
-  const key: string = JSON.stringify([publicId, slug]);
+export function useTenantSlugAvailability(
+  publicId: string | null,
+  slug: string,
+  scope: 'admin/tenants' | 'account/cookbooks' = 'admin/tenants',
+): TenantSlugStatus {
+  const key: string = JSON.stringify([publicId, slug, scope]);
   const valid: boolean = /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug);
   const [check, setCheck] = useState<SlugCheck | null>(null);
 
@@ -19,13 +23,20 @@ export function useTenantSlugAvailability(publicId: string | null, slug: string)
     setCheck({ key, status: 'checking' });
     const controller: AbortController = new AbortController();
     const timeout: number = window.setTimeout((): void => {
-      void request<{ available: boolean }>(
-        `/admin/tenants/${encodeURIComponent(publicId)}/slug-availability?${new URLSearchParams({ slug })}`,
+      void request<{ available: boolean; suffixRequired?: boolean }>(
+        `/${scope}/${encodeURIComponent(publicId)}/slug-availability?${new URLSearchParams({ slug })}`,
         { signal: controller.signal },
       )
-        .then((response: { available: boolean }): void => {
+        .then((response: { available: boolean; suffixRequired?: boolean }): void => {
           if (!controller.signal.aborted)
-            setCheck({ key, status: response.available ? 'available' : 'unavailable' });
+            setCheck({
+              key,
+              status: response.available
+                ? 'available'
+                : response.suffixRequired === true
+                  ? 'collision'
+                  : 'unavailable',
+            });
         })
         .catch((): void => {
           if (!controller.signal.aborted) setCheck({ key, status: 'failed' });
@@ -35,7 +46,7 @@ export function useTenantSlugAvailability(publicId: string | null, slug: string)
       window.clearTimeout(timeout);
       controller.abort();
     };
-  }, [key, publicId, slug, valid]);
+  }, [key, publicId, slug, valid, scope]);
 
   if (publicId === null || slug.length === 0) return 'idle';
   if (!valid) return 'invalid';

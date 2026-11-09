@@ -129,7 +129,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     const settings: TenantSelectionSettingsRow | undefined = settingsResult.rows[0];
     const cookbooksPerPage: number = settings?.cookbooks_per_page ?? defaultCookbooksPerPage;
     const tenantFilterClause: string = `
-      tenant.disabled_at IS NULL
+      tenant.disabled_at IS NULL AND NOT tenant.name_reset_required
         AND tenant.show_on_start_page
         AND ($2 = '' OR tenant.display_name ILIKE '%' || $2 || '%' OR COALESCE(tenant.description, '') ILIKE '%' || $2 || '%')
         AND (
@@ -176,7 +176,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
            ON tenant_membership.tenant_id = tenant.id
            AND tenant_membership.principal_id = $1
          LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
-         WHERE tenant.disabled_at IS NULL
+         WHERE tenant.disabled_at IS NULL AND NOT tenant.name_reset_required
          GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
          ORDER BY lower(tenant.display_name), tenant.public_id`,
         [principalId],
@@ -239,7 +239,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         canCreateAiContexts: false,
       });
     const tenantResult = await pool.query<TenantRow>(
-      'SELECT id, public_id, display_name, frontpage_recipe_count, frontpage_heading FROM tenant WHERE slug = $1 AND disabled_at IS NULL',
+      'SELECT id, public_id, display_name, frontpage_recipe_count, frontpage_heading FROM tenant WHERE slug = $1 AND disabled_at IS NULL AND NOT name_reset_required',
       [tenantSlug],
     );
     const tenant: TenantRow | undefined = tenantResult.rows[0];
@@ -542,7 +542,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
-      WHERE recipe.public_id = $2 AND tenant.disabled_at IS NULL
+      WHERE recipe.public_id = $2 AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required
         AND (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'MEMBERS_ONLY' AND tenant_membership.principal_id IS NOT NULL)
           OR (COALESCE(recipe.visibility_override, tenant.default_recipe_visibility) = 'PRIVATE' AND EXISTS (

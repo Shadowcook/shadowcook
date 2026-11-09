@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
 import { request } from '../lib/api/client';
-import { isValidCookbookName } from '../lib/cookbook-name';
+import { cookbookSlugBase, isValidCookbookName } from '../lib/cookbook-name';
 
 interface SlugPreview {
   slug: string;
@@ -43,27 +43,37 @@ export default function CookbookUrlPreview({ cookbookName, text }: Properties): 
     };
   }, [normalizedName, validCookbookName]);
 
-  const collision: boolean =
-    validCookbookName && preview?.slug === slug && !preview.available;
+  const collision: boolean = validCookbookName && preview?.slug === slug && !preview.available;
+  return (
+    <CookbookSlugPreview
+      slug={slug}
+      validName={validCookbookName}
+      collision={collision}
+      text={text}
+    />
+  );
+}
+
+export function CookbookSlugPreview({
+  slug,
+  validName,
+  collision,
+  text,
+}: {
+  slug: string;
+  validName: boolean;
+  collision: boolean;
+  text: Translation;
+}): JSX.Element {
   return (
     <output className="cookbook-url-preview" aria-live="polite">
       <span>{text.cookbookUrlPreview.label}</span>
-      {validCookbookName ? (
+      {validName ? (
         <code>{`${window.location.origin}/${encodeURIComponent(slug)}`}</code>
       ) : (
         <small>{text.cookbookUrlPreview.invalidName}</small>
       )}
       {collision ? <small>{text.cookbookUrlPreview.collision}</small> : null}
     </output>
-  );
-}
-
-function cookbookSlugBase(name: string): string {
-  return (
-    name
-      .toLowerCase()
-      .normalize('NFKD')
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || ''
   );
 }

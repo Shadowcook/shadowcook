@@ -1,5 +1,21 @@
 # Shadowcook 2.0 implementation progress
 
+### Cookbook member removal
+
+- Cookbook managers can remove non-owner users through a localized modal confirmation without typing a confirmation word. Removal deletes only the cookbook membership and its roles; accounts and contributions remain intact, and users can rejoin through an invitation. Actions retain fixed positions with reporting last (architecture: [Authentication and access management](ARCHITECTURE.md#authentication-and-access-management)).
+
+### Cookbook identity form URL preview
+
+- Rename and forced-reset dialogs derive slugs from cookbook names, reuse the creation URL preview and suffix warning, and support suffix allocation for automatically derived slugs. Live availability checks distinguish collisions from blocked slugs; manual slug edits remain under owner control (architecture: [Administration controls](ARCHITECTURE.md#administration-controls)).
+
+### Reversible cookbook restrictions
+
+- Cookbook administration shows disabled and reset status and supports cancelling a forced identity reset without changing the cookbook identity. Deactivation and forced resets can be lifted independently, including by administrators whose own cookbook requires a reset (architecture: [Administration controls](ARCHITECTURE.md#administration-controls)).
+
+### Cookbook owner renaming and forced identity reset
+
+- Owners can rename their cookbook and change its URL slug from account settings. Administrators instead request a mandatory identity reset that hides the cookbook until its owner changes both values. Session guidance, API access checks and content visibility enforce the lock (architecture: [Administration controls](ARCHITECTURE.md#administration-controls)).
+
 Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). Unimplemented capabilities and feature ideas are collected in the [roadmap backlog](roadmap.md#backlog).
 
 ### Cookbook administration

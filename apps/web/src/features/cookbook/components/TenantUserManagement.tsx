@@ -5,6 +5,7 @@ import type { Locale, Translation } from '../../../i18n';
 import AdminIcon from '../../../components/AdminIcon';
 import ReportButton from '../../reports/ReportButton';
 import ContentActions from '../../../components/ContentActions';
+import MessageDialog from '../../../components/MessageDialog';
 
 interface TenantRole {
   id: string;
@@ -34,6 +35,9 @@ export default function TenantUserManagement({ locale, tenantSlug }: Properties)
   const [roles, setRoles] = useState<TenantRole[]>([]);
   const [message, setMessage] = useState<string>('');
   const [editingUser, setEditingUser] = useState<TenantUser | null>(null);
+  const [removingUser, setRemovingUser] = useState<TenantUser | null>(null);
+  const [isRemoving, setIsRemoving] = useState<boolean>(false);
+  const [removalError, setRemovalError] = useState<string>('');
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [showInvitation, setShowInvitation] = useState<boolean>(false);
   const [invitationEmail, setInvitationEmail] = useState<string>('');
@@ -53,6 +57,30 @@ export default function TenantUserManagement({ locale, tenantSlug }: Properties)
         ? current.filter((currentRoleId: string): boolean => currentRoleId !== roleId)
         : [...current, roleId],
     );
+  }
+  async function removeUser(): Promise<void> {
+    if (removingUser === null || isRemoving) return;
+    setIsRemoving(true);
+    setRemovalError('');
+    try {
+      const response: Response = await fetch(
+        `/api/cookbook/tenant-users/${removingUser.public_id}?tenantSlug=${encodeURIComponent(tenantSlug)}`,
+        { method: 'DELETE', credentials: 'same-origin' },
+      );
+      if (!response.ok) {
+        setRemovalError(text.errors.requestFailed);
+        return;
+      }
+      setUsers((current: TenantUser[]): TenantUser[] =>
+        current.filter((user: TenantUser): boolean => user.public_id !== removingUser.public_id),
+      );
+      setRemovingUser(null);
+      setMessage(text.tenantUsers.userRemoved);
+    } catch {
+      setRemovalError(text.errors.requestFailed);
+    } finally {
+      setIsRemoving(false);
+    }
   }
   async function saveRoles(): Promise<void> {
     if (editingUser === null || selectedRoleIds.length === 0) return;
@@ -111,7 +139,7 @@ export default function TenantUserManagement({ locale, tenantSlug }: Properties)
         </p>
       ) : null}
       <div className="user-table-container">
-        <table className="tenant-table user-table">
+        <table className="tenant-table user-table tenant-user-table">
           <thead>
             <tr>
               <th>{text.admin.userName}</th>
@@ -127,30 +155,71 @@ export default function TenantUserManagement({ locale, tenantSlug }: Properties)
                 <td>{user.email}</td>
                 <td>{user.roles.map((role: TenantRole): string => role.name).join(', ')}</td>
                 <td>
-                  <ContentActions label={`${text.reports.moreActions}: ${user.display_name}`}>
-                    <ReportButton
-                      text={text}
-                      targetType="USER"
-                      targetPublicId={user.public_id}
-                      targetName={user.display_name}
-                    />
-                  </ContentActions>
-                  {user.roles.some((role: TenantRole): boolean => role.name === 'Owner') ? null : (
-                    <button
-                      type="button"
-                      aria-label={text.tenantUsers.assignRoles}
-                      title={text.tenantUsers.assignRoles}
-                      onClick={(): void => openRoles(user)}
-                    >
-                      <AdminIcon name="roles" />
-                    </button>
-                  )}
+                  <div className="tenant-user-actions">
+                    {user.roles.some(
+                      (role: TenantRole): boolean => role.name === 'Owner',
+                    ) ? null : (
+                      <button
+                        type="button"
+                        aria-label={text.tenantUsers.assignRoles}
+                        title={text.tenantUsers.assignRoles}
+                        onClick={(): void => openRoles(user)}
+                      >
+                        <AdminIcon name="roles" />
+                      </button>
+                    )}
+                    {user.roles.some(
+                      (role: TenantRole): boolean => role.name === 'Owner',
+                    ) ? null : (
+                      <button
+                        type="button"
+                        className="tenant-user-actions__remove"
+                        aria-label={text.tenantUsers.removeUser}
+                        title={text.tenantUsers.removeUser}
+                        onClick={(): void => {
+                          setRemovalError('');
+                          setRemovingUser(user);
+                        }}
+                      >
+                        <AdminIcon name="delete" />
+                      </button>
+                    )}
+                    <ContentActions label={`${text.reports.moreActions}: ${user.display_name}`}>
+                      <ReportButton
+                        text={text}
+                        targetType="USER"
+                        targetPublicId={user.public_id}
+                        targetName={user.display_name}
+                      />
+                    </ContentActions>
+                  </div>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
+      {removingUser === null ? null : (
+        <MessageDialog
+          kind="confirmation"
+          text={text.dialog}
+          title={text.tenantUsers.removeUser}
+          message={text.tenantUsers.removeUserDescription}
+          confirmLabel={text.tenantUsers.removeUser}
+          busy={isRemoving}
+          onConfirm={(): void => void removeUser()}
+          onClose={(): void => setRemovingUser(null)}
+        >
+          <p>
+            <strong>{removingUser.display_name}</strong> ({removingUser.email})
+          </p>
+          {removalError.length === 0 ? null : (
+            <p className="message" role="alert">
+              {removalError}
+            </p>
+          )}
+        </MessageDialog>
+      )}
       {editingUser === null ? null : (
         <div className="modal-backdrop">
           <section className="modal" aria-labelledby="tenant-role-assignment-title">

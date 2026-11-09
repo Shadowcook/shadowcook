@@ -5,6 +5,26 @@ import { recipeImportGerman } from '../features/cookbook/import/translations.ts'
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  cookbookIdentity: {
+    cancelReset: 'Force Reset aufheben',
+    cancelResetDescription:
+      'Die erzwungene Änderung von Name und Slug aufheben? Das Kochbuch wird mit seinen bisherigen Werten wieder zugänglich, sofern es nicht zusätzlich deaktiviert ist.',
+    resetCancelled: 'Force Reset aufgehoben. Name und Slug bleiben unverändert.',
+    status: 'Status',
+    active: 'Aktiv',
+    disabled: 'Deaktiviert',
+    resetPending: 'Neuer Name und Slug erforderlich',
+
+    rename: 'Kochbuch umbenennen',
+    required:
+      'Wähle einen neuen Kochbuchnamen und URL-Slug, um fortzufahren. Das Kochbuch bleibt verborgen, bis beide geändert wurden.',
+    forceReset: 'Force Reset',
+    resetDescription:
+      'Dieses Kochbuch sperren und den Eigentümer beim nächsten Login auffordern, einen neuen Namen und URL-Slug festzulegen. Bis dahin bleibt es verborgen.',
+    resetDone: 'Das Kochbuch ist gesperrt, bis der Eigentümer einen neuen Namen und Slug festlegt.',
+    invalidName: 'Gib einen gültigen Kochbuchnamen ein.',
+    newIdentityRequired: 'Wähle einen anderen Namen und Slug.',
+  },
   errorStates: errorGerman,
   recipeTrash: {
     title: 'Papierkorb',
@@ -886,6 +906,10 @@ export const de: Translation = {
     confirmMerge: 'Unwiderruflich zusammenführen',
   },
   tenantUsers: {
+    removeUser: 'Aus dem Kochbuch entfernen',
+    removeUserDescription:
+      'Diesen Benutzer und seine Rollen aus dem Kochbuch entfernen? Sein Account und seine Rezeptbeiträge bleiben erhalten. Du kannst ihn später erneut einladen.',
+    userRemoved: 'Benutzer aus dem Kochbuch entfernt.',
     title: 'Tenant-Benutzer',
     description: 'Verwalte die Rollen der Benutzer dieses Kochbuchs.',
     roles: 'Rollen',

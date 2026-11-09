@@ -926,6 +926,45 @@ code {
 .tenant-table th:nth-child(5) {
   width: 18%;
 }
+.admin-cookbook-table-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+.admin-cookbook-table-container:focus-visible {
+  outline: 2px solid #bf4c2d;
+  outline-offset: 2px;
+}
+.admin-cookbook-table {
+  min-width: 52rem;
+}
+.admin-cookbook-table th:nth-child(1),
+.admin-cookbook-table th:nth-child(3) {
+  width: 18%;
+}
+.admin-cookbook-table th:nth-child(2) {
+  width: auto;
+}
+.admin-cookbook-table th:nth-child(4) {
+  width: 6rem;
+}
+.admin-cookbook-table th:nth-child(5) {
+  width: 10rem;
+}
+.admin-cookbook-table th:nth-child(6) {
+  width: 9rem;
+}
+.admin-cookbook-table th,
+.admin-cookbook-table td {
+  overflow-wrap: anywhere;
+}
+.admin-cookbook-table td:nth-child(5) p {
+  margin: 0;
+}
+.admin-cookbook-table td:nth-child(5) p + p {
+  margin-top: 0.35rem;
+}
 table.account-settings-panel__cookbook-table th:nth-child(1) {
   width: 60%;
 }
@@ -967,6 +1006,32 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
 }
 .user-table-container {
   overflow-x: visible;
+}
+.tenant-user-table {
+  min-width: 40rem;
+}
+.tenant-user-table th:last-child {
+  width: 11.25rem;
+}
+.tenant-user-actions {
+  display: grid;
+  grid-template-columns: repeat(3, 2.75rem);
+  align-items: center;
+  gap: 0.6rem;
+}
+.tenant-user-actions > button {
+  display: flex;
+  grid-column: 1;
+  height: 2.75rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+}
+.tenant-user-actions > .tenant-user-actions__remove {
+  grid-column: 2;
+}
+.tenant-user-actions > .content-actions {
+  grid-column: 3;
 }
 .tenant-description {
   overflow: hidden;

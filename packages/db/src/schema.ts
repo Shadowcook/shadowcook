@@ -6,6 +6,7 @@ export type Uuid = ColumnType<string, string | undefined, string>;
 export interface TenantTable {
   id: Generated<Uuid>;
   public_id: Generated<Uuid>;
+  name_reset_required: Generated<boolean>;
   display_name: string;
   description: string | null;
   slug: string;

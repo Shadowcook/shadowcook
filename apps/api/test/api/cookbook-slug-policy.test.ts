@@ -275,8 +275,8 @@ test('admin slug availability excludes the edited tenant and checks disabled ten
     headers: { cookie: administratorCookie },
     payload: { slug: 'availability-free' },
   });
-  assert.equal(conflict.statusCode, 409);
-  assert.equal(conflict.json().code, 'TENANT_SLUG_CONFLICT');
+  assert.equal(conflict.statusCode, 400);
+  assert.equal(conflict.json().code, 'INVALID_TENANT_UPDATE');
 });
 
 test('admin slug availability requires instance permission', async (): Promise<void> => {
