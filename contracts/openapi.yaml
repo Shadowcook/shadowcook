@@ -2613,6 +2613,44 @@ paths:
                 },
             },
         }
+  /admin/tenants/{publicId}/slug-availability:
+    get:
+      operationId: checkTenantSlugAvailability
+      summary: Checks tenant slug availability when editing a cookbook.
+      description: Requires tenant:create or instance:administer. Excludes the selected tenant from collisions, includes disabled tenants, and rejects reserved namespaces and blocked terms as unavailable. Availability is advisory; PATCH enforces the slug policy and database uniqueness again.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - name: publicId
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: slug
+          in: query
+          required: true
+          schema: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '200':
+          description: Whether the slug is available for this tenant.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [available]
+                properties:
+                  available: { type: boolean }
+        '400':
+          description: INVALID_TENANT_SLUG. Missing or malformed slug.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403': { $ref: '#/components/responses/InstancePermissionRequired' }
+        '404': { $ref: '#/components/responses/TenantNotFound' }
   /admin/tenants/{publicId}:
     patch:
       operationId: updateTenant

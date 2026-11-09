@@ -479,6 +479,10 @@ export const de: Translation = {
     tenantRenamed: 'Kochbuch umbenannt.',
     tenantSlugConflict: 'Dieser Tenant-Slug wird bereits verwendet.',
     tenantSlugInvalid: 'Der Tenant-Slug ist nicht verfügbar.',
+    tenantSlugChecking: 'Der Tenant-Slug wird auf Verfügbarkeit geprüft …',
+    tenantSlugAvailable: 'Dieser Tenant-Slug ist verfügbar.',
+    tenantSlugCheckFailed:
+      'Der Tenant-Slug konnte nicht geprüft werden. Beim Speichern wird er erneut geprüft.',
     tenantDeleted: 'Kochbuch gelöscht.',
     save: 'Speichern',
     cancel: 'Abbrechen',

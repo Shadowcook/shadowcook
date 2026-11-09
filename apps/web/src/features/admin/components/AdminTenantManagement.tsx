@@ -5,6 +5,8 @@ import type { Locale, Translation } from '../../../i18n';
 import AdminTenantCreate from './AdminTenantCreate';
 import AdminIcon from '../../../components/AdminIcon';
 import MessageDialog from '../../../components/MessageDialog';
+import { useTenantSlugAvailability } from '../model/use-tenant-slug-availability';
+import type { TenantSlugStatus } from '../model/use-tenant-slug-availability';
 import type { CookbookTenant } from '../../cookbook/model/types';
 
 interface AdminTenantManagementProperties {
@@ -24,6 +26,13 @@ export default function AdminTenantManagement({
   const [displayName, setDisplayName] = useState<string>('');
   const [slug, setSlug] = useState<string>('');
   const [message, setMessage] = useState<string>('');
+  const [renameError, setRenameError] = useState<string>('');
+  const [saving, setSaving] = useState<boolean>(false);
+  const slugStatus: TenantSlugStatus = useTenantSlugAvailability(
+    renameTenant?.public_id ?? null,
+    slug,
+  );
+  const slugFeedback: string = tenantSlugFeedback(slugStatus, text);
   const [toast, setToast] = useState<string>('');
   function refresh(): void {
     void loadTenants(setTenants, setSmtpConfigured);
@@ -49,16 +58,24 @@ export default function AdminTenantManagement({
   }
   async function rename(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (renameTenant === null) return;
-    const response: Response = await updateTenant(renameTenant.public_id, { displayName, slug });
-    if (!response.ok) {
-      setMessage(await tenantUpdateError(response, text));
-      return;
+    if (renameTenant === null || saving) return;
+    setSaving(true);
+    try {
+      const response: Response = await updateTenant(renameTenant.public_id, { displayName, slug });
+      if (!response.ok) {
+        setRenameError(await tenantUpdateError(response, text));
+        return;
+      }
+      closeRename();
+      setMessage(text.admin.tenantRenamed);
+      refresh();
+    } catch {
+      setRenameError(text.errors.requestFailed);
+    } finally {
+      setSaving(false);
     }
-    closeRename();
-    setMessage(text.admin.tenantRenamed);
-    refresh();
   }
+
   async function remove(): Promise<void> {
     if (deleteTenant === null) return;
     const response: Response = await fetch(`/api/admin/tenants/${deleteTenant.public_id}`, {
@@ -212,17 +229,37 @@ export default function AdminTenantManagement({
                   onChange={(event: ChangeEvent<HTMLInputElement>): void =>
                     setSlug(event.currentTarget.value)
                   }
+                  aria-describedby="rename-tenant-slug-status"
+                  aria-invalid={slugStatus === 'invalid' || slugStatus === 'unavailable'}
                   pattern="[a-z0-9]+(-[a-z0-9]+)*"
                   required
                 />
               </label>
-              <button type="submit">{text.admin.save}</button>
-              <button type="button" className="button--secondary" onClick={closeRename}>
+              <p className="hint" id="rename-tenant-slug-status" role="status" aria-live="polite">
+                {slugFeedback}
+              </p>
+              <button type="submit" disabled={saving}>
+                {text.admin.save}
+              </button>
+              <button
+                type="button"
+                className="button--secondary"
+                disabled={saving}
+                onClick={closeRename}
+              >
                 {text.admin.cancel}
               </button>
             </form>
           </section>
         </div>
+      )}
+      {renameError.length === 0 ? null : (
+        <MessageDialog
+          kind="error"
+          text={text.dialog}
+          message={renameError}
+          onClose={(): void => setRenameError('')}
+        />
       )}
       {deleteTenant === null ? null : (
         <MessageDialog
@@ -276,4 +313,21 @@ async function toggleDisabled(tenant: CookbookTenant, refresh: () => void): Prom
     disabled: tenant.disabled_at === null,
   });
   if (response.ok) refresh();
+}
+
+function tenantSlugFeedback(status: TenantSlugStatus, text: Translation): string {
+  switch (status) {
+    case 'checking':
+      return text.admin.tenantSlugChecking;
+    case 'available':
+      return text.admin.tenantSlugAvailable;
+    case 'unavailable':
+      return text.admin.tenantSlugInvalid;
+    case 'invalid':
+      return text.admin.tenantSlugHint;
+    case 'failed':
+      return text.admin.tenantSlugCheckFailed;
+    default:
+      return text.admin.tenantSlugHint;
+  }
 }

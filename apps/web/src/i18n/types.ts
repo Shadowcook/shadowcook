@@ -423,6 +423,9 @@ export interface Translation {
     tenantRenamed: string;
     tenantSlugConflict: string;
     tenantSlugInvalid: string;
+    tenantSlugChecking: string;
+    tenantSlugAvailable: string;
+    tenantSlugCheckFailed: string;
     tenantDeleted: string;
     save: string;
     cancel: string;

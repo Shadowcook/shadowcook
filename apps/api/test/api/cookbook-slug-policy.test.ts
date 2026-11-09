@@ -222,3 +222,80 @@ test('Landing is unavailable in previews and account creation while landing-kitc
   assert.equal(prefixedPreview.statusCode, 200);
   assert.deepEqual(prefixedPreview.json(), { slug: 'landing-kitchen', available: true });
 });
+
+test('admin slug availability excludes the edited tenant and checks disabled tenants and slug policy', async (): Promise<void> => {
+  const tenant = await database.pool.query<{ public_id: string }>(
+    "INSERT INTO tenant (display_name, slug) VALUES ('Availability', 'availability-own') RETURNING public_id",
+  );
+  const publicId: string = tenant.rows[0]!.public_id;
+  await database.pool.query(
+    "INSERT INTO tenant (display_name, slug, disabled_at) VALUES ('Disabled', 'availability-taken', now())",
+  );
+  await database.pool.query(
+    "INSERT INTO instance_cookbook_slug_blocked_term (term) VALUES ('availability-blocked')",
+  );
+  const cases: { slug: string; available: boolean }[] = [
+    { slug: 'availability-own', available: true },
+    { slug: 'availability-free', available: true },
+    { slug: 'availability-taken', available: false },
+    { slug: 'admin', available: false },
+    { slug: 'my-availability-blocked-kitchen', available: false },
+  ];
+  for (const entry of cases) {
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: `/admin/tenants/${publicId}/slug-availability?slug=${entry.slug}`,
+      headers: { cookie: administratorCookie },
+    });
+    assert.equal(response.statusCode, 200, entry.slug);
+    assert.deepEqual(response.json(), { available: entry.available }, entry.slug);
+    assert.equal(response.headers['cache-control'], 'no-store');
+  }
+  for (const query of ['', '?slug=Bad_Slug']) {
+    const response: LightMyRequestResponse = await api.inject({
+      method: 'GET',
+      url: `/admin/tenants/${publicId}/slug-availability${query}`,
+      headers: { cookie: administratorCookie },
+    });
+    assert.equal(response.statusCode, 400);
+  }
+  const missing: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url: '/admin/tenants/00000000-0000-4000-8000-000000000001/slug-availability?slug=free',
+    headers: { cookie: administratorCookie },
+  });
+  assert.equal(missing.statusCode, 404);
+  // A successful advisory check does not reserve the slug.
+  await database.pool.query(
+    "INSERT INTO tenant (display_name, slug) VALUES ('Concurrent creation', 'availability-free')",
+  );
+  const conflict: LightMyRequestResponse = await api.inject({
+    method: 'PATCH',
+    url: `/admin/tenants/${publicId}`,
+    headers: { cookie: administratorCookie },
+    payload: { slug: 'availability-free' },
+  });
+  assert.equal(conflict.statusCode, 409);
+  assert.equal(conflict.json().code, 'TENANT_SLUG_CONFLICT');
+});
+
+test('admin slug availability requires instance permission', async (): Promise<void> => {
+  const url: string =
+    '/admin/tenants/00000000-0000-4000-8000-000000000001/slug-availability?slug=free';
+  const anonymous: LightMyRequestResponse = await api.inject({ method: 'GET', url });
+  assert.equal(anonymous.statusCode, 401);
+  const user: TestUser = await createTestUser(database.pool, {
+    email: 'slug-unprivileged@example.test',
+  });
+  const login: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: '/auth/login',
+    payload: { email: user.email, password: user.password },
+  });
+  const forbidden: LightMyRequestResponse = await api.inject({
+    method: 'GET',
+    url,
+    headers: { cookie: String(login.headers['set-cookie']) },
+  });
+  assert.equal(forbidden.statusCode, 403);
+});

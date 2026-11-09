@@ -1,6 +1,10 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool } from 'pg';
-import { normalizeCookbookSlug, reservedCookbookSlugs } from '../cookbook/slug-policy.js';
+import type { Pool, QueryResult } from 'pg';
+import {
+  cookbookSlugIsBlocked,
+  normalizeCookbookSlug,
+  reservedCookbookSlugs,
+} from '../cookbook/slug-policy.js';
 import { requireInstancePermission } from './authorization.js';
 
 interface CreateBlockedTermBody {
@@ -8,6 +12,32 @@ interface CreateBlockedTermBody {
 }
 
 export function registerCookbookSlugRoutes(api: FastifyInstance, pool: Pool): void {
+  api.get('/admin/tenants/:publicId/slug-availability', async (request, reply) => {
+    if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
+    reply.header('Cache-Control', 'no-store');
+    const publicId: string = (request.params as { publicId: string }).publicId;
+    const suppliedSlug: unknown = (request.query as { slug?: unknown }).slug;
+    const slug: string | null =
+      typeof suppliedSlug === 'string' ? normalizeCookbookSlug(suppliedSlug) : null;
+    if (slug === null)
+      return reply.code(400).send({
+        code: 'INVALID_TENANT_SLUG',
+        error: 'The tenant slug is unavailable.',
+      });
+    const tenant: QueryResult = await pool.query(
+      'SELECT 1 FROM tenant WHERE public_id::text = $1',
+      [publicId],
+    );
+    if (tenant.rowCount !== 1)
+      return reply.code(404).send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
+    if (await cookbookSlugIsBlocked(pool, slug)) return reply.send({ available: false });
+    const conflict: QueryResult = await pool.query(
+      'SELECT 1 FROM tenant WHERE slug = $1 AND public_id::text <> $2',
+      [slug, publicId],
+    );
+    return reply.send({ available: conflict.rowCount === 0 });
+  });
+
   api.get('/admin/cookbook-slug-blocked-terms', async (request, reply) => {
     if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
       return;

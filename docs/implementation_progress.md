@@ -2,6 +2,10 @@
 
 Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). Unimplemented capabilities and feature ideas are collected in the [roadmap backlog](roadmap.md#backlog).
 
+### Cookbook administration
+
+- Cookbook editing checks tenant slug availability live with localized field feedback and cancelled superseded requests. Save failures use the project error dialog and preserve the entered values (architecture: [Administration controls](ARCHITECTURE.md#administration-controls)).
+
 ### Error handling and error pages
 
 - Added separate, self-contained 500/502/503/504 proxy reference pages in English and German, with a shared manual generator and operator instructions. The references are not part of build or deployment packaging (architecture: [Error handling and recovery](ARCHITECTURE.md#error-handling-and-recovery)).
