@@ -159,7 +159,7 @@ export function registerRecipeImageRoutes(
          INNER JOIN recipe_revision AS revision ON revision.id = media.recipe_revision_id
          INNER JOIN recipe ON recipe.id = revision.recipe_id AND recipe.deleted_at IS NULL
          INNER JOIN tenant ON tenant.id = recipe.tenant_id
-         WHERE media.media_asset_id = asset.id AND tenant.disabled_at IS NULL AND (
+         WHERE media.media_asset_id = asset.id AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required AND (
            EXISTS (SELECT 1 FROM tenant_membership_role AS role
              INNER JOIN tenant_role_permission AS permission ON permission.tenant_role_id = role.tenant_role_id
              WHERE role.tenant_id = tenant.id AND role.principal_id = $2 AND permission.permission_code = 'recipe:update')

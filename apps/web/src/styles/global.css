@@ -926,6 +926,45 @@ code {
 .tenant-table th:nth-child(5) {
   width: 18%;
 }
+.admin-cookbook-table-container {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+}
+.admin-cookbook-table-container:focus-visible {
+  outline: 2px solid #bf4c2d;
+  outline-offset: 2px;
+}
+.admin-cookbook-table {
+  min-width: 52rem;
+}
+.admin-cookbook-table th:nth-child(1),
+.admin-cookbook-table th:nth-child(3) {
+  width: 18%;
+}
+.admin-cookbook-table th:nth-child(2) {
+  width: auto;
+}
+.admin-cookbook-table th:nth-child(4) {
+  width: 6rem;
+}
+.admin-cookbook-table th:nth-child(5) {
+  width: 10rem;
+}
+.admin-cookbook-table th:nth-child(6) {
+  width: 9rem;
+}
+.admin-cookbook-table th,
+.admin-cookbook-table td {
+  overflow-wrap: anywhere;
+}
+.admin-cookbook-table td:nth-child(5) p {
+  margin: 0;
+}
+.admin-cookbook-table td:nth-child(5) p + p {
+  margin-top: 0.35rem;
+}
 table.account-settings-panel__cookbook-table th:nth-child(1) {
   width: 60%;
 }

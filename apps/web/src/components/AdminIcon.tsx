@@ -1,6 +1,8 @@
 import type { JSX } from 'react';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
+  faRotateLeft,
+  faRotateRight,
   faArrowDown,
   faArrowUp,
   faBars,
@@ -44,6 +46,8 @@ type IconName =
   | 'next'
   | 'previous'
   | 'roles'
+  | 'cancelReset'
+  | 'forceReset'
   | 'resetPassword'
   | 'save'
   | 'share';
@@ -67,6 +71,8 @@ const iconByName: Readonly<Record<IconName, IconDefinition>> = {
   menu: faBars,
   next: faChevronRight,
   previous: faChevronLeft,
+  cancelReset: faRotateRight,
+  forceReset: faRotateLeft,
   resetPassword: faKey,
   roles: faUsers,
   save: faFloppyDisk,

@@ -489,7 +489,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
        INNER JOIN recipe ON recipe.id = recipe_share_link.recipe_id
        INNER JOIN tenant ON tenant.id = recipe.tenant_id
        INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
-       WHERE recipe.deleted_at IS NULL AND recipe_share_link.token_hash = $1 AND recipe_share_link.revoked_at IS NULL
+       WHERE NOT tenant.name_reset_required AND recipe.deleted_at IS NULL AND recipe_share_link.token_hash = $1 AND recipe_share_link.revoked_at IS NULL
          AND (recipe_share_link.expires_at IS NULL OR recipe_share_link.expires_at > now())`,
       [tokenHash(token)],
     );

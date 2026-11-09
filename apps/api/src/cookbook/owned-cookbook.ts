@@ -40,7 +40,7 @@ export async function createOwnedCookbook(
       [slug],
     );
     if (existing.rows[0]?.exists !== true) break;
-    slug = `${baseSlug}-${randomBytes(4).toString('hex')}`;
+    slug = cookbookSlugWithSuffix(baseSlug);
   }
   const tenant = await client.query<{ id: string; slug: string }>(
     'INSERT INTO tenant (display_name, slug) VALUES ($1, $2) RETURNING id, slug',
@@ -94,4 +94,8 @@ export function cookbookSlugBase(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'cookbook'
   );
+}
+
+export function cookbookSlugWithSuffix(baseSlug: string): string {
+  return `${baseSlug}-${randomBytes(4).toString('hex')}`;
 }

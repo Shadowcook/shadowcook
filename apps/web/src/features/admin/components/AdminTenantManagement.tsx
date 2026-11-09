@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import type { ChangeEvent, JSX, SubmitEvent } from 'react';
+import type { ChangeEvent, JSX } from 'react';
 import { translations } from '../../../i18n';
 import type { Locale, Translation } from '../../../i18n';
 import AdminTenantCreate from './AdminTenantCreate';
 import AdminIcon from '../../../components/AdminIcon';
 import MessageDialog from '../../../components/MessageDialog';
-import { useTenantSlugAvailability } from '../model/use-tenant-slug-availability';
-import type { TenantSlugStatus } from '../model/use-tenant-slug-availability';
 import type { CookbookTenant } from '../../cookbook/model/types';
+
+interface AdminCookbookTenant extends CookbookTenant {
+  name_reset_required: boolean;
+}
 
 interface AdminTenantManagementProperties {
   locale: Locale;
@@ -17,36 +19,17 @@ export default function AdminTenantManagement({
   locale,
 }: AdminTenantManagementProperties): JSX.Element {
   const text: Translation = translations[locale];
-  const [tenants, setTenants] = useState<CookbookTenant[]>([]);
+  const [tenants, setTenants] = useState<AdminCookbookTenant[]>([]);
   const [filter, setFilter] = useState<string>('');
   const [smtpConfigured, setSmtpConfigured] = useState<boolean>(false);
   const [showCreate, setShowCreate] = useState<boolean>(false);
-  const [renameTenant, setRenameTenant] = useState<CookbookTenant | null>(null);
-  const [deleteTenant, setDeleteTenant] = useState<CookbookTenant | null>(null);
-  const [displayName, setDisplayName] = useState<string>('');
-  const [slug, setSlug] = useState<string>('');
+  const [resetTenant, setResetTenant] = useState<AdminCookbookTenant | null>(null);
+  const [deleteTenant, setDeleteTenant] = useState<AdminCookbookTenant | null>(null);
   const [message, setMessage] = useState<string>('');
-  const [renameError, setRenameError] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
-  const slugStatus: TenantSlugStatus = useTenantSlugAvailability(
-    renameTenant?.public_id ?? null,
-    slug,
-  );
-  const slugFeedback: string = tenantSlugFeedback(slugStatus, text);
   const [toast, setToast] = useState<string>('');
   function refresh(): void {
     void loadTenants(setTenants, setSmtpConfigured);
-  }
-  function openRename(tenant: CookbookTenant): void {
-    setRenameTenant(tenant);
-    setDisplayName(tenant.display_name);
-    setSlug(tenant.slug);
-    setMessage('');
-  }
-  function closeRename(): void {
-    setRenameTenant(null);
-    setDisplayName('');
-    setSlug('');
   }
   function closeDelete(): void {
     setDeleteTenant(null);
@@ -56,21 +39,30 @@ export default function AdminTenantManagement({
     setToast(text.admin.tenantCreated);
     refresh();
   }
-  async function rename(event: SubmitEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (renameTenant === null || saving) return;
+  async function forceReset(): Promise<void> {
+    if (resetTenant === null || saving) return;
     setSaving(true);
     try {
-      const response: Response = await updateTenant(renameTenant.public_id, { displayName, slug });
+      const response: Response = await fetch(
+        `/api/admin/tenants/${resetTenant.public_id}/force-reset`,
+        {
+          method: resetTenant.name_reset_required === true ? 'DELETE' : 'POST',
+          credentials: 'same-origin',
+        },
+      );
       if (!response.ok) {
-        setRenameError(await tenantUpdateError(response, text));
+        setMessage(text.errors.requestFailed);
         return;
       }
-      closeRename();
-      setMessage(text.admin.tenantRenamed);
+      setResetTenant(null);
+      setMessage(
+        resetTenant.name_reset_required === true
+          ? text.cookbookIdentity.resetCancelled
+          : text.cookbookIdentity.resetDone,
+      );
       refresh();
     } catch {
-      setRenameError(text.errors.requestFailed);
+      setMessage(text.errors.requestFailed);
     } finally {
       setSaving(false);
     }
@@ -90,10 +82,8 @@ export default function AdminTenantManagement({
     setMessage(text.admin.tenantDeleted);
     refresh();
   }
-  const visible: CookbookTenant[] = tenants.filter((tenant: CookbookTenant): boolean =>
-    `${tenant.display_name} ${tenant.description ?? ''}`
-      .toLowerCase()
-      .includes(filter.toLowerCase()),
+  const visible: AdminCookbookTenant[] = tenants.filter((tenant: AdminCookbookTenant): boolean =>
+    `${tenant.display_name} ${tenant.slug}`.toLowerCase().includes(filter.toLowerCase()),
   );
   useEffect(refresh, []);
   useEffect((): (() => void) | undefined => {
@@ -133,61 +123,86 @@ export default function AdminTenantManagement({
           {message}
         </p>
       ) : null}
-      <table className="tenant-table">
-        <thead>
-          <tr>
-            <th>{text.dashboard.tenantName}</th>
-            <th>{text.dashboard.tenantDescription}</th>
-            <th>{text.dashboard.tenantOwner}</th>
-            <th>{text.dashboard.recipes}</th>
-            <th>{text.dashboard.actions}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {visible.map((tenant: CookbookTenant): JSX.Element => (
-            <tr key={tenant.public_id}>
-              <td>{tenant.display_name}</td>
-              <td className="tenant-description" title={tenant.description ?? ''}>
-                {tenant.description ?? ''}
-              </td>
-              <td>{tenant.owner_name ?? ''}</td>
-              <td>{tenant.recipe_count}</td>
-              <td>
-                <div className="tenant-actions">
-                  <button
-                    aria-label={
-                      tenant.disabled_at === null ? text.dashboard.disable : text.dashboard.enable
-                    }
-                    title={
-                      tenant.disabled_at === null ? text.dashboard.disable : text.dashboard.enable
-                    }
-                    onClick={(): void => void toggleDisabled(tenant, refresh)}
-                  >
-                    <AdminIcon name={tenant.disabled_at === null ? 'disable' : 'enable'} />
-                  </button>
-                  <button
-                    aria-label={text.dashboard.rename}
-                    title={text.dashboard.rename}
-                    onClick={(): void => openRename(tenant)}
-                  >
-                    <AdminIcon name="edit" />
-                  </button>
-                  <button
-                    aria-label={text.dashboard.delete}
-                    title={text.dashboard.delete}
-                    onClick={(): void => {
-                      setDeleteTenant(tenant);
-                      setMessage('');
-                    }}
-                  >
-                    <AdminIcon name="delete" />
-                  </button>
-                </div>
-              </td>
+      <div
+        className="admin-cookbook-table-container"
+        role="region"
+        aria-label={text.admin.tenantsTitle}
+        tabIndex={0}
+      >
+        <table className="tenant-table admin-cookbook-table">
+          <thead>
+            <tr>
+              <th>{text.dashboard.tenantName}</th>
+              <th>{text.admin.tenantSlug}</th>
+              <th>{text.dashboard.tenantOwner}</th>
+              <th>{text.dashboard.recipes}</th>
+              <th>{text.cookbookIdentity.status}</th>
+              <th>{text.dashboard.actions}</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {visible.map((tenant: AdminCookbookTenant): JSX.Element => (
+              <tr key={tenant.public_id}>
+                <td>{tenant.display_name}</td>
+                <td>{tenant.slug}</td>
+                <td>{tenant.owner_name ?? ''}</td>
+                <td>{tenant.recipe_count}</td>
+                <td>
+                  {tenant.disabled_at !== null ? <p>{text.cookbookIdentity.disabled}</p> : null}
+                  {tenant.name_reset_required === true ? (
+                    <p>{text.cookbookIdentity.resetPending}</p>
+                  ) : null}
+                  {tenant.disabled_at === null && tenant.name_reset_required !== true
+                    ? text.cookbookIdentity.active
+                    : null}
+                </td>
+                <td>
+                  <div className="tenant-actions">
+                    <button
+                      aria-label={
+                        tenant.disabled_at === null ? text.dashboard.disable : text.dashboard.enable
+                      }
+                      title={
+                        tenant.disabled_at === null ? text.dashboard.disable : text.dashboard.enable
+                      }
+                      onClick={(): void => void toggleDisabled(tenant, refresh)}
+                    >
+                      <AdminIcon name={tenant.disabled_at === null ? 'disable' : 'enable'} />
+                    </button>
+                    <button
+                      aria-label={
+                        tenant.name_reset_required === true
+                          ? text.cookbookIdentity.cancelReset
+                          : text.cookbookIdentity.forceReset
+                      }
+                      title={
+                        tenant.name_reset_required === true
+                          ? text.cookbookIdentity.cancelReset
+                          : text.cookbookIdentity.forceReset
+                      }
+                      onClick={(): void => setResetTenant(tenant)}
+                    >
+                      <AdminIcon
+                        name={tenant.name_reset_required === true ? 'cancelReset' : 'forceReset'}
+                      />
+                    </button>
+                    <button
+                      aria-label={text.dashboard.delete}
+                      title={text.dashboard.delete}
+                      onClick={(): void => {
+                        setDeleteTenant(tenant);
+                        setMessage('');
+                      }}
+                    >
+                      <AdminIcon name="delete" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {toast.length === 0 ? null : (
         <p className="toast" role="status">
           {toast}
@@ -205,61 +220,35 @@ export default function AdminTenantManagement({
           </section>
         </div>
       ) : null}
-      {renameTenant === null ? null : (
-        <div className="modal-backdrop">
-          <section className="modal" aria-labelledby="rename-tenant-title">
-            <h2 id="rename-tenant-title">{text.admin.editTenant}</h2>
-            <p>{text.admin.renameTenantDescription}</p>
-            <form onSubmit={(event: SubmitEvent<HTMLFormElement>): void => void rename(event)}>
-              <label>
-                {text.dashboard.tenantName}
-                <input
-                  value={displayName}
-                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                    setDisplayName(event.currentTarget.value)
-                  }
-                  required
-                  autoFocus
-                />
-              </label>
-              <label>
-                {text.admin.tenantSlug}
-                <input
-                  value={slug}
-                  onChange={(event: ChangeEvent<HTMLInputElement>): void =>
-                    setSlug(event.currentTarget.value)
-                  }
-                  aria-describedby="rename-tenant-slug-status"
-                  aria-invalid={slugStatus === 'invalid' || slugStatus === 'unavailable'}
-                  pattern="[a-z0-9]+(-[a-z0-9]+)*"
-                  required
-                />
-              </label>
-              <p className="hint" id="rename-tenant-slug-status" role="status" aria-live="polite">
-                {slugFeedback}
-              </p>
-              <button type="submit" disabled={saving}>
-                {text.admin.save}
-              </button>
-              <button
-                type="button"
-                className="button--secondary"
-                disabled={saving}
-                onClick={closeRename}
-              >
-                {text.admin.cancel}
-              </button>
-            </form>
-          </section>
-        </div>
-      )}
-      {renameError.length === 0 ? null : (
+      {resetTenant === null ? null : (
         <MessageDialog
-          kind="error"
+          kind="confirmation"
           text={text.dialog}
-          message={renameError}
-          onClose={(): void => setRenameError('')}
-        />
+          title={
+            resetTenant.name_reset_required === true
+              ? text.cookbookIdentity.cancelReset
+              : text.cookbookIdentity.forceReset
+          }
+          busy={saving}
+          message={
+            resetTenant.name_reset_required === true
+              ? text.cookbookIdentity.cancelResetDescription
+              : text.cookbookIdentity.resetDescription
+          }
+          confirmLabel={
+            resetTenant.name_reset_required === true
+              ? text.cookbookIdentity.cancelReset
+              : text.cookbookIdentity.forceReset
+          }
+          onConfirm={(): void => void forceReset()}
+          onClose={(): void => {
+            if (!saving) setResetTenant(null);
+          }}
+        >
+          <p>
+            <strong>{resetTenant.display_name}</strong>
+          </p>
+        </MessageDialog>
       )}
       {deleteTenant === null ? null : (
         <MessageDialog
@@ -281,19 +270,19 @@ export default function AdminTenantManagement({
 }
 
 async function loadTenants(
-  setTenants: (tenants: CookbookTenant[]) => void,
+  setTenants: (tenants: AdminCookbookTenant[]) => void,
   setSmtpConfigured: (value: boolean) => void,
 ): Promise<void> {
   const response: Response = await fetch('/api/admin/tenants', { credentials: 'same-origin' });
   if (!response.ok) return;
-  const body = (await response.json()) as { tenants: CookbookTenant[]; smtpConfigured?: unknown };
+  const body = (await response.json()) as {
+    tenants: AdminCookbookTenant[];
+    smtpConfigured?: unknown;
+  };
   setTenants(body.tenants);
   setSmtpConfigured(body.smtpConfigured === true);
 }
-async function updateTenant(
-  publicId: string,
-  body: { displayName?: string; slug?: string; disabled?: boolean },
-): Promise<Response> {
+async function updateTenant(publicId: string, body: { disabled: boolean }): Promise<Response> {
   return fetch(`/api/admin/tenants/${publicId}`, {
     method: 'PATCH',
     credentials: 'same-origin',
@@ -302,32 +291,9 @@ async function updateTenant(
   });
 }
 
-async function tenantUpdateError(response: Response, text: Translation): Promise<string> {
-  const body = (await response.json().catch((): null => null)) as { code?: unknown } | null;
-  if (body?.code === 'TENANT_SLUG_CONFLICT') return text.admin.tenantSlugConflict;
-  if (body?.code === 'INVALID_TENANT_SLUG') return text.admin.tenantSlugInvalid;
-  return text.errors.requestFailed;
-}
-async function toggleDisabled(tenant: CookbookTenant, refresh: () => void): Promise<void> {
+async function toggleDisabled(tenant: AdminCookbookTenant, refresh: () => void): Promise<void> {
   const response: Response = await updateTenant(tenant.public_id, {
     disabled: tenant.disabled_at === null,
   });
   if (response.ok) refresh();
-}
-
-function tenantSlugFeedback(status: TenantSlugStatus, text: Translation): string {
-  switch (status) {
-    case 'checking':
-      return text.admin.tenantSlugChecking;
-    case 'available':
-      return text.admin.tenantSlugAvailable;
-    case 'unavailable':
-      return text.admin.tenantSlugInvalid;
-    case 'invalid':
-      return text.admin.tenantSlugHint;
-    case 'failed':
-      return text.admin.tenantSlugCheckFailed;
-    default:
-      return text.admin.tenantSlugHint;
-  }
 }

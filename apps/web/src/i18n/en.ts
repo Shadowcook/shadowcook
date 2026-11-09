@@ -5,6 +5,26 @@ import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  cookbookIdentity: {
+    cancelReset: 'Cancel Force Reset',
+    cancelResetDescription:
+      'Cancel the required name and slug change? The cookbook becomes accessible with its current name and slug unless it is also disabled.',
+    resetCancelled: 'Force Reset cancelled. The current name and slug are preserved.',
+    status: 'Status',
+    active: 'Active',
+    disabled: 'Disabled',
+    resetPending: 'Name and slug reset required',
+
+    rename: 'Rename cookbook',
+    required:
+      'Choose a new cookbook name and URL slug before continuing. The cookbook is hidden until both have been changed.',
+    forceReset: 'Force Reset',
+    resetDescription:
+      'Lock this cookbook and require its owner to choose a new name and URL slug at the next login. It will remain hidden until then.',
+    resetDone: 'The cookbook is locked until its owner sets a new name and slug.',
+    invalidName: 'Enter a valid cookbook name.',
+    newIdentityRequired: 'Choose a different name and slug.',
+  },
   errorStates: errorEnglish,
   recipeTrash: {
     title: 'Trash Bin',

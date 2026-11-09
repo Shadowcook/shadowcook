@@ -27,7 +27,13 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
     import.meta.env?.PUBLIC_DEFAULT_LOCALE,
   );
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
-  if (requiresAuthentication(context.url.pathname)) {
+  const checkReset: boolean =
+    context.request.method === 'GET' &&
+    apiProxyPath(context.url.pathname) === null &&
+    !context.url.pathname.startsWith('/assets/') &&
+    !context.url.pathname.startsWith('/_astro/') &&
+    /(?:^|;\s*)shadowcook_session=/.test(context.request.headers.get('cookie') ?? '');
+  if (requiresAuthentication(context.url.pathname) || checkReset) {
     let sessionIsValid: boolean = false;
     try {
       const sessionUrl: URL = new URL('/auth/session', apiOrigin);
@@ -37,10 +43,24 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
       if (session.status === 403) return errorDocument(locale, 403);
       if (!session.ok && session.status !== 401) return errorDocument(locale, 503);
       sessionIsValid = session.ok;
+      if (session.ok) {
+        const state: { passwordChangeRequired: boolean; cookbookResets?: unknown[] } =
+          await session.json();
+        if (
+          !state.passwordChangeRequired &&
+          (state.cookbookResets?.length ?? 0) > 0 &&
+          context.url.pathname !== '/settings/cookbooks' &&
+          context.url.pathname !== '/admin' &&
+          context.url.pathname !== '/admin/tenants' &&
+          context.url.pathname !== '/logout'
+        )
+          return Response.redirect(new URL('/settings/cookbooks', context.url), 302);
+      }
     } catch (_error: unknown) {
       return errorDocument(locale, 503);
     }
-    if (!sessionIsValid) return Response.redirect(loginUrl(context.url), 302);
+    if (!sessionIsValid && requiresAuthentication(context.url.pathname))
+      return Response.redirect(loginUrl(context.url), 302);
   }
   const apiPath: string | null = apiProxyPath(context.url.pathname);
   if (apiPath === null) {

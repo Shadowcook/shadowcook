@@ -119,7 +119,7 @@ export function registerAiContextRoutes(
         .code(404)
         .send({ code: 'AI_CONTEXT_UNAVAILABLE', error: 'The AI context is unavailable.' });
     const tenant = await pool.query<{ public_id: string; slug: string; display_name: string }>(
-      'SELECT public_id, slug, display_name FROM tenant WHERE id = $1 AND disabled_at IS NULL',
+      'SELECT public_id, slug, display_name FROM tenant WHERE id = $1 AND disabled_at IS NULL AND NOT name_reset_required',
       [context.tenant_id],
     );
     if (tenant.rows[0] === undefined)
@@ -305,6 +305,7 @@ async function activeGrant(pool: Pool, request: FastifyRequest): Promise<GrantRo
     `UPDATE ai_context_grant SET last_used_at = now()
      WHERE access_token_hash = $1 AND bootstrap_consumed_at IS NOT NULL
        AND revoked_at IS NULL AND expires_at > now()
+       AND EXISTS (SELECT 1 FROM tenant WHERE tenant.id = ai_context_grant.tenant_id AND NOT tenant.name_reset_required)
      RETURNING id, tenant_id, scope_type, scope_public_id, expires_at`,
     [tokenHash(token)],
   );

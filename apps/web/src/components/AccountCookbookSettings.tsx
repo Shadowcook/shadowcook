@@ -6,8 +6,12 @@ import type { Translation } from '../i18n';
 import { jsonRequest, request } from '../lib/api/client';
 import CreateCookbookModal from './CreateCookbookModal';
 import StatusMessage from './StatusMessage';
+import CookbookRenameModal from './CookbookRenameModal';
+import type { CookbookIdentity } from './CookbookRenameModal';
 
 export default function AccountCookbookSettings({ text }: { text: Translation }): JSX.Element {
+  const [editing, setEditing] = useState<CookbookIdentity | null>(null);
+  const [resets, setResets] = useState<CookbookIdentity[]>([]);
   const [authenticated, setAuthenticated] = useState<boolean | null>(null);
   const [message, setMessage] = useState<string>('');
   const [submitting, setSubmitting] = useState<boolean>(false);
@@ -16,8 +20,9 @@ export default function AccountCookbookSettings({ text }: { text: Translation })
   const [maximumCookbooks, setMaximumCookbooks] = useState<number>(1);
 
   useEffect((): void => {
-    void request('/auth/session')
-      .then(async (): Promise<void> => {
+    void request<{ cookbookResets: CookbookIdentity[] }>('/auth/session')
+      .then(async (session: { cookbookResets: CookbookIdentity[] }): Promise<void> => {
+        setResets(session.cookbookResets);
         setAuthenticated(true);
         const result: {
           cookbooks: OwnedCookbook[];
@@ -78,12 +83,13 @@ export default function AccountCookbookSettings({ text }: { text: Translation })
                   <th>{text.accountSettings.cookbookRecipes}</th>
                   <th>{text.accountSettings.cookbookUsers}</th>
                   <th>{text.accountSettings.cookbookStartPage}</th>
+                  <th>{text.dashboard.actions}</th>
                 </tr>
               </thead>
               <tbody>
                 {cookbooks.length === 0 ? (
                   <tr>
-                    <td className="account-settings-panel__empty-table" colSpan={4}>
+                    <td className="account-settings-panel__empty-table" colSpan={5}>
                       {text.accountSettings.noOwnedCookbooks}
                     </td>
                   </tr>
@@ -99,6 +105,11 @@ export default function AccountCookbookSettings({ text }: { text: Translation })
                         {cookbook.showOnStartPage
                           ? text.accountSettings.yes
                           : text.accountSettings.no}
+                      </td>
+                      <td>
+                        <button type="button" onClick={(): void => setEditing(cookbook)}>
+                          {text.cookbookIdentity.rename}
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -119,12 +130,22 @@ export default function AccountCookbookSettings({ text }: { text: Translation })
           ) : null}
         </>
       ) : null}
+      {resets[0] !== undefined || editing !== null ? (
+        <CookbookRenameModal
+          key={resets[0]?.publicId ?? editing!.publicId}
+          cookbook={resets[0] ?? editing!}
+          text={text}
+          required={resets.length > 0}
+          onClose={(): void => setEditing(null)}
+          onSaved={(): void => window.location.reload()}
+        />
+      ) : null}
       <StatusMessage message={message} />
     </section>
   );
 }
 
-interface OwnedCookbook {
+interface OwnedCookbook extends CookbookIdentity {
   name: string;
   slug: string;
   recipeCount: number;

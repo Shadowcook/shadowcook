@@ -3,6 +3,7 @@ info:
   title: Shadowcook API
   version: 0.1.0
   description: >-
+    Sessions with pending owner cookbook resets return 403 COOKBOOK_NAME_RESET_REQUIRED for normal API operations until every cookbook identity is repaired. Authentication, password recovery, invitation acceptance, account cookbook listing, identity repair routes and permission-checked cookbook administration remain available.
     Responses include X-Request-ID for support correlation. Errors use Cache-Control no-store.
     Domain errors retain their documented payloads. Framework and unexpected failures use
     the common safe error payload. The web proxy returns 503 UPSTREAM_UNAVAILABLE if the API is unreachable.
@@ -1536,6 +1537,76 @@ paths:
                       { '$ref': '#/components/schemas/UnhandledApiError' },
                     ],
                 }
+  /account/cookbooks/{publicId}:
+    patch:
+      operationId: renameOwnedCookbook
+      summary: Changes the name and slug of a cookbook owned by the current account.
+      description: Ownership is checked independently of instance and membership permissions. For a forced reset both values must differ from their previous values; saving atomically clears the reset lock. Existing administrative deactivation remains in effect. Changing the slug invalidates previous cookbook URLs.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [displayName, slug]
+              properties:
+                displayName:
+                  type: string
+                  minLength: 3
+                  maxLength: 120
+                  pattern: '^(?=(?:.*[A-Za-z0-9]){3})[A-Za-z0-9].*$'
+                  description: Surrounding whitespace is trimmed before validation.
+                slug:
+                  type: string
+                  pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$'
+                  description: Surrounding whitespace is trimmed. Reserved and administratively blocked slugs are rejected.
+                appendSuffixOnConflict:
+                  type: boolean
+                  default: false
+                  description: When true, a collision appends a random eight-character hexadecimal suffix, as for cookbook creation. Blocked and reserved base slugs are rejected; each generated candidate is checked against slug policy. Up to ten candidates are tried and the final update atomically clears a pending reset. Manual slugs normally omit this option.
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '204': { description: Identity saved. }
+        '400':
+          { description: INVALID_COOKBOOK, INVALID_TENANT_SLUG, or COOKBOOK_NEW_IDENTITY_REQUIRED. }
+        '401': { description: Authentication required. }
+        '403': { description: Password change required. }
+        '404': { description: Cookbook not found or not owned by the account. }
+        '409':
+          {
+            description: TENANT_SLUG_CONFLICT. Slugs of locked and disabled cookbooks remain reserved.,
+          }
+  /account/cookbooks/{publicId}/slug-availability:
+    get:
+      operationId: checkOwnedCookbookSlugAvailability
+      summary: Checks slug availability for an owned cookbook, excluding its current slug.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: slug, in: query, required: true, schema: { type: string } }
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '200':
+          description: Advisory result; does not reserve the slug. Cache-Control is no-store.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [available, suffixRequired]
+                properties:
+                  available: { type: boolean }
+                  suffixRequired:
+                    type: boolean
+                    description: True for an existing slug collision that can be resolved with a suffix. False for a free, reserved or blocked slug; inspect available to distinguish a free slug.
+        '400': { description: Invalid slug. }
+        '401': { description: Authentication required. }
+        '403': { description: Password change required. }
+        '404': { description: Cookbook not found or not owned by the account. }
   /account/cookbooks:
     get:
       operationId: getAccountCookbooks
@@ -1557,8 +1628,9 @@ paths:
                     items:
                       type: object
                       additionalProperties: false
-                      required: [name, slug, recipeCount, userCount, showOnStartPage]
+                      required: [publicId, name, slug, recipeCount, userCount, showOnStartPage]
                       properties:
+                        publicId: { type: string, format: uuid }
                         name: { type: string }
                         slug: { type: string }
                         recipeCount: { type: integer, minimum: 0 }
@@ -1904,8 +1976,19 @@ paths:
               schema:
                 type: object
                 additionalProperties: false
-                required: [email, displayName, hasPassword, passwordChangeRequired]
+                required: [email, displayName, hasPassword, passwordChangeRequired, cookbookResets]
                 properties:
+                  cookbookResets:
+                    type: array
+                    description: Pending owner repairs, excluded from cookbook listings. Both name and slug must change. Other authenticated operations return 403 COOKBOOK_NAME_RESET_REQUIRED until all repairs are complete; authentication, repair and permission-checked cookbook administration routes remain available. Password changes take precedence.
+                    items:
+                      type: object
+                      additionalProperties: false
+                      required: [publicId, name, slug]
+                      properties:
+                        publicId: { type: string, format: uuid }
+                        name: { type: string }
+                        slug: { type: string }
                   email:
                     type: string
                     format: email
@@ -2651,10 +2734,37 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/InstancePermissionRequired' }
         '404': { $ref: '#/components/responses/TenantNotFound' }
+  /admin/tenants/{publicId}/force-reset:
+    post:
+      operationId: forceResetCookbookIdentity
+      summary: Locks a cookbook until its owner supplies a different name and slug.
+      description: Requires tenant:create or instance:administer. The cookbook remains in the administration list with its reset status and is immediately excluded from other listings and content access, including shared recipes and images. The normal enabled state is independent of this lock.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '204': { description: Reset required. }
+        '401': { description: Authentication required. }
+        '403': { description: Instance permission required. }
+        '404': { description: Cookbook not found. }
+    delete:
+      operationId: cancelCookbookIdentityReset
+      summary: Cancels a forced cookbook name and slug reset.
+      description: Requires tenant:create or instance:administer. Clears only the name reset requirement, preserving the current name, slug and independent disabled state. Idempotent for existing cookbooks. Owners no longer have to change the identity, and enabled cookbooks become accessible again. Cookbook administration remains available to authorized administrators even when their own cookbook requires a reset.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '204': { description: Reset requirement cleared. }
+        '401': { description: Authentication required. }
+        '403': { description: Instance permission or password change required. }
+        '404': { description: Cookbook not found. }
   /admin/tenants/{publicId}:
     patch:
       operationId: updateTenant
-      summary: Changes a tenant display name, slug, or enabled state.
+      summary: Changes a tenant enabled state. Administrators cannot rename cookbooks.
       security: [{ sessionCookie: [] }]
       parameters:
         [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
@@ -2668,12 +2778,7 @@ paths:
                   {
                     type: object,
                     additionalProperties: false,
-                    properties:
-                      {
-                        displayName: { type: string, minLength: 1 },
-                        slug: { type: string, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' },
-                        disabled: { type: boolean },
-                      },
+                    properties: { disabled: { type: boolean } },
                     minProperties: 1,
                   },
               },
@@ -5988,7 +6093,7 @@ components:
       schema: { type: string, format: uuid }
   responses:
     UnexpectedError:
-      description: Safe framework request failure, unexpected server failure, or unavailable web proxy upstream. Internal details are omitted. Unknown routes return 404 with NOT_FOUND.
+      description: Safe framework request failure, unexpected server failure, unavailable web proxy upstream, or 403 COOKBOOK_NAME_RESET_REQUIRED for a browser session with pending cookbook identity repairs. Internal details are omitted. Unknown routes return 404 with NOT_FOUND.
       headers:
         X-Request-ID:
           description: Server-generated correlation identifier, if the request reaches the API.
@@ -5998,7 +6103,10 @@ components:
           schema: { type: string }
       content:
         application/json:
-          schema: { $ref: '#/components/schemas/UnhandledApiError' }
+          schema:
+            anyOf:
+              - { $ref: '#/components/schemas/UnhandledApiError' }
+              - { $ref: '#/components/schemas/ApiError' }
     RecipeSlugConflict:
       description: RECIPE_CONFLICT. The recipe URL name is already used by another recipe in this cookbook.
       content:
@@ -7612,13 +7720,24 @@ components:
     TenantSummary:
       type: object
       additionalProperties: false
-      required: [public_id, display_name, description, slug, disabled_at, recipe_count, owner_name]
+      required:
+        [
+          public_id,
+          display_name,
+          description,
+          slug,
+          disabled_at,
+          name_reset_required,
+          recipe_count,
+          owner_name,
+        ]
       properties:
         public_id: { type: string, format: uuid }
         display_name: { type: string }
         description: { type: [string, 'null'] }
         slug: { type: string }
         disabled_at: { type: [string, 'null'], format: date-time }
+        name_reset_required: { type: boolean }
         recipe_count: { type: integer, minimum: 0 }
         owner_name: { type: [string, 'null'] }
     TenantRecipePolicy:

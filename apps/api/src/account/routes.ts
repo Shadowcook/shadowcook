@@ -10,6 +10,7 @@ import {
   isValidCookbookName,
 } from '../cookbook/owned-cookbook.js';
 import { cookbookSlugIsBlocked } from '../cookbook/slug-policy.js';
+import { registerCookbookIdentityRoutes } from './cookbook-identity-routes.js';
 import { registerAccountProfileRoutes } from './profile-routes.js';
 
 interface CreateCookbookBody {
@@ -18,6 +19,7 @@ interface CreateCookbookBody {
 
 export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
   registerAccountProfileRoutes(api, pool);
+  registerCookbookIdentityRoutes(api, pool);
   api.get('/account/cookbooks', async (request: FastifyRequest, reply: FastifyReply) => {
     const user = await currentSessionUser(pool, request);
     if (user === null)
@@ -26,17 +28,18 @@ export function registerAccountRoutes(api: FastifyInstance, pool: Pool): void {
         .send({ code: 'AUTHENTICATION_REQUIRED', error: 'Authentication is required.' });
     const [cookbooks, maximum] = await Promise.all([
       pool.query<{
+        publicId: string;
         name: string;
         slug: string;
         recipeCount: number;
         userCount: number;
         showOnStartPage: boolean;
       }>(
-        `SELECT tenant.display_name AS name, tenant.slug,
+        `SELECT tenant.public_id AS "publicId", tenant.display_name AS name, tenant.slug,
           (SELECT count(*)::integer FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id) AS "recipeCount",
           (SELECT count(*)::integer FROM tenant_membership WHERE tenant_membership.tenant_id = tenant.id) AS "userCount",
           tenant.show_on_start_page AS "showOnStartPage"
-         FROM tenant WHERE tenant.owner_principal_id = $1 ORDER BY tenant.display_name`,
+         FROM tenant WHERE tenant.owner_principal_id = $1 AND NOT tenant.name_reset_required ORDER BY tenant.display_name`,
         [user.principal_id],
       ),
       maximumCookbooksPerOwner(pool),

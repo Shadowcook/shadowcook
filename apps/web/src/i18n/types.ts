@@ -5,6 +5,23 @@ import type { RecipeImportTranslation } from '../features/cookbook/import/transl
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  cookbookIdentity: {
+    cancelReset: string;
+    cancelResetDescription: string;
+    resetCancelled: string;
+    status: string;
+    active: string;
+    disabled: string;
+    resetPending: string;
+
+    rename: string;
+    required: string;
+    forceReset: string;
+    resetDescription: string;
+    resetDone: string;
+    invalidName: string;
+    newIdentityRequired: string;
+  };
   errorStates: import('./errors').ErrorTranslation;
   recipeTrash: {
     title: string;
