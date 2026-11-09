@@ -3124,6 +3124,38 @@ paths:
           '409': { description: Active user already uses the email. },
           '503': { description: Email delivery is not configured. },
         }
+  /cookbook/tenant-users/{publicId}:
+    delete:
+      operationId: removeTenantUser
+      summary: Removes a user's membership and roles from the specified cookbook.
+      description: Requires tenant-scoped `tenant:manage`. The cookbook owner cannot be removed. The account, recipe content, attribution and other cookbook memberships are retained. A new invitation can restore membership with a selected role.
+      security: [{ sessionCookie: [] }]
+      parameters:
+        - { name: publicId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: tenantSlug, in: query, required: true, schema: { type: string, minLength: 1 } }
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '204': { description: Membership and its tenant roles removed. }
+        '400':
+          description: INVALID_TENANT_USER — tenant is missing or publicId is invalid.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401':
+          description: AUTHENTICATION_REQUIRED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '403':
+          description: TENANT_PERMISSION_REQUIRED or OWNER_MEMBERSHIP_PROTECTED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '404':
+          description: TENANT_NOT_FOUND or TENANT_USER_NOT_FOUND.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /cookbook/tenant-users/{publicId}/roles:
     put:
       operationId: replaceTenantUserRoles
@@ -8812,6 +8844,9 @@ components:
             - INSTANCE_PERMISSION_REQUIRED
             - TENANT_PERMISSION_REQUIRED
             - TENANT_NOT_FOUND
+            - INVALID_TENANT_USER
+            - TENANT_USER_NOT_FOUND
+            - OWNER_MEMBERSHIP_PROTECTED
             - INVALID_MEDIA_SETTINGS
             - INVALID_RECIPE_IMAGE
             - IMAGE_NOT_FOUND

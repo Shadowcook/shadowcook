@@ -812,6 +812,9 @@ export interface Translation {
     confirmMerge: string;
   };
   tenantUsers: {
+    removeUser: string;
+    removeUserDescription: string;
+    userRemoved: string;
     title: string;
     description: string;
     roles: string;

@@ -875,6 +875,10 @@ export const en: Translation = {
     confirmMerge: 'Merge permanently',
   },
   tenantUsers: {
+    removeUser: 'Remove from cookbook',
+    removeUserDescription:
+      'Remove this user and their roles from this cookbook? Their account and recipe contributions will be retained. You can invite them again later.',
+    userRemoved: 'User removed from the cookbook.',
     title: 'Tenant users',
     description: 'Manage roles for users who belong to this cookbook.',
     roles: 'Roles',

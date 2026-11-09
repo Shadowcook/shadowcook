@@ -906,6 +906,10 @@ export const de: Translation = {
     confirmMerge: 'Unwiderruflich zusammenführen',
   },
   tenantUsers: {
+    removeUser: 'Aus dem Kochbuch entfernen',
+    removeUserDescription:
+      'Diesen Benutzer und seine Rollen aus dem Kochbuch entfernen? Sein Account und seine Rezeptbeiträge bleiben erhalten. Du kannst ihn später erneut einladen.',
+    userRemoved: 'Benutzer aus dem Kochbuch entfernt.',
     title: 'Tenant-Benutzer',
     description: 'Verwalte die Rollen der Benutzer dieses Kochbuchs.',
     roles: 'Rollen',

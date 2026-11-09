@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool, PoolClient } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
 import { requireTenantPermission } from '../admin/authorization.js';
 
 interface TenantUserRoleBody {
@@ -11,6 +11,66 @@ interface TenantUserQuery {
 }
 
 export function registerTenantUserRoutes(api: FastifyInstance, pool: Pool): void {
+  api.delete(
+    '/cookbook/tenant-users/:publicId',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const tenantSlug: string | null = tenantSlugFromRequest(request);
+      const publicId: string = (request.params as { publicId: string }).publicId;
+      if (tenantSlug === null || !/^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(publicId)) {
+        return reply
+          .code(400)
+          .send({ code: 'INVALID_TENANT_USER', error: 'A tenant and valid user are required.' });
+      }
+      const tenantId: string | null = await requireTenantPermission(
+        pool,
+        request,
+        reply,
+        tenantSlug,
+        'tenant:manage',
+      );
+      if (tenantId === null) return;
+      const client: PoolClient = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const user: QueryResult<{ principal_id: string }> = await client.query(
+          `SELECT user_account.principal_id FROM tenant_membership
+         INNER JOIN user_account ON user_account.principal_id = tenant_membership.principal_id
+         WHERE tenant_membership.tenant_id = $1 AND user_account.public_id = $2
+           AND user_account.deleted_at IS NULL FOR UPDATE`,
+          [tenantId, publicId],
+        );
+        if (user.rows[0] === undefined) {
+          await client.query('ROLLBACK');
+          return reply
+            .code(404)
+            .send({ code: 'TENANT_USER_NOT_FOUND', error: 'The tenant user was not found.' });
+        }
+        const owner: QueryResult<{ owner_principal_id: string | null }> = await client.query(
+          'SELECT owner_principal_id FROM tenant WHERE id = $1 FOR UPDATE',
+          [tenantId],
+        );
+        if (owner.rows[0]?.owner_principal_id === user.rows[0].principal_id) {
+          await client.query('ROLLBACK');
+          return reply.code(403).send({
+            code: 'OWNER_MEMBERSHIP_PROTECTED',
+            error: 'The cookbook owner cannot be removed.',
+          });
+        }
+        await client.query(
+          'DELETE FROM tenant_membership WHERE tenant_id = $1 AND principal_id = $2',
+          [tenantId, user.rows[0].principal_id],
+        );
+        await client.query('COMMIT');
+        return reply.code(204).send();
+      } catch (error: unknown) {
+        await client.query('ROLLBACK');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+  );
+
   api.get('/cookbook/tenant-users', async (request: FastifyRequest, reply: FastifyReply) => {
     const tenantSlug: string | null = tenantSlugFromRequest(request);
     if (tenantSlug === null)

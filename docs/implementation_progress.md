@@ -1,5 +1,9 @@
 # Shadowcook 2.0 implementation progress
 
+### Cookbook member removal
+
+- Cookbook managers can remove non-owner users through a localized modal confirmation without typing a confirmation word. Removal deletes only the cookbook membership and its roles; accounts and contributions remain intact, and users can rejoin through an invitation. Actions retain fixed positions with reporting last (architecture: [Authentication and access management](ARCHITECTURE.md#authentication-and-access-management)).
+
 ### Cookbook identity form URL preview
 
 - Rename and forced-reset dialogs derive slugs from cookbook names, reuse the creation URL preview and suffix warning, and support suffix allocation for automatically derived slugs. Live availability checks distinguish collisions from blocked slugs; manual slug edits remain under owner control (architecture: [Administration controls](ARCHITECTURE.md#administration-controls)).
