@@ -59,7 +59,7 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 - Migration execution uses a PostgreSQL advisory lock named `shadowcook-schema-migration`.
 - Each migration is executed in one database transaction.
 - Applied migration identifiers, SHA-256 checksums, and UTC application timestamps are stored in `application_schema_migration`.
-- A migration checksum mismatch or an unknown applied migration stops API startup.
+- Inside the advisory lock, all recorded migration identifiers and checksums are validated against the running build before any pending migration SQL executes. An unknown identifier or checksum mismatch stops API startup before seeding, administrator bootstrap, or HTTP listening, with a `*** FATAL ***` diagnostic on stderr and a nonzero process exit. Unknown identifiers and checksum mismatches have distinct diagnostics. Builds that recognize every recorded migration with matching checksums are compatible regardless of application or Git version.
 - Existing schema objects are not adopted automatically. A matching migration identifier and checksum in the ledger are required to skip baseline execution on an initialized database.
 - The API process loads an optional repository-root `.env` file in local development. Process environment variables take precedence.
 

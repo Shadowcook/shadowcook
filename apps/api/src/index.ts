@@ -1,4 +1,9 @@
-import { closeDatabaseConnection, createDatabaseConnection, migrateDatabase } from '@shadowcook/db';
+import {
+  closeDatabaseConnection,
+  createDatabaseConnection,
+  migrateDatabase,
+  MigrationCompatibilityError,
+} from '@shadowcook/db';
 import type { DatabaseConnection } from '@shadowcook/db';
 import type { FastifyInstance } from 'fastify';
 import { bootstrapAdministrator } from './auth/bootstrap.js';
@@ -90,6 +95,10 @@ async function start(): Promise<void> {
 }
 
 start().catch((error: unknown) => {
-  console.error(error);
+  if (error instanceof MigrationCompatibilityError) {
+    console.error(`*** FATAL ***\n${error.message}`);
+  } else {
+    console.error(error);
+  }
   process.exit(1);
 });
