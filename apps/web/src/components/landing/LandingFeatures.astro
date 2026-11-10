@@ -1,9 +1,13 @@
 ---
 import type { Translation } from '../../i18n';
+import { githubRepositoryUrl, licenseUrl } from '../../lib/source-links';
+
 interface Properties {
+  buildCommit: string | undefined;
   text: Translation;
 }
-const { text } = Astro.props;
+const { buildCommit, text } = Astro.props;
+const githubLicenseUrl: string | undefined = licenseUrl(buildCommit);
 ---
 
 <section class="landing-features" aria-labelledby="landing-features-title">
@@ -32,11 +36,15 @@ const { text } = Astro.props;
     <p>{text.landing.openDescription}</p>
   </div>
   <div class="landing-links">
-    <a href="https://github.com/Shadowcook/shadowcook"
-      >{text.landing.source} <span aria-hidden="true">↗</span></a
-    >
-    <a href="https://github.com/Shadowcook/shadowcook/blob/beta/LICENSE"
-      >{text.landing.license} <span aria-hidden="true">↗</span></a
-    >
+    <a href={githubRepositoryUrl}>{text.landing.source} <span aria-hidden="true">↗</span></a>
+    {
+      githubLicenseUrl === undefined ? (
+        <span>{text.landing.license}</span>
+      ) : (
+        <a href={githubLicenseUrl}>
+          {text.landing.license} <span aria-hidden="true">↗</span>
+        </a>
+      )
+    }
   </div>
 </section>

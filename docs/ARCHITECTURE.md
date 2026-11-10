@@ -115,7 +115,7 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 
 - The instance stores an Explore website name, slogan, and cookbook page size from 1 through 100. Defaults are `My Cookbook`, `Made to be shared`, and 4. Instance administrators configure these values in Front page settings.
 - The instance stores public privacy-statement and legal-notice Markdown documents. The initial database creates editable English template documents with operator placeholders. Instance administrators edit both documents in Legal documents settings. Public `/privacy-statement` and `/imprint` pages render their Markdown with source HTML disabled.
-- The footer links the license and the displayed application version to the Shadowcook GitHub repository at the build commit.
+- The landing page and footer link the license to the Shadowcook GitHub repository at the build commit. Without a build commit, the license is displayed as plain text. The footer also links the displayed application version to the build commit.
 - A cookbook has a `show_on_start_page` setting that defaults to `true` and is configurable through General settings.
 - Explore lists accessible enabled cookbooks with `show_on_start_page = true`, with a case-insensitive contains filter over cookbook names and descriptions. Results use a client-provided stable shuffle seed and paginate using the configured cookbook page size.
 - Above the `/explore` cookbook selection, authenticated users receive an alphabetical `My Cookbooks` list of every enabled cookbook where they have a tenant membership. The list does not apply root-page or recipe visibility filters.
