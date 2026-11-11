@@ -18,8 +18,8 @@ usage() {
     'Without --execute, only read-only connection and target checks run.' \
     'With --execute, replace the target public schema with a sanitized source copy.' \
     'Business data remains unchanged; profiles, credentials, and mail settings are sanitized.' \
-    'After import, enter and confirm a hidden password for the additional admin@local account.' \
-    '--admin-password-stdin reads one password line after import for automation.' \
+    'Before copying, enter and confirm a hidden test password for all users, including the additional admin@local account.' \
+    './clone-secret supplies the password when present; otherwise --admin-password-stdin reads one line.' \
     'Execution requires installed workspace dependencies for the API password helper.' \
     'Stop target API, web, and other database clients before execution.' \
     'Requires host psql, pg_dump, pg_restore, createdb, and dropdb.' \
@@ -76,6 +76,7 @@ if [[ "${execute}" != true ]]; then
   exit 0
 fi
 check_clone_admin_requirements
+read_clone_test_password
 
 work_directory=$(mktemp -d "${TMPDIR:-/tmp}/shadowcook-clone.XXXXXXXXXX")
 stage_name="shadowcook_clone_$(date -u +%Y%m%d%H%M%S)_${work_directory##*.}"
@@ -131,5 +132,5 @@ clone_tool "${target_url}" psql --single-transaction \
   --command="SET lock_timeout = '10s'; DROP SCHEMA public CASCADE; CREATE SCHEMA public;" \
   --file="${work_directory}/restore.sql" >> "${work_directory}/tools.log" 2>&1
 configure_clone_admin_password
-printf '[%s] Clone complete. admin@local is ready. Copy media separately before starting the target.\n' \
+printf '[%s] Clone complete. Test passwords are set for all users; admin@local is ready. Copy media separately before starting the target.\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

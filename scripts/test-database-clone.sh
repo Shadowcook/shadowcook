@@ -9,6 +9,7 @@ repository_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 postgres_bin=$(pg_config --bindir)
 export PATH="${postgres_bin}:${PATH}"
 test_directory=$(mktemp -d /tmp/shadowcook-clone-test.XXXXXXXX)
+cd "${test_directory}"
 cluster_started=false
 client_pid=''
 cleanup() {
@@ -172,14 +173,39 @@ fi
 psql -X -v ON_ERROR_STOP=1 -d clone_source -c 'ALTER TABLE user_account DROP COLUMN phone' > /dev/null
 printf 'PASS: aliases rejected; sanitization failure preserves target and cleans staging\n'
 
-TMPDIR="${test_directory}" run_clone --env-file "${environment_file}" --execute
+# File and stdin password failures must happen before staging or target changes.
+for invalid_secret in '' 'abc' $'first\nsecond'; do
+  printf '%s\n' "${invalid_secret}" > clone-secret
+  if run_clone --env-file "${environment_file}" --execute > "${test_directory}/invalid-secret.log" 2>&1; then
+    printf 'FAIL: invalid clone-secret was accepted\n' >&2
+    exit 1
+  fi
+  [[ "$(psql -X -At -d clone_target -c 'SELECT value FROM target_sentinel')" == 'keep until success' ]]
+  [[ "$(psql -X -At -c "SELECT count(*) FROM pg_database WHERE datname LIKE 'shadowcook_clone_%'")" == 0 ]]
+done
+rm clone-secret
+if printf '%s\n' abc | bash "${clone_script}" --admin-password-stdin --env-file "${environment_file}" --execute > "${test_directory}/invalid-stdin.log" 2>&1; then
+  printf 'FAIL: invalid stdin password was accepted\n' >&2
+  exit 1
+fi
+[[ "$(psql -X -At -d clone_target -c 'SELECT value FROM target_sentinel')" == 'keep until success' ]]
+printf 'PASS: invalid passwords rejected before cloning\n'
+
+# A file without a final newline works without a terminal and overrides stdin.
+printf '%s' 'eR7!vQ2#nL9@xC4$kM8%pT6&zA1*' > clone-secret
+TMPDIR="${test_directory}" bash "${clone_script}" --env-file "${environment_file}" --execute < /dev/null
+printf '%s\n' 'eR7!vQ2#nL9@xC4$kM8%pT6&zA1*' > clone-secret
+printf '%s\n' abc | TMPDIR="${test_directory}" bash "${clone_script}" --admin-password-stdin --env-file "${environment_file}" --execute
+rm clone-secret
+printf 'PASS: clone-secret supports optional final newline, noninteractive use, and precedence over stdin\n'
 psql -X -v ON_ERROR_STOP=1 -d clone_target > "${test_directory}/assertions.log" <<'SQL'
 DO $$
 BEGIN
   IF (SELECT count(*) FROM user_account) <> 4 OR EXISTS (
     SELECT 1 FROM user_account WHERE email <> 'admin@local' AND (display_name <> 'User ' || right(id::text, 1)
       OR email <> 'user' || right(id::text, 1) || '@local'
-      OR password_hash IS NOT NULL OR first_name IS NOT NULL OR last_name IS NOT NULL)
+      OR password_hash IS NULL OR password_changed_at IS NULL OR password_change_required
+      OR first_name IS NOT NULL OR last_name IS NOT NULL)
   ) THEN RAISE EXCEPTION 'Profile sanitization failed'; END IF;
   IF EXISTS (SELECT 1 FROM user_session) OR EXISTS (SELECT 1 FROM password_reset_token)
     OR EXISTS (SELECT 1 FROM pending_registration) OR EXISTS (SELECT 1 FROM recipe_share_link)

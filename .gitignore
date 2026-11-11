@@ -60,6 +60,7 @@ lerna-debug.log*
 .pnp.*
 
 # Environment and local configuration
+/clone-secret
 .env
 .env.*
 !.env.example
@@ -88,3 +89,6 @@ assets/fontawesome/
 
 # Generated skill archive (downloads are built from source by the API)
 /apps/api/skills.tar.xz
+
+#temporary
+/docs/admin-concept.md
