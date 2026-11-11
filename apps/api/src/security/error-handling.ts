@@ -4,6 +4,7 @@ export function registerErrorHandling(api: FastifyInstance): void {
   api.addHook('onSend', async (request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     reply.header('X-Request-ID', request.id);
     if (reply.statusCode >= 400) reply.header('Cache-Control', 'no-store');
+    else if (!reply.hasHeader('Cache-Control')) reply.header('Cache-Control', 'private, no-store');
   });
   api.setErrorHandler((error: FastifyError, request: FastifyRequest, reply: FastifyReply): void => {
     const status: number =

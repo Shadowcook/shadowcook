@@ -47,3 +47,20 @@ test('unexpected exceptions are safe JSON with a correlation header; domain resp
     await api.close();
   }
 });
+
+test('successful responses default to private no-store while explicit public resources retain their policy', async (): Promise<void> => {
+  const api: FastifyInstance = Fastify();
+  registerErrorHandling(api);
+  api.get('/session', async (): Promise<object> => ({ displayName: 'Synthetic Member' }));
+  api.get('/public', async (_request: FastifyRequest, reply: FastifyReply): Promise<FastifyReply> =>
+    reply.header('Cache-Control', 'public, max-age=3600').send({ resource: 'skill' }),
+  );
+  try {
+    const session: LightMyRequestResponse = await api.inject('/session');
+    assert.equal(session.headers['cache-control'], 'private, no-store');
+    const resource: LightMyRequestResponse = await api.inject('/public');
+    assert.equal(resource.headers['cache-control'], 'public, max-age=3600');
+  } finally {
+    await api.close();
+  }
+});

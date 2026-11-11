@@ -216,7 +216,10 @@ function CookbookScreen({
         setScreen('login');
         return;
       }
-      const loaded: CookbookResponse = await loadCookbook();
+      const loaded: CookbookResponse =
+        initialRecipe !== null && initialCookbook !== undefined
+          ? initialCookbook
+          : await loadCookbook();
       await applyBrowserLocation(loaded, initialRecipe);
       setScreen('dashboard');
       return;
@@ -231,7 +234,10 @@ function CookbookScreen({
       window.location.replace(postLoginPath());
       return;
     }
-    const loaded: CookbookResponse = await loadCookbook();
+    const loaded: CookbookResponse =
+      initialRecipe !== null && initialCookbook !== undefined
+        ? initialCookbook
+        : await loadCookbook();
     await applyBrowserLocation(loaded, initialRecipe);
     setScreen('dashboard');
   }
