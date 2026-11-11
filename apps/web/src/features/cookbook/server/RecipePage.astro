@@ -8,6 +8,7 @@ import { buildCommit } from '../../../lib/server/build-info';
 import { loadHeadBarSession } from '../../../lib/server/head-bar-session';
 import CookbookScreen from '../CookbookScreen';
 import type { CookbookResponse, Recipe, RecipeDetail } from '../model/types';
+import { recipePageCookbook } from './recipe-page-cookbook';
 import { recipeJsonLd } from './recipe-structured-data';
 import '../../../styles/global.css';
 import '../../../styles/cookbook.css';
@@ -63,7 +64,7 @@ function recipeCategories(response: CookbookResponse, publicId: string): string[
       <CookbookScreen
         client:load
         initialCategoryId={categoryId}
-        initialCookbook={cookbook}
+        initialCookbook={recipePageCookbook(cookbook, recipe.public_id)}
         initialRecipe={recipe}
         initialTenantSlug={tenantSlug}
         locale={locale}

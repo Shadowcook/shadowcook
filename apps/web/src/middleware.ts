@@ -10,6 +10,31 @@ const protectedResourceMetadataPath: string = '/.well-known/oauth-protected-reso
 const authorizationServerMetadataPath: string = '/.well-known/oauth-authorization-server';
 
 export const onRequest: MiddlewareHandler = async (context, next): Promise<Response> => {
+  const response: Response = await handleRequest(context, next);
+  // Documents depend on session and locale cookies, including anonymous reads.
+  // Apply this after every branch so redirects and failures are covered as well.
+  if (
+    !context.isPrerendered &&
+    (response.headers.get('content-type')?.includes('text/html') ||
+      (response.status >= 300 &&
+        response.status < 400 &&
+        apiProxyPath(context.url.pathname) === null))
+  ) {
+    const headers: Headers = new Headers(response.headers);
+    headers.set('Cache-Control', response.status >= 400 ? 'no-store' : 'private, no-store');
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+  return response;
+};
+
+async function handleRequest(
+  context: Parameters<MiddlewareHandler>[0],
+  next: Parameters<MiddlewareHandler>[1],
+): Promise<Response> {
   logAuthenticationProxyRequest(context.request, context.url);
   if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url)) {
     const response: Response = new Response(null, { status: 403 });
@@ -117,7 +142,7 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
   }
   logAuthenticationProxyResponse(context.url.pathname, context.request.method, response);
   return response;
-};
+}
 
 function logAuthenticationProxyRequest(request: Request, url: URL): void {
   if (!isLoggedAuthenticationPath(url.pathname)) return;

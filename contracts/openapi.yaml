@@ -4,7 +4,7 @@ info:
   version: 0.1.0
   description: >-
     Sessions with pending owner cookbook resets return 403 COOKBOOK_NAME_RESET_REQUIRED for normal API operations until every cookbook identity is repaired. Authentication, password recovery, invitation acceptance, account cookbook listing, identity repair routes and permission-checked cookbook administration remain available.
-    Responses include X-Request-ID for support correlation. Errors use Cache-Control no-store.
+    Responses include X-Request-ID for support correlation. Unless a route explicitly specifies another cache policy, successful responses use Cache-Control private, no-store. Errors use Cache-Control no-store.
     Domain errors retain their documented payloads. Framework and unexpected failures use
     the common safe error payload. The web proxy returns 503 UPSTREAM_UNAVAILABLE if the API is unreachable.
 paths:

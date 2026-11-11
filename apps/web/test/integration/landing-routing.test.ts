@@ -1,4 +1,10 @@
 import assert from 'node:assert/strict';
+import { gzipSync } from 'node:zlib';
+import { execFile } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { promisify } from 'node:util';
 import { after, before, test } from 'node:test';
 import {
   createServer,
@@ -12,13 +18,25 @@ import type { CookbookResponse, RecipeDetail } from '../../src/features/cookbook
 import { pdfRecipeFixture } from '../fixtures/pdf-recipe.ts';
 
 const recipe: RecipeDetail = pdfRecipeFixture();
+recipe.steps[1]!.ingredients[1]!.special_kind = 'WAIT';
+recipe.steps[1]!.ingredients[1]!.note = '30-40 Minuten';
 const cookbook: CookbookResponse = {
   tenant: { public_id: 'family', display_name: 'Family recipes', frontpage_heading: null },
   categories: [
     { public_id: 'baking', parent_public_id: null, name: 'Baking', slug: 'baking', sort_order: 0 },
     { public_id: 'cakes', parent_public_id: 'baking', name: 'Cakes', slug: 'cakes', sort_order: 0 },
   ],
-  recipes: [{ ...recipe, category_public_ids: ['cakes'] }],
+  recipes: [
+    {
+      public_id: recipe.public_id,
+      slug: recipe.slug,
+      title: recipe.title,
+      summary: recipe.summary,
+      diet: recipe.diet,
+      variants: recipe.variants,
+      category_public_ids: ['cakes'],
+    },
+  ],
   frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
@@ -30,6 +48,17 @@ const cookbook: CookbookResponse = {
   canManageServiceAccounts: false,
   canCreateAiContexts: false,
 };
+// A synthetic large cookbook, with no real account or recipe export data.
+for (let index: number = 0; index < 100; index += 1) {
+  cookbook.recipes.push({
+    ...cookbook.recipes[0]!,
+    public_id: `other-${index}`,
+    slug: `other-${index}`,
+    title: `Unrelated recipe ${index}`,
+    summary: `Synthetic overview entry ${index}`,
+  });
+}
+cookbook.frontpage.recipes = cookbook.recipes.slice(1, 5);
 const requests: string[] = [];
 let api: Server;
 let web: Server;
@@ -51,8 +80,17 @@ before(async (): Promise<void> => {
     } else if (path.startsWith('/cookbook?tenantSlug=unavailable')) {
       response.statusCode = 503;
       response.end('<html>Database details must stay private</html>');
-    } else if (path === '/auth/session' && request.headers.cookie?.includes('session=test')) {
+    } else if (
+      path === '/auth/session' &&
+      (request.headers.cookie?.includes('session=test') ||
+        request.headers.cookie?.includes('shadowcook_session=member'))
+    ) {
       response.end(JSON.stringify({ email: 'member@example.test', displayName: 'Member' }));
+    } else if (
+      path === '/auth/session' &&
+      request.headers.cookie?.includes('shadowcook_session=other')
+    ) {
+      response.end(JSON.stringify({ email: 'other@example.test', displayName: 'Other Member' }));
     } else if (path === '/auth/session') {
       response.statusCode = 401;
       response.end('{}');
@@ -270,5 +308,132 @@ test('unavailable, malformed and hanging sessions do not prevent error page navi
     }
   } finally {
     sessionBehavior = 'normal';
+  }
+});
+
+test('recipe SSR keeps WAIT in both UI and valid JSON-LD, and omits unrelated overview data', async (): Promise<void> => {
+  const response: Response = await fetch(`${origin}/family/recipes/${recipe.slug}`);
+  const html: string = await response.text();
+  const match: RegExpMatchArray | null = html.match(
+    /<script type="application\/ld\+json">(.*?)<\/script>/s,
+  );
+  assert.ok(match);
+  const data: { recipeInstructions: Array<{ text: string }> } = JSON.parse(match[1]!);
+  assert.match(data.recipeInstructions[1]!.text, /30-40 Minuten/);
+  assert.doesNotMatch(data.recipeInstructions[0]!.text, /30-40/);
+  assert.match(html, /recipe-ingredient-note[^>]*>.*?30-40 Minuten/);
+  assert.doesNotMatch(html, /Unrelated recipe|Synthetic overview/);
+  assert.match(html, /&quot;slug&quot;:\[0,&quot;cakes&quot;\]/);
+});
+
+test('recipe response measurements with 101 synthetic recipes', async (): Promise<void> => {
+  const response: Response = await fetch(`${origin}/family/recipes/${recipe.slug}`, {
+    headers: { 'accept-encoding': 'gzip' },
+  });
+  const html: string = await response.text();
+  console.info(
+    JSON.stringify({
+      audit: 'recipe-html',
+      bytes: Buffer.byteLength(html),
+      httpEncoding: response.headers.get('content-encoding'),
+      gzipEstimateBytes: gzipSync(html).byteLength,
+    }),
+  );
+});
+
+test('alternating users and anonymous requests never reuse personalized recipe HTML', async (): Promise<void> => {
+  for (const member of ['member', 'other', '', 'other', 'member', '']) {
+    const response: Response = await fetch(`${origin}/family/recipes/${recipe.slug}`, {
+      headers: member === '' ? {} : { cookie: `shadowcook_session=${member}` },
+    });
+    assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    const html: string = await response.text();
+    if (member === 'member') {
+      assert.match(html, /member@example.test/);
+      assert.doesNotMatch(html, /other@example.test/);
+    } else if (member === 'other') {
+      assert.match(html, /other@example.test/);
+      assert.doesNotMatch(html, /member@example.test/);
+    } else assert.doesNotMatch(html, /member@example.test|other@example.test|Other Member/);
+  }
+});
+
+test('a newly available published revision is reflected on the next SSR read', async (): Promise<void> => {
+  const original: string = recipe.steps[0]!.instruction;
+  try {
+    await fetch(`${origin}/family/recipes/${recipe.slug}`);
+    recipe.steps[0]!.instruction = 'Freshly published synthetic instruction.';
+    for (const cookie of ['', 'shadowcook_session=member', 'shadowcook_session=other']) {
+      const response: Response = await fetch(`${origin}/family/recipes/${recipe.slug}`, {
+        headers: { cookie },
+      });
+      const html: string = await response.text();
+      assert.match(html, /Freshly published synthetic instruction/);
+      assert.equal(response.headers.get('cache-control'), 'private, no-store');
+    }
+  } finally {
+    recipe.steps[0]!.instruction = original;
+  }
+});
+
+test(
+  'browser hydrates the detail without loading the full cookbook overview',
+  {
+    skip: process.env.SHADOWCOOK_TEST_CHROME === undefined,
+  },
+  async (): Promise<void> => {
+    const profile: string = await mkdtemp(join(tmpdir(), 'shadowcook-audit-chrome-'));
+    const execute: (
+      file: string,
+      args: readonly string[],
+      options: { timeout: number; maxBuffer: number },
+    ) => Promise<{ stdout: string; stderr: string }> = promisify(execFile);
+    requests.length = 0;
+    try {
+      const result: { stdout: string; stderr: string } = await execute(
+        process.env.SHADOWCOOK_TEST_CHROME!,
+        [
+          '--headless',
+          '--no-sandbox',
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          `--user-data-dir=${profile}`,
+          '--dump-dom',
+          '--virtual-time-budget=5000',
+          `${origin}/family/baking/cakes/recipes/${recipe.slug}`,
+        ],
+        { timeout: 20000, maxBuffer: 2000000 },
+      );
+      const islands: string[] = result.stdout.match(/<astro-island[^>]*>/g) ?? [];
+      assert.ok(islands.length >= 2);
+      islands.forEach((island: string): void => assert.doesNotMatch(island, / ssr(?: |>|=)/));
+      assert.match(result.stdout, /30-40 Minuten/);
+      assert.match(result.stdout, /href="\/family\/baking\/cakes"/);
+      assert.equal(
+        requests.filter((path: string): boolean => path.startsWith('/cookbook?')).length,
+        1,
+      );
+    } finally {
+      await rm(profile, { recursive: true, force: true });
+    }
+  },
+);
+
+test('special notes cannot terminate the structured-data script', async (): Promise<void> => {
+  const original: string | null = recipe.steps[1]!.ingredients[1]!.note;
+  const note: string = '</script><script>syntheticUntrustedText()</script>';
+  try {
+    recipe.steps[1]!.ingredients[1]!.note = note;
+    const response: Response = await fetch(`${origin}/family/recipes/${recipe.slug}`);
+    const html: string = await response.text();
+    const match: RegExpMatchArray | null = html.match(
+      /<script type="application\/ld\+json">(.*?)<\/script>/s,
+    );
+    assert.ok(match);
+    const data: { recipeInstructions: Array<{ text: string }> } = JSON.parse(match[1]!);
+    assert.ok(data.recipeInstructions[1]!.text.includes(note));
+    assert.doesNotMatch(html, /<script>syntheticUntrustedText/);
+  } finally {
+    recipe.steps[1]!.ingredients[1]!.note = original;
   }
 });
