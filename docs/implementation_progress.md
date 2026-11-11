@@ -1,5 +1,9 @@
 # Shadowcook 2.0 implementation progress
 
+### Administrative audit foundation
+
+- Added explicit session-only administrative authorization, shared reason/report validation, transaction-bound mutation auditing and read-only callbacks with durable attribution before response. Administrative events survive resource/account deletion, use string request IDs, restrict state payloads and have operator-controlled finite retention with startup/periodic pruning. Existing product routes retain their permissions and behavior (architecture: [Administrative audit infrastructure](ARCHITECTURE.md#administrative-audit-infrastructure); implementation and validation: [Phase 1](admin-concept-implementation.md#phase-1--administrative-audit-foundation)).
+
 ### Cookbook member removal
 
 - Cookbook managers can remove non-owner users through a localized modal confirmation without typing a confirmation word. Removal deletes only the cookbook membership and its roles; accounts and contributions remain intact, and users can rejoin through an invitation. Actions retain fixed positions with reporting last (architecture: [Authentication and access management](ARCHITECTURE.md#authentication-and-access-management)).

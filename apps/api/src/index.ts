@@ -1,3 +1,4 @@
+import { pruneAdministrativeAudit } from './admin/audit-retention.js';
 import {
   closeDatabaseConnection,
   createDatabaseConnection,
@@ -23,6 +24,7 @@ async function start(): Promise<void> {
 
   try {
     await migrateDatabase(connection.pool);
+    await pruneAdministrativeAudit(connection.pool);
     await seedInitialDeployment(connection.pool);
     const bootstrapResult = await bootstrapAdministrator(connection.pool, {
       email: config.bootstrapAdminEmail,
@@ -57,6 +59,9 @@ async function start(): Promise<void> {
   );
   const cleanupTimer: NodeJS.Timeout = setInterval(
     (): void => {
+      void pruneAdministrativeAudit(connection.pool).catch((): void => {
+        api.log.warn({ outcome: 'FAILED' }, 'Administrative audit pruning failed');
+      });
       void cleanupExpiredPendingRegistrations(connection.pool).catch((error: unknown): void => {
         console.warn('Pending-registration cleanup failed', error);
       });

@@ -262,3 +262,37 @@ for (const failure of ['unknown', 'checksum'] as const) {
     }
   });
 }
+
+test('administrative audit upgrades the previous schema without changing tenant audit data', async (): Promise<void> => {
+  await applyBaseline();
+  await database.pool.query(pending.sql);
+  await recordMigration(pending.id, pending.checksum);
+  const tenant: QueryResult<{ id: string }> = await database.pool.query(
+    "INSERT INTO tenant (display_name, slug) VALUES ('Existing', 'existing-audit') RETURNING id",
+  );
+  await database.pool.query(
+    "INSERT INTO audit_event (tenant_id, operation, entity_type, after_json) VALUES ($1, 'CREATE', 'TENANT', '{\"slug\":\"existing-audit\"}')",
+    [tenant.rows[0]!.id],
+  );
+  const original: QueryResult = await database.pool.query('SELECT * FROM audit_event');
+  await migrateDatabase(database.pool);
+  assert.deepEqual((await database.pool.query('SELECT * FROM audit_event')).rows, original.rows);
+  assert.equal(
+    (await database.pool.query('SELECT retention_days FROM administrative_audit_policy')).rows[0]
+      .retention_days,
+    365,
+  );
+  assert.equal((await database.pool.query('SELECT * FROM administrative_audit_event')).rowCount, 0);
+  await assert.rejects(
+    database.pool.query('UPDATE administrative_audit_policy SET retention_days = 0'),
+    /check constraint/,
+  );
+  await assert.rejects(
+    database.pool.query(
+      "INSERT INTO administrative_audit_event (actor_principal_id, action, target_type, target_public_id, reason, request_id, outcome) VALUES (gen_random_uuid(), 'ADMIN_TEST', 'COOKBOOK', gen_random_uuid(), ' ', 'req-text', 'SUCCEEDED')",
+    ),
+    /check constraint/,
+  );
+  await migrateDatabase(database.pool);
+  assert.equal((await ledger()).length, migrations.length);
+});

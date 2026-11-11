@@ -4,6 +4,20 @@ Unimplemented capabilities and feature ideas. Items have no assigned priority, r
 
 ## Backlog
 
+### Platform administration and moderation
+
+Scope and acceptance requirements: [administration concept](admin-concept.md). Completed inventory and code evidence: [Phase 0](admin-concept-implementation.md#phase-0--inventory-and-design-alignment); delivered audit foundation: [Phase 1](admin-concept-implementation.md#phase-1--administrative-audit-foundation). Audit design: [ADR 0002](adr/0002-administrative-audit-foundation.md). The user-established sequence is the concept's numbered phases; the following capabilities remain outstanding.
+
+#### Subsequent concept phases
+
+- [ ] Phase 2: dedicated justified, audited private cookbook/recipe/history/media inspection; use `admin/tenant-routes.ts`, the cookbook readers and the existing admin UI as integration points, preserving normal access boundaries.
+- [ ] Phase 3: atomic canonical ownership recovery, membership reconciliation, concurrent-transfer safety, owner eligibility and post-commit notifications; reuse `cookbook/owned-cookbook.ts`, `cookbook/tenant-user-routes.ts` and identity-repair/session behavior. Reconcile role-derived owner display and nullable invitation-state owners explicitly.
+- [ ] Phase 4: justified cookbook restrictions and independent recipe moderation, including closure of the confirmed disabled-cookbook gaps in `recipe-editor-routes.ts` share reads and `ai-context-routes.ts` existing reader grants. Verify every surface in the inventory, both independent cookbook locks and moderation independence from trash/restore/publication. Change existing tenant-manager moderation rights deliberately with API/UI regression coverage.
+- [ ] Phase 5: harden permanent recipe/cookbook deletion, media cleanup, preservation/confirmation and surviving audit history; require an ownership decision for account deletion, protect the last usable administrator and support justified account recovery/corrections.
+- [ ] Phase 6: link reports to explicit inspection/actions and their audit events, operator history, user notifications/review affordances and localized accessible deep links. Ticket result selection alone must continue to have no enforcement side effect.
+- [ ] Prepare operator/privacy/retention/incident/appeal documentation under the concept's requirements. Keep investigation reasons distinct from public explanations. Review safe logging of recipe share-link path credentials in `security/request-logging.ts` and external proxy logs.
+- [ ] Deferred security/forensics: manual investigation cases and explainable anomaly signals under the concept's privacy constraints; no scoring, new behavioral telemetry or automated enforcement in the administration rollout.
+
 ### Federation and cross-cookbook sharing
 
 #### Tenant identity and trust

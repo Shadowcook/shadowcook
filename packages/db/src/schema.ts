@@ -349,7 +349,30 @@ export interface ApplicationSeedTable {
  * initial migration. These core tables are typed now because they are the
  * first persistence boundary used by the API.
  */
+export interface AdministrativeAuditEventTable {
+  id: Generated<Uuid>;
+  created_at: Generated<Timestamp>;
+  actor_principal_id: string;
+  action: string;
+  target_type: 'COOKBOOK' | 'RECIPE' | 'USER' | 'INSTANCE';
+  target_public_id: string;
+  cookbook_public_id: string | null;
+  reason: string;
+  previous_state: unknown;
+  new_state: unknown;
+  request_id: string;
+  related_report_public_id: string | null;
+  outcome: 'SUCCEEDED';
+}
+
+export interface AdministrativeAuditPolicyTable {
+  singleton: Generated<boolean>;
+  retention_days: number;
+}
+
 export interface Database {
+  administrative_audit_event: AdministrativeAuditEventTable;
+  administrative_audit_policy: AdministrativeAuditPolicyTable;
   instance_report_settings: InstanceReportSettingsTable;
   content_report: ContentReportTable;
   content_report_notification: ContentReportNotificationTable;

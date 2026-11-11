@@ -331,6 +331,17 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 - Ticket creation and its `content_report_notification` record commit in one transaction. Notification delivery is attempted immediately after commit. API-process polling runs every minute and retries unsuccessful attempts after five minutes. Workers lock pending rows with `FOR UPDATE SKIP LOCKED`; delivery records attempts and a UTC sent timestamp. Notification delivery is at least once; an interruption after SMTP acceptance and before database commit can cause duplicate mail.
 - The customizable `CONTENT_REPORT` email template includes the ticket identifier, target type and identifier, reason, authored description, instance name, recipient details, and a ticket-detail link. Ticket creation remains successful when notification delivery fails or SMTP is unavailable.
 
+### Administrative audit infrastructure
+
+- Sensitive administration uses `requireAdministrativeActor` independently of ordinary tenant and instance guards. It requires a non-expired, non-revoked browser session, an active human account and principal, and explicit `instance:administer`. Any Authorization header is rejected, including human OAuth tokens alongside a valid session. Required password changes and pending owned-cookbook identity repairs prevent these operations. Tenant managers and cookbook owners receive no administrative content rights from their existing roles.
+- `executeAdministrativeMutation` authorizes, validates purpose, invokes server-supplied work and inserts its audit event using one database client and transaction. An action or audit failure rolls back the transaction. The guard locks the session, account and principal for the transaction. Ordinary cookbook authorization remains unchanged.
+- `executeAdministrativeRead` authorizes and executes its callback in a PostgreSQL read-only transaction. It then revalidates the session, principal and permission and commits an audit event before returning the buffered result. Failed work, lost authorization or failed audit persistence returns no result. Callbacks use the supplied client and return data to the service rather than sending responses or opening independent write transactions.
+- Shared purpose validation trims a required reason of 1 through 2,000 Unicode code points and accepts an optional existing report public UUID. Unknown input fields, including client-supplied actor, request identity and outcome, are rejected. Action and target metadata are supplied by the server. Correlation uses the API's string request ID, also returned as `X-Request-ID`.
+- `administrative_audit_event` stores its UUID, database-generated UTC timestamp, historical actor principal UUID, action, target type/public UUID, optional parent cookbook public UUID, reason, optional minimal previous/new state, request ID, optional report public UUID and `SUCCEEDED` outcome. Historical identifiers have no deletion-coupled foreign keys and survive target, report, account and principal deletion. State serialization permits only selected owner, restriction, membership, role and status metadata; recipe text, media, credentials and account-profile snapshots are excluded.
+- Denied, invalid-purpose and failed operations produce structured security logs with action, request ID and outcome; guard denials also record the error code. The service does not log reasons, request bodies, private target contents or exception details. The shared authentication pre-handler can reject requests before the operation service is entered.
+- `administrative_audit_policy` stores one retention period from 1 through 3,650 days, default 365. Startup pruning and the three-hour cleanup timer delete events older than the current period using database time and 24-hour days. Operators can change the period or prune explicitly with the `admin-audit-maintenance` command using database credentials; no web API exposes event reading, editing, deletion or retention changes. Database operators remain trusted. Backup retention and restoration procedures are documented in the [operator guide](administrative-audit-operations.md).
+- The operation services are exercised by isolated test handlers. Product administration routes retain their existing permissions and audit behavior; private-content inspection and ownership-transfer routes are not exposed by these services themselves.
+
 ### Administration controls
 
 - `/admin` is a reserved, instance-wide web namespace and is not a tenant slug.
@@ -371,8 +382,8 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 - `/auth/session` returns pending cookbook identity repairs for the owner. After authentication, document requests redirect owners with pending repairs to `/settings/cookbooks`, where a mandatory form requires a different name and slug for each locked cookbook. Authenticated API operations return `COOKBOOK_NAME_RESET_REQUIRED` until all repairs are complete, except authentication, password recovery, identity repair and permission-checked cookbook administration operations. Cookbook administration pages remain reachable during a pending reset. Required password changes take precedence. Saving both changed values atomically clears the reset lock; an independent administrative deactivation remains in effect.
 - `GET /account/cookbooks/{publicId}/slug-availability` requires ownership, excludes the edited cookbook from collisions, includes locked and disabled cookbooks, applies reserved namespaces and blocked terms, and disables response caching. The administrative advisory availability endpoint remains restricted to `tenant:create` or `instance:administer`.
 - A failed owner-invitation delivery returns `MAIL_DELIVERY_FAILED`, and the tenant-management UI displays a mail-delivery-specific error.
-- A disabled tenant is excluded from tenant selection, cookbook responses, recipe-detail responses, and invitation acceptance.
-- Deleting a tenant permanently deletes its tenant-owned records and inbound sharing records that identify the deleted tenant by public ID.
+- A disabled tenant is excluded from tenant selection, cookbook responses, ordinary recipe-detail responses, media reads, tenant-permission-gated operations, and invitation acceptance. The anonymous share-link text reader does not check `disabled_at`. Existing AI reader grants also omit the disabled-state check; their bootstrap exchange checks it before returning a manifest.
+- Deleting a tenant requires `tenant:create` or `instance:administer`. The transaction permanently deletes the tenant and its cascading tenant-owned records, plus inbound access grants and claimed invitations identifying it by public ID. The endpoint accepts no administrative reason and writes no deletion audit event. The web UI requires confirmation through the project dialog.
 - A cookbook response includes the selected tenant display name for the tenant-scoped page heading and breadcrumb.
 - Successful tenant creation from the tenant-management dialog closes the dialog, refreshes the tenant list, and displays a transient success toast.
 
@@ -381,6 +392,8 @@ Repository applications are `apps/api`, `apps/web`, and the local development ut
 - An instance is one Shadowcook deployment and hosts one or more tenants.
 - A tenant is a cookbook identity and the content and security boundary for its recipes, settings, service accounts, and sharing policy.
 - Human accounts can belong to multiple tenants; tenants can have multiple members.
+- `tenant.owner_principal_id` identifies canonical ownership independently of instance roles and tenant role names. It is nullable for cookbooks awaiting owner invitation acceptance. Foreign keys require a referenced principal and membership in that cookbook when set. Cookbook-member removal and role replacement protect the canonical owner.
+- The administration list displays owner names from memberships with a role named `Owner`; those displayed names are not resolved from the canonical owner field.
 - Repository access and authorization require explicit tenant scope.
 - Recipe visibility and share-link management require tenant-scoped permissions. Instance permissions alone do not grant cookbook access.
 
@@ -475,7 +488,7 @@ Portable recipe variants accept optional `metadata` and `diet`. Recipe-level fie
 - Publication atomically validates the draft, archives the prior published revision, assigns the next revision number, selects the new published revision, and clears the draft pointer.
 - Reader requests resolve the published pointer and apply access checks. Publication does not grant public visibility. Public recipes do not expose drafts to ordinary readers.
 - Step, variant, and usage keys identify logical entities across revisions for comparison.
-- Instance-administrator tenant creation writes an `audit_event` with tenant, principal, operation, entity identity, created slug, and UTC timestamp. Revision snapshots are authoritative for recipe history.
+- Tenant creation through the administrative API writes an `audit_event` in the creation transaction with tenant, principal, operation, entity identity, created slug, and UTC timestamp. This is the current audit-event writer. The table requires a tenant and cascades on tenant, recipe or revision deletion; its principal reference restricts principal deletion. Its optional request identifier is a UUID, while API request correlation uses Fastify string IDs returned as `X-Request-ID`. Revision snapshots are authoritative for recipe history.
 
 Principals with `recipe:update` can discard the active draft through `DELETE /cookbook/tenants/{tenantSlug}/recipes/{publicId}/draft`. The operation locks the recipe and deletes the draft and its dependent content in one transaction. Published and archived revisions and immediate recipe metadata are retained. A recipe without a published revision is deleted together with its draft. The endpoint returns `204` without a response body, or `404` when the recipe or active draft is absent.
 
@@ -498,7 +511,7 @@ Authentication resolves to a human or service-account principal. Browser authent
 - `administrator` and `tenant-manager` are the only instance-wide roles.
 - Only an `administrator` can assign or remove instance-wide roles.
 - `Tenant-Manager` is the user-facing name of the `tenant-manager` instance-wide role.
-- A Tenant-Manager can create tenants.
+- A Tenant-Manager holds `tenant:create`. The tenant administration API accepts this permission for listing and creating cookbooks, enabling/disabling them, setting/cancelling mandatory identity resets, and permanently deleting them. `instance:administer` also authorizes these operations.
 - A Tenant-Manager cannot assign or remove `administrator` or `tenant-manager` roles.
 - `Tenant-Owner` is a tenant-scoped role for complete administration of one tenant.
 - A Tenant-Owner can manage users, roles, cookbook content, settings, and service accounts only within the tenant in which the role is assigned.
@@ -555,7 +568,7 @@ service-account:manage
 - `tenant_role` is tenant-scoped. `tenant_membership` associates a principal with a tenant and `tenant_membership_role` assigns its tenant roles.
 - `permission` is the canonical permission catalogue. Role-permission relationships are stored in `instance_role_permission` and `tenant_role_permission`.
 - Tenant-role names and their permission assignments are tenant data. The initial tenant-role set is `Owner`, `Editor`, and `Viewer`.
-- Instance administrators can list assignable instance roles and replace a user's instance-role assignments through `/admin/users/{publicId}/instance-roles`.
+- Instance administrators can list assignable instance roles and replace a user's instance-role assignments through `/admin/users/{publicId}/instance-roles`. Role replacement, account deactivation and soft deletion do not enforce a last-usable-administrator safeguard. Account deactivation/deletion revokes sessions and preserves canonical cookbook ownership and memberships.
 - Tenant members with `tenant:manage` can list only users of their own tenant and replace roles only for existing memberships through `/cookbook/tenant-users`. Instance-wide roles do not grant tenant permissions.
 - Tenant-user role assignment verifies every assigned role belongs to the managed tenant.
 - `DELETE /cookbook/tenant-users/{publicId}?tenantSlug=...` requires `tenant:manage` and removes an existing human user's membership and its cascading role assignments from that cookbook in one transaction. The cookbook owner cannot be removed. Accounts, sessions, recipe content, contributor attribution, and other cookbook memberships remain intact. Membership can be restored through a new invitation with a selected role. Tenant-user management presents a modal confirmation without typed confirmation; role assignment, removal, and the final report menu occupy fixed action columns.
@@ -620,7 +633,7 @@ service-account:manage
 - AI reader responses include `Cache-Control: no-store` and `Referrer-Policy: no-referrer`, including authorization and missing-resource responses. API request logs redact `access_token` query values and AI context bootstrap path tokens. External reverse-proxy and access logging must redact or exclude AI context credential URLs.
 - AI context manifest restrictions are read-only, no administration, and scope-limited. Current draft reads are permitted inside the selected grant scope.
 - AI context bearer tokens are accepted only by the `/ai-context/reader` endpoints. They expose published recipes, immutable published and archived revisions, and the current recipe draft within the grant scope. They do not expose management data or write operations.
-- Expired, consumed bootstrap links and expired or revoked AI context bearer tokens are unavailable. Accepted AI context bearer tokens update `last_used_at` in UTC.
+- Expired, consumed bootstrap links and expired or revoked AI context bearer tokens are unavailable. Accepted AI context bearer tokens update `last_used_at` in UTC. Reader grant validation rejects identity-reset-locked cookbooks but does not check cookbook deactivation. Bootstrap exchange consumes the one-time token before checking cookbook activity and reset state.
 
 ## Portable recipe authoring and JSON draft import
 
@@ -731,7 +744,7 @@ Each active share link is listed in the recipe editor with its creation timestam
 
 A share link may have an optional name, no expiry, or one explicit UTC expiry timestamp. An expired link is not resolved or listed as active.
 
-An active share link grants reader access to the current published default recipe variant, including its ingredient usages and ordered preparation steps.
+An active share link grants reader access to the current published default recipe variant, including its ingredient usages and ordered preparation steps. The text reader rejects deleted recipes and identity-reset-locked cookbooks but does not check cookbook deactivation.
 
 The shared-recipe view returns to the owning cookbook's root route.
 
