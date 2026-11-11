@@ -179,7 +179,8 @@ BEGIN
   IF (SELECT count(*) FROM user_account) <> 4 OR EXISTS (
     SELECT 1 FROM user_account WHERE email <> 'admin@local' AND (display_name <> 'User ' || right(id::text, 1)
       OR email <> 'user' || right(id::text, 1) || '@local'
-      OR password_hash IS NOT NULL OR first_name IS NOT NULL OR last_name IS NOT NULL)
+      OR password_hash IS NULL OR password_changed_at IS NULL OR password_change_required
+      OR first_name IS NOT NULL OR last_name IS NOT NULL)
   ) THEN RAISE EXCEPTION 'Profile sanitization failed'; END IF;
   IF EXISTS (SELECT 1 FROM user_session) OR EXISTS (SELECT 1 FROM password_reset_token)
     OR EXISTS (SELECT 1 FROM pending_registration) OR EXISTS (SELECT 1 FROM recipe_share_link)

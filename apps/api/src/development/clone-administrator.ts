@@ -2,7 +2,7 @@ import type { Pool, PoolClient, QueryResult } from 'pg';
 import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
 
 export async function configureCloneAdministrator(pool: Pool, password: string): Promise<void> {
-  if (password.length === 0) throw new Error('The administrator password must not be empty.');
+  if (password.length === 0) throw new Error('The test password must not be empty.');
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
@@ -45,10 +45,13 @@ export async function configureCloneAdministrator(pool: Pool, password: string):
       [principalId, role.rows[0].id],
     );
     await client.query(
+      `UPDATE user_account SET password_hash = $1, password_change_required = false,
+        password_changed_at = now()`,
+      [passwordHash],
+    );
+    await client.query(
       `UPDATE user_session SET revoked_at = now()
-       WHERE user_account_id = (SELECT id FROM user_account WHERE principal_id = $1)
-         AND revoked_at IS NULL`,
-      [principalId],
+       WHERE revoked_at IS NULL`,
     );
     await client.query(
       `UPDATE instance_authentication_settings SET login_mode = 'PASSWORD_OR_EMAIL_CODE'
