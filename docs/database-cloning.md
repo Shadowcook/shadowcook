@@ -20,15 +20,23 @@ pnpm clone:db --execute
 
 Use `--env-file /path/to/.env.db-clone` to select a different configuration.
 The first command performs read-only connection, identity, and target checks.
-With `--execute`, the final step asks twice for a hidden shared test password for all users, including `admin@local`,
-after the target import has committed. The password is checked against the copied
-minimum-entropy setting and is stored using the application's password hashing.
-Confirmation mismatches and rejected passwords can be retried.
-Execution requires an interactive terminal and installed workspace dependencies
-(Node.js and the API's `tsx` runtime). These requirements are checked before copying.
-For automation, `--admin-password-stdin` reads one shared test password line from standard input
-after import, without confirmation. Do not put the password in `.env.db-clone` or
-command-line arguments.
+With `--execute`, the password is read and validated after the initial read-only
+checks, before exporting data or creating the working database. If `./clone-secret`
+exists in the current working directory, its single non-empty password line is used
+without a prompt (a final newline is optional). The file takes precedence over
+`--admin-password-stdin`. Keep this local file private, for example with
+`chmod 600 clone-secret`; it is ignored by Git.
+
+Otherwise, the script asks twice for a hidden shared test password for all users,
+including `admin@local`. Confirmation mismatches and rejected passwords can be
+retried. Execution requires installed workspace dependencies (Node.js and the API's
+`tsx` runtime). An interactive terminal is required only when neither the file nor
+`--admin-password-stdin` supplies the password. The latter reads one password line
+from standard input without confirmation. Do not put the password in `.env.db-clone`
+or command-line arguments. The password is checked against the source instance's
+minimum-entropy setting before copying, and against the copied policy when applied
+using the application's password hashing. Cancellation or invalid file/stdin input
+leaves both databases unchanged. Without `--execute`, no password is read.
 
 Only `--execute` creates working data or replaces the target. Source and target
 must be different databases; aliases referring to the same database are rejected
@@ -106,9 +114,9 @@ all existing user sessions. Password setup and role assignment share a transacti
 setting is changed to password-or-email-code so the local password can be used;
 other authentication settings remain as copied.
 
-Cancelling this final step or failing stdin password validation returns an error
-after the target data has already been imported. It does not roll back the clone;
-keep the target services stopped until password setup is complete.
+If applying the password fails after the target import, the script returns an error
+without rolling back the already imported data. Keep the target services stopped
+until password setup is complete.
 Email-code testing requires test SMTP. Recipe image files are outside the database:
 copy them separately into
 the target's own media volume, preserving storage keys. Never share a writable

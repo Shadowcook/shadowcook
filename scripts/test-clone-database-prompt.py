@@ -59,6 +59,8 @@ def main() -> None:
         enter_secret(b"eR7!vQ2#nL9@xC4$kM8%pT6&zA1*")
         await_text(b"Repeat password: ")
         enter_secret(b"eR7!vQ2#nL9@xC4$kM8%pT6&zA1*")
+        assert b"Exporting source" not in transcript, "Copy started before password confirmation"
+        await_text(b"Exporting source")
         await_text(b"Clone complete. Test passwords are set for all users; admin@local is ready.")
         assert process.wait(timeout=10) == 0
         for secret in [b"first-secret-value", b"other-secret-value", b"abc", b"eR7!vQ2#nL9@xC4$kM8%pT6&zA1*"]:

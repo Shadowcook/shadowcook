@@ -18,8 +18,8 @@ usage() {
     'Without --execute, only read-only connection and target checks run.' \
     'With --execute, replace the target public schema with a sanitized source copy.' \
     'Business data remains unchanged; profiles, credentials, and mail settings are sanitized.' \
-    'After import, enter and confirm a hidden test password for all users, including the additional admin@local account.' \
-    '--admin-password-stdin reads one shared test password line for all users after import.' \
+    'Before copying, enter and confirm a hidden test password for all users, including the additional admin@local account.' \
+    './clone-secret supplies the password when present; otherwise --admin-password-stdin reads one line.' \
     'Execution requires installed workspace dependencies for the API password helper.' \
     'Stop target API, web, and other database clients before execution.' \
     'Requires host psql, pg_dump, pg_restore, createdb, and dropdb.' \
@@ -76,6 +76,7 @@ if [[ "${execute}" != true ]]; then
   exit 0
 fi
 check_clone_admin_requirements
+read_clone_test_password
 
 work_directory=$(mktemp -d "${TMPDIR:-/tmp}/shadowcook-clone.XXXXXXXXXX")
 stage_name="shadowcook_clone_$(date -u +%Y%m%d%H%M%S)_${work_directory##*.}"
