@@ -21,6 +21,7 @@ const locale: Locale = resolveRequestLocale(
 const text: Translation = translations[locale];
 const session: HeadBarSession = await loadHeadBarSession(Astro.request.headers.get('cookie'));
 const canonicalUrl: string = publicCanonicalUrl(Astro.url, '/');
+const deployedBuildCommit: string | undefined = buildCommit();
 ---
 
 <!doctype html>
@@ -69,7 +70,7 @@ const canonicalUrl: string = publicCanonicalUrl(Astro.url, '/');
         </div>
         <RecipePreview text={text} />
       </section>
-      <LandingFeatures text={text} />
+      <LandingFeatures text={text} buildCommit={deployedBuildCommit} />
       <section class="landing-discover" aria-labelledby="landing-discover-title">
         <img src="/shadowcook-logo.png" alt="" width="72" height="72" loading="lazy" />
         <h2 id="landing-discover-title">{text.landing.discoverTitle}</h2>
@@ -79,6 +80,6 @@ const canonicalUrl: string = publicCanonicalUrl(Astro.url, '/');
         >
       </section>
     </main>
-    <BuildFooter text={text} buildCommit={buildCommit()} />
+    <BuildFooter text={text} buildCommit={deployedBuildCommit} />
   </body>
 </html>

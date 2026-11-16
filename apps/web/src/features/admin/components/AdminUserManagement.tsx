@@ -1,3 +1,7 @@
+import { reportReferenceFromUrl } from '../reports/links';
+import AccountSafetyControl from '../safety/AccountSafetyControl';
+import { request, jsonRequest } from '../../../lib/api/client';
+import { safetyMessage } from '../safety/errors';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../../../i18n';
@@ -19,6 +23,7 @@ interface ManagedUser {
   last_login_at: string | null;
   tenants: UserTenant[];
   instance_roles: string[];
+  owned_cookbooks: UserTenant[];
 }
 interface InstanceRole {
   code: string;
@@ -34,11 +39,11 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
   const [invitationEmail, setInvitationEmail] = useState<string>('');
   const [invitationRoleCode, setInvitationRoleCode] = useState<string>('user');
   const [renamingUser, setRenamingUser] = useState<ManagedUser | null>(null);
-  const [deletingUser, setDeletingUser] = useState<ManagedUser | null>(null);
   const [resettingPasswordFor, setResettingPasswordFor] = useState<ManagedUser | null>(null);
   const [displayName, setDisplayName] = useState<string>('');
   const [instanceRoles, setInstanceRoles] = useState<InstanceRole[]>([]);
   const [roleUser, setRoleUser] = useState<ManagedUser | null>(null);
+  const [roleReason, setRoleReason] = useState<string>('');
   const [selectedRoleCodes, setSelectedRoleCodes] = useState<string[]>([]);
 
   useEffect((): void => {
@@ -65,6 +70,7 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
   }
   function openInstanceRoles(user: ManagedUser): void {
     setRoleUser(user);
+    setRoleReason('');
     setSelectedRoleCodes(user.instance_roles);
     setMessage('');
   }
@@ -76,23 +82,29 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
     );
   }
   async function saveInstanceRoles(): Promise<void> {
-    if (roleUser === null) return;
-    const response: Response = await fetch(
-      `/api/admin/users/${roleUser.public_id}/instance-roles`,
-      {
-        method: 'PUT',
-        credentials: 'same-origin',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ roleCodes: selectedRoleCodes }),
-      },
-    );
-    if (!response.ok) {
-      setMessage(text.errors.requestFailed);
+    if (!roleUser) return;
+    if (Array.from(roleReason.trim()).length < 1 || Array.from(roleReason.trim()).length > 2000) {
+      setMessage(text.safety.invalid);
       return;
     }
-    setRoleUser(null);
-    setMessage(text.admin.instanceRolesUpdated);
-    refresh();
+    try {
+      await request<void>(`/admin/users/${roleUser.public_id}/instance-roles`, {
+        ...jsonRequest({
+          roleCodes: selectedRoleCodes,
+          reason: roleReason.trim(),
+          ...(reportReferenceFromUrl(roleUser.public_id)
+            ? { relatedReportPublicId: reportReferenceFromUrl(roleUser.public_id) }
+            : {}),
+          confirmed: true,
+        }),
+        method: 'PUT',
+      });
+      setRoleUser(null);
+      setRoleReason('');
+      refresh();
+    } catch (error: unknown) {
+      setMessage(safetyMessage(error, text));
+    }
   }
   async function rename(event: SubmitEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -122,13 +134,6 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
     setInvitationEmail('');
     setMessage(text.admin.userInvitationSent);
   }
-  async function toggleDisabled(user: ManagedUser): Promise<void> {
-    const response: Response = await updateUser(user.public_id, {
-      disabled: user.disabled_at === null,
-    });
-    setMessage(response.ok ? text.admin.userStatusUpdated : text.errors.requestFailed);
-    if (response.ok) refresh();
-  }
   async function resetPassword(): Promise<void> {
     if (resettingPasswordFor === null) return;
     const response: Response = await fetch(
@@ -144,20 +149,6 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
     }
     closePasswordReset();
     setMessage(text.admin.passwordReset);
-    refresh();
-  }
-  async function remove(): Promise<void> {
-    if (deletingUser === null) return;
-    const response: Response = await fetch(`/api/admin/users/${deletingUser.public_id}`, {
-      method: 'DELETE',
-      credentials: 'same-origin',
-    });
-    if (!response.ok) {
-      setMessage(text.errors.requestFailed);
-      return;
-    }
-    setDeletingUser(null);
-    setMessage(text.admin.userDeleted);
     refresh();
   }
   const visibleUsers: ManagedUser[] = users.filter((user: ManagedUser): boolean =>
@@ -177,7 +168,14 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
           <p className="eyebrow">{text.admin.users}</p>
           <h1>{text.admin.usersTitle}</h1>
         </div>
-        <button onClick={(): void => setShowInvitation(true)}>{text.admin.addUser}</button>
+        <button
+          className="admin-create-action"
+          title={text.admin.addUser}
+          onClick={(): void => setShowInvitation(true)}
+        >
+          <AdminIcon name="add" />
+          {text.admin.addUser}
+        </button>
       </div>
       <p className="lede">{text.admin.usersDescription}</p>
       <label>
@@ -217,7 +215,7 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
                 <td>{userStatus(text, user)}</td>
                 <td>
                   {user.deleted_at === null ? (
-                    <div className="tenant-actions">
+                    <div className="tenant-actions admin-record-actions">
                       <button
                         aria-label={text.admin.assignInstanceRoles}
                         title={text.admin.assignInstanceRoles}
@@ -225,21 +223,14 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
                       >
                         <AdminIcon name="roles" />
                       </button>
-                      <button
-                        aria-label={
-                          user.disabled_at === null
-                            ? text.admin.deactivateUser
-                            : text.admin.activateUser
-                        }
-                        title={
-                          user.disabled_at === null
-                            ? text.admin.deactivateUser
-                            : text.admin.activateUser
-                        }
-                        onClick={(): void => void toggleDisabled(user)}
-                      >
-                        <AdminIcon name={user.disabled_at === null ? 'disable' : 'enable'} />
-                      </button>
+                      <AccountSafetyControl
+                        publicId={user.public_id}
+                        name={`${user.display_name} · ${user.email}`}
+                        disabled={user.disabled_at !== null}
+                        owned={user.owned_cookbooks ?? []}
+                        text={text}
+                        onSaved={refresh}
+                      />
                       <button
                         aria-label={text.admin.renameUser}
                         title={text.admin.renameUser}
@@ -256,16 +247,6 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
                         }}
                       >
                         <AdminIcon name="resetPassword" />
-                      </button>
-                      <button
-                        aria-label={text.admin.deleteUser}
-                        title={text.admin.deleteUser}
-                        onClick={(): void => {
-                          setDeletingUser(user);
-                          setMessage('');
-                        }}
-                      >
-                        <AdminIcon name="delete" />
                       </button>
                     </div>
                   ) : null}
@@ -304,6 +285,15 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
           <section className="modal" aria-labelledby="instance-role-assignment-title">
             <h2 id="instance-role-assignment-title">{text.admin.assignInstanceRoles}</h2>
             <p>{roleUser.display_name}</p>
+            {reportReferenceFromUrl(roleUser.public_id) ? (
+              <p>
+                <a href={`/admin/reports/${reportReferenceFromUrl(roleUser.public_id)}`}>
+                  {text.workflow.returnReport}
+                </a>{' '}
+                · {reportReferenceFromUrl(roleUser.public_id)}
+              </p>
+            ) : null}
+            {message ? <p role="alert">{message}</p> : null}
             <div className="role-assignment__options">
               {instanceRoles.map((role: InstanceRole): JSX.Element => (
                 <label className="role-assignment__option" key={role.code}>
@@ -318,6 +308,15 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
                 </label>
               ))}
             </div>
+            <label>
+              {text.safety.reason}
+              <textarea
+                value={roleReason}
+                onChange={(event: ChangeEvent<HTMLTextAreaElement>): void =>
+                  setRoleReason(event.currentTarget.value)
+                }
+              />
+            </label>
             <div className="role-assignment__actions">
               <button type="button" onClick={(): void => void saveInstanceRoles()}>
                 {text.admin.save}
@@ -387,21 +386,6 @@ export default function AdminUserManagement({ locale }: { locale: Locale }): JSX
           onConfirm={(): void => void resetPassword()}
           onClose={closePasswordReset}
         />
-      )}
-      {deletingUser === null ? null : (
-        <MessageDialog
-          kind="confirmation"
-          text={text.dialog}
-          title={text.admin.deleteUser}
-          message={text.admin.deleteUserDescription}
-          confirmLabel={text.dashboard.confirmDelete}
-          onConfirm={(): void => void remove()}
-          onClose={(): void => setDeletingUser(null)}
-        >
-          <p>
-            <strong>{deletingUser.display_name}</strong>
-          </p>
-        </MessageDialog>
       )}
     </section>
   );

@@ -1,9 +1,14 @@
 import type { JSX } from 'react';
 import type { IconDefinition } from '@fortawesome/fontawesome-svg-core';
 import {
+  faRotateLeft,
+  faRotateRight,
   faArrowDown,
   faArrowUp,
   faBars,
+  faBan,
+  faEnvelope,
+  faUnlock,
   faChevronDown,
   faChevronLeft,
   faChevronRight,
@@ -27,6 +32,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 type IconName =
   | 'add'
   | 'aliases'
+  | 'block'
+  | 'emailRecovery'
+  | 'unblock'
   | 'close'
   | 'categoryCollapsed'
   | 'categoryExpanded'
@@ -44,6 +52,8 @@ type IconName =
   | 'next'
   | 'previous'
   | 'roles'
+  | 'cancelReset'
+  | 'forceReset'
   | 'resetPassword'
   | 'save'
   | 'share';
@@ -51,6 +61,9 @@ type IconName =
 const iconByName: Readonly<Record<IconName, IconDefinition>> = {
   add: faPlus,
   aliases: faTags,
+  block: faBan,
+  emailRecovery: faEnvelope,
+  unblock: faUnlock,
   close: faXmark,
   categoryCollapsed: faChevronRight,
   categoryExpanded: faChevronDown,
@@ -67,6 +80,8 @@ const iconByName: Readonly<Record<IconName, IconDefinition>> = {
   menu: faBars,
   next: faChevronRight,
   previous: faChevronLeft,
+  cancelReset: faRotateRight,
+  forceReset: faRotateLeft,
   resetPassword: faKey,
   roles: faUsers,
   save: faFloppyDisk,

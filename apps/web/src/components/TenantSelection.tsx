@@ -1,3 +1,4 @@
+import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useRef, useState } from 'react';
 import type { ChangeEvent, JSX } from 'react';
 import { translations } from '../i18n';
@@ -21,7 +22,7 @@ interface TenantSelectionResponse {
   shuffleSeed: string;
 }
 
-export default function TenantSelection({ locale }: TenantSelectionProperties): JSX.Element {
+function TenantSelection({ locale }: TenantSelectionProperties): JSX.Element {
   const text: Translation = translations[locale];
   const [selection, setSelection] = useState<TenantSelectionResponse | null>(null);
   const [filter, setFilter] = useState<string>('');
@@ -137,3 +138,5 @@ async function loadTenants(
   if (!response.ok) throw new Error('Tenant selection request failed.');
   return (await response.json()) as TenantSelectionResponse;
 }
+
+export default withErrorBoundary(TenantSelection);

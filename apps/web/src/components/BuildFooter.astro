@@ -1,6 +1,7 @@
 ---
 import type { Translation } from '../i18n';
 import { applicationVersion } from '../lib/server/build-info';
+import { githubRepositoryUrl, licenseUrl } from '../lib/source-links';
 
 interface Properties {
   buildCommit: string | undefined;
@@ -12,15 +13,11 @@ const displayedCommit: string =
   buildCommit === undefined || buildCommit.length === 0
     ? text.buildFooter.unavailable
     : buildCommit.slice(0, 7);
-const githubRepositoryUrl: string = 'https://github.com/Shadowcook/shadowcook';
 const githubCommitUrl: string | undefined =
   buildCommit === undefined || buildCommit.length === 0
     ? undefined
     : `${githubRepositoryUrl}/commit/${buildCommit}`;
-const githubLicenseUrl: string | undefined =
-  buildCommit === undefined || buildCommit.length === 0
-    ? undefined
-    : `${githubRepositoryUrl}/blob/${buildCommit}/LICENSE`;
+const githubLicenseUrl: string | undefined = licenseUrl(buildCommit);
 ---
 
 <footer class="build-footer">

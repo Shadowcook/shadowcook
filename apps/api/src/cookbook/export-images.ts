@@ -22,7 +22,7 @@ export async function exportRevisionImages(
      FROM recipe_revision_media AS media
      INNER JOIN media_asset AS asset ON asset.id = media.media_asset_id
      INNER JOIN recipe_revision AS revision ON revision.id = media.recipe_revision_id
-     INNER JOIN recipe ON recipe.id = revision.recipe_id
+     INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
      WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND asset.tenant_id = $1 AND media.usage_kind = 'COVER'
      ORDER BY revision.public_id`,
     [tenantId],

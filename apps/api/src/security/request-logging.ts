@@ -25,7 +25,9 @@ export function serializeRequestForLog(request: FastifyRequest): LoggedRequest {
 export function replyWithNotFound(request: FastifyRequest, reply: FastifyReply): FastifyReply {
   const message: string = `Route ${request.method}:${redactRequestUrl(request.url)} not found`;
   request.log.info(message);
-  return reply.code(404).send({ message, error: 'Not Found', statusCode: 404 });
+  return reply
+    .code(404)
+    .send({ code: 'NOT_FOUND', message: 'Route not found', error: 'Not Found', statusCode: 404 });
 }
 
 function redactRequestUrl(url: string): string {

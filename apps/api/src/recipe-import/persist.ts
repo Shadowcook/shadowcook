@@ -31,7 +31,7 @@ export async function persistImportedRecipe(
   if (categories.rows.length !== input.categoryPublicIds.length)
     throw new ImportConflict('INVALID_RECIPE_CATEGORY');
   const recipe: QueryResult<{ id: string; public_id: string; slug: string }> = await client.query(
-    'INSERT INTO recipe (tenant_id, lineage_public_id, slug, is_featured) VALUES ($1, $2, $3, false) RETURNING id, public_id, slug',
+    'INSERT INTO ordinary_recipe (tenant_id, lineage_public_id, slug, is_featured) VALUES ($1, $2, $3, false) RETURNING id, public_id, slug',
     [tenantId, document.recipe.provenance?.lineagePublicId ?? randomUUID(), input.slug],
   );
   const created: { id: string; public_id: string; slug: string } = recipe.rows[0]!;
@@ -164,7 +164,7 @@ export async function persistImportedRecipe(
       ],
     );
   }
-  await client.query('UPDATE recipe SET draft_revision_id = $1 WHERE id = $2', [
+  await client.query('UPDATE ordinary_recipe AS recipe SET draft_revision_id = $1 WHERE id = $2', [
     revisionId,
     created.id,
   ]);

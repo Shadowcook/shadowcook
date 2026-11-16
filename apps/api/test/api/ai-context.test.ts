@@ -558,6 +558,23 @@ test('AI reader credentials cannot authenticate ordinary API reads or writes', a
   assert.deepEqual(recipesAfter.rows, recipesBefore.rows);
 });
 
+test('existing AI reader grants cannot expose a cookbook awaiting an identity reset', async (): Promise<void> => {
+  const manifest: Manifest = await exchange(await createGrant('TENANT', tenant.publicId));
+  assert.equal((await reader(manifest, 'overview')).statusCode, 200);
+  await database.pool.query('UPDATE tenant SET name_reset_required = true WHERE id = $1', [
+    tenant.id,
+  ]);
+  try {
+    for (const endpoint of ['overview', 'recipe', 'revisions', 'draft'] as EndpointName[]) {
+      assert.equal((await reader(manifest, endpoint)).statusCode, 401, endpoint);
+    }
+  } finally {
+    await database.pool.query('UPDATE tenant SET name_reset_required = false WHERE id = $1', [
+      tenant.id,
+    ]);
+  }
+});
+
 async function createGrant(scopeType: ScopeType, scopePublicId: string): Promise<string> {
   const response: LightMyRequestResponse = await api.inject({
     method: 'POST',

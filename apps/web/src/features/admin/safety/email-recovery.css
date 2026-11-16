@@ -1,0 +1,110 @@
+.application-dialog.email-recovery-dialog {
+  width: min(38rem, calc(100% - 2rem));
+  padding: 2rem;
+}
+
+.email-recovery-dialog .application-dialog__message {
+  margin: 1rem 0 1.5rem;
+  line-height: 1.55;
+}
+
+.email-recovery-dialog__body {
+  display: grid;
+  gap: 1.5rem;
+  min-width: 0;
+}
+
+.email-recovery-dialog__account {
+  display: grid;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #e5dbce;
+  border-radius: 0.3rem;
+  background: #f6f1e7;
+  overflow-wrap: anywhere;
+}
+
+.email-recovery-dialog__account p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.email-recovery-dialog__account-name {
+  font-weight: 600;
+}
+
+.email-recovery-dialog__account-id {
+  color: #685b52;
+  font-size: 0.85rem;
+}
+
+.email-recovery-dialog label {
+  gap: 0.6rem;
+  line-height: 1.4;
+}
+
+.email-recovery-dialog textarea {
+  width: 100%;
+  min-height: 6.5rem;
+  padding: 0.8rem;
+  resize: vertical;
+  border: 1px solid #d7cabb;
+  border-radius: 0.2rem;
+  outline-color: #bf4c2d;
+  background: #fffdf9;
+  font:
+    400 0.9rem / 1.5 Arial,
+    sans-serif;
+}
+
+.email-recovery-dialog__verification {
+  display: grid;
+  gap: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5dbce;
+}
+
+.email-recovery-dialog__destination {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.email-recovery-dialog__send {
+  justify-self: start;
+}
+
+.email-recovery-dialog__status,
+.email-recovery-dialog__error {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0.3rem;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.email-recovery-dialog__status {
+  color: #314d42;
+  background: #e8eee6;
+}
+
+.email-recovery-dialog__error {
+  color: #a7472e;
+  background: #f8e8df;
+}
+
+.email-recovery-dialog .application-dialog__actions {
+  margin-top: 1.75rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5dbce;
+}
+
+@media (max-width: 520px) {
+  .application-dialog.email-recovery-dialog {
+    padding: 1.25rem;
+  }
+
+  .email-recovery-dialog__send,
+  .email-recovery-dialog .application-dialog__actions button {
+    width: 100%;
+  }
+}

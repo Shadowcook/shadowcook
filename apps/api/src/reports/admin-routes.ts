@@ -1,7 +1,9 @@
+import { reportContext } from './admin-context.js';
+import { registerReportWorkflowUpdate } from './workflow-update.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool, QueryResult } from 'pg';
-import { requireInstancePermission } from '../admin/authorization.js';
-import { isRecord, isUuid, parseReportUpdate, reportStatuses, type ReportUpdate } from './model.js';
+import { requireAdministrativeActor, requireInstancePermission } from '../admin/authorization.js';
+import { isRecord, isUuid, reportStatuses } from './model.js';
 
 const administratorSql: string = `SELECT u.id, u.public_id AS "publicId", u.display_name AS "displayName"
   FROM user_account u JOIN principal ON principal.id = u.principal_id
@@ -23,7 +25,7 @@ const reportSelectSql: string = `SELECT r.public_id AS "publicId", r.target_type
   LEFT JOIN recipe ON r.target_type = 'RECIPE' AND recipe.public_id = r.target_public_id
   LEFT JOIN recipe_revision revision ON revision.id = recipe.published_revision_id
   LEFT JOIN tenant recipe_tenant ON recipe_tenant.id = recipe.tenant_id
-  LEFT JOIN user_account target_user ON r.target_type = 'USER' AND target_user.public_id = r.target_public_id
+  LEFT JOIN user_account target_user ON r.target_type = 'USER' AND target_user.public_id = r.target_public_id AND target_user.deleted_at IS NULL
   LEFT JOIN tenant cookbook ON r.target_type = 'COOKBOOK' AND cookbook.public_id = r.target_public_id
   JOIN content_report_notification n ON n.report_public_id = r.public_id`;
 
@@ -73,7 +75,14 @@ export function registerAdminReportRoutes(api: FastifyInstance, pool: Pool): voi
   api.get(
     '/admin/reports',
     async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
-      if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
+      reply
+        .header('Cache-Control', 'private, no-store')
+        .header('X-Robots-Tag', 'noindex, nofollow')
+        .header('Referrer-Policy', 'no-referrer');
+      if (
+        (await requireAdministrativeActor(pool, request, reply, 'ADMIN_REPORT_READ', false)) ===
+        null
+      )
         return;
       const query: { status?: unknown; page?: unknown } = request.query as {
         status?: unknown;
@@ -84,6 +93,7 @@ export function registerAdminReportRoutes(api: FastifyInstance, pool: Pool): voi
       if (
         !Number.isSafeInteger(page) ||
         page < 1 ||
+        page > 100000 ||
         (status !== null && !reportStatuses.includes(status))
       )
         return reply
@@ -112,7 +122,14 @@ export function registerAdminReportRoutes(api: FastifyInstance, pool: Pool): voi
   api.get(
     '/admin/reports/:publicId',
     async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
-      if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
+      reply
+        .header('Cache-Control', 'private, no-store')
+        .header('X-Robots-Tag', 'noindex, nofollow')
+        .header('Referrer-Policy', 'no-referrer');
+      if (
+        (await requireAdministrativeActor(pool, request, reply, 'ADMIN_REPORT_READ', false)) ===
+        null
+      )
         return;
       const publicId: unknown = (request.params as { publicId?: unknown }).publicId;
       if (!isUuid(publicId))
@@ -127,38 +144,12 @@ export function registerAdminReportRoutes(api: FastifyInstance, pool: Pool): voi
       const administrators: QueryResult = await pool.query(
         `SELECT "publicId", "displayName" FROM (${administratorSql}) administrators ORDER BY "displayName", "publicId"`,
       );
-      return { report: report.rows[0], administrators: administrators.rows };
+      return {
+        report: report.rows[0],
+        administrators: administrators.rows,
+        context: await reportContext(pool, publicId),
+      };
     },
   );
-  api.put(
-    '/admin/reports/:publicId',
-    async (request: FastifyRequest, reply: FastifyReply): Promise<unknown> => {
-      if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
-        return;
-      const publicId: unknown = (request.params as { publicId?: unknown }).publicId;
-      const input: ReportUpdate | null = parseReportUpdate(request.body);
-      if (!isUuid(publicId) || input === null)
-        return reply
-          .code(400)
-          .send({ code: 'INVALID_REPORT_UPDATE', error: 'The report update is invalid.' });
-      // The update and active-administrator check share one statement.
-      const updated: QueryResult = await pool.query(
-        `UPDATE content_report SET status = $2, result = $3, result_note = $4,
-      assigned_admin_user_id = (SELECT id FROM (${administratorSql}) administrators WHERE "publicId" = $5), updated_at = now()
-      WHERE public_id = $1 AND ($5::uuid IS NULL OR EXISTS (SELECT 1 FROM (${administratorSql}) administrators WHERE "publicId" = $5)) RETURNING public_id`,
-        [publicId, input.status, input.result, input.resultNote, input.assignedAdminPublicId],
-      );
-      if (updated.rowCount === 0) {
-        const exists: QueryResult = await pool.query(
-          'SELECT 1 FROM content_report WHERE public_id = $1',
-          [publicId],
-        );
-        return reply.code(exists.rowCount === 0 ? 404 : 400).send({
-          code: exists.rowCount === 0 ? 'REPORT_NOT_FOUND' : 'INVALID_REPORT_ASSIGNEE',
-          error: 'The report or administrator is unavailable.',
-        });
-      }
-      return reply.code(204).send();
-    },
-  );
+  registerReportWorkflowUpdate(api, pool, administratorSql);
 }

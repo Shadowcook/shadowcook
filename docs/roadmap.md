@@ -4,6 +4,16 @@ Unimplemented capabilities and feature ideas. Items have no assigned priority, r
 
 ## Backlog
 
+### Platform administration and moderation
+
+The remaining scope follows the privacy constraints in the [administration concept](admin-concept.md).
+
+#### Operational and deferred scope
+
+- [ ] Review and publish instance-specific privacy, incident escalation, preservation and notice/review policies using the delivered [operator guide](administrative-audit-operations.md) and [user guide](administrative-user-guide.md). Operator-authored legal documents remain instance-specific.
+- [ ] Review safe logging of recipe share-link path credentials in `security/request-logging.ts` and external proxy logs.
+- [ ] Deferred security/forensics: manual investigation cases and explainable anomaly signals under the concept's privacy constraints; no scoring, new behavioral telemetry or automated enforcement in the administration rollout.
+
 ### Federation and cross-cookbook sharing
 
 #### Tenant identity and trust

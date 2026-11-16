@@ -1,3 +1,5 @@
+import ReportWorkflow from '../reports/ReportWorkflow';
+import type { ReportContext } from '../reports/types';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX } from 'react';
 import { translations, type Locale, type Translation } from '../../../i18n';
@@ -16,6 +18,7 @@ interface ReportList {
 interface ReportDetail {
   report: ContentReport;
   administrators: ReportUser[];
+  context: ReportContext;
 }
 
 export default function AdminReports({
@@ -26,8 +29,9 @@ export default function AdminReports({
   publicId?: string;
 }): JSX.Element {
   const text: Translation = translations[locale];
-  const [status, setStatus] = useState<ReportStatus | ''>('');
-  const [page, setPage] = useState<number>(1);
+  const [status, setStatus] = useState<ReportStatus | ''>(() => initialFilter().status);
+  const [page, setPage] = useState<number>(() => initialFilter().page);
+  const [version, setVersion] = useState<number>(0);
   const [list, setList] = useState<ReportList | null>(null);
   const [detail, setDetail] = useState<ReportDetail | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -36,6 +40,8 @@ export default function AdminReports({
     let active: boolean = true;
     setLoading(true);
     setError('');
+    setDetail(null);
+    setList(null);
     const path: string = publicId
       ? `/admin/reports/${encodeURIComponent(publicId)}`
       : `/admin/reports?page=${page}${status ? `&status=${status}` : ''}`;
@@ -54,12 +60,26 @@ export default function AdminReports({
     return (): void => {
       active = false;
     };
-  }, [publicId, page, status, text]);
+  }, [publicId, page, status, text, version]);
+  useEffect((): (() => void) => {
+    const pop: () => void = (): void => {
+      const filter: { status: ReportStatus | ''; page: number } = initialFilter();
+      setStatus(filter.status);
+      setPage(filter.page);
+    };
+    window.addEventListener('popstate', pop);
+    return (): void => window.removeEventListener('popstate', pop);
+  }, []);
+  function filter(nextStatus: ReportStatus | '', nextPage: number): void {
+    setStatus(nextStatus);
+    setPage(nextPage);
+    const query: URLSearchParams = new URLSearchParams();
+    if (nextStatus) query.set('status', nextStatus);
+    query.set('page', String(nextPage));
+    window.history.pushState({}, '', `/admin/reports?${query}`);
+  }
   async function reloadDetail(): Promise<void> {
-    const response: ReportDetail = await request<ReportDetail>(
-      `/admin/reports/${encodeURIComponent(publicId ?? '')}`,
-    );
-    setDetail(response);
+    setVersion((value: number): number => value + 1);
   }
   function timestamp(value: string): string {
     return new Intl.DateTimeFormat(locale, { dateStyle: 'medium', timeStyle: 'short' }).format(
@@ -73,6 +93,13 @@ export default function AdminReports({
       }
     >
       <h1>{text.reports.dashboard}</h1>
+      <button
+        type="button"
+        disabled={loading}
+        onClick={(): void => setVersion((value: number): number => value + 1)}
+      >
+        {text.workflow.refresh}
+      </button>
       {error ? (
         <p className="message" role="alert">
           {error}
@@ -85,7 +112,7 @@ export default function AdminReports({
           </a>
           {loading ? (
             <p aria-live="polite">{text.loading}</p>
-          ) : detail ? (
+          ) : detail && detail.report.publicId === publicId ? (
             <>
               <h2 className="report-detail__title">
                 {text.reports.targets[detail.report.targetType]}:{' '}
@@ -122,8 +149,15 @@ export default function AdminReports({
               </dl>
               <h3>{text.reports.description}</h3>
               <p className="report-description">{detail.report.description}</p>
+              <ReportWorkflow
+                reportId={detail.report.publicId}
+                context={detail.context}
+                text={text}
+                locale={locale}
+                onReload={(): void => setVersion((value: number): number => value + 1)}
+              />
               <ReportTicketEditor
-                key={detail.report.publicId}
+                key={`${detail.report.publicId}:${detail.report.updatedAt}`}
                 text={text}
                 report={detail.report}
                 administrators={detail.administrators}
@@ -139,8 +173,7 @@ export default function AdminReports({
             <select
               value={status}
               onChange={(event: ChangeEvent<HTMLSelectElement>): void => {
-                setStatus(event.currentTarget.value as ReportStatus | '');
-                setPage(1);
+                filter(event.currentTarget.value as ReportStatus | '', 1);
               }}
             >
               <option value="">{text.reports.allStatuses}</option>
@@ -204,7 +237,7 @@ export default function AdminReports({
               <button
                 type="button"
                 disabled={loading || page === 1}
-                onClick={(): void => setPage(page - 1)}
+                onClick={(): void => filter(status, page - 1)}
               >
                 {text.reports.previous}
               </button>
@@ -214,7 +247,7 @@ export default function AdminReports({
               <button
                 type="button"
                 disabled={loading || page * list.pageSize >= list.totalReports}
-                onClick={(): void => setPage(page + 1)}
+                onClick={(): void => filter(status, page + 1)}
               >
                 {text.reports.next}
               </button>
@@ -224,4 +257,17 @@ export default function AdminReports({
       )}
     </section>
   );
+}
+
+function initialFilter(): { status: ReportStatus | ''; page: number } {
+  if (typeof window === 'undefined') return { status: '', page: 1 };
+  const query: URLSearchParams = new URLSearchParams(window.location.search);
+  const status: string = query.get('status') ?? '';
+  const page: number = Number(query.get('page') ?? 1);
+  return {
+    status: ['OPEN', 'UNDER_INVESTIGATION', 'CLOSED'].includes(status)
+      ? (status as ReportStatus)
+      : '',
+    page: Number.isSafeInteger(page) && page >= 1 && page <= 100000 ? page : 1,
+  };
 }

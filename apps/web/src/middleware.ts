@@ -1,3 +1,6 @@
+import { ApiRequestError } from './lib/api/client.ts';
+import { errorDocument } from './lib/server/error-document.ts';
+import { resolveRequestLocale } from './i18n/locale-preference.ts';
 import type { MiddlewareHandler } from 'astro';
 import { isAllowedRequestOrigin } from './lib/server/request-origin.ts';
 
@@ -7,25 +10,106 @@ const protectedResourceMetadataPath: string = '/.well-known/oauth-protected-reso
 const authorizationServerMetadataPath: string = '/.well-known/oauth-authorization-server';
 
 export const onRequest: MiddlewareHandler = async (context, next): Promise<Response> => {
-  if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url))
-    return new Response(null, { status: 403 });
+  const response: Response = await handleRequest(context, next);
+  // Documents depend on session and locale cookies, including anonymous reads.
+  // Apply this after every branch so redirects and failures are covered as well.
+  if (
+    !context.isPrerendered &&
+    (response.headers.get('content-type')?.includes('text/html') ||
+      (response.status >= 300 &&
+        response.status < 400 &&
+        apiProxyPath(context.url.pathname) === null))
+  ) {
+    const headers: Headers = new Headers(response.headers);
+    headers.set('Cache-Control', response.status >= 400 ? 'no-store' : 'private, no-store');
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  }
+  return response;
+};
 
+async function handleRequest(
+  context: Parameters<MiddlewareHandler>[0],
+  next: Parameters<MiddlewareHandler>[1],
+): Promise<Response> {
+  logAuthenticationProxyRequest(context.request, context.url);
+  if (!context.isPrerendered && !isAllowedRequestOrigin(context.request, context.url)) {
+    const response: Response = new Response(null, { status: 403 });
+    logAuthenticationProxyResponse(
+      context.url.pathname,
+      context.request.method,
+      response,
+      'origin-rejected',
+    );
+    return response;
+  }
+
+  const locale: 'en' | 'de' = resolveRequestLocale(
+    context.request.headers.get('cookie'),
+    import.meta.env?.PUBLIC_DEFAULT_LOCALE,
+  );
   const apiOrigin: string = process.env.SHADOWCOOK_API_ORIGIN ?? defaultApiOrigin;
-  if (requiresAuthentication(context.url.pathname)) {
+  const checkReset: boolean =
+    context.request.method === 'GET' &&
+    apiProxyPath(context.url.pathname) === null &&
+    !context.url.pathname.startsWith('/assets/') &&
+    !context.url.pathname.startsWith('/_astro/') &&
+    /(?:^|;\s*)shadowcook_session=/.test(context.request.headers.get('cookie') ?? '');
+  if (requiresAuthentication(context.url.pathname) || checkReset) {
     let sessionIsValid: boolean = false;
     try {
       const sessionUrl: URL = new URL('/auth/session', apiOrigin);
       const session: Response = await fetch(sessionUrl, {
         headers: { cookie: context.request.headers.get('cookie') ?? '' },
       });
+      if (session.status === 403) return errorDocument(locale, 403);
+      if (!session.ok && session.status !== 401) return errorDocument(locale, 503);
       sessionIsValid = session.ok;
+      if (session.ok) {
+        const state: { passwordChangeRequired: boolean; cookbookResets?: unknown[] } =
+          await session.json();
+        if (
+          !state.passwordChangeRequired &&
+          (state.cookbookResets?.length ?? 0) > 0 &&
+          context.url.pathname !== '/settings/cookbooks' &&
+          context.url.pathname !== '/admin' &&
+          context.url.pathname !== '/admin/tenants' &&
+          context.url.pathname !== '/logout' &&
+          !context.url.pathname.startsWith('/auth/email-recovery/')
+        )
+          return Response.redirect(new URL('/settings/cookbooks', context.url), 302);
+      }
     } catch (_error: unknown) {
-      sessionIsValid = false;
+      return errorDocument(locale, 503);
     }
-    if (!sessionIsValid) return Response.redirect(loginUrl(context.url), 302);
+    if (!sessionIsValid && requiresAuthentication(context.url.pathname))
+      return Response.redirect(loginUrl(context.url), 302);
   }
   const apiPath: string | null = apiProxyPath(context.url.pathname);
-  if (apiPath === null) return next();
+  if (apiPath === null) {
+    try {
+      const response: Response = await next();
+      if (
+        response.status >= 500 &&
+        response.headers.get('content-type')?.includes('text/html') &&
+        response.headers.get('x-robots-tag') !== 'noindex'
+      )
+        return errorDocument(locale, response.status);
+      return response;
+    } catch (error: unknown) {
+      console.error(
+        JSON.stringify({
+          time: new Date().toISOString(),
+          component: 'web',
+          event: 'document-render-failed',
+        }),
+      );
+      return errorDocument(locale, error instanceof ApiRequestError ? (error.status ?? 503) : 500);
+    }
+  }
   const apiUrl: URL = new URL(`${apiPath}${context.url.search}`, apiOrigin);
   const requestBody: ArrayBuffer | undefined =
     context.request.method === 'GET' || context.request.method === 'HEAD'
@@ -36,25 +120,43 @@ export const onRequest: MiddlewareHandler = async (context, next): Promise<Respo
   headers.delete('forwarded');
   headers.delete('x-real-ip');
   headers.set('accept-encoding', 'identity');
-  logAuthenticationProxyRequest(context.url.pathname, context.request.method);
-  const response: Response = await fetch(apiUrl, {
-    method: context.request.method,
-    headers,
-    body: requestBody,
-    redirect: 'manual',
-  });
+  let response: Response;
+  try {
+    response = await fetch(apiUrl, {
+      method: context.request.method,
+      headers,
+      body: requestBody,
+      redirect: 'manual',
+    });
+  } catch (_error: unknown) {
+    const unavailable: Response = Response.json(
+      { code: 'UPSTREAM_UNAVAILABLE', error: 'Service unavailable' },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    );
+    logAuthenticationProxyResponse(
+      context.url.pathname,
+      context.request.method,
+      unavailable,
+      'upstream-unavailable',
+    );
+    return unavailable;
+  }
   logAuthenticationProxyResponse(context.url.pathname, context.request.method, response);
   return response;
-};
+}
 
-function logAuthenticationProxyRequest(pathname: string, method: string): void {
-  if (!isLoggedAuthenticationPath(pathname)) return;
+function logAuthenticationProxyRequest(request: Request, url: URL): void {
+  if (!isLoggedAuthenticationPath(url.pathname)) return;
   console.info(
     JSON.stringify({
+      time: new Date().toISOString(),
       component: 'api-proxy',
       event: 'authentication-request',
-      method,
-      path: pathname,
+      method: request.method,
+      path: url.pathname,
+      originPresent: request.headers.has('origin'),
+      originMatches: request.headers.get('origin') === url.origin,
+      contentTypePresent: request.headers.has('content-type'),
     }),
   );
 }
@@ -63,6 +165,7 @@ function logAuthenticationProxyResponse(
   pathname: string,
   method: string,
   response: Response,
+  failureReason?: 'origin-rejected' | 'upstream-unavailable',
 ): void {
   if (!isLoggedAuthenticationPath(pathname)) return;
   const location: string | null = response.headers.get('location');
@@ -76,11 +179,13 @@ function logAuthenticationProxyResponse(
   }
   console.info(
     JSON.stringify({
+      time: new Date().toISOString(),
       component: 'api-proxy',
       event: 'authentication-response',
       method,
       path: pathname,
       status: response.status,
+      failureReason,
       redirectPath,
       contentEncoding: response.headers.get('content-encoding'),
       hasSetCookie: response.headers.has('set-cookie'),

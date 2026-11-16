@@ -1,3 +1,6 @@
+import AdminAuditSettings from './components/AdminAuditSettings';
+import AdminInspection from './inspection/AdminInspection';
+import { withErrorBoundary } from '../../components/errors/withErrorBoundary';
 import AdminMediaSettings from './components/AdminMediaSettings';
 import { useEffect, useState } from 'react';
 import type { JSX, MouseEvent } from 'react';
@@ -28,7 +31,7 @@ interface Properties {
 }
 type AccessState = 'loading' | AdminAccessState;
 
-export default function AdminArea({
+function AdminArea({
   initialAccess,
   initialIsAdministrator = false,
   locale,
@@ -216,6 +219,19 @@ export default function AdminArea({
               </a>
               <a
                 className={
+                  currentPath === '/admin/settings/audit'
+                    ? 'admin-navigation__sublink admin-navigation__sublink--active'
+                    : 'admin-navigation__sublink'
+                }
+                href="/admin/settings/audit"
+                onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+                  navigate(event, '/admin/settings/audit')
+                }
+              >
+                {text.adminAudit.navigation}
+              </a>
+              <a
+                className={
                   currentPath === '/admin/settings/frontpage'
                     ? 'admin-navigation__sublink admin-navigation__sublink--active'
                     : 'admin-navigation__sublink'
@@ -296,7 +312,9 @@ export default function AdminArea({
           ) : null}
         </nav>
       </aside>
-      <main className="admin-content">{page(currentPath, locale, text, navigate)}</main>
+      <main className="admin-content">
+        {page(currentPath, locale, text, navigate, isAdministrator)}
+      </main>
     </section>
   );
 }
@@ -310,7 +328,16 @@ function page(
   locale: Locale,
   text: Translation,
   navigate: (event: MouseEvent<HTMLAnchorElement>, targetPath: string) => void,
+  isAdministrator: boolean,
 ): JSX.Element {
+  if (
+    /^\/admin\/tenants\/[^/]+\/(inspection|recipes\/[^/]+\/(?:inspection|revisions\/[^/]+))$/.test(
+      path,
+    )
+  )
+    return (
+      <AdminInspection key={path.split('/').slice(0, 4).join('/')} locale={locale} path={path} />
+    );
   if (path === '/admin/reports' || path.startsWith('/admin/reports/'))
     return (
       <AdminReports
@@ -328,10 +355,12 @@ function page(
   if (path === '/admin/settings/cookbook-slug-blocked-terms')
     return <AdminCookbookSlugBlockedTerms locale={locale} />;
   if (path === '/admin/settings/media') return <AdminMediaSettings locale={locale} />;
+  if (path === '/admin/settings/audit') return <AdminAuditSettings locale={locale} />;
   if (path === '/admin/settings/frontpage') return <AdminFrontpageSettings locale={locale} />;
   if (path === '/admin/settings/legal-documents') return <AdminLegalDocuments locale={locale} />;
   if (path === '/admin/tenants/new') return <AdminTenantCreate locale={locale} />;
-  if (path === '/admin/tenants') return <AdminTenantManagement locale={locale} />;
+  if (path === '/admin/tenants')
+    return <AdminTenantManagement locale={locale} canInspect={isAdministrator} />;
   if (path === '/admin/units') return <AdminUnitManagement locale={locale} />;
   if (path === '/admin/users') return <AdminUserManagement locale={locale} />;
   if (path === '/admin/settings')
@@ -369,6 +398,16 @@ function page(
         >
           <span>{text.adminMedia.navigation}</span>
           <strong>{text.adminMedia.title}</strong>
+        </a>
+        <a
+          className="admin-card"
+          href="/admin/settings/audit"
+          onClick={(event: MouseEvent<HTMLAnchorElement>): void =>
+            navigate(event, '/admin/settings/audit')
+          }
+        >
+          <span>{text.adminAudit.navigation}</span>
+          <strong>{text.adminAudit.title}</strong>
         </a>
         <a
           className="admin-card"
@@ -488,3 +527,5 @@ async function checkAdministrator(setAdministrator: (value: boolean) => void): P
   });
   setAdministrator(response.ok);
 }
+
+export default withErrorBoundary(AdminArea);

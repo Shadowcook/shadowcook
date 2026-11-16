@@ -1,6 +1,6 @@
 import type { Translation } from '../../../i18n';
-import { localizedUnitSymbol } from '../../../i18n/unit-localization';
-import type { Category, IngredientUsage, RecipeDetail } from '../model/types';
+import { localizedUnitSymbol } from '../../../i18n/unit-localization.ts';
+import type { Category, IngredientUsage, RecipeDetail, RecipeStep } from '../model/types';
 
 interface JsonLdPersonOrOrganization {
   '@type': 'Organization';
@@ -52,13 +52,11 @@ export function recipeJsonLd(
         .filter((ingredient: IngredientUsage): boolean => ingredient.special_kind === null)
         .map((ingredient: IngredientUsage): string => recipeIngredientText(ingredient, text)),
     ),
-    recipeInstructions: recipe.steps.map(
-      (step: { instruction: string }, index: number): JsonLdHowToStep => ({
-        '@type': 'HowToStep',
-        position: index + 1,
-        text: step.instruction,
-      }),
-    ),
+    recipeInstructions: recipe.steps.map((step: RecipeStep, index: number): JsonLdHowToStep => ({
+      '@type': 'HowToStep',
+      position: index + 1,
+      text: recipeStepText(step),
+    })),
   };
   if (recipe.summary !== null && recipe.summary.length > 0) result.description = recipe.summary;
   if (categoryNames.length > 0) result.recipeCategory = categoryNames;
@@ -82,4 +80,17 @@ export function recipeIngredientText(ingredient: IngredientUsage, text: Translat
 function formatAmount(amount: string | null): string | null {
   if (amount === null || !amount.includes('.')) return amount;
   return amount.replace(/\.0+$/, '').replace(/(\.\d*?)0+$/, '$1');
+}
+
+// Every special kind can carry authored execution guidance. Keep that guidance on
+// its own step; do not infer an exact duration from free text or a time range.
+export function recipeStepText(step: RecipeStep): string {
+  const notes: string[] = [];
+  step.ingredients.forEach((entry: IngredientUsage): void => {
+    if (entry.special_kind === null) return;
+    const note: string = entry.note?.trim() ?? '';
+    if (note.length === 0 || step.instruction.includes(note) || notes.includes(note)) return;
+    notes.push(note);
+  });
+  return notes.length === 0 ? step.instruction : `${step.instruction} (${notes.join('; ')})`;
 }
