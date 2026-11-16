@@ -6668,10 +6668,15 @@ paths:
           required: false
           description: VEGAN matches vegan recipes; VEGETARIAN matches vegetarian and vegan recipes; OMNI matches all explicitly classified recipes. Unclassified recipes match only when this filter is absent. Applies together with recipeFilter to recipes and frontpage results and counts.
           schema: { type: string, enum: [VEGAN, VEGETARIAN, OMNI] }
+        - name: frontpageShuffleSeed
+          in: query
+          required: false
+          description: Reuses frontpage.shuffleSeed to keep featured-recipe ordering stable across pagination and filtering, including anonymous requests. Empty or overlong seeds are ignored. Without a seed, the authenticated session seed is used when available, otherwise a new seed is generated.
+          schema: { type: string, minLength: 1, maxLength: 100 }
         - name: refreshFrontpageShuffle
           in: query
           required: false
-          description: Renews the authenticated session's featured-recipe ordering.
+          description: Generates a new featured-recipe ordering, ignoring frontpageShuffleSeed, and stores its seed in the authenticated session when available.
           schema: { type: boolean, default: false }
       responses:
         default: { $ref: '#/components/responses/UnexpectedError' }
@@ -11695,8 +11700,13 @@ components:
     CookbookFrontpage:
       type: object
       additionalProperties: false
-      required: [recipes, page, pageSize, totalPages, totalRecipes]
+      required: [recipes, page, pageSize, totalPages, totalRecipes, shuffleSeed]
       properties:
+        shuffleSeed:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: Seed to send as frontpageShuffleSeed on subsequent page and filter requests.
         recipes:
           type: array
           items: { $ref: '#/components/schemas/CookbookRecipe' }

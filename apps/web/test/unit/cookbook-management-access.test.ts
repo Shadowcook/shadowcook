@@ -15,7 +15,7 @@ const viewer: CookbookResponse = {
   },
   categories: [],
   recipes: [],
-  frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
+  frontpage: { shuffleSeed: '', recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
   canDeleteRecipes: false,

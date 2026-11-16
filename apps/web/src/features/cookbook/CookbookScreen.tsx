@@ -4,8 +4,8 @@ import { withErrorBoundary } from '../../components/errors/withErrorBoundary';
 import RecipeTrash from './components/RecipeTrash';
 import { postLoginDestination } from '../../lib/login-navigation';
 import { isSystemPath } from '../../lib/system-routing';
-import { useEffect, useState } from 'react';
-import type { ChangeEvent, JSX, MouseEvent, SubmitEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { ChangeEvent, JSX, MouseEvent, RefObject, SubmitEvent } from 'react';
 import { translations } from '../../i18n';
 import type { Locale, Translation } from '../../i18n';
 import { ApiRequestError, jsonRequest, request } from '../../lib/api/client';
@@ -73,7 +73,7 @@ const emptyCookbook: CookbookResponse = {
   tenant: null,
   categories: [],
   recipes: [],
-  frontpage: { recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
+  frontpage: { shuffleSeed: '', recipes: [], page: 1, pageSize: 4, totalPages: 0, totalRecipes: 0 },
   canManageCategories: false,
   canManageRecipes: false,
   canDeleteRecipes: false,
@@ -118,6 +118,9 @@ function CookbookScreen({
   const [hasPassword, setHasPassword] = useState<boolean>(false);
   const [message, setMessage] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const frontpageShuffleSeed: RefObject<string> = useRef<string>(
+    initialCookbook?.frontpage.shuffleSeed ?? '',
+  );
   const [cookbook, setCookbook] = useState<CookbookResponse>(initialCookbook ?? emptyCookbook);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(initialCategoryId);
   const [recipeCategoryId, setRecipeCategoryId] = useState<string | null>(initialRecipeCategoryId);
@@ -445,9 +448,10 @@ function CookbookScreen({
     }
     try {
       const response: CookbookResponse = await request<CookbookResponse>(
-        `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&recipeFilter=${encodeURIComponent(filter)}${diet === '' ? '' : `&diet=${diet}`}`,
+        `/cookbook?tenantSlug=${encodeURIComponent(slug)}&frontpagePage=${frontpagePage}&frontpageShuffleSeed=${encodeURIComponent(frontpageShuffleSeed.current)}&recipeFilter=${encodeURIComponent(filter)}${diet === '' ? '' : `&diet=${diet}`}`,
       );
       setLoadError(null);
+      frontpageShuffleSeed.current = response.frontpage.shuffleSeed;
       setCookbook(response);
       return response;
     } catch (error: unknown) {
