@@ -1,3 +1,13 @@
+import { registerAuditSettingsRoutes } from './admin/audit-settings-routes.js';
+import { registerReportHistoryRoutes } from './reports/history-routes.js';
+import { registerReportNoticeRoutes } from './reports/notice-routes.js';
+import { registerEmailRecoveryConfirmation } from './admin/email-recovery-confirmation.js';
+import { registerAccountSafetyRoutes } from './admin/account-safety-routes.js';
+import { registerDeletionRoutes } from './admin/deletion-routes.js';
+import { registerModerationRoutes } from './admin/moderation-routes.js';
+import { registerOwnershipRoutes } from './admin/ownership-routes.js';
+import { registerInspectionRoutes } from './admin/inspection-routes.js';
+import { registerErrorHandling } from './security/error-handling.js';
 import { registerMediaSettingsRoutes } from './admin/media-settings-routes.js';
 import Fastify, { type FastifyInstance } from 'fastify';
 import type { Pool } from 'pg';
@@ -49,6 +59,7 @@ export function createApi(
     },
   });
 
+  registerErrorHandling(api);
   api.setNotFoundHandler(replyWithNotFound);
   api.get('/health', async () => ({ status: 'ok' }));
   registerSkillRoutes(api);
@@ -57,6 +68,14 @@ export function createApi(
   registerAccountRoutes(api, pool);
   registerReportRoutes(api, pool, instanceSecretKey, publicWebOrigin);
   registerAdminReportRoutes(api, pool);
+  registerReportHistoryRoutes(api, pool);
+  registerReportNoticeRoutes(api, pool, instanceSecretKey);
+  registerInspectionRoutes(api, pool);
+  registerModerationRoutes(api, pool, instanceSecretKey, publicWebOrigin);
+  registerDeletionRoutes(api, pool, instanceSecretKey);
+  registerAccountSafetyRoutes(api, pool, instanceSecretKey, publicWebOrigin);
+  registerEmailRecoveryConfirmation(api, pool, instanceSecretKey);
+  registerOwnershipRoutes(api, pool, instanceSecretKey, publicWebOrigin);
   registerEmailChangeRoutes(api, pool, instanceSecretKey, publicWebOrigin);
   registerPublicRegistrationRoutes(
     api,
@@ -64,6 +83,7 @@ export function createApi(
     instanceSecretKey,
     publicWebOrigin,
     registrationConfig,
+    secureCookies,
   );
   registerRegistrationSettingsRoutes(api, pool, registrationConfig);
   registerCookbookSlugRoutes(api, pool);
@@ -82,6 +102,7 @@ export function createApi(
   registerAuthenticationSettingsRoutes(api, pool, instanceSecretKey);
   registerFrontpageSettingsRoutes(api, pool);
   registerMediaSettingsRoutes(api, pool);
+  registerAuditSettingsRoutes(api, pool);
   registerLegalDocumentRoutes(api, pool);
   registerTenantRoutes(api, pool, secureCookies, instanceSecretKey, publicWebOrigin);
   registerUnitRoutes(api, pool);

@@ -76,8 +76,10 @@ export async function currentSessionUser(
       user_account.password_change_required, user_account.disabled_at
     FROM user_session
     INNER JOIN user_account ON user_account.id = user_session.user_account_id
+    INNER JOIN principal ON principal.id = user_account.principal_id
     WHERE user_session.token_hash = $1 AND user_session.revoked_at IS NULL AND user_session.expires_at > now()
       AND user_account.disabled_at IS NULL AND user_account.deleted_at IS NULL
+      AND principal.disabled_at IS NULL AND principal.principal_type = 'USER'
     ${lockUser ? 'FOR UPDATE OF user_account' : ''}
   `,
     [hashSessionToken(token)],

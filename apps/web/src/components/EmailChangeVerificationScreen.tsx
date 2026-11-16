@@ -1,7 +1,9 @@
+import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { JSX } from 'react';
 import type { Translation } from '../i18n';
 import { ApiRequestError, jsonRequest, request } from '../lib/api/client';
+import { logout } from '../lib/api/logout';
 import { reauthenticationLoginUrl } from '../lib/login-navigation';
 import { clearBrowserSessionCache } from '../lib/browser/session-cache';
 import { emailChangeErrorMessage } from './AccountEmailSettings';
@@ -17,7 +19,7 @@ interface EmailChangeVerification {
   reauthenticationRequired: boolean;
 }
 
-export default function EmailChangeVerificationScreen({
+function EmailChangeVerificationScreen({
   text,
   token,
 }: {
@@ -97,7 +99,7 @@ export default function EmailChangeVerificationScreen({
     if (submitting) return;
     setSubmitting(true);
     try {
-      await request<void>('/auth/logout', { method: 'POST' });
+      await logout();
       clearBrowserSessionCache();
       window.location.assign(loginUrl);
     } catch (_error: unknown) {
@@ -152,3 +154,5 @@ export default function EmailChangeVerificationScreen({
     </section>
   );
 }
+
+export default withErrorBoundary(EmailChangeVerificationScreen);

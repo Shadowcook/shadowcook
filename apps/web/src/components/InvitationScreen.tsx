@@ -1,3 +1,4 @@
+import { withErrorBoundary } from './errors/withErrorBoundary';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX, SubmitEvent } from 'react';
 import { translations } from '../i18n';
@@ -21,7 +22,7 @@ interface AcceptanceResponse {
   passwordChangeRequired: boolean;
 }
 
-export default function InvitationScreen({ locale, token }: Properties): JSX.Element {
+function InvitationScreen({ locale, token }: Properties): JSX.Element {
   const text: Translation = translations[locale];
   const [invitation, setInvitation] = useState<Invitation | null>(null);
   const [code, setCode] = useState<string>('');
@@ -139,3 +140,5 @@ export default function InvitationScreen({ locale, token }: Properties): JSX.Ele
     </section>
   );
 }
+
+export default withErrorBoundary(InvitationScreen);

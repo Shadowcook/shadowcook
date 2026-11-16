@@ -1,9 +1,41 @@
+import { workflowGerman } from '../features/admin/reports/translations.ts';
+import { safetyGerman } from '../features/admin/safety/translations.ts';
+import { moderationGerman } from '../features/admin/moderation/translations.ts';
+import { ownershipGerman } from '../features/admin/ownership/translations.ts';
+import { inspectionGerman } from '../features/admin/inspection/translations.ts';
+import { errorGerman } from './errors.ts';
 import { landingGerman } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { recipeImportGerman } from '../features/cookbook/import/translations.ts';
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  workflow: workflowGerman,
+  safety: safetyGerman,
+  moderation: moderationGerman,
+  ownership: ownershipGerman,
+  inspection: inspectionGerman,
+  cookbookIdentity: {
+    cancelReset: 'Force Reset aufheben',
+    cancelResetDescription:
+      'Die erzwungene Änderung von Name und Slug aufheben? Das Kochbuch wird mit seinen bisherigen Werten wieder zugänglich, sofern es nicht zusätzlich deaktiviert ist.',
+    resetCancelled: 'Force Reset aufgehoben. Name und Slug bleiben unverändert.',
+    status: 'Status',
+    active: 'Aktiv',
+    disabled: 'Deaktiviert',
+    resetPending: 'Neuer Name und Slug erforderlich',
+
+    rename: 'Kochbuch umbenennen',
+    required:
+      'Wähle einen neuen Kochbuchnamen und URL-Slug, um fortzufahren. Das Kochbuch bleibt verborgen, bis beide geändert wurden.',
+    forceReset: 'Force Reset',
+    resetDescription:
+      'Dieses Kochbuch sperren und den Eigentümer beim nächsten Login auffordern, einen neuen Namen und URL-Slug festzulegen. Bis dahin bleibt es verborgen.',
+    resetDone: 'Das Kochbuch ist gesperrt, bis der Eigentümer einen neuen Namen und Slug festlegt.',
+    invalidName: 'Gib einen gültigen Kochbuchnamen ein.',
+    newIdentityRequired: 'Wähle einen anderen Namen und Slug.',
+  },
+  errorStates: errorGerman,
   recipeTrash: {
     title: 'Papierkorb',
     empty: 'Der Papierkorb ist leer.',
@@ -132,6 +164,13 @@ export const de: Translation = {
     invalid: 'Dieser Link zum Zurücksetzen des Passworts ist ungültig oder abgelaufen.',
   },
   registration: {
+    checkEmailTitle: 'Fast geschafft — schau in dein Postfach!',
+    verificationTitle: 'Deine E-Mail wird bestätigt …',
+    verificationSuccessTitle: 'Willkommen in der Küche!',
+    verificationFailedTitle: 'Bestätige deine E-Mail-Adresse',
+    verificationSignIn: 'Dein Konto ist bereit! Melde dich an, um loszukochen.',
+    continueToCookbook: 'Dein Kochbuch öffnen',
+    continueToAccount: 'Lass uns loskochen',
     website: 'Website',
     title: 'Konto erstellen',
     subtitle:
@@ -145,10 +184,10 @@ export const de: Translation = {
     submit: 'Konto erstellen',
     submitting: 'Konto wird erstellt …',
     checkEmail:
-      'Prüfe deine E-Mails. Wir haben einen Bestätigungslink gesendet. Dein Shadowcook-Konto wird nach der Bestätigung erstellt.',
+      'Deine Registrierung ist angekommen! Folge dem Link in deiner E-Mail, um dein Konto zu aktivieren und loszukochen.',
     unavailable: 'Die öffentliche Registrierung ist derzeit nicht verfügbar.',
     verificationInvalid: 'Dieser Bestätigungslink ist ungültig oder abgelaufen.',
-    verificationSucceeded: 'Dein Konto wurde erstellt. Du kannst dich jetzt anmelden.',
+    verificationSucceeded: 'Dein Konto ist bereit und du bist angemeldet. Lass uns loskochen!',
     resend: 'Neuen Bestätigungslink senden',
     resendSent:
       'Falls eine ausstehende Registrierung für diese E-Mail-Adresse existiert, wurde eine neue Bestätigungs-E-Mail gesendet.',
@@ -348,6 +387,16 @@ export const de: Translation = {
       ADMIN_PASSWORD_RESET: 'Administrativ angefordertes Zurücksetzen des Passworts',
       INSTANCE_USER_INVITATION: 'Einladung eines Instanzbenutzers',
       COOKBOOK_USER_INVITATION: 'Einladung zu einem Kochbuch',
+      REPORT_DECISION_NOTICE: 'Öffentliche Entscheidungs- und Prüfmitteilung',
+      RECIPE_RESTRICTED: 'Rezeptzugriff gesperrt',
+      RECIPE_DELETED: 'Rezept dauerhaft gelöscht',
+      COOKBOOK_DELETED: 'Kochbuch dauerhaft gelöscht',
+      RECIPE_RESTRICTION_LIFTED: 'Rezeptsperre aufgehoben',
+      COOKBOOK_RESTRICTION_LIFTED: 'Kochbuchsperre aufgehoben',
+      COOKBOOK_RESTRICTED: 'Kochbuchzugriff gesperrt',
+      ADMIN_EMAIL_RECOVERY_PROOF: 'Kontowiederherstellung verifizieren',
+      ADMIN_EMAIL_RECOVERED: 'Konto-E-Mail korrigiert',
+      COOKBOOK_OWNERSHIP_TRANSFERRED: 'Kochbuch-Eigentum übertragen',
       COOKBOOK_OWNER_INVITATION: 'Einladung als Kochbuchbesitzer',
     },
   },
@@ -470,6 +519,10 @@ export const de: Translation = {
     tenantRenamed: 'Kochbuch umbenannt.',
     tenantSlugConflict: 'Dieser Tenant-Slug wird bereits verwendet.',
     tenantSlugInvalid: 'Der Tenant-Slug ist nicht verfügbar.',
+    tenantSlugChecking: 'Der Tenant-Slug wird auf Verfügbarkeit geprüft …',
+    tenantSlugAvailable: 'Dieser Tenant-Slug ist verfügbar.',
+    tenantSlugCheckFailed:
+      'Der Tenant-Slug konnte nicht geprüft werden. Beim Speichern wird er erneut geprüft.',
     tenantDeleted: 'Kochbuch gelöscht.',
     save: 'Speichern',
     cancel: 'Abbrechen',
@@ -538,6 +591,20 @@ export const de: Translation = {
     conflict: 'Dieser Kategorie-URL-Name wird bereits verwendet.',
     invalidParent: 'Die ausgewählte übergeordnete Kategorie ist ungültig.',
     accessDenied: 'Du hast keine Berechtigung, Kategorien in diesem Kochbuch zu verwalten.',
+  },
+  adminAudit: {
+    navigation: 'Audit-Aufbewahrung',
+    title: 'Audit-Aufbewahrung einstellen',
+    description:
+      'Lege fest, wie lange administrative Audit-Ereignisse und öffentliche Mitteilungen zu Meldungen aufbewahrt werden.',
+    limit: 'Aufbewahrung in Tagen',
+    limitHelp:
+      'Gib eine ganze Zahl von 1 bis 3.650 Tagen ein. Der Standard beträgt 365 Tage. Eine unbegrenzte Aufbewahrung ist nicht möglich.',
+    applyHelp:
+      'Änderungen gelten beim nächsten API-Start oder bei der automatischen Bereinigung alle drei Stunden. Eine kürzere Frist entfernt auch vorhandene ältere Einträge. Eine längere Frist stellt gelöschte Einträge nicht wieder her. Datenbanksicherungen haben eigene Aufbewahrungsregeln.',
+    save: 'Audit-Aufbewahrung speichern',
+    saved: 'Audit-Aufbewahrung gespeichert.',
+    invalidLimit: 'Gib eine ganze Zahl von 1 bis 3.650 ein.',
   },
   adminMedia: {
     navigation: 'Medien',
@@ -873,6 +940,10 @@ export const de: Translation = {
     confirmMerge: 'Unwiderruflich zusammenführen',
   },
   tenantUsers: {
+    removeUser: 'Aus dem Kochbuch entfernen',
+    removeUserDescription:
+      'Diesen Benutzer und seine Rollen aus dem Kochbuch entfernen? Sein Account und seine Rezeptbeiträge bleiben erhalten. Du kannst ihn später erneut einladen.',
+    userRemoved: 'Benutzer aus dem Kochbuch entfernt.',
     title: 'Tenant-Benutzer',
     description: 'Verwalte die Rollen der Benutzer dieses Kochbuchs.',
     roles: 'Rollen',

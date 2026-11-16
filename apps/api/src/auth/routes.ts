@@ -1,3 +1,4 @@
+import { pendingCookbookResets } from '../account/cookbook-identity-routes.js';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { Pool } from 'pg';
 import { minimumPasswordEntropy } from './password.js';
@@ -64,6 +65,7 @@ export function registerAuthenticationRoutes(
       requestPath === '/auth/password-reset/request' ||
       requestPath === '/auth/password-reset/verification' ||
       requestPath === '/auth/password-reset/complete' ||
+      requestPath === '/auth/email-recovery/complete' ||
       requestPath === '/auth/logout' ||
       requestPath === '/auth/session' ||
       requestPath === '/auth/email-code/request' ||
@@ -86,6 +88,21 @@ export function registerAuthenticationRoutes(
         403,
         'PASSWORD_CHANGE_REQUIRED',
         'A password change is required before continuing.',
+      );
+    }
+    if (
+      user !== null &&
+      !(requestPath === '/account/cookbooks' && request.method === 'GET') &&
+      requestPath !== '/admin/tenants' &&
+      !requestPath.startsWith('/admin/tenants/') &&
+      !/^\/account\/cookbooks\/[^/]+(?:\/slug-availability)?$/.test(requestPath) &&
+      (await pendingCookbookResets(pool, user.principal_id)).length > 0
+    ) {
+      return sendError(
+        reply,
+        403,
+        'COOKBOOK_NAME_RESET_REQUIRED',
+        'A cookbook name and slug reset is required.',
       );
     }
   });
@@ -301,10 +318,12 @@ export function registerAuthenticationRoutes(
   );
 
   api.get('/auth/session', async (request: FastifyRequest, reply: FastifyReply) => {
+    reply.header('Cache-Control', 'no-store');
     const user = await currentSessionUser(pool, request);
     if (user === null)
       return sendError(reply, 401, 'AUTHENTICATION_REQUIRED', 'Authentication is required.');
     return reply.send({
+      cookbookResets: await pendingCookbookResets(pool, user.principal_id),
       email: user.email,
       displayName: user.display_name,
       passwordChangeRequired: user.password_change_required,
@@ -327,6 +346,7 @@ export function registerAuthenticationRoutes(
       'Session logout processed',
     );
     clearSessionCookie(reply, secureCookies);
+    reply.header('Cache-Control', 'no-store');
     return reply.code(204).send();
   });
 }

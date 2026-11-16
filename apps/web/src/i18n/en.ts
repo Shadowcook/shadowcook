@@ -1,9 +1,41 @@
+import { workflowEnglish } from '../features/admin/reports/translations.ts';
+import { safetyEnglish } from '../features/admin/safety/translations.ts';
+import { moderationEnglish } from '../features/admin/moderation/translations.ts';
+import { ownershipEnglish } from '../features/admin/ownership/translations.ts';
+import { inspectionEnglish } from '../features/admin/inspection/translations.ts';
+import { errorEnglish } from './errors.ts';
 import { landingEnglish } from '../components/landing/translations.ts';
 import type { Translation } from './types';
 import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  workflow: workflowEnglish,
+  safety: safetyEnglish,
+  moderation: moderationEnglish,
+  ownership: ownershipEnglish,
+  inspection: inspectionEnglish,
+  cookbookIdentity: {
+    cancelReset: 'Cancel Force Reset',
+    cancelResetDescription:
+      'Cancel the required name and slug change? The cookbook becomes accessible with its current name and slug unless it is also disabled.',
+    resetCancelled: 'Force Reset cancelled. The current name and slug are preserved.',
+    status: 'Status',
+    active: 'Active',
+    disabled: 'Disabled',
+    resetPending: 'Name and slug reset required',
+
+    rename: 'Rename cookbook',
+    required:
+      'Choose a new cookbook name and URL slug before continuing. The cookbook is hidden until both have been changed.',
+    forceReset: 'Force Reset',
+    resetDescription:
+      'Lock this cookbook and require its owner to choose a new name and URL slug at the next login. It will remain hidden until then.',
+    resetDone: 'The cookbook is locked until its owner sets a new name and slug.',
+    invalidName: 'Enter a valid cookbook name.',
+    newIdentityRequired: 'Choose a different name and slug.',
+  },
+  errorStates: errorEnglish,
   recipeTrash: {
     title: 'Trash Bin',
     empty: 'The trash bin is empty.',
@@ -129,6 +161,13 @@ export const en: Translation = {
     invalid: 'This password-reset link is invalid or has expired.',
   },
   registration: {
+    checkEmailTitle: 'Almost there — check your inbox!',
+    verificationTitle: 'Confirming your email …',
+    verificationSuccessTitle: 'Welcome to the kitchen!',
+    verificationFailedTitle: 'Let’s get your email confirmed',
+    verificationSignIn: 'Your account is ready! Sign in to start cooking.',
+    continueToCookbook: 'Open your cookbook',
+    continueToAccount: 'Let’s get cooking',
     website: 'Website',
     title: 'Create your account',
     subtitle: 'Create an account first. You can create a cookbook now or later after signing in.',
@@ -141,10 +180,10 @@ export const en: Translation = {
     submit: 'Create account',
     submitting: 'Creating account …',
     checkEmail:
-      'Check your email. We sent a verification link to your email address. Your Shadowcook account will be created after you verify it.',
+      'Your registration is in! Follow the link in your email to activate your account and start cooking.',
     unavailable: 'Public registration is currently unavailable.',
     verificationInvalid: 'This verification link is invalid or expired.',
-    verificationSucceeded: 'Your account has been created. You can now sign in.',
+    verificationSucceeded: 'Your account is ready, and you’re signed in. Let’s get cooking!',
     resend: 'Send another verification email',
     resendSent:
       'If a pending registration exists for this email address, a new verification email has been sent.',
@@ -338,6 +377,16 @@ export const en: Translation = {
       ADMIN_PASSWORD_RESET: 'Administrator-required password reset',
       INSTANCE_USER_INVITATION: 'Instance user invitation',
       COOKBOOK_USER_INVITATION: 'Cookbook user invitation',
+      REPORT_DECISION_NOTICE: 'Public decision and review notice',
+      RECIPE_RESTRICTED: 'Recipe access restricted',
+      RECIPE_DELETED: 'Recipe permanently deleted',
+      COOKBOOK_DELETED: 'Cookbook permanently deleted',
+      RECIPE_RESTRICTION_LIFTED: 'Recipe restriction lifted',
+      COOKBOOK_RESTRICTION_LIFTED: 'Cookbook restriction lifted',
+      COOKBOOK_RESTRICTED: 'Cookbook access restricted',
+      ADMIN_EMAIL_RECOVERY_PROOF: 'Account recovery verification',
+      ADMIN_EMAIL_RECOVERED: 'Account email corrected',
+      COOKBOOK_OWNERSHIP_TRANSFERRED: 'Cookbook ownership transferred',
       COOKBOOK_OWNER_INVITATION: 'Cookbook owner invitation',
     },
   },
@@ -458,6 +507,9 @@ export const en: Translation = {
     tenantRenamed: 'Cookbook renamed.',
     tenantSlugConflict: 'That tenant slug is already in use.',
     tenantSlugInvalid: 'The tenant slug is unavailable.',
+    tenantSlugChecking: 'Checking whether this tenant slug is available …',
+    tenantSlugAvailable: 'This tenant slug is available.',
+    tenantSlugCheckFailed: 'The tenant slug could not be checked. Saving will check it again.',
     tenantDeleted: 'Cookbook deleted.',
     save: 'Save',
     cancel: 'Cancel',
@@ -520,6 +572,19 @@ export const en: Translation = {
     conflict: 'That category URL name is already in use.',
     invalidParent: 'The selected parent category is invalid.',
     accessDenied: 'You do not have permission to manage categories in this cookbook.',
+  },
+  adminAudit: {
+    navigation: 'Audit retention',
+    title: 'Audit retention settings',
+    description: 'Set how long administrative audit events and public report notices are retained.',
+    limit: 'Retention in days',
+    limitHelp:
+      'Enter a whole number from 1 to 3,650 days. The default is 365 days. Unlimited retention is not supported.',
+    applyHelp:
+      'Changes apply at the next API startup or automatic cleanup, which runs every three hours. Shortening retention also removes existing records older than the new period. Increasing it cannot restore deleted records. Database backups follow their separate retention policy.',
+    save: 'Save audit retention',
+    saved: 'Audit retention saved.',
+    invalidLimit: 'Enter a whole number from 1 to 3,650.',
   },
   adminMedia: {
     navigation: 'Media',
@@ -843,6 +908,10 @@ export const en: Translation = {
     confirmMerge: 'Merge permanently',
   },
   tenantUsers: {
+    removeUser: 'Remove from cookbook',
+    removeUserDescription:
+      'Remove this user and their roles from this cookbook? Their account and recipe contributions will be retained. You can invite them again later.',
+    userRemoved: 'User removed from the cookbook.',
     title: 'Tenant users',
     description: 'Manage roles for users who belong to this cookbook.',
     roles: 'Roles',

@@ -15,7 +15,8 @@
     "test:contract": "NODE_ENV=test tsx --test test/contract/*.test.ts",
     "test:migrations": "NODE_ENV=test tsx --test test/migrations/*.test.ts",
     "reset:dev-db": "NODE_ENV=development tsx src/reset-development-database.ts",
-    "reset:shadowcook-db": "NODE_ENV=development tsx src/reset-development-database.ts"
+    "reset:shadowcook-db": "NODE_ENV=development tsx src/reset-development-database.ts",
+    "admin-audit-maintenance": "tsx src/admin-audit-maintenance.ts"
   },
   "dependencies": {
     "@shadowcook/db": "workspace:*",

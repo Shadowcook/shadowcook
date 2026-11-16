@@ -1,6 +1,6 @@
 {
   "name": "shadowcook",
-  "version": "1.0.0",
+  "version": "2.1.0",
   "private": true,
   "packageManager": "pnpm@11.24.0",
   "scripts": {
@@ -24,7 +24,9 @@
     "reset:shadowcook-db": "npm --prefix apps/api run reset:shadowcook-db",
     "package:deployment": "sh scripts/package-deployment.sh",
     "backup:db": "bash scripts/backup-database.sh",
-    "restore:db": "bash scripts/restore-database.sh"
+    "restore:db": "bash scripts/restore-database.sh",
+    "clone:db": "bash scripts/clone-database.sh",
+    "test:db-clone": "bash scripts/test-database-clone.sh"
   },
   "devDependencies": {
     "prettier": "^3.9.8",

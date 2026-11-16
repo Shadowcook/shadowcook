@@ -1,11 +1,12 @@
 import { randomBytes } from 'node:crypto';
-import type { PoolClient } from 'pg';
+import type { PoolClient, QueryResult } from 'pg';
 import { cookbookSlugIsBlocked } from './slug-policy.js';
 
 export interface OwnedCookbook {
   id: string;
   slug: string;
 }
+export class CookbookOwnerUnavailableError extends Error {}
 export class CookbookLimitError extends Error {}
 export class CookbookSlugBlockedError extends Error {}
 
@@ -22,6 +23,12 @@ export async function createOwnedCookbook(
   displayName: string,
   maximumCookbooks: number,
 ): Promise<OwnedCookbook> {
+  const activeOwner: QueryResult<{ id: string }> = await client.query<{ id: string }>(
+    `SELECT u.id FROM user_account u JOIN principal p ON p.id=u.principal_id WHERE u.principal_id=$1
+     AND u.deleted_at IS NULL AND u.disabled_at IS NULL AND p.disabled_at IS NULL AND p.principal_type='USER' FOR SHARE OF u,p`,
+    [principalId],
+  );
+  if (activeOwner.rowCount !== 1) throw new CookbookOwnerUnavailableError();
   await client.query("SELECT pg_advisory_xact_lock(hashtext('cookbook-owner:' || $1))", [
     principalId,
   ]);
@@ -40,7 +47,7 @@ export async function createOwnedCookbook(
       [slug],
     );
     if (existing.rows[0]?.exists !== true) break;
-    slug = `${baseSlug}-${randomBytes(4).toString('hex')}`;
+    slug = cookbookSlugWithSuffix(baseSlug);
   }
   const tenant = await client.query<{ id: string; slug: string }>(
     'INSERT INTO tenant (display_name, slug) VALUES ($1, $2) RETURNING id, slug',
@@ -94,4 +101,8 @@ export function cookbookSlugBase(name: string): string {
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-+|-+$/g, '') || 'cookbook'
   );
+}
+
+export function cookbookSlugWithSuffix(baseSlug: string): string {
+  return `${baseSlug}-${randomBytes(4).toString('hex')}`;
 }

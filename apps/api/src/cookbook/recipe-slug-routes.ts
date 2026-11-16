@@ -36,6 +36,7 @@ export function registerRecipeSlugRoutes(api: FastifyInstance, pool: Pool): void
       });
     }
 
+    // Reservation lookup exposes only availability, including moderated and trashed slugs.
     const result: QueryResult<{ available: boolean }> = await pool.query<{ available: boolean }>(
       `SELECT NOT EXISTS (
          SELECT 1 FROM recipe

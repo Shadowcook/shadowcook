@@ -12,6 +12,7 @@ import Dialog from './Dialog';
 import type { DialogKind } from './Dialog';
 
 interface MessageDialogBaseProperties {
+  className?: string;
   text: Translation['dialog'];
   title?: string;
   message: string;
@@ -48,6 +49,7 @@ export default function MessageDialog(properties: MessageDialogProperties): JSX.
 
   return (
     <Dialog
+      className={properties.className}
       kind={properties.kind}
       title={properties.title ?? defaultTitles[properties.kind]}
       message={properties.message}

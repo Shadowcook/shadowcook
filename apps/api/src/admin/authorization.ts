@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
-import type { Pool } from 'pg';
+import type { Pool, PoolClient, QueryResult } from 'pg';
+import { hashSessionToken, sessionTokenFromRequest } from '../auth/session.js';
 import { currentAuthenticatedPrincipal } from '../auth/principal.js';
 
 interface PermissionRow {
@@ -81,7 +82,7 @@ export async function requireTenantAnyPermission(
           AND tenant_role_permission.permission_code = ANY($2::text[])
       ) AS permitted
       FROM tenant
-      WHERE tenant.slug = $3 AND tenant.disabled_at IS NULL
+      WHERE tenant.slug = $3 AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required
     `,
     [principal.principal_id, permissionCodes, tenantSlug],
   );
@@ -97,4 +98,63 @@ export async function requireTenantAnyPermission(
     return null;
   }
   return tenant.id;
+}
+
+interface AdministrativeActorRow {
+  principal_id: string;
+  password_change_required: boolean;
+  permitted: boolean;
+  identity_reset_required: boolean;
+}
+
+/** Sensitive administration is deliberately separate from ordinary instance/tenant guards. */
+export async function requireAdministrativeActor(
+  database: Pool | PoolClient,
+  request: FastifyRequest,
+  reply: FastifyReply,
+  action: string,
+  lockRows: boolean = true,
+): Promise<string | null> {
+  const deny: (status: number, code: string) => null = (status: number, code: string): null => {
+    request.log.warn(
+      { action, requestId: request.id, outcome: 'DENIED', code },
+      'Administrative operation denied',
+    );
+    reply.code(status).send({ code, error: 'Administrative authorization is required.' });
+    return null;
+  };
+  // Even a valid session cannot turn a recipe-scoped bearer request into administration.
+  if (request.headers.authorization !== undefined) return deny(403, 'ADMIN_SESSION_REQUIRED');
+  const token: string | null = sessionTokenFromRequest(request);
+  if (token === null) return deny(401, 'AUTHENTICATION_REQUIRED');
+  const result: QueryResult<AdministrativeActorRow> = await database.query<AdministrativeActorRow>(
+    `SELECT principal.id AS principal_id, account.password_change_required,
+      EXISTS (SELECT 1 FROM principal_instance_role role
+        JOIN instance_role_permission permission ON permission.instance_role_id = role.instance_role_id
+        WHERE role.principal_id = principal.id AND permission.permission_code = 'instance:administer') AS permitted,
+      EXISTS (SELECT 1 FROM tenant WHERE owner_principal_id = principal.id AND name_reset_required) AS identity_reset_required
+    FROM user_session session
+    JOIN user_account account ON account.id = session.user_account_id
+    JOIN principal ON principal.id = account.principal_id
+    WHERE session.token_hash = $1 AND session.revoked_at IS NULL AND session.expires_at > now()
+      AND account.disabled_at IS NULL AND account.deleted_at IS NULL
+      AND principal.disabled_at IS NULL AND principal.principal_type = 'USER'
+    ${lockRows ? 'FOR SHARE OF session, account, principal' : ''}`,
+    [hashSessionToken(token)],
+  );
+  const actor: AdministrativeActorRow | undefined = result.rows[0];
+  if (actor === undefined) return deny(401, 'AUTHENTICATION_REQUIRED');
+  if (actor.password_change_required) return deny(403, 'PASSWORD_CHANGE_REQUIRED');
+  if (!actor.permitted) return deny(403, 'INSTANCE_PERMISSION_REQUIRED');
+  if (
+    actor.identity_reset_required &&
+    ![
+      'ADMIN_COOKBOOK_MODERATED',
+      'ADMIN_RECIPE_MODERATED',
+      'ADMIN_COOKBOOK_DELETION_REVIEWED',
+      'ADMIN_COOKBOOK_DELETED',
+    ].includes(action)
+  )
+    return deny(403, 'COOKBOOK_NAME_RESET_REQUIRED');
+  return actor.principal_id;
 }

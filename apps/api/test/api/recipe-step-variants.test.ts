@@ -290,3 +290,53 @@ test('new variants copy exactly the current default memberships in drafts and pu
     }
   }
 });
+
+test('publication changes public reads only after commit, with isolated permissions and uncached responses', async (): Promise<void> => {
+  const path: string = await create();
+  const publicId: string = path.split('/').at(-1)!;
+  const readerUrl: string = `/cookbook/recipes/${publicId}`;
+  await save(path, [{ instruction: 'Published original.', ingredients: [] }]);
+  const unpublished: LightMyRequestResponse = await api.inject(readerUrl);
+  assert.equal(unpublished.statusCode, 404);
+  const overview: LightMyRequestResponse = await api.inject(`/cookbook?tenantSlug=${tenant.slug}`);
+  assert.equal(overview.statusCode, 200);
+  assert.doesNotMatch(overview.body, new RegExp(publicId));
+  for (const instruction of ['Published original.', 'Published update.']) {
+    if (instruction === 'Published update.') {
+      await save(path, [{ instruction, ingredients: [] }]);
+      const draftRead: LightMyRequestResponse = await api.inject(readerUrl);
+      assert.equal(
+        draftRead.json<{ steps: Step[] }>().steps[0]!.instruction,
+        'Published original.',
+      );
+    }
+    const published: LightMyRequestResponse = await api.inject({
+      method: 'POST',
+      url: `${path}/publish`,
+      headers: { cookie },
+    });
+    assert.equal(published.statusCode, 200, published.body);
+    for (const credential of [cookie, recipeOnlyCookie, '', cookie, '']) {
+      const response: LightMyRequestResponse = await api.inject({
+        url: readerUrl,
+        headers: { cookie: credential },
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      assert.equal(response.headers['cache-control'], 'private, no-store');
+      const body: { steps: Step[]; can_edit: boolean } = response.json();
+      assert.equal(body.steps[0]!.instruction, instruction);
+      assert.equal(body.can_edit, credential !== '');
+    }
+  }
+  const forbidden: LightMyRequestResponse = await api.inject({
+    method: 'POST',
+    url: `${path}/publish`,
+    headers: { cookie: recipeOnlyCookie },
+  });
+  assert.equal(forbidden.statusCode, 403);
+  const admin: LightMyRequestResponse = await api.inject({
+    url: '/admin/tenants',
+    headers: { cookie },
+  });
+  assert.equal(admin.statusCode, 403);
+});

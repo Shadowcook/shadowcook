@@ -1,3 +1,8 @@
+import type { WorkflowTranslation } from '../features/admin/reports/translations.ts';
+import type { SafetyTranslation } from '../features/admin/safety/translations';
+import type { ModerationTranslation } from '../features/admin/moderation/translations';
+import type { OwnershipTranslation } from '../features/admin/ownership/translations';
+import type { InspectionTranslation } from '../features/admin/inspection/translations';
 import type { LandingTranslation } from '../components/landing/translations';
 import type { ReportTranslation } from '../features/reports/types';
 import type { RecipeImportTranslation } from '../features/cookbook/import/translations';
@@ -5,6 +10,29 @@ import type { RecipeImportTranslation } from '../features/cookbook/import/transl
 export type Locale = 'de' | 'en';
 
 export interface Translation {
+  workflow: WorkflowTranslation;
+  safety: SafetyTranslation;
+  moderation: ModerationTranslation;
+  ownership: OwnershipTranslation;
+  inspection: InspectionTranslation;
+  cookbookIdentity: {
+    cancelReset: string;
+    cancelResetDescription: string;
+    resetCancelled: string;
+    status: string;
+    active: string;
+    disabled: string;
+    resetPending: string;
+
+    rename: string;
+    required: string;
+    forceReset: string;
+    resetDescription: string;
+    resetDone: string;
+    invalidName: string;
+    newIdentityRequired: string;
+  };
+  errorStates: import('./errors').ErrorTranslation;
   recipeTrash: {
     title: string;
     empty: string;
@@ -120,6 +148,14 @@ export interface Translation {
     invalid: string;
   };
   registration: {
+    checkEmailTitle: string;
+    verificationTitle: string;
+    verificationSuccessTitle: string;
+    verificationFailedTitle: string;
+    verificationSignIn: string;
+    continueToCookbook: string;
+    continueToAccount: string;
+
     website: string;
     title: string;
     subtitle: string;
@@ -414,6 +450,9 @@ export interface Translation {
     tenantRenamed: string;
     tenantSlugConflict: string;
     tenantSlugInvalid: string;
+    tenantSlugChecking: string;
+    tenantSlugAvailable: string;
+    tenantSlugCheckFailed: string;
     tenantDeleted: string;
     save: string;
     cancel: string;
@@ -478,6 +517,17 @@ export interface Translation {
     accessDenied: string;
   };
   adminMedia: {
+    navigation: string;
+    title: string;
+    description: string;
+    limit: string;
+    limitHelp: string;
+    applyHelp: string;
+    save: string;
+    saved: string;
+    invalidLimit: string;
+  };
+  adminAudit: {
     navigation: string;
     title: string;
     description: string;
@@ -783,6 +833,9 @@ export interface Translation {
     confirmMerge: string;
   };
   tenantUsers: {
+    removeUser: string;
+    removeUserDescription: string;
+    userRemoved: string;
     title: string;
     description: string;
     roles: string;
