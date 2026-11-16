@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 export type DialogKind = 'information' | 'error' | 'confirmation';
 
 export interface DialogProperties {
+  className?: string;
   kind: DialogKind;
   title: string;
   message: string;
@@ -43,7 +44,7 @@ export default function Dialog(properties: DialogProperties): JSX.Element | null
   return createPortal(
     <dialog
       ref={dialogRef}
-      className={`application-dialog application-dialog--${properties.kind}`}
+      className={`application-dialog application-dialog--${properties.kind}${properties.className ? ` ${properties.className}` : ''}`}
       role={properties.kind === 'information' ? 'dialog' : 'alertdialog'}
       aria-modal="true"
       aria-labelledby={titleId}

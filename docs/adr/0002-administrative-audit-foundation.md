@@ -6,7 +6,7 @@ The existing tenant-local `audit_event` requires a tenant and cascades on tenant
 
 ## Decision
 
-Introduce a separate normalized administrative event table through an additive production migration. Preserve the existing tenant-local table and its deletion semantics. Store an event UUID, database-generated timestamptz, actor principal identity, action, target type and stable public UUID, optional parent cookbook public UUID, required purpose/reason, minimal previous/new state, a text request correlation identifier, optional report public UUID and outcome.
+Introduce a separate normalized administrative event table through an additive production migration. Preserve the existing tenant-local table and its deletion semantics. Store an event UUID, database-generated timestamptz, actor principal identity, action, target type and stable public UUID, optional parent cookbook, revision and media public UUIDs, required purpose/reason, minimal previous/new state, a text request correlation identifier, optional report public UUID and outcome.
 
 Resource identifiers in historical events describe the event at occurrence time. They must not cascade with live targets. Actor identity must survive account/principal removal without preventing it; retain the historical principal UUID without a deletion-coupled FK. Avoid email/display-name snapshots by default. Report correlation must remain interpretable after report removal. These event facts are not synchronized copies of mutable profile or recipe data; no denormalized live-resource columns are required.
 

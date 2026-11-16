@@ -43,9 +43,21 @@ test('audit state admits selected scalar metadata and excludes arbitrary content
     '{"disabled":true,"status":"OPEN"}',
   );
   assert.equal(serializeAdministrativeState(null), null);
+  assert.ok(
+    serializeAdministrativeState({
+      auditEventPublicId: randomUUID(),
+      noticePublicId: randomUUID(),
+      assigneePublicId: null,
+      reportResult: 'UNFOUNDED',
+    }),
+  );
   for (const value of [
     { password: 'secret' },
     { title: 'private recipe' },
+    { noticeMessage: 'public explanation belongs in separate notice storage' },
+    { auditEventPublicId: 'not-a-uuid' },
+    { assigneePublicId: 'not-a-uuid' },
+    { reportResult: 'free text' },
     { status: 'free text' },
     { disabled: 'true' },
     { ownerPrincipalId: 'not-a-uuid' },

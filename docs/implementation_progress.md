@@ -1,8 +1,54 @@
 # Shadowcook 2.0 implementation progress
 
+### Administrative audit retention settings
+
+- Added a deep-linked EN/DE retention settings form at `/admin/settings/audit` and session-only policy read/update endpoints. The existing 1–3,650-day policy applies to events and public report notices at the next cleanup; general audit analysis still requires database access. Production maintenance instructions use Docker Compose containers (architecture: [Administrative audit infrastructure](ARCHITECTURE.md#administrative-audit-infrastructure)).
+
+### Consolidated administration migration
+
+- Consolidated the eleven unreleased administration migrations into `packages/db/src/migrations/sql/20261111222940_administrative_audit.sql` before any release or push. The initial schema and cookbook-name-reset migrations remain separate and unchanged. Final table definitions and constraints replace intermediate alterations and invalidation of unreleased recovery proofs/templates (architecture: [Database migration execution](ARCHITECTURE.md#database-migration-execution)).
+- Isolated PostgreSQL schema dumps and the audit-retention seed match the original migration chain. All 15 migration tests and the database-cloning integration suite passed. No development or deployed database was modified.
+- Identifier/checksum validation remains active. Local databases that applied intermediate administration migrations require a separate migration-history alignment; consolidation does not update their ledger or data automatically.
+
+### Report investigation and operator workflow
+
+- Added live report-target restriction/availability context and links that preserve report correlation through inspection, moderation, ownership, deletion and account recovery. Report decisions are separately audited without enforcement side effects. Purpose-gated paginated history exposes retained actions and scoped recheck links, with explicit event association. Confirmed public notices separate public explanation/review instructions from private notes and persist post-commit delivery outcomes under finite retention (architecture: [Report investigation, history and public notices](ARCHITECTURE.md#report-investigation-history-and-public-notices)).
+
+### Administrative deletion and account recovery safety
+
+- Added customizable `RECIPE_DELETED` / `COOKBOOK_DELETED` owner emails for permanent admin deletions, with recipient/identity capture before deletion, post-commit delivery and optional public explanations separate from private reasons. Cookbook deletion sends one summary; ordinary trash and retention cleanup remain outside this notification flow (architecture: [Destructive operations and account recovery](ARCHITECTURE.md#destructive-operations-and-account-recovery)).
+
+- Added scoped destructive review, preservation/UUID confirmation and audit-before-delete transactions, shared permanent recipe cleanup and durable cookbook media removal. Account lifecycle/role mutations protect the last usable administrator and account deletion requires ownership resolution, including concurrent creation safety. Email correction requires new-address proof, revokes old access and reports post-commit notification outcomes (architecture: [Destructive operations and account recovery](ARCHITECTURE.md#destructive-operations-and-account-recovery)).
+
+### Cookbook and recipe moderation
+
+- Added customizable `COOKBOOK_RESTRICTION_LIFTED` and `RECIPE_RESTRICTION_LIFTED` emails with post-commit owner notification when moderation restrictions are removed. Optional user-facing explanations are supported, unchanged-state requests send no mail, and independent access/retention states remain effective (architecture: [Content moderation restrictions](ARCHITECTURE.md#content-moderation-restrictions)).
+
+- Added a required separate user-facing reason to recipe/cookbook restriction forms and APIs. Both email templates support `{{user_reason}}`; existing customized bodies without that placeholder automatically append the explanation. Internal administrative reasons remain private (architecture: [Content moderation restrictions](ARCHITECTURE.md#content-moderation-restrictions)).
+
+- Added the customizable `COOKBOOK_RESTRICTED` email and automatic post-commit owner notification for cookbook restrictions using the shared moderation delivery service. Repeated restrictions and unrestriction send no mail, and cookbook restrictions send no per-recipe emails (architecture: [Content moderation restrictions](ARCHITECTURE.md#content-moderation-restrictions)).
+
+- Added the customizable `RECIPE_RESTRICTED` system email and automatic post-commit notification of the canonical cookbook owner on new recipe restrictions, independent of report notices. Repeated blocking and unblocking send no mail; private reasons remain internal and delivery failures are logged without reverting enforcement (architecture: [Content moderation restrictions](ARCHITECTURE.md#content-moderation-restrictions)).
+
+- Added confirmed, reasoned administrator-only cookbook restrictions and independent recipe blocking with atomic audit. Ordinary recipe access uses a shared filtered view across normal reads/writes, shares, media, exports and AI integrations; administrative inspection remains explicit. Trash purge/history-image pruning preserve restricted content. Account settings distinguish administrative deactivation from identity reset and prevent disabled cookbook renaming (architecture: [Content moderation restrictions](ARCHITECTURE.md#content-moderation-restrictions)).
+
+### Administrative ownership transfer
+
+- Added purpose-gated account search and confirmed atomic canonical ownership transfer, serialized stale-owner checks, safe former-owner membership outcomes, pending owner-invitation cancellation, privacy-conscious audit and post-commit owner notifications with operator-visible delivery outcomes. Cookbook administration now displays canonical owners (architecture: [Administrative ownership transfer](ARCHITECTURE.md#administrative-ownership-transfer)).
+
+### Administrative content inspection
+
+- Added a fourth, URL-addressable cookbook actions tab with directly visible restriction/deletion controls and ownership transfer in separate panels (architecture: [Administrative content inspection](ARCHITECTURE.md#administrative-content-inspection)).
+
+- Split cookbook overview from audited, searchable server-paged recipes, members, reports and per-recipe revisions. Active URL-addressable tabs load 25 entries at a time; recipe/revision navigation preserves inspection purpose without reloading the overview. Ownership recovery now uses debounced automatic search with visible, selectable account identities and stale-request cancellation (architecture: [Administrative content inspection](ARCHITECTURE.md#administrative-content-inspection), [Administrative ownership transfer](ARCHITECTURE.md#administrative-ownership-transfer)).
+
+- Reorganized inspection into a responsive cookbook overview, bounded revision navigation with current-selection highlighting, a dedicated recipe-content panel, and separate member/report sections. Unified spacing, links, status badges and action styling; cookbook actions and ownership recovery are expandable, while revision navigation moves keyboard focus to the selected content (architecture: [Administrative content inspection](ARCHITECTURE.md#administrative-content-inspection)).
+
+- Delivered purpose-gated, read-only cookbook/revision/media inspection through session-only audited APIs and localized deep-linked administration views. Exact parent-chain checks cover private, disabled, identity-locked and trashed resources without membership or content changes. Deactivated cookbooks also reject ordinary share text and previously issued AI reader grants (architecture: [Administrative content inspection](ARCHITECTURE.md#administrative-content-inspection)).
+
 ### Administrative audit foundation
 
-- Added explicit session-only administrative authorization, shared reason/report validation, transaction-bound mutation auditing and read-only callbacks with durable attribution before response. Administrative events survive resource/account deletion, use string request IDs, restrict state payloads and have operator-controlled finite retention with startup/periodic pruning. Existing product routes retain their permissions and behavior (architecture: [Administrative audit infrastructure](ARCHITECTURE.md#administrative-audit-infrastructure); implementation and validation: [Phase 1](admin-concept-implementation.md#phase-1--administrative-audit-foundation)).
+- Added explicit session-only administrative authorization, shared reason/report validation, transaction-bound mutation auditing and read-only callbacks with durable attribution before response. Administrative events survive resource/account deletion, use string request IDs, restrict state payloads and have operator-controlled finite retention with startup/periodic pruning. Existing product routes retain their permissions and behavior (architecture: [Administrative audit infrastructure](ARCHITECTURE.md#administrative-audit-infrastructure)).
 
 ### Cookbook member removal
 
@@ -83,7 +129,9 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 ### Platform, persistence, and development data
 
 - Production-data test clones are available from a development checkout through `pnpm clone:db` and `scripts/clone-database.sh`, with `.env.db-clone.example` in the repository root. The tool stages and validates a source snapshot, replaces profiles and credentials, disables copied mail delivery, preserves business data, and publishes through a transactional target-schema replacement. Separate source/target configuration, read-only preflight, source/target identity guards, temporary-data cleanup, and isolated PostgreSQL integration tests are included (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
-- Test clones end with hidden password entry and confirmation for an additional `admin@local` account. The API password policy and hashing, transactional administrator setup, immediate password login, and explicit stdin automation are covered by isolated integration tests, including a real terminal test for hidden entry, mismatch, and policy retries (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
+- Database cloning supports additional source and target schemas and unrelated active target clients. Exports include only `public` and extensions installed there; transactional dependency checks roll back changes that would damage other schemas. Isolated PostgreSQL tests cover excluded source data and extensions, cross-schema cascading deletions, lock conflicts, and publication without superuser privileges (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
+- Cloning supports historical source schemas without comparing them to the checkout or applying migrations. Missing cleanup tables and optional fields are skipped; unknown fields and migration history remain intact. Password setup discovers the copied identity model, skips unsupported administrator creation, and runs before publication so failures leave the target unchanged. Isolated tests compare source/clone schemas and migration ledgers, upgrade a cloned baseline through the real migration runner, and cover absent optional tables/columns and an unknown historical identity model (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
+- Test clones read and confirm a hidden shared password before copying, then apply it in the working copy to available user-password fields and a supported additional `admin@local` account before publication. Clone passwords bypass source and copied entropy limits even under `NODE_ENV=production`, while retaining non-empty and 1024-character limits and the API's scrypt encoding. Transactional administrator setup, immediate password login, explicit stdin automation, weak file/stdin passwords, and real terminal tests for hidden entry, confirmation mismatch, and empty-password retries are covered by isolated integration tests (architecture: [Production database clones for testing](ARCHITECTURE.md#production-database-clones-for-testing)).
 
 - The 24 initial/Beta schema migrations are consolidated into one initial schema for fresh installations. Schema and built-in seed equivalence were verified against the previous migration chain in isolated PostgreSQL databases. Migration tests cover the baseline ledger, repeatability, unit seeding and translations, contributor cascades, search functions, and independent variant metadata; database builds remove obsolete compiled SQL assets (architecture: [Database migration execution](ARCHITECTURE.md#database-migration-execution); decision: [Consolidated schema baseline](adr/0001-consolidated-schema-baseline.md)).
 
@@ -260,3 +308,7 @@ Implemented capabilities are documented in [ARCHITECTURE.md](ARCHITECTURE.md). U
 - Recipe trash and permanent deletion implemented: BETA-2 migration, default 30-day cookbook-controlled retention, snapshotted deletion policies, tenant-authorized deletion/restoration, localized management actions and deep-linkable trash, hidden deleted recipes across normal access paths, retained slugs, startup/hourly cascading purge and durable image deletion retries. API contract updated (architecture: [Recipe trash and permanent deletion](ARCHITECTURE.md#recipe-trash-and-permanent-deletion)).
 
 - Registration uses localized inbox and welcome views with state-specific headings. Email verification signs in the originating browser using credential-bound HttpOnly browser proof and a fresh session committed atomically with account creation; other browsers retain explicit login. Success continues to the new cookbook or cookbook settings and refreshes the session header (architecture: [Registration and account settings](ARCHITECTURE.md#registration-and-account-settings)).
+
+### Asynchronous administrative email recovery
+
+- [Destructive operations and account recovery](ARCHITECTURE.md#destructive-operations-and-account-recovery): administrator issuance now sends a one-hour recipient confirmation link. Completion runs independently of operator sessions, atomically changes the email, revokes access and records recipient confirmation. Localized dialogs, public confirmation page, additive migration and OpenAPI replace the token-relay workflow.

@@ -1,28 +1,28 @@
 # Administrative audit operations
 
-The [administrative audit infrastructure](ARCHITECTURE.md#administrative-audit-infrastructure) records justified service operations. Existing product administration routes do not automatically use it. Historical event identifiers remain after the corresponding account, cookbook, recipe or report is removed; no email/profile snapshot is stored.
+The [administrative audit infrastructure](ARCHITECTURE.md#administrative-audit-infrastructure) records justified service operations. Inspection, ownership transfer, moderation, destructive content/account operations and report workflow/history/notice actions use it. Remaining administration routes retain their established audit behavior. Historical event identifiers remain after the corresponding account, cookbook, recipe or report is removed; no email/profile snapshot is stored.
 
 ## Access and retention
 
-Only trusted operators with database credentials can inspect event rows or change retention. The application exposes no audit-history, event modification/deletion or retention API. Do not grant application users or cookbook owners database access. Database administrators can modify records; this is not an immutable evidence store.
+Active human administrators may read report-scoped history through the purpose-gated administration workflow. Direct audit queries require database access. General audit analysis remains a database-operator task; the application has no global event browser or event modification/deletion API. Administrators configure retention under **Settings → Audit retention** (`/admin/settings/audit`), without database credentials. The policy API requires an active human administrator browser session and rejects bearer authentication. Do not grant application users or cookbook owners database access. Database administrators can modify records; this is not an immutable evidence store.
 
-The database policy defaults to 365 days. Select the retention period appropriate for the instance's operational policy before using sensitive administration. Supported values are 1 through 3,650 days; zero/unlimited is rejected. The current policy applies to all stored events, including when the period is reduced. Pruning uses database time, with one day equal to 24 hours; rows strictly older than the cutoff are deleted. The API prunes on startup and every three hours. Failed periodic pruning is logged and retried at the next interval.
+The database policy defaults to 365 days. Select the retention period appropriate for the instance's operational policy before using sensitive administration. Supported values are 1 through 3,650 days; zero/unlimited is rejected. The current policy applies to all stored events and public report notices, including when the period is reduced. Explicit report/event associations cascade when their original event is pruned. Pruning uses database time, with one day equal to 24 hours; rows strictly older than the cutoff are deleted. The API prunes on startup and every three hours. Failed periodic pruning is logged and retried at the next interval.
 
-From the source workspace, with an explicitly configured operator `DATABASE_URL`:
+Set the retention period in the administration UI and save. Saving does not prune immediately; a shorter period takes effect at the next cleanup. Increasing the period cannot restore deleted records.
 
-```sh
-npm --prefix apps/api run admin-audit-maintenance -- set-retention-days 365
-npm --prefix apps/api run admin-audit-maintenance -- prune
-```
-
-With the built API, from its directory:
+Production maintenance runs through Docker Compose from the deployment directory. The API container includes the compiled maintenance tool and receives its database configuration from Compose. For an explicit cleanup, including after restoration:
 
 ```sh
-node dist/admin-audit-maintenance.js set-retention-days 365
-node dist/admin-audit-maintenance.js prune
+docker compose run --rm --no-deps api node dist/admin-audit-maintenance.js prune
 ```
 
-These commands require an already migrated database; they do not load local environment files or migrate automatically. `DATABASE_URL` must be supplied explicitly through the operator's secret/environment mechanism. Keep credentials out of shell history and captured command output. Commands emit UTC JSON success/failure status without echoing connection strings. Check the exit status; failure is nonzero. Setting a shorter period is followed by pruning at the next cleanup or the explicit prune command.
+If the web UI is unavailable, an operator can also set the policy through a disposable API container:
+
+```sh
+docker compose run --rm --no-deps api node dist/admin-audit-maintenance.js set-retention-days 365
+```
+
+Use the same Compose files, project name and environment configuration as the deployment; external PostgreSQL installations use their configured Compose variant. These commands require a reachable, already migrated database and do not migrate it automatically. Node runs inside the container; no host Node/npm installation or source checkout is needed. Commands emit UTC JSON success/failure status without echoing connection strings. Check the exit status; failure is nonzero. Configure finite security-log retention separately from database retention.
 
 ## Backup and restoration
 
@@ -35,3 +35,89 @@ After restoring a backup, verify the retained audit policy and set the current i
 Sensitive endpoint implementations use `executeAdministrativeRead` or `executeAdministrativeMutation` with trusted action and target metadata and client-supplied purpose only. They must perform target/parent scoping, use the supplied database client, and return data through the wrapper after commit. Read callbacks are database read-only. Mutation callbacks share the audit transaction. Never pass recipe snapshots, media, credentials or arbitrary request bodies as audit state, and never put secrets in reasons. Reports are optional references, not authorization to act.
 
 The new wrapper emits safe action/request/outcome logs for denied, invalid-purpose and failed operations. Configure finite security-log retention separately. Product authentication middleware can reject a request before the wrapper runs; such requests retain the ordinary HTTP/authentication logging behavior.
+
+## Private content inspection
+
+Private cookbook data is hidden from unauthorized ordinary users. An active platform administrator with explicit `instance:administer` may inspect it through the justified, audited administration workflow, including when a cookbook is deactivated or identity-locked. Administrative status does not make the person a cookbook member or expose content through ordinary pages.
+
+Use an investigation purpose that explains the legitimate task, such as reviewing an identified report, investigating a security incident or examining an account-recovery request. An optional existing report reference correlates accesses; it is not proof of wrongdoing or authority to enforce an action. Reasons are internal audit material: do not include credentials, unnecessary personal data or identity-document copies. Inspection itself performs no moderation or ownership changes.
+
+Select a cookbook from administration, enter the purpose and optional report UUID, then open the necessary recipe revisions and variants. Each image read has its own server authorization and audit. End inspection when finished; a fresh page asks for purpose again. Previously downloaded files and already viewed information cannot be recalled by access restrictions.
+
+Operators should reflect the private-data definition above in their instance's administered privacy notice. The implementation does not overwrite operator-authored legal documents. Inspection itself does not establish an automated preservation, appeal or enforcement process. Ownership transfer is a separate confirmed administrative action described below.
+
+## Cookbook ownership recovery
+
+Establish the requester's entitlement using your instance's recovery procedures before taking action. Record the verification performed in a concise transfer reason; do not upload or retain unnecessary identity documents. A report reference provides correlation and does not prove the request is legitimate.
+
+Open cookbook inspection with a purpose, search the existing active account by email/name/account UUID, and select the unambiguous recipient. Choose whether the former owner is removed or retained as Viewer/Editor. Enter the transfer reason and review the separate confirmation dialog, including old/new identifiers and membership consequences. Restrictions remain active; a new owner of an identity-locked cookbook must perform its rename through normal settings. A recipient may exceed the normal self-service cookbook limit after administrative recovery.
+
+If another transfer changed the owner, reload inspection before deciding again. If roles are inconsistent, review the existing role/membership data explicitly; the service rejects the action rather than silently altering third-party Owner privileges. An unclaimed cookbook can be assigned an owner; doing so cancels outstanding Owner invitations.
+
+The response displays delivery outcomes for old and new owners. Failed delivery never means the ownership transaction was rolled back. Mail is attempted once; after a failure, use an appropriate operator contact channel and review the safe server logs. No automatic notification retry or notification-history dashboard is provided. Private investigation reasons are not included in the notification template. Existing instance privileges and independently issued service-account credentials are unchanged; review those separately when recovering from compromised access.
+
+## Content restrictions
+
+Use cookbook administration or cookbook inspection to restrict a cookbook. Recipe restrictions are available for each recipe in the inspection view, including trashed recipes. Each change requires a separate project confirmation, administrative reason and optional report UUID. Only active human administrators may moderate; tenant managers retain their other established controls but cannot enable/disable cookbooks.
+
+Restricting access preserves content and history. Recipe restrictions prevent ordinary owner/editor access, editing, publication, sharing, restoration and export of that recipe. Cookbook restrictions prevent normal content access and management for the whole cookbook. Inspection remains available through its own purpose/audit checks. Private reasons are stored in the audit, not shown to ordinary readers or copied into recipe text.
+
+Name reset, deactivation and recipe block are independent. Clearing one does not clear the others. A disabled cookbook cannot be renamed by its owner; after deactivation lifts, an outstanding identity reset still requires repair. Explicit administrative moderation remains available during an administrator's own pending identity repair, while password-change requirements remain enforced.
+
+Lifting a block does not publish or restore a recipe. Blocked trash and disabled-cookbook trash are not automatically purged, and their historical image references are not pruned. Once unrestricted, elapsed retention applies again; review the existing trash state before lifting a restriction. Previously exported files, already open pages and other copies are outside live-access controls. Closing a report with BLOCKED remains a ticket result and does not itself restrict content.
+
+## Permanent content deletion
+
+Administrative deletion is always permanent in the live application, never a move to trash. The canonical cookbook owner receives an automatic `RECIPE_DELETED` / `COOKBOOK_DELETED` email after commit when delivery is available. Recipient and target identity are captured under locks before deletion. Enter an optional **Reason given to user** of up to 2,000 characters in the deletion dialog; it is separate from the private administrative reason. Customize **Recipe permanently deleted** / **Cookbook permanently deleted** under `/admin/settings/email-templates`, including a monitored operator contact. Both support `{{user_reason}}`, with automatic appending when an authored body omits it. Cookbook deletion sends one summary without per-recipe emails. Check UTC `Administrative deletion notification` logs for `SENT`, `FAILED` or `NO_RECIPIENT` and target/request identifiers. Missing/deleted owners and failed SMTP do not undo deletion. There is no automatic retry or durable queue. Previews, failed/rolled-back/repeated requests, ordinary trash moves and retention cleanup send no deletion email.
+
+Prefer cookbook deactivation or recipe blocking while investigating. Before permanent deletion, independently decide whether evidence, incident response or applicable preservation requirements require retention; the confirmation checkbox records your review and does not enforce an automated legal hold. Do not proceed while preservation is unresolved.
+
+Use cookbook administration/inspection or the recipe action within cookbook inspection. Enter a concise reason and optional report UUID, review the recipe/revision/share/media/member counts, attest to the preservation decision and type the exact target UUID. Recipe deletion preserves cookbook memberships; cookbook deletion removes its memberships without deleting human accounts. A changed scope requires another review. Restricted and trashed content is included, so review those states before confirming.
+
+Deletion permanently removes live content and history. The administrative event is inserted before physical deletion in the same transaction and survives resource/local-audit cascades. An audit failure rolls the deletion back. Unused files are queued durably for maintenance; shared files remain while referenced. Cookbook deletion rejects media still referenced from another cookbook. Investigate those references rather than deleting files manually. Backups, downloads, exports and other copies are unaffected; follow the separate backup retention/restoration procedures above.
+
+## Account lifecycle and last administrator
+
+Account deactivation, reactivation, deletion and instance-role replacement require a reason and separate confirmation. Deletion also requires the exact account UUID and rejects all remaining canonical cookbook ownership, including disabled/identity-locked cookbooks. Use the linked cookbooks to transfer ownership through the verified recovery process or explicitly delete them after preservation review; then retry account deletion. Deactivation preserves ownership and content.
+
+Deactivation and deletion revoke account sessions, OAuth access/refresh credentials and authorization codes, creator AI grants, reset/email codes, pending email changes/recovery proofs and unaccepted invitations involving that account. Reactivation does not restore revoked credentials. Independent cookbook service accounts and public access remain; use cookbook restriction when the cookbook itself needs containment. Account deletion is a soft deletion: the account/principal identifiers and content attribution remain, and it is not a personal-data erasure operation.
+
+Concurrent sensitive account actions are serialized. The service rejects removal of the last active human administrator with a usable login method under the current instance login mode. Password-based usability requires a stored verifier; email-code usability requires configured SMTP. Configuration does not prove external SMTP delivery is working. Establish and test another eligible administrator before removing access. A required initial password change alone does not count as account deactivation. No emergency bypass is exposed by the application.
+
+## Account email recovery
+
+Establish the recovery claimant's entitlement independently under the instance's recovery policy. Select the exact account using its current email and public UUID and record the checks in a concise reason without credentials or identity-document copies. Disabled accounts must first be reviewed and explicitly reactivated; deleted accounts cannot use this workflow. Email correction does not transfer cookbook ownership or change authored content.
+
+In the recovery dialog, carefully enter the proposed available email address, document the independent entitlement check and send the confirmation link. Check the initial delivery result, then close the dialog: no monitoring, token relay or later administrator action is required. The old address remains valid until the recipient opens the confirmation link within one hour. A replacement may be requested after one minute and invalidates the previous link. Expiry leaves the old address unchanged.
+
+Confirmation changes the unique account email, consumes pending recovery, revokes account-bound access and commits its audit under the initiating administrator's purpose with recipient-link confirmation identified. It works without an administrator or user session. Disabled/deleted accounts cannot confirm. Password, account/principal identities, memberships, content and ownership remain. Use configured login/recovery methods to establish fresh access.
+
+Link issuance reports delivery failure. After a failed send, verify the address and request a fresh link after the cooldown. Old/new-address correction notifications run after commit; their failures are logged and do not undo correction. No automatic retry exists. Mail templates exclude private recovery reasons. Never put tokens in reasons, tickets or retained investigation records. Expired requests are removed on startup and every three hours; pending recovery state is stripped from development database clones.
+
+## Report investigation and decisions
+
+Open `/admin/reports` with the status/page filter in the URL or open a ticket directly at `/admin/reports/{publicId}`. Use Recheck current state to resolve its current restrictions and available targets. A ticket's result records a decision, not proof of enforcement. Private/restricted content uses the dedicated inspection link and still requires an entered purpose; account reports link to the exact account. Existing forced-password and owner-identity repair requirements remain enforced for report access.
+
+The linked inspection, moderation, ownership and deletion controls carry the report UUID, and linked account controls carry it only for the selected user. Confirm the displayed report reference and record a task-specific reason for each sensitive action. Contain content while investigating and review preservation before deletion. Separate enforcement from closing the ticket. Select UNFOUNDED when review does not substantiate a report; this does not penalize the reported party. Result notes remain internal, so do not use them as a public explanation or include credentials/identity-document copies.
+
+Enter a purpose to load history. It shows retained successful correlated/associated operations, request IDs and minimal recorded state, not every denied attempt or every historical note. Compare historical entries with the current context and use their recheck links. History-read events are separately recorded but omitted from these pages. Events and notices each have 25 rows per page; page and event/notice fragments are deep-linkable. Following an event link still requires a fresh history purpose before information is released. Concurrent new operations can change page contents; recheck from the first page when investigating recent activity.
+
+An operator may associate a known retained audit UUID when the action's scope matches the target or applicable cookbook scope. The association never edits the original event or repeats enforcement. Foreign recipe/cookbook events are rejected. If the event has expired under retention, its original details cannot be recovered through this interface; follow approved archival procedures. Removed targets have no live action link; retained reports and events remain usable.
+
+## Public notices and requests for review
+
+New cookbook restrictions automatically attempt a `COOKBOOK_RESTRICTED` email; new individual recipe restrictions attempt a `RECIPE_RESTRICTED` email. Both go to the canonical cookbook owner after commit, independently of reports. Configure SMTP and customize **Cookbook access restricted** and **Recipe access restricted** under `/admin/settings/email-templates`, including an actual operator contact for review. Enter a separate **Reason given to user** of 1–2,000 characters when restricting content. This is required even if no owner or working SMTP configuration is available; lifting a restriction does not require it. Write a comprehensible public explanation without investigation notes. Both templates provide `{{user_reason}}`; customized bodies without it have the explanation appended automatically. Private administrative reasons are excluded. The public explanation is sent only through email delivery and is not retained in audit state or request logs. Check UTC request logs for `Cookbook restriction notification` or `Recipe restriction notification` with `SENT`, `FAILED` or `NO_RECIPIENT`; logs contain request/target identifiers without addresses or message text. Delivery is attempted once with no automatic retry. Missing mail configuration, a missing/deleted owner or SMTP failure does not undo the restriction. Lifting sends `COOKBOOK_RESTRICTION_LIFTED` or `RECIPE_RESTRICTION_LIFTED` after commit. Customize **Cookbook restriction lifted** and **Recipe restriction lifted** in the same settings. An optional user-facing explanation is included through `{{user_reason}}` or appended for customized bodies without it. Independent restrictions, visibility, publication and trash state still apply. Requests without a state change send no email. Notification logs include the requested `blocked` state. Cookbook-wide restrictions send one cookbook email without per-recipe emails; identity-reset requests send neither restriction email. These automatic notifications have no delay/suppression control.
+
+For separate public report notices, decide whether notice is appropriate, which party should receive it, and when it may be sent under the instance's approved policy. Record any justified delay or limitation in internal ticket notes. Timing of these separate notices is a human decision; the application has no automatic decision about legal exceptions or suppression. Use the separate public notice action to select the reporter or current reported account/cookbook owner, write a public explanation and supply concrete review/contact instructions such as a monitored operator email address or contact URL. Recheck the selected account UUID before confirmation. Send owner notices before deleting the target content; deletion can remove the relationship used to find the recipient. Deactivated accounts can still receive mail; deleted accounts cannot receive a new notice.
+
+Public explanations should identify the relevant decision/action, give a comprehensible reason and explain how to request another human review. Include an actual contact path, required reference and any operator-approved response process. Do not disclose private recipe text, reporter identities, investigator notes or unrelated account data. The application sends only the explicitly entered public message and review instructions; it never copies internal report description, result note or audit purpose into a notice. Custom templates must retain useful public explanation and review instructions.
+
+Notice/audit creation commits before SMTP. Review history for SENT, FAILED or PENDING. SENT indicates transport acceptance, not confirmed inbox receipt. FAILED does not undo the committed notice or separate account/content action. PENDING after interruption means delivery may already have occurred. There is no automatic retry: confirm state and use an appropriate verified contact channel or explicitly create a replacement notice after reviewing duplication risk. Public notice text follows the finite audit-retention period; backups follow the operator's separate policy.
+
+Requests for review use the supplied operator contact instructions. The application does not provide a public appeal portal or automatic adjudication. Verify the requester and references, have a suitable human reconsider the decision, and document the outcome internally. If a restriction should lift, perform the explicit confirmed unblock action; the owner receives the lifting email when delivery is available. Use a separate public report notice if additional report-specific explanation or contact instructions are needed. Changing a ticket result or reopening a ticket alone does not restore, unblock, publish or reinstate access. The [user guide](administrative-user-guide.md) explains this distinction without exposing investigation details.
+
+## Operator policy and incident escalation
+
+Publish an instance-specific privacy notice explaining that private content is hidden from unauthorized ordinary users and may be accessed by specifically authorized platform administrators for legitimate administration, security or moderation tasks. Define authorized investigation purposes, recovery verification, preservation, finite audit/security-log/backup retention and notification/review contacts. The application does not overwrite existing operator-authored legal documents or establish a universal legal policy.
+
+For an incident, record a concise reference, consider reversible restriction, inspect only necessary content and separate internal notes from public explanations. Follow the operator's approved incident and escalation policy for legal questions, competent-authority contact and preservation/disclosure requests; the application does not decide these questions or send authority reports. If a preservation decision is unresolved, pause permanent deletion and use the applicable approved process. Maintain a monitored review channel, communicate public outcomes separately and record human follow-up. Automated scoring, surveillance and enforcement remain outside this administration workflow.

@@ -50,7 +50,7 @@ export function isKnownSystemPage(pathname: string): boolean {
   )
     return true;
   if (
-    /^\/admin\/settings\/(?:reports|smtp|email-templates|authentication|registration|cookbook-slug-blocked-terms|media|frontpage|legal-documents)$/.test(
+    /^\/admin\/settings\/(?:reports|smtp|email-templates|authentication|registration|cookbook-slug-blocked-terms|media|audit|frontpage|legal-documents)$/.test(
       pathname,
     )
   )
@@ -59,7 +59,11 @@ export function isKnownSystemPage(pathname: string): boolean {
     /^\/(?:invitations|password-reset|verify-email|user-invitations|shared)\/[^/]+$/.test(
       pathname,
     ) ||
+    /^\/auth\/email-recovery\/[^/]+$/.test(pathname) ||
     /^\/settings\/email\/verify\/[^/]+$/.test(pathname) ||
-    /^\/admin\/reports\/[^/]+$/.test(pathname)
+    /^\/admin\/reports\/[^/]+$/.test(pathname) ||
+    /^\/admin\/tenants\/[^/]+\/(?:inspection|recipes\/[^/]+\/(?:inspection|revisions\/[^/]+))$/.test(
+      pathname,
+    )
   );
 }

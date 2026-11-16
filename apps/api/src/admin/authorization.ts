@@ -146,6 +146,15 @@ export async function requireAdministrativeActor(
   if (actor === undefined) return deny(401, 'AUTHENTICATION_REQUIRED');
   if (actor.password_change_required) return deny(403, 'PASSWORD_CHANGE_REQUIRED');
   if (!actor.permitted) return deny(403, 'INSTANCE_PERMISSION_REQUIRED');
-  if (actor.identity_reset_required) return deny(403, 'COOKBOOK_NAME_RESET_REQUIRED');
+  if (
+    actor.identity_reset_required &&
+    ![
+      'ADMIN_COOKBOOK_MODERATED',
+      'ADMIN_RECIPE_MODERATED',
+      'ADMIN_COOKBOOK_DELETION_REVIEWED',
+      'ADMIN_COOKBOOK_DELETED',
+    ].includes(action)
+  )
+    return deny(403, 'COOKBOOK_NAME_RESET_REQUIRED');
   return actor.principal_id;
 }

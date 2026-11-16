@@ -27,13 +27,13 @@ after(async (): Promise<void> => {
 });
 
 test('migrations are repeatable without changing the migration ledger', async (): Promise<void> => {
-  const beforeResult = await database.pool.query<{ id: string; checksum: string }>(
+  const beforeResult: QueryResult<{ id: string; checksum: string }> = await database.pool.query(
     'SELECT id, checksum FROM application_schema_migration ORDER BY id',
   );
 
   await migrateDatabase(database.pool);
 
-  const afterResult = await database.pool.query<{ id: string; checksum: string }>(
+  const afterResult: QueryResult<{ id: string; checksum: string }> = await database.pool.query(
     'SELECT id, checksum FROM application_schema_migration ORDER BY id',
   );
   assert.deepEqual(afterResult.rows, beforeResult.rows);

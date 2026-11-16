@@ -70,11 +70,22 @@ clone_query() {
 }
 
 check_clone_target() {
-  local connections=''
-  connections=$(clone_query "${target_url}" \
-    'SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid()')
-  [[ "${connections}" == 0 ]] || fail 'The target has other database connections. Stop its API, web, and other clients first.'
+  # Sessions cannot be assigned reliably to one schema. Locks during publication
+  # protect public; unrelated clients and schemas are allowed.
   [[ "$(clone_query "${target_url}" \
-    "SELECT count(*) FROM pg_namespace WHERE nspname <> 'public' AND nspname <> 'information_schema' AND nspname !~ '^pg_'")" == 0 ]] \
-    || fail 'The target contains additional schemas. Select a dedicated Shadowcook test database.'
+    'SELECT rolsuper OR rolcreatedb FROM pg_roles WHERE rolname = current_user')" == t ]] \
+    || fail 'The target account lacks CREATEDB. Grant CREATEDB to the target role or use another account; cloning requires an isolated working database.'
+}
+
+read_clone_extensions() {
+  local extension_names=''
+  local extension_name=''
+  clone_extension_options=()
+  extension_names=$(clone_query "${source_url}" \
+    "SELECT extension.extname FROM pg_extension extension JOIN pg_namespace namespace ON namespace.oid = extension.extnamespace WHERE namespace.nspname = 'public' ORDER BY extension.extname")
+  while IFS= read -r extension_name; do
+    [[ -n "${extension_name}" ]] || continue
+    # pg_dump patterns use double quotes for exact identifier matching.
+    clone_extension_options+=("--extension=\"${extension_name//\"/\"\"}\"")
+  done <<< "${extension_names}"
 }

@@ -11,13 +11,16 @@ import { isUuid } from '../reports/model.js';
 
 export interface AdministrativeTarget {
   action: string;
-  targetType: 'COOKBOOK' | 'RECIPE' | 'USER' | 'INSTANCE';
+  targetType: 'COOKBOOK' | 'RECIPE' | 'USER' | 'INSTANCE' | 'REPORT';
   targetPublicId: string;
   cookbookPublicId?: string;
+  revisionPublicId?: string;
+  mediaPublicId?: string;
 }
 
 export interface AdministrativeResult<Value> {
   value: Value;
+  apply?: () => Promise<void>;
   previousState?: AdministrativeState;
   newState?: AdministrativeState;
 }
@@ -64,6 +67,8 @@ async function executeAdministrativeOperation<Value>(
   const client: PoolClient = await pool.connect();
   try {
     await client.query(readOnly ? 'BEGIN READ ONLY' : 'BEGIN');
+    if (!readOnly && target.action.startsWith('ADMIN_USER_'))
+      await client.query("SELECT pg_advisory_xact_lock(hashtext('administrative-account-safety'))");
     const actorId: string | null = await requireAdministrativeActor(
       client,
       request,
@@ -77,7 +82,10 @@ async function executeAdministrativeOperation<Value>(
     }
     const purpose: AdministrativePurpose | null = parseAdministrativePurpose(purposeInput);
     if (purpose === null) return await rejectInput(client, request, reply, target.action);
-    if (purpose.relatedReportPublicId !== null) {
+    if (
+      purpose.relatedReportPublicId !== null &&
+      !(target.targetType === 'REPORT' && purpose.relatedReportPublicId === target.targetPublicId)
+    ) {
       const report: QueryResult = await client.query(
         'SELECT 1 FROM content_report WHERE public_id = $1',
         [purpose.relatedReportPublicId],
@@ -86,7 +94,11 @@ async function executeAdministrativeOperation<Value>(
     }
     if (readOnly) {
       const result: AdministrativeResult<Value> = await work(client, actorId);
-      if (result.previousState !== undefined || result.newState !== undefined)
+      if (
+        result.previousState !== undefined ||
+        result.newState !== undefined ||
+        result.apply !== undefined
+      )
         throw new Error('Administrative reads cannot record mutations.');
       await client.query('COMMIT');
       // A read is not returned until durable attribution succeeds.
@@ -101,6 +113,7 @@ async function executeAdministrativeOperation<Value>(
     }
     const result: AdministrativeResult<Value> = await work(client, actorId);
     await insertEvent(client, request.id, actorId, target, purpose, result);
+    if (result.apply) await result.apply();
     await client.query('COMMIT');
     return result;
   } catch (error: unknown) {
@@ -144,8 +157,8 @@ async function insertEvent<Value>(
   await client.query(
     `INSERT INTO administrative_audit_event
     (actor_principal_id, action, target_type, target_public_id, cookbook_public_id, reason,
-      previous_state, new_state, request_id, related_report_public_id, outcome)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'SUCCEEDED')`,
+      previous_state, new_state, request_id, related_report_public_id, revision_public_id, media_public_id, outcome)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'SUCCEEDED')`,
     [
       actorId,
       target.action,
@@ -157,6 +170,8 @@ async function insertEvent<Value>(
       serializeAdministrativeState(result.newState ?? null),
       requestId,
       purpose.relatedReportPublicId,
+      target.revisionPublicId ?? null,
+      target.mediaPublicId ?? null,
     ],
   );
 }
@@ -165,8 +180,10 @@ function validateTarget(target: AdministrativeTarget, requestId: string): void {
   if (
     !/^ADMIN_[A-Z0-9_]{1,100}$/.test(target.action) ||
     !isUuid(target.targetPublicId) ||
-    !['COOKBOOK', 'RECIPE', 'USER', 'INSTANCE'].includes(target.targetType) ||
+    !['COOKBOOK', 'RECIPE', 'USER', 'INSTANCE', 'REPORT'].includes(target.targetType) ||
     (target.cookbookPublicId !== undefined && !isUuid(target.cookbookPublicId)) ||
+    (target.revisionPublicId !== undefined && !isUuid(target.revisionPublicId)) ||
+    (target.mediaPublicId !== undefined && !isUuid(target.mediaPublicId)) ||
     requestId.trim().length === 0 ||
     requestId.length > 200
   )

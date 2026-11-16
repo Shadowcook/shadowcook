@@ -34,7 +34,7 @@ export function registerRecipeDraftDiscardRoutes(api: FastifyInstance, pool: Poo
       await client.query('BEGIN');
       const result: QueryResult<RecipeDraftState> = await client.query<RecipeDraftState>(
         `SELECT id, draft_revision_id, published_revision_id
-         FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE`,
+         FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE`,
         [tenantId, params.publicId],
       );
       const recipe: RecipeDraftState | undefined = result.rows[0];
@@ -48,11 +48,11 @@ export function registerRecipeDraftDiscardRoutes(api: FastifyInstance, pool: Poo
 
       // Clear the composite revision reference before deleting its target.
       await client.query(
-        'UPDATE recipe SET draft_revision_id = NULL, updated_at = now() WHERE id = $1',
+        'UPDATE ordinary_recipe AS recipe SET draft_revision_id = NULL, updated_at = now() WHERE id = $1',
         [recipe.id],
       );
       if (recipe.published_revision_id === null) {
-        await client.query('DELETE FROM recipe WHERE id = $1', [recipe.id]);
+        await client.query('DELETE FROM ordinary_recipe AS recipe WHERE id = $1', [recipe.id]);
       } else {
         await client.query("DELETE FROM recipe_revision WHERE id = $1 AND status = 'DRAFT'", [
           recipe.draft_revision_id,

@@ -21,9 +21,9 @@ usage() {
     'Before copying, enter and confirm a hidden test password for all users, including the additional admin@local account.' \
     './clone-secret supplies the password when present; otherwise --admin-password-stdin reads one line.' \
     'Execution requires installed workspace dependencies for the API password helper.' \
-    'Stop target API, web, and other database clients before execution.' \
+    'Stop target Shadowcook clients before execution; unrelated schemas and clients may remain.' \
     'Requires host psql, pg_dump, pg_restore, createdb, and dropdb.' \
-    'The target account needs CREATEDB, CREATE on the target database, and ownership of its public schema.'
+    'The target account needs CREATEDB, target CREATE, public ownership, and permission to install copied extensions.'
 }
 
 environment_file="${PWD}/.env.db-clone"
@@ -69,6 +69,7 @@ source_identity=$(clone_query "${source_url}" "${identity_sql}")
 target_identity=$(clone_query "${target_url}" "${identity_sql}")
 [[ -n "${source_identity}" && -n "${target_identity}" ]] || fail 'Cannot identify both databases.'
 [[ "${source_identity}" != "${target_identity}" ]] || fail 'Source and target resolve to the same database.'
+read_clone_extensions
 check_clone_target
 printf '[%s] Source and target checks passed.\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 if [[ "${execute}" != true ]]; then
@@ -82,21 +83,25 @@ work_directory=$(mktemp -d "${TMPDIR:-/tmp}/shadowcook-clone.XXXXXXXXXX")
 stage_name="shadowcook_clone_$(date -u +%Y%m%d%H%M%S)_${work_directory##*.}"
 stage_url=$(clone_database_url "${target_url}" "${stage_name}")
 stage_created=false
+# EXIT traps can run while a failed shell function's stderr is still redirected.
+# Keep the operator's original stderr independent of dump and tool-log redirects.
+exec {clone_diagnostics_fd}>&2
+clone_phase='preparing the working database'
 cleanup() {
   local result=$?
   trap - EXIT
   if [[ "${stage_created}" == true ]]; then
     if ! clone_tool "${target_url}" dropdb --if-exists -- "${stage_name}" >> "${work_directory}/tools.log" 2>&1; then
       printf '[%s] Could not remove temporary database %s. Remove it manually.\n' \
-        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${stage_name}" >&2
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${stage_name}" >&"${clone_diagnostics_fd}"
       result=1
     fi
   fi
   if [[ "${result}" != 0 ]]; then
     # Dumps can include all production content. Keep diagnostics, remove dumps.
     rm -f -- "${work_directory}/source.dump" "${work_directory}/sanitized.dump" "${work_directory}/restore.sql"
-    printf '[%s] Clone failed. Private diagnostic files: %s\n' \
-      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${work_directory}" >&2
+    printf '[%s] Clone failed during %s (exit code %s). Details: %s/tools.log\n' \
+      "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "${clone_phase}" "${result}" "${work_directory}" >&"${clone_diagnostics_fd}"
   else
     rm -rf -- "${work_directory}"
   fi
@@ -107,30 +112,41 @@ trap 'exit 130' INT
 trap 'exit 143' TERM HUP
 
 printf '[%s] Exporting source and preparing isolated working database.\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-clone_tool "${source_url}" pg_dump --format=custom > "${work_directory}/source.dump" 2> "${work_directory}/tools.log"
+clone_phase='exporting the source schema'
+clone_tool "${source_url}" pg_dump --format=custom --schema=public "${clone_extension_options[@]}" --strict-names \
+  > "${work_directory}/source.dump" 2> "${work_directory}/tools.log"
+clone_phase='creating the working database'
 clone_tool "${target_url}" createdb --template=template0 -- "${stage_name}" >> "${work_directory}/tools.log" 2>&1
 stage_created=true
-clone_tool "${stage_url}" pg_restore --single-transaction --exit-on-error --no-owner --no-acl \
+clone_phase='restoring the working database'
+clone_tool "${stage_url}" pg_restore --single-transaction --exit-on-error --clean --if-exists --no-owner --no-acl \
   "${work_directory}/source.dump" >> "${work_directory}/tools.log" 2>&1
 
 printf '[%s] Sanitizing profiles, credentials, and delivery settings; validating business data.\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+clone_phase='sanitizing and validating the working copy'
 clone_tool "${stage_url}" psql --single-transaction --file="${script_directory}/clone-database-sanitize.sql" \
   >> "${work_directory}/tools.log" 2>&1
-clone_tool "${stage_url}" pg_dump --format=custom > "${work_directory}/sanitized.dump" 2>> "${work_directory}/tools.log"
+clone_phase='setting test passwords in the working copy'
+configure_clone_admin_password "${stage_url}"
+clone_phase='exporting the sanitized copy'
+clone_tool "${stage_url}" pg_dump --format=custom --schema=public "${clone_extension_options[@]}" --strict-names \
+  > "${work_directory}/sanitized.dump" 2>> "${work_directory}/tools.log"
 
 # Render first: archive errors must occur before the target transaction starts.
+clone_phase='preparing the target import'
 pg_restore --clean --if-exists --no-owner --no-acl --file="${work_directory}/restore.sql" \
   "${work_directory}/sanitized.dump" 2>> "${work_directory}/tools.log"
+clone_phase='rechecking the target'
 check_clone_target
 [[ "$(clone_query "${target_url}" "${identity_sql}")" == "${target_identity}" ]] \
   || fail 'The target identity changed while preparing the copy.'
 printf '[%s] Replacing the target public schema in one transaction.\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-# Removing the old schema also removes stale objects from previously tested
-# versions. A restore error rolls back this removal. Standard dumps omit the
-# default public schema; --clean also handles archives that explicitly include it.
+clone_phase='replacing the target public schema'
+# Guard the actual cascade in this transaction, including dependencies created
+# after preflight. Any damage outside public rolls back the entire publication.
 clone_tool "${target_url}" psql --single-transaction \
-  --command="SET lock_timeout = '10s'; DROP SCHEMA public CASCADE; CREATE SCHEMA public;" \
-  --file="${work_directory}/restore.sql" >> "${work_directory}/tools.log" 2>&1
-configure_clone_admin_password
-printf '[%s] Clone complete. Test passwords are set for all users; admin@local is ready. Copy media separately before starting the target.\n' \
+  --file="${script_directory}/clone-database-replace-schema.sql" \
+  --file="${work_directory}/restore.sql" \
+  --file="${script_directory}/clone-database-verify-schemas.sql" >> "${work_directory}/tools.log" 2>&1
+printf '[%s] Clone complete. Copy media separately before starting the target.\n' \
   "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

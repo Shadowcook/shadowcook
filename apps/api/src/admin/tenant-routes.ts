@@ -18,13 +18,6 @@ interface CreateTenantBody {
   cookbookName: string;
   slug: string;
 }
-interface UpdateUserBody {
-  displayName?: string;
-  disabled?: boolean;
-}
-interface UpdateTenantBody {
-  disabled?: boolean;
-}
 interface CreateUserInvitationBody {
   email: string;
   roleCode: string;
@@ -39,9 +32,6 @@ interface TenantInvitation {
   tenant_role_id: string;
   display_name: string;
   slug: string;
-}
-interface UpdateInstanceRolesBody {
-  roleCodes: string[];
 }
 interface CreateTenantUserInvitationBody {
   email: string;
@@ -61,37 +51,12 @@ export function registerTenantRoutes(
   api.get('/admin/tenants', async (request, reply) => {
     if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
     const result = await pool.query(
-      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, tenant.disabled_at, tenant.name_reset_required, (SELECT count(*)::integer FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND recipe.published_revision_id IS NOT NULL) AS recipe_count, (SELECT string_agg(user_account.display_name, ', ' ORDER BY user_account.display_name) FROM tenant_membership_role INNER JOIN tenant_role ON tenant_role.id = tenant_membership_role.tenant_role_id INNER JOIN user_account ON user_account.principal_id = tenant_membership_role.principal_id WHERE tenant_membership_role.tenant_id = tenant.id AND tenant_role.name = 'Owner') AS owner_name FROM tenant ORDER BY tenant.display_name`,
+      `SELECT tenant.public_id, tenant.display_name, tenant.description, tenant.slug, tenant.disabled_at, tenant.name_reset_required, (SELECT count(*)::integer FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND recipe.published_revision_id IS NOT NULL) AS recipe_count, (SELECT owner.display_name FROM user_account AS owner WHERE owner.principal_id = tenant.owner_principal_id) AS owner_name FROM tenant ORDER BY tenant.display_name`,
     );
     return reply.send({
       tenants: result.rows,
       smtpConfigured: await isSmtpConfigured(pool, key),
     });
-  });
-  api.patch('/admin/tenants/:publicId', async (request: FastifyRequest, reply: FastifyReply) => {
-    if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
-    const body = request.body as UpdateTenantBody;
-    const id = (request.params as { publicId: string }).publicId;
-    if (
-      body === null ||
-      typeof body !== 'object' ||
-      Object.keys(body).some((key: string): boolean => key !== 'disabled')
-    )
-      return reply
-        .code(400)
-        .send({ code: 'INVALID_TENANT_UPDATE', error: 'Only the enabled state can be changed.' });
-    if (typeof body.disabled === 'boolean') {
-      const result = await pool.query(
-        'UPDATE tenant SET disabled_at = CASE WHEN $1 THEN now() ELSE NULL END, updated_at = now() WHERE public_id = $2',
-        [body.disabled, id],
-      );
-      return result.rowCount === 1
-        ? reply.code(204).send()
-        : reply.code(404).send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
-    }
-    return reply
-      .code(400)
-      .send({ code: 'INVALID_TENANT_UPDATE', error: 'The tenant update is invalid.' });
   });
   api.post(
     '/admin/tenants/:publicId/force-reset',
@@ -119,39 +84,11 @@ export function registerTenantRoutes(
         : reply.code(404).send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
     },
   );
-  api.delete('/admin/tenants/:publicId', async (request: FastifyRequest, reply: FastifyReply) => {
-    if ((await requireInstancePermission(pool, request, reply, 'tenant:create')) === null) return;
-    const publicId = (request.params as { publicId: string }).publicId;
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      await client.query('DELETE FROM tenant_access_grant WHERE receiving_tenant_public_id = $1', [
-        publicId,
-      ]);
-      await client.query('DELETE FROM tenant_invite WHERE claimed_by_tenant_public_id = $1', [
-        publicId,
-      ]);
-      const result = await client.query('DELETE FROM tenant WHERE public_id = $1', [publicId]);
-      if (result.rowCount !== 1) {
-        await client.query('ROLLBACK');
-        return reply
-          .code(404)
-          .send({ code: 'TENANT_NOT_FOUND', error: 'The tenant was not found.' });
-      }
-      await client.query('COMMIT');
-      return reply.code(204).send();
-    } catch (error: unknown) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  });
   api.get('/admin/users', async (request, reply) => {
     if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
       return;
     const result = await pool.query(
-      `SELECT user_account.public_id, user_account.email, user_account.display_name, user_account.password_change_required, user_account.disabled_at, user_account.deleted_at, user_account.last_login_at, COALESCE((SELECT json_agg(json_build_object('publicId', tenant.public_id, 'name', tenant.display_name) ORDER BY tenant.display_name) FROM tenant_membership INNER JOIN tenant ON tenant.id = tenant_membership.tenant_id WHERE tenant_membership.principal_id = user_account.principal_id AND NOT tenant.name_reset_required), '[]') AS tenants, COALESCE((SELECT json_agg(instance_role.code ORDER BY instance_role.name) FROM principal_instance_role INNER JOIN instance_role ON instance_role.id = principal_instance_role.instance_role_id WHERE principal_instance_role.principal_id = user_account.principal_id), '[]') AS instance_roles FROM user_account ORDER BY user_account.email, user_account.created_at`,
+      `SELECT user_account.public_id, user_account.email, user_account.display_name, user_account.password_change_required, user_account.disabled_at, user_account.deleted_at, user_account.last_login_at, COALESCE((SELECT json_agg(json_build_object('publicId', tenant.public_id, 'name', tenant.display_name) ORDER BY tenant.display_name) FROM tenant_membership INNER JOIN tenant ON tenant.id = tenant_membership.tenant_id WHERE tenant_membership.principal_id = user_account.principal_id AND NOT tenant.name_reset_required), '[]') AS tenants, COALESCE((SELECT json_agg(instance_role.code ORDER BY instance_role.name) FROM principal_instance_role INNER JOIN instance_role ON instance_role.id = principal_instance_role.instance_role_id WHERE principal_instance_role.principal_id = user_account.principal_id), '[]') AS instance_roles, COALESCE((SELECT json_agg(json_build_object('publicId', owned.public_id, 'name', owned.display_name) ORDER BY owned.public_id) FROM tenant owned WHERE owned.owner_principal_id=user_account.principal_id), '[]') AS owned_cookbooks FROM user_account ORDER BY user_account.email, user_account.created_at`,
     );
     return reply.send({ users: result.rows });
   });
@@ -163,55 +100,6 @@ export function registerTenantRoutes(
     );
     return reply.send({ roles: result.rows });
   });
-  api.put(
-    '/admin/users/:publicId/instance-roles',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
-        return;
-      const body: UpdateInstanceRolesBody | null = parseUpdateInstanceRoles(request.body);
-      if (body === null)
-        return reply
-          .code(400)
-          .send({ code: 'INVALID_INSTANCE_ROLES', error: 'The role assignment is invalid.' });
-      const client: PoolClient = await pool.connect();
-      try {
-        await client.query('BEGIN');
-        const user = await client.query<{ principal_id: string }>(
-          'SELECT principal_id FROM user_account WHERE public_id = $1 AND deleted_at IS NULL FOR UPDATE',
-          [(request.params as { publicId: string }).publicId],
-        );
-        if (user.rows[0] === undefined) {
-          await client.query('ROLLBACK');
-          return reply.code(404).send({ code: 'USER_NOT_FOUND', error: 'The user was not found.' });
-        }
-        const roles = await client.query<{ code: string }>(
-          'SELECT code FROM instance_role WHERE code = ANY($1::text[])',
-          [body.roleCodes],
-        );
-        if (roles.rowCount !== body.roleCodes.length) {
-          await client.query('ROLLBACK');
-          return reply
-            .code(400)
-            .send({ code: 'INVALID_INSTANCE_ROLES', error: 'The role assignment is invalid.' });
-        }
-        await client.query('DELETE FROM principal_instance_role WHERE principal_id = $1', [
-          user.rows[0].principal_id,
-        ]);
-        if (body.roleCodes.length > 0)
-          await client.query(
-            'INSERT INTO principal_instance_role (principal_id, instance_role_id) SELECT $1, id FROM instance_role WHERE code = ANY($2::text[])',
-            [user.rows[0].principal_id, body.roleCodes],
-          );
-        await client.query('COMMIT');
-        return reply.code(204).send();
-      } catch (error: unknown) {
-        await client.query('ROLLBACK');
-        throw error;
-      } finally {
-        client.release();
-      }
-    },
-  );
   api.post('/admin/users/invitations', async (request: FastifyRequest, reply: FastifyReply) => {
     const principal: string | null = await requireInstancePermission(
       pool,
@@ -353,47 +241,6 @@ export function registerTenantRoutes(
         .send({ code: 'MAIL_NOT_CONFIGURED', error: 'The invitation could not be delivered.' });
     },
   );
-  api.patch('/admin/users/:publicId', async (request: FastifyRequest, reply: FastifyReply) => {
-    if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
-      return;
-    const body: UpdateUserBody | null = parseUpdateUser(request.body);
-    if (body === null)
-      return reply
-        .code(400)
-        .send({ code: 'INVALID_USER_UPDATE', error: 'The user update is invalid.' });
-    const publicId: string = (request.params as { publicId: string }).publicId;
-    if (body.displayName !== undefined) {
-      const result = await pool.query(
-        'UPDATE user_account SET display_name = $1, updated_at = now() WHERE public_id = $2 AND deleted_at IS NULL',
-        [body.displayName, publicId],
-      );
-      return userUpdateResult(reply, result.rowCount);
-    }
-    const client: PoolClient = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await client.query(
-        'UPDATE user_account SET disabled_at = CASE WHEN $1 THEN now() ELSE NULL END, updated_at = now() WHERE public_id = $2 AND deleted_at IS NULL RETURNING id',
-        [body.disabled, publicId],
-      );
-      if (result.rowCount !== 1) {
-        await client.query('ROLLBACK');
-        return reply.code(404).send({ code: 'USER_NOT_FOUND', error: 'The user was not found.' });
-      }
-      if (body.disabled === true)
-        await client.query(
-          'UPDATE user_session SET revoked_at = now() WHERE user_account_id = $1 AND revoked_at IS NULL',
-          [result.rows[0]!.id],
-        );
-      await client.query('COMMIT');
-      return reply.code(204).send();
-    } catch (error: unknown) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  });
   api.post(
     '/admin/users/:publicId/reset-password',
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -456,33 +303,6 @@ export function registerTenantRoutes(
       }
     },
   );
-  api.delete('/admin/users/:publicId', async (request: FastifyRequest, reply: FastifyReply) => {
-    if ((await requireInstancePermission(pool, request, reply, 'instance:administer')) === null)
-      return;
-    const client: PoolClient = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const result = await client.query(
-        'UPDATE user_account SET deleted_at = now(), disabled_at = now(), updated_at = now() WHERE public_id = $1 AND deleted_at IS NULL RETURNING id',
-        [(request.params as { publicId: string }).publicId],
-      );
-      if (result.rowCount !== 1) {
-        await client.query('ROLLBACK');
-        return reply.code(404).send({ code: 'USER_NOT_FOUND', error: 'The user was not found.' });
-      }
-      await client.query(
-        'UPDATE user_session SET revoked_at = now() WHERE user_account_id = $1 AND revoked_at IS NULL',
-        [result.rows[0]!.id],
-      );
-      await client.query('COMMIT');
-      return reply.code(204).send();
-    } catch (error: unknown) {
-      await client.query('ROLLBACK');
-      throw error;
-    } finally {
-      client.release();
-    }
-  });
   api.post('/admin/tenants', async (request: FastifyRequest, reply: FastifyReply) => {
     const principal = await requireInstancePermission(pool, request, reply, 'tenant:create');
     if (principal === null) return;
@@ -643,15 +463,42 @@ export function registerTenantRoutes(
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+      const invitationOwner: QueryResult<{ owner_principal_id: string | null; is_owner: boolean }> =
+        await client.query<{ owner_principal_id: string | null; is_owner: boolean }>(
+          `SELECT tenant.owner_principal_id, role.name = 'Owner' AS is_owner FROM tenant
+         JOIN tenant_role role ON role.id = $2 WHERE tenant.id = $1 FOR UPDATE OF tenant`,
+          [invitation.tenant_id, invitation.tenant_role_id],
+        );
+      if (
+        invitationOwner.rows[0]?.is_owner === true &&
+        invitationOwner.rows[0].owner_principal_id !== null
+      ) {
+        await client.query('ROLLBACK');
+        return reply
+          .code(409)
+          .send({ code: 'OWNER_ALREADY_ASSIGNED', error: 'The cookbook already has an owner.' });
+      }
+
       const existing = await client.query<{
         id: string;
         principal_id: string;
+        disabled_at: Date | null;
+        principal_disabled_at: Date | null;
         password_hash: string | null;
         password_change_required: boolean;
       }>(
-        'SELECT id, principal_id, password_hash, password_change_required FROM user_account WHERE email = $1 AND deleted_at IS NULL FOR UPDATE',
+        'SELECT id, principal_id, disabled_at, (SELECT disabled_at FROM principal WHERE principal.id=user_account.principal_id) AS principal_disabled_at, password_hash, password_change_required FROM user_account WHERE email = $1 AND deleted_at IS NULL FOR UPDATE',
         [invitation.invited_email],
       );
+      if (
+        existing.rows[0]?.disabled_at != null ||
+        existing.rows[0]?.principal_disabled_at != null
+      ) {
+        await client.query('ROLLBACK');
+        return reply
+          .code(403)
+          .send({ code: 'ACCOUNT_DISABLED', error: 'The invited account is disabled.' });
+      }
       let principalId: string;
       let userId: string;
       let hasPassword: boolean;
@@ -906,25 +753,6 @@ function parseCreateTenant(value: unknown): CreateTenantBody | null {
       }
     : null;
 }
-function parseUpdateUser(value: unknown): UpdateUserBody | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const body: Record<string, unknown> = value as Record<string, unknown>;
-  if (typeof body.displayName === 'string' && body.displayName.trim().length > 0)
-    return { displayName: body.displayName.trim() };
-  if (typeof body.disabled === 'boolean') return { disabled: body.disabled };
-  return null;
-}
-function parseUpdateInstanceRoles(value: unknown): UpdateInstanceRolesBody | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const roleCodes: unknown = (value as Record<string, unknown>).roleCodes;
-  if (
-    !Array.isArray(roleCodes) ||
-    !roleCodes.every((code: unknown): boolean => typeof code === 'string')
-  )
-    return null;
-  const uniqueCodes: string[] = [...new Set(roleCodes as string[])];
-  return uniqueCodes.length === roleCodes.length ? { roleCodes: uniqueCodes } : null;
-}
 function parseCreateUserInvitation(value: unknown): CreateUserInvitationBody | null {
   if (typeof value !== 'object' || value === null) return null;
   const body: Record<string, unknown> = value as Record<string, unknown>;
@@ -947,11 +775,6 @@ function parseAcceptUserInvitation(value: unknown): AcceptUserInvitationBody | n
     password:
       typeof body.password === 'string' && body.password.length > 0 ? body.password : undefined,
   };
-}
-function userUpdateResult(reply: FastifyReply, rowCount: number | null): FastifyReply {
-  return rowCount === 1
-    ? reply.code(204).send()
-    : reply.code(404).send({ code: 'USER_NOT_FOUND', error: 'The user was not found.' });
 }
 function invalidTenantSlug(reply: FastifyReply): FastifyReply {
   return reply.code(400).send({

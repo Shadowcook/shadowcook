@@ -276,7 +276,7 @@ test('admin slug availability excludes the edited tenant and checks disabled ten
     payload: { slug: 'availability-free' },
   });
   assert.equal(conflict.statusCode, 400);
-  assert.equal(conflict.json().code, 'INVALID_TENANT_UPDATE');
+  assert.equal(conflict.json().code, 'INVALID_ADMINISTRATIVE_PURPOSE');
 });
 
 test('admin slug availability requires instance permission', async (): Promise<void> => {

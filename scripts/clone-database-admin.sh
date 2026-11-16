@@ -62,9 +62,9 @@ read_clone_test_password() {
 }
 
 configure_clone_admin_password() {
-  if ! printf '%s\n' "${clone_test_password}" | run_clone_password_helper "${target_url}"; then
+  if ! printf '%s\n' "${clone_test_password}" | run_clone_password_helper "$1"; then
     unset clone_test_password
-    fail 'Test password setup failed. The target was already cloned.'
+    fail 'Test password setup failed in the working copy. The target is unchanged.'
   fi
   unset clone_test_password
 }

@@ -26,10 +26,10 @@ export async function reportableUsers(
      WHERE tenant.slug = $2 AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required AND u.deleted_at IS NULL AND (
        (EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_id = tenant.id AND principal_id = $1)
         AND EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_id = tenant.id AND principal_id = u.principal_id))
-       OR (EXISTS (SELECT 1 FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND ${visibleRecipeSql}) AND (
+       OR (EXISTS (SELECT 1 FROM ordinary_recipe AS recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND ${visibleRecipeSql}) AND (
          EXISTS (SELECT 1 FROM tenant_membership_role mr JOIN tenant_role r ON r.id = mr.tenant_role_id
                  WHERE mr.tenant_id = tenant.id AND mr.principal_id = u.principal_id AND r.name = 'Owner')
-         OR EXISTS (SELECT 1 FROM recipe JOIN recipe_revision revision ON revision.id = recipe.published_revision_id
+         OR EXISTS (SELECT 1 FROM ordinary_recipe AS recipe JOIN recipe_revision revision ON revision.id = recipe.published_revision_id
                     WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND revision.created_by_principal_id = u.principal_id AND ${visibleRecipeSql})
        ))) ORDER BY "displayName", "publicId"`,
     [principalId, tenantSlug],
@@ -45,7 +45,7 @@ export async function canReportTarget(
   let sql: string;
   const parameters: unknown[] = [principalId, input.targetPublicId];
   if (input.targetType === 'RECIPE') {
-    sql = `SELECT EXISTS (SELECT 1 FROM recipe JOIN tenant ON tenant.id = recipe.tenant_id
+    sql = `SELECT EXISTS (SELECT 1 FROM ordinary_recipe AS recipe JOIN tenant ON tenant.id = recipe.tenant_id
       WHERE recipe.deleted_at IS NULL AND recipe.public_id = $2 AND (${visibleRecipeSql}
       OR (tenant.disabled_at IS NULL AND NOT tenant.name_reset_required AND EXISTS (SELECT 1 FROM recipe_share_link s WHERE s.recipe_id = recipe.id
          AND s.token_hash = $3 AND s.revoked_at IS NULL AND (s.expires_at IS NULL OR s.expires_at > now()))))) AS allowed`;
@@ -57,7 +57,7 @@ export async function canReportTarget(
   } else if (input.targetType === 'COOKBOOK') {
     sql = `SELECT EXISTS (SELECT 1 FROM tenant WHERE tenant.public_id = $2 AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required AND (
       EXISTS (SELECT 1 FROM tenant_membership WHERE tenant_id = tenant.id AND principal_id = $1)
-      OR EXISTS (SELECT 1 FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND ${visibleRecipeSql}))) AS allowed`;
+      OR EXISTS (SELECT 1 FROM ordinary_recipe AS recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND ${visibleRecipeSql}))) AS allowed`;
   } else {
     sql = `SELECT EXISTS (SELECT 1 FROM user_account u WHERE u.public_id = $2 AND u.deleted_at IS NULL AND (
       EXISTS (SELECT 1 FROM tenant_membership theirs JOIN tenant_membership ours ON ours.tenant_id = theirs.tenant_id
@@ -65,8 +65,8 @@ export async function canReportTarget(
               WHERE theirs.principal_id = u.principal_id AND ours.principal_id = $1 AND shared_tenant.disabled_at IS NULL AND NOT shared_tenant.name_reset_required)
       OR EXISTS (SELECT 1 FROM tenant_membership_role m JOIN tenant_role role ON role.id = m.tenant_role_id
                  JOIN tenant ON tenant.id = m.tenant_id WHERE m.principal_id = u.principal_id AND role.name = 'Owner'
-                 AND EXISTS (SELECT 1 FROM recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND ${visibleRecipeSql}))
-      OR EXISTS (SELECT 1 FROM recipe_revision revision JOIN recipe ON recipe.published_revision_id = revision.id
+                 AND EXISTS (SELECT 1 FROM ordinary_recipe AS recipe WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = tenant.id AND ${visibleRecipeSql}))
+      OR EXISTS (SELECT 1 FROM recipe_revision revision JOIN ordinary_recipe AS recipe ON recipe.published_revision_id = revision.id
                  JOIN tenant ON tenant.id = recipe.tenant_id WHERE revision.created_by_principal_id = u.principal_id AND ${visibleRecipeSql})
     )) AS allowed`;
   }

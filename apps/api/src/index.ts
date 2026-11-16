@@ -24,6 +24,9 @@ async function start(): Promise<void> {
 
   try {
     await migrateDatabase(connection.pool);
+    await connection.pool.query(
+      'DELETE FROM administrative_email_recovery WHERE expires_at <= now()',
+    );
     await pruneAdministrativeAudit(connection.pool);
     await seedInitialDeployment(connection.pool);
     const bootstrapResult = await bootstrapAdministrator(connection.pool, {
@@ -59,6 +62,11 @@ async function start(): Promise<void> {
   );
   const cleanupTimer: NodeJS.Timeout = setInterval(
     (): void => {
+      void connection.pool
+        .query('DELETE FROM administrative_email_recovery WHERE expires_at <= now()')
+        .catch((): void => {
+          api.log.warn('Email recovery cleanup failed');
+        });
       void pruneAdministrativeAudit(connection.pool).catch((): void => {
         api.log.warn({ outcome: 'FAILED' }, 'Administrative audit pruning failed');
       });

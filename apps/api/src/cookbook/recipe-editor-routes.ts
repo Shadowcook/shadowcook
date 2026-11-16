@@ -280,7 +280,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       typeof query.search === 'string' ? query.search.trim().slice(0, 200) : '';
     const recipes = await pool.query<EditorRecipeRow>(
       `SELECT recipe.public_id, recipe_revision.title
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        INNER JOIN recipe_revision ON recipe_revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1
          AND recipe_search_match_rank(recipe_revision.title, NULL, $2) < 3
@@ -322,7 +322,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
           'isOptional', ingredient_usage.is_optional,
           'sortOrder', ingredient_usage.sort_order
         ) ORDER BY ingredient_usage.sort_order) FILTER (WHERE ingredient_usage.id IS NOT NULL), '[]') AS ingredients
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        INNER JOIN recipe_revision ON recipe_revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
        INNER JOIN recipe_step ON recipe_step.recipe_revision_id = recipe_revision.id
        LEFT JOIN ingredient_usage ON ingredient_usage.recipe_step_id = recipe_step.id
@@ -379,7 +379,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         draft_revision_id: string | null;
         published_revision_id: string | null;
       }>(
-        'SELECT id, draft_revision_id, published_revision_id FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, draft_revision_id, published_revision_id FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
@@ -461,7 +461,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         }
       }
       await client.query(
-        'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
+        'UPDATE ordinary_recipe AS recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
         [revisionId, current.id],
       );
       await recordRecipeContributor(client, revisionId, user?.principal_id ?? null);
@@ -486,10 +486,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         ${recipeCreatorDisplayNameSql()} AS creator_display_name,
         ${recipeContributorsSql()} AS contributors
        FROM recipe_share_link
-       INNER JOIN recipe ON recipe.id = recipe_share_link.recipe_id
+       INNER JOIN ordinary_recipe AS recipe ON recipe.id = recipe_share_link.recipe_id
        INNER JOIN tenant ON tenant.id = recipe.tenant_id
        INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
-       WHERE NOT tenant.name_reset_required AND recipe.deleted_at IS NULL AND recipe_share_link.token_hash = $1 AND recipe_share_link.revoked_at IS NULL
+       WHERE tenant.disabled_at IS NULL AND NOT tenant.name_reset_required AND recipe.deleted_at IS NULL AND recipe_share_link.token_hash = $1 AND recipe_share_link.revoked_at IS NULL
          AND (recipe_share_link.expires_at IS NULL OR recipe_share_link.expires_at > now())`,
       [tokenHash(token)],
     );
@@ -697,7 +697,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const filter: string = parseManagedRecipeFilter(query.filter);
     const recipeCount = await pool.query<ManagedRecipeCountRow>(
       `SELECT count(*)::integer AS total_recipes
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1
          AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $2) < 5`,
@@ -709,13 +709,13 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const recipes = await pool.query<ManagedRecipeRow>(
       `SELECT recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${recipeImageSql('recipe_revision')}, ${defaultVariantDietSql('recipe_revision')} AS diet,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
        LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = recipe_revision.id
        LEFT JOIN category ON category.id = recipe_revision_category.category_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1
          AND recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $2) < 5
-       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+       GROUP BY recipe.created_at, recipe.updated_at, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, recipe.published_revision_id, recipe.draft_revision_id, recipe.tenant_id, recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
        ORDER BY
         recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $2),
          lower(recipe_revision.title),
@@ -760,7 +760,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     try {
       await client.query('BEGIN');
       const recipe = await client.query<RecipeIdentifierRow>(
-        `INSERT INTO recipe (tenant_id, lineage_public_id, slug, visibility_override, discoverability_override, is_featured)
+        `INSERT INTO ordinary_recipe (tenant_id, lineage_public_id, slug, visibility_override, discoverability_override, is_featured)
          VALUES ($1, gen_random_uuid(), $2, $3, $4, $5) RETURNING id, public_id`,
         [
           tenantId,
@@ -780,10 +780,10 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       await saveRecipeFacts(client, revision.rows[0]!.id, input);
       await recordRecipeContributor(client, revision.rows[0]!.id, user?.principal_id ?? null);
       await replaceCategories(client, revision.rows[0]!.id, tenantId, input.categoryPublicIds);
-      await client.query('UPDATE recipe SET draft_revision_id = $1 WHERE id = $2', [
-        revision.rows[0]!.id,
-        created.id,
-      ]);
+      await client.query(
+        'UPDATE ordinary_recipe AS recipe SET draft_revision_id = $1 WHERE id = $2',
+        [revision.rows[0]!.id, created.id],
+      );
       await client.query('COMMIT');
       return reply
         .code(201)
@@ -849,7 +849,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         visibility_override: RecipeVisibility | null;
         discoverability_override: RecipeDiscoverability | null;
       }>(
-        'SELECT id, visibility_override, discoverability_override FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, visibility_override, discoverability_override FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
@@ -874,7 +874,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         }
       }
       await client.query(
-        'UPDATE recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, is_featured = $4, updated_at = now() WHERE id = $5',
+        'UPDATE ordinary_recipe AS recipe SET slug = $1, visibility_override = $2, discoverability_override = $3, is_featured = $4, updated_at = now() WHERE id = $5',
         [
           input.slug,
           input.visibilityOverride,
@@ -915,7 +915,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     const revisions = await pool.query<RevisionListRow>(
       `SELECT revision.public_id, revision.version, revision.status, revision.published_at, revision.title
        FROM recipe_revision AS revision
-       INNER JOIN recipe ON recipe.id = revision.recipe_id
+       INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $2 AND revision.status IN ('PUBLISHED', 'ARCHIVED')
        ORDER BY revision.version DESC`,
       [tenantId, publicId],
@@ -939,7 +939,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       const revision = await pool.query<RevisionSnapshotRow>(
         `SELECT ${recipeImageSql('revision')}, revision.public_id, revision.version, revision.status, revision.published_at, revision.title, revision.summary, ${recipeFactsSql('revision')}
          FROM recipe_revision AS revision
-         INNER JOIN recipe ON recipe.id = revision.recipe_id
+         INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
          WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $2 AND revision.public_id = $3
            AND revision.status IN ('PUBLISHED', 'ARCHIVED')`,
         [tenantId, params.publicId, params.revisionPublicId],
@@ -1030,7 +1030,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         draft_revision_id: string | null;
         published_revision_id: string | null;
       }>(
-        'SELECT id, draft_revision_id, published_revision_id FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, draft_revision_id, published_revision_id FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
@@ -1053,7 +1053,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       await saveRecipeFacts(client, draftId, input);
       await replaceCategories(client, draftId, tenantId, input.categoryPublicIds);
       await client.query(
-        'UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
+        'UPDATE ordinary_recipe AS recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
         [draftId, current.id],
       );
       await recordRecipeContributor(client, draftId, user?.principal_id ?? null);
@@ -1409,7 +1409,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         draft_revision_id: string | null;
         published_revision_id: string | null;
       }>(
-        'SELECT id, draft_revision_id, published_revision_id FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
+        'SELECT id, draft_revision_id, published_revision_id FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
         [tenantId, publicId],
       );
       const current = recipe.rows[0];
@@ -1439,7 +1439,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
         [current.id, current.draft_revision_id],
       );
       await client.query(
-        'UPDATE recipe SET published_revision_id = $1, draft_revision_id = NULL, updated_at = now() WHERE id = $2',
+        'UPDATE ordinary_recipe AS recipe SET published_revision_id = $1, draft_revision_id = NULL, updated_at = now() WHERE id = $2',
         [current.draft_revision_id, current.id],
       );
       const removedImageKeys: string[] = await pruneRecipeImageHistory(client, current.id);
@@ -1478,7 +1478,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       const publicId: string = (request.params as { publicId: string }).publicId;
       const user = await currentAuthenticatedPrincipal(pool, request);
       const recipe = await pool.query<{ id: string }>(
-        'SELECT id FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 AND published_revision_id IS NOT NULL',
+        'SELECT id FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 AND published_revision_id IS NOT NULL',
         [tenantId, publicId],
       );
       if (recipe.rows[0] === undefined)
@@ -1528,7 +1528,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
     }>(
       `SELECT recipe_share_link.id, recipe_share_link.name, recipe_share_link.token, recipe_share_link.created_at, recipe_share_link.expires_at
        FROM recipe_share_link
-       INNER JOIN recipe ON recipe.id = recipe_share_link.recipe_id
+       INNER JOIN ordinary_recipe AS recipe ON recipe.id = recipe_share_link.recipe_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $2
          AND recipe_share_link.revoked_at IS NULL
          AND (recipe_share_link.expires_at IS NULL OR recipe_share_link.expires_at > now())
@@ -1561,7 +1561,7 @@ export function registerRecipeEditorRoutes(api: FastifyInstance, pool: Pool): vo
       const parameters = request.params as { publicId: string; shareLinkId: string };
       const result = await pool.query(
         `UPDATE recipe_share_link SET revoked_at = now()
-         FROM recipe
+         FROM ordinary_recipe AS recipe
          WHERE recipe_share_link.recipe_id = recipe.id
            AND recipe.tenant_id = $1 AND recipe.public_id = $2
            AND recipe_share_link.id = $3 AND recipe_share_link.revoked_at IS NULL`,
@@ -1859,7 +1859,7 @@ async function currentRevisionId(
   publicId: string,
 ): Promise<string | null> {
   const result = await pool.query<{ id: string }>(
-    'SELECT COALESCE(draft_revision_id, published_revision_id) AS id FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2',
+    'SELECT COALESCE(draft_revision_id, published_revision_id) AS id FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2',
     [tenantId, publicId],
   );
   return result.rows[0]?.id ?? null;
@@ -1876,7 +1876,7 @@ export async function ensureDraft(
     draft_revision_id: string | null;
     published_revision_id: string | null;
   }>(
-    'SELECT id, draft_revision_id, published_revision_id FROM recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
+    'SELECT id, draft_revision_id, published_revision_id FROM ordinary_recipe AS recipe WHERE deleted_at IS NULL AND tenant_id = $1 AND public_id = $2 FOR UPDATE',
     [tenantId, publicId],
   );
   const current = recipe.rows[0];
@@ -1890,10 +1890,10 @@ export async function ensureDraft(
     current.published_revision_id,
     principalId,
   );
-  await client.query('UPDATE recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2', [
-    draftId,
-    current.id,
-  ]);
+  await client.query(
+    'UPDATE ordinary_recipe AS recipe SET draft_revision_id = $1, updated_at = now() WHERE id = $2',
+    [draftId, current.id],
+  );
   return draftId;
 }
 
@@ -1990,14 +1990,14 @@ function draftSelectSql(condition: string): string {
     ) AS can_change_visibility,
     published.version AS published_version, recipe.published_revision_id IS NOT NULL AS has_published_revision,
     recipe.draft_revision_id IS NOT NULL AS has_draft_revision
-    FROM recipe
+    FROM ordinary_recipe AS recipe
     INNER JOIN tenant ON tenant.id = recipe.tenant_id
     LEFT JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
     LEFT JOIN recipe_revision AS published ON published.id = recipe.published_revision_id
     LEFT JOIN recipe_revision_category AS assignment ON assignment.recipe_revision_id = revision.id
     LEFT JOIN category ON category.id = assignment.category_id
     WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND ${condition}
-    GROUP BY recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.id, published.version
+    GROUP BY recipe.created_at, recipe.updated_at, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, recipe.published_revision_id, recipe.draft_revision_id, recipe.tenant_id, recipe.id, recipe.public_id, recipe.slug, revision.id, revision.title, revision.summary, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, tenant.default_recipe_visibility, tenant.default_recipe_discoverability, published.id, published.version
     ORDER BY revision.title ASC`;
 }
 

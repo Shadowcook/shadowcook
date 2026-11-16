@@ -138,7 +138,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
             WHERE tenant_membership.tenant_id = tenant.id AND tenant_membership.principal_id = $1
           )
           OR EXISTS (
-            SELECT 1 FROM recipe AS public_recipe
+            SELECT 1 FROM ordinary_recipe AS public_recipe
             WHERE public_recipe.deleted_at IS NULL AND public_recipe.tenant_id = tenant.id
               AND COALESCE(public_recipe.visibility_override, tenant.default_recipe_visibility) = 'PUBLIC'
               AND public_recipe.published_revision_id IS NOT NULL
@@ -159,7 +159,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
              AND COALESCE(recipe.discoverability_override, tenant.default_recipe_discoverability) = 'DISCOVERABLE'
          )::integer AS recipe_count
        FROM tenant
-       LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
+       LEFT JOIN ordinary_recipe AS recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
        WHERE ${tenantFilterClause}
        GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
        ORDER BY md5(tenant.public_id::text || $3), tenant.public_id
@@ -175,7 +175,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
          INNER JOIN tenant_membership
            ON tenant_membership.tenant_id = tenant.id
            AND tenant_membership.principal_id = $1
-         LEFT JOIN recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
+         LEFT JOIN ordinary_recipe AS recipe ON recipe.tenant_id = tenant.id AND recipe.deleted_at IS NULL
          WHERE tenant.disabled_at IS NULL AND NOT tenant.name_reset_required
          GROUP BY tenant.id, tenant.public_id, tenant.display_name, tenant.description, tenant.slug
          ORDER BY lower(tenant.display_name), tenant.public_id`,
@@ -254,7 +254,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
         WHERE EXISTS (
           SELECT 1 FROM recipe_revision_category
           INNER JOIN recipe_revision ON recipe_revision.id = recipe_revision_category.recipe_revision_id
-          INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
+          INNER JOIN ordinary_recipe AS recipe ON recipe.published_revision_id = recipe_revision.id
           INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
           LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
           WHERE recipe_revision_category.category_id = category.id
@@ -287,7 +287,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       SELECT ${recipeImageSql('recipe_revision')}, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
         ${recipeSummaryVariantsSql} AS variants,
         COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
-      FROM recipe
+      FROM ordinary_recipe AS recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
@@ -313,7 +313,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
               AND tenant_membership_role.principal_id = $1
               AND tenant_role_permission.permission_code = 'recipe:visibility-update'
           )))
-      GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+      GROUP BY recipe.created_at, recipe.updated_at, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, recipe.published_revision_id, recipe.draft_revision_id, recipe.tenant_id, recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
       ORDER BY
         recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $3),
         recipe_revision.title ASC
@@ -329,7 +329,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
     );
     const frontpageCount = await pool.query<FrontpageCountRow>(
       `SELECT count(*)::integer AS total_recipes
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
        INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
        LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
@@ -361,7 +361,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       `SELECT ${recipeImageSql('recipe_revision')}, recipe.public_id, recipe.slug, recipe_revision.title, recipe_revision.summary, ${defaultVariantDietSql('recipe_revision')} AS diet,
         ${recipeSummaryVariantsSql} AS variants,
          COALESCE(array_agg(category.public_id ORDER BY category.name) FILTER (WHERE category.public_id IS NOT NULL), '{}') AS category_public_ids
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
        LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id
          AND tenant_membership.principal_id = $1
@@ -383,7 +383,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
                AND tenant_membership_role.principal_id = $1
                AND tenant_role_permission.permission_code = 'recipe:visibility-update'
            )))
-       GROUP BY recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
+       GROUP BY recipe.created_at, recipe.updated_at, recipe.visibility_override, recipe.discoverability_override, recipe.is_featured, recipe.published_revision_id, recipe.draft_revision_id, recipe.tenant_id, recipe.id, recipe.public_id, recipe.slug, recipe_revision.id, recipe_revision.title, recipe_revision.summary
        ORDER BY
         recipe_search_match_rank(recipe_revision.title, recipe_revision.summary, $4),
          md5(recipe.public_id::text || $3),
@@ -538,7 +538,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
             AND tenant_membership_role.principal_id = $1
             AND tenant_role_permission.permission_code = 'recipe:visibility-update'
         ) AS can_share
-      FROM recipe
+      FROM ordinary_recipe AS recipe
       INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
       LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id AND tenant_membership.principal_id = $1
       INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
@@ -609,7 +609,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       FROM ingredient_usage
       INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
       INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
-      INNER JOIN recipe ON recipe.published_revision_id = recipe_revision.id
+      INNER JOIN ordinary_recipe AS recipe ON recipe.published_revision_id = recipe_revision.id
       LEFT JOIN ingredient ON ingredient.id = ingredient_usage.ingredient_id
       LEFT JOIN ingredient_alias ON ingredient_alias.id = ingredient_usage.ingredient_alias_id
       LEFT JOIN unit ON unit.id = ingredient_usage.unit_id
@@ -671,7 +671,7 @@ async function loadRecipeLinks(
   if (publicIds.length === 0) return [];
   const links = await pool.query<RecipeLinkRow>(
     `SELECT recipe.public_id, recipe.slug, recipe_revision.title
-     FROM recipe
+     FROM ordinary_recipe AS recipe
      INNER JOIN tenant ON tenant.id = recipe.tenant_id AND recipe.deleted_at IS NULL
      INNER JOIN recipe_revision ON recipe_revision.id = recipe.published_revision_id
      LEFT JOIN tenant_membership ON tenant_membership.tenant_id = recipe.tenant_id

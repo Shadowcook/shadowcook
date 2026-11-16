@@ -26,6 +26,10 @@ test('password validation rejects invalid thresholds and low-entropy passwords',
   assert.throws((): void => validatePassword('password', 60), /at least 60 bits/);
 });
 
+test('regular password hashing still rejects low-entropy passwords', async (): Promise<void> => {
+  await assert.rejects(hashPassword('password', 60), /at least 60 bits/);
+});
+
 test('random-looking passwords estimate more entropy than common passwords', (): void => {
   assert.ok(estimatePasswordEntropy('eR7!vQ2#nL9@xC4$kM8%pT6&zA1*') > 60);
   assert.ok(estimatePasswordEntropy('password') < 60);

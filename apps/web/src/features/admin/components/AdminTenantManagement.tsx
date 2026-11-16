@@ -1,3 +1,5 @@
+import DeletionControl from '../safety/DeletionControl';
+import ModerationControl from '../moderation/ModerationControl';
 import { useEffect, useState } from 'react';
 import type { ChangeEvent, JSX } from 'react';
 import { translations } from '../../../i18n';
@@ -13,10 +15,12 @@ interface AdminCookbookTenant extends CookbookTenant {
 
 interface AdminTenantManagementProperties {
   locale: Locale;
+  canInspect?: boolean;
 }
 
 export default function AdminTenantManagement({
   locale,
+  canInspect = false,
 }: AdminTenantManagementProperties): JSX.Element {
   const text: Translation = translations[locale];
   const [tenants, setTenants] = useState<AdminCookbookTenant[]>([]);
@@ -24,15 +28,11 @@ export default function AdminTenantManagement({
   const [smtpConfigured, setSmtpConfigured] = useState<boolean>(false);
   const [showCreate, setShowCreate] = useState<boolean>(false);
   const [resetTenant, setResetTenant] = useState<AdminCookbookTenant | null>(null);
-  const [deleteTenant, setDeleteTenant] = useState<AdminCookbookTenant | null>(null);
   const [message, setMessage] = useState<string>('');
   const [saving, setSaving] = useState<boolean>(false);
   const [toast, setToast] = useState<string>('');
   function refresh(): void {
     void loadTenants(setTenants, setSmtpConfigured);
-  }
-  function closeDelete(): void {
-    setDeleteTenant(null);
   }
   function tenantCreated(): void {
     setShowCreate(false);
@@ -68,20 +68,6 @@ export default function AdminTenantManagement({
     }
   }
 
-  async function remove(): Promise<void> {
-    if (deleteTenant === null) return;
-    const response: Response = await fetch(`/api/admin/tenants/${deleteTenant.public_id}`, {
-      method: 'DELETE',
-      credentials: 'same-origin',
-    });
-    if (!response.ok) {
-      setMessage(text.errors.requestFailed);
-      return;
-    }
-    closeDelete();
-    setMessage(text.admin.tenantDeleted);
-    refresh();
-  }
   const visible: AdminCookbookTenant[] = tenants.filter((tenant: AdminCookbookTenant): boolean =>
     `${tenant.display_name} ${tenant.slug}`.toLowerCase().includes(filter.toLowerCase()),
   );
@@ -96,10 +82,13 @@ export default function AdminTenantManagement({
       <div className="dashboard__header">
         <h1>{text.admin.tenantsTitle}</h1>
         <button
+          className="admin-create-action"
+          title={text.admin.createTenant}
           disabled={!smtpConfigured}
           aria-describedby={!smtpConfigured ? 'tenant-creation-smtp-required' : undefined}
           onClick={(): void => setShowCreate(true)}
         >
+          <AdminIcon name="add" />
           {text.admin.createTenant}
         </button>
       </div>
@@ -143,7 +132,15 @@ export default function AdminTenantManagement({
           <tbody>
             {visible.map((tenant: AdminCookbookTenant): JSX.Element => (
               <tr key={tenant.public_id}>
-                <td>{tenant.display_name}</td>
+                <td>
+                  {canInspect ? (
+                    <a href={`/admin/tenants/${tenant.public_id}/inspection`}>
+                      {tenant.display_name}
+                    </a>
+                  ) : (
+                    tenant.display_name
+                  )}
+                </td>
                 <td>{tenant.slug}</td>
                 <td>{tenant.owner_name ?? ''}</td>
                 <td>{tenant.recipe_count}</td>
@@ -157,18 +154,17 @@ export default function AdminTenantManagement({
                     : null}
                 </td>
                 <td>
-                  <div className="tenant-actions">
-                    <button
-                      aria-label={
-                        tenant.disabled_at === null ? text.dashboard.disable : text.dashboard.enable
-                      }
-                      title={
-                        tenant.disabled_at === null ? text.dashboard.disable : text.dashboard.enable
-                      }
-                      onClick={(): void => void toggleDisabled(tenant, refresh)}
-                    >
-                      <AdminIcon name={tenant.disabled_at === null ? 'disable' : 'enable'} />
-                    </button>
+                  <div className="tenant-actions admin-record-actions">
+                    {canInspect ? (
+                      <ModerationControl
+                        compact
+                        tenantId={tenant.public_id}
+                        blocked={tenant.disabled_at !== null}
+                        name={tenant.display_name}
+                        text={text}
+                        onSaved={refresh}
+                      />
+                    ) : null}
                     <button
                       aria-label={
                         tenant.name_reset_required === true
@@ -186,16 +182,15 @@ export default function AdminTenantManagement({
                         name={tenant.name_reset_required === true ? 'cancelReset' : 'forceReset'}
                       />
                     </button>
-                    <button
-                      aria-label={text.dashboard.delete}
-                      title={text.dashboard.delete}
-                      onClick={(): void => {
-                        setDeleteTenant(tenant);
-                        setMessage('');
-                      }}
-                    >
-                      <AdminIcon name="delete" />
-                    </button>
+                    {canInspect ? (
+                      <DeletionControl
+                        compact
+                        tenantId={tenant.public_id}
+                        name={tenant.display_name}
+                        text={text}
+                        onDeleted={refresh}
+                      />
+                    ) : null}
                   </div>
                 </td>
               </tr>
@@ -250,21 +245,6 @@ export default function AdminTenantManagement({
           </p>
         </MessageDialog>
       )}
-      {deleteTenant === null ? null : (
-        <MessageDialog
-          kind="confirmation"
-          text={text.dialog}
-          title={text.admin.deleteTenant}
-          message={text.admin.deleteTenantDescription}
-          confirmLabel={text.dashboard.confirmDelete}
-          onConfirm={(): void => void remove()}
-          onClose={closeDelete}
-        >
-          <p>
-            <strong>{deleteTenant.display_name}</strong>
-          </p>
-        </MessageDialog>
-      )}
     </section>
   );
 }
@@ -281,19 +261,4 @@ async function loadTenants(
   };
   setTenants(body.tenants);
   setSmtpConfigured(body.smtpConfigured === true);
-}
-async function updateTenant(publicId: string, body: { disabled: boolean }): Promise<Response> {
-  return fetch(`/api/admin/tenants/${publicId}`, {
-    method: 'PATCH',
-    credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-}
-
-async function toggleDisabled(tenant: AdminCookbookTenant, refresh: () => void): Promise<void> {
-  const response: Response = await updateTenant(tenant.public_id, {
-    disabled: tenant.disabled_at === null,
-  });
-  if (response.ok) refresh();
 }

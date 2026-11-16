@@ -65,6 +65,7 @@ export function registerAuthenticationRoutes(
       requestPath === '/auth/password-reset/request' ||
       requestPath === '/auth/password-reset/verification' ||
       requestPath === '/auth/password-reset/complete' ||
+      requestPath === '/auth/email-recovery/complete' ||
       requestPath === '/auth/logout' ||
       requestPath === '/auth/session' ||
       requestPath === '/auth/email-code/request' ||

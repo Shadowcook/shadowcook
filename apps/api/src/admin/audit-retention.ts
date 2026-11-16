@@ -6,7 +6,7 @@ export function validateAuditRetentionDays(days: number): void {
   }
 }
 
-// Operator-only maintenance: no web/API route exposes policy changes or pruning.
+// Shared by administrator settings and explicit database maintenance.
 export async function setAuditRetentionDays(pool: Pool, days: number): Promise<void> {
   validateAuditRetentionDays(days);
   const result: QueryResult = await pool.query(
@@ -17,6 +17,10 @@ export async function setAuditRetentionDays(pool: Pool, days: number): Promise<v
 }
 
 export async function pruneAdministrativeAudit(pool: Pool): Promise<number> {
+  await pool.query(`DELETE FROM administrative_report_notice
+    WHERE created_at < statement_timestamp() - (
+      SELECT retention_days * interval '24 hours' FROM administrative_audit_policy WHERE singleton = true
+    )`);
   const result: QueryResult = await pool.query(`DELETE FROM administrative_audit_event
     WHERE created_at < statement_timestamp() - (
       SELECT retention_days * interval '24 hours' FROM administrative_audit_policy WHERE singleton = true

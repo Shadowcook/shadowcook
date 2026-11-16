@@ -1,63 +1,56 @@
-import type { Pool, PoolClient, QueryResult } from 'pg';
-import { hashPassword, minimumPasswordEntropy } from '../auth/password.js';
+import type { Pool, PoolClient } from 'pg';
+import { createPasswordHash } from '../auth/password-hash.js';
+import { prepareCloneLocalAdministrator } from './clone-local-administrator.js';
+import { cloneAssignments, readCloneColumns } from './clone-schema.js';
+import type { CloneColumns } from './clone-schema.js';
 
-export async function configureCloneAdministrator(pool: Pool, password: string): Promise<void> {
+export function validateClonePassword(password: string): void {
   if (password.length === 0) throw new Error('The test password must not be empty.');
+  if (password.length > 1024) throw new Error('Password must not exceed 1024 characters.');
+}
+
+export async function configureCloneAdministrator(pool: Pool, password: string): Promise<boolean> {
+  validateClonePassword(password);
   const client: PoolClient = await pool.connect();
   try {
     await client.query('BEGIN');
     await client.query("SELECT pg_advisory_xact_lock(hashtext('shadowcook-clone-administrator'))");
-    const passwordHash: string = await hashPassword(password, await minimumPasswordEntropy(client));
-    const role: QueryResult<{ id: string }> = await client.query<{ id: string }>(
-      "SELECT id FROM instance_role WHERE code = 'administrator'",
+    const accounts: CloneColumns = await readCloneColumns(client, 'user_account');
+    const passwordHash: string = await createPasswordHash(password);
+    const administratorReady: boolean = await prepareCloneLocalAdministrator(
+      client,
+      accounts,
+      passwordHash,
     );
-    if (role.rows.length !== 1) throw new Error('The administrator role is missing.');
-    const existing: QueryResult<{ principal_id: string }> = await client.query<{
-      principal_id: string;
-    }>(
-      "SELECT principal_id FROM user_account WHERE email = 'admin@local' AND deleted_at IS NULL FOR UPDATE",
-    );
-    let principalId: string;
-    if (existing.rows.length === 0) {
-      const principal: QueryResult<{ id: string }> = await client.query<{ id: string }>(
-        "INSERT INTO principal (principal_type) VALUES ('USER') RETURNING id",
-      );
-      principalId = principal.rows[0].id;
+    const updates: string[] = cloneAssignments(accounts, {
+      password_hash: '$1',
+      password_change_required: 'false',
+      password_changed_at: 'now()',
+    });
+    if (updates.length > 0) {
       await client.query(
-        `INSERT INTO user_account
-          (principal_id, email, display_name, password_hash, password_changed_at)
-         VALUES ($1, 'admin@local', 'Local administrator', $2, now())`,
-        [principalId, passwordHash],
+        `UPDATE public.user_account SET ${updates.join(', ')}`,
+        accounts.has('password_hash') ? [passwordHash] : [],
       );
-    } else {
-      principalId = existing.rows[0].principal_id;
-      await client.query(
-        `UPDATE user_account SET password_hash = $1, password_change_required = false,
-          password_changed_at = now(), disabled_at = NULL, updated_at = now()
-         WHERE principal_id = $2`,
-        [passwordHash, principalId],
-      );
-      await client.query('UPDATE principal SET disabled_at = NULL WHERE id = $1', [principalId]);
     }
-    await client.query(
-      `INSERT INTO principal_instance_role (principal_id, instance_role_id) VALUES ($1, $2)
-       ON CONFLICT (principal_id) DO UPDATE SET instance_role_id = EXCLUDED.instance_role_id`,
-      [principalId, role.rows[0].id],
+    const sessions: CloneColumns = await readCloneColumns(client, 'user_session');
+    if (sessions.size > 0) await client.query('DELETE FROM public.user_session');
+    const authentication: CloneColumns = await readCloneColumns(
+      client,
+      'instance_authentication_settings',
     );
-    await client.query(
-      `UPDATE user_account SET password_hash = $1, password_change_required = false,
-        password_changed_at = now()`,
-      [passwordHash],
-    );
-    await client.query(
-      `UPDATE user_session SET revoked_at = now()
-       WHERE revoked_at IS NULL`,
-    );
-    await client.query(
-      `UPDATE instance_authentication_settings SET login_mode = 'PASSWORD_OR_EMAIL_CODE'
-       WHERE singleton = true AND login_mode = 'EMAIL_CODE_ONLY'`,
-    );
+    if (authentication.has('login_mode')) {
+      await client.query(
+        `DO $$ BEGIN
+           UPDATE public.instance_authentication_settings SET login_mode = 'PASSWORD_OR_EMAIL_CODE'
+           WHERE login_mode = 'EMAIL_CODE_ONLY';
+         EXCEPTION WHEN check_violation OR invalid_text_representation THEN
+           RAISE NOTICE 'Copied authentication schema does not support password-or-email-code login; keeping its login mode.';
+         END; $$;`,
+      );
+    }
     await client.query('COMMIT');
+    return administratorReady;
   } catch (error: unknown) {
     await client.query('ROLLBACK');
     throw error;

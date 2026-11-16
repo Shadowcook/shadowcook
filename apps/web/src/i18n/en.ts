@@ -1,3 +1,8 @@
+import { workflowEnglish } from '../features/admin/reports/translations.ts';
+import { safetyEnglish } from '../features/admin/safety/translations.ts';
+import { moderationEnglish } from '../features/admin/moderation/translations.ts';
+import { ownershipEnglish } from '../features/admin/ownership/translations.ts';
+import { inspectionEnglish } from '../features/admin/inspection/translations.ts';
 import { errorEnglish } from './errors.ts';
 import { landingEnglish } from '../components/landing/translations.ts';
 import type { Translation } from './types';
@@ -5,6 +10,11 @@ import { reportEnglish } from '../features/reports/translations.ts';
 import { recipeImportEnglish } from '../features/cookbook/import/translations.ts';
 
 export const en: Translation = {
+  workflow: workflowEnglish,
+  safety: safetyEnglish,
+  moderation: moderationEnglish,
+  ownership: ownershipEnglish,
+  inspection: inspectionEnglish,
   cookbookIdentity: {
     cancelReset: 'Cancel Force Reset',
     cancelResetDescription:
@@ -367,6 +377,16 @@ export const en: Translation = {
       ADMIN_PASSWORD_RESET: 'Administrator-required password reset',
       INSTANCE_USER_INVITATION: 'Instance user invitation',
       COOKBOOK_USER_INVITATION: 'Cookbook user invitation',
+      REPORT_DECISION_NOTICE: 'Public decision and review notice',
+      RECIPE_RESTRICTED: 'Recipe access restricted',
+      RECIPE_DELETED: 'Recipe permanently deleted',
+      COOKBOOK_DELETED: 'Cookbook permanently deleted',
+      RECIPE_RESTRICTION_LIFTED: 'Recipe restriction lifted',
+      COOKBOOK_RESTRICTION_LIFTED: 'Cookbook restriction lifted',
+      COOKBOOK_RESTRICTED: 'Cookbook access restricted',
+      ADMIN_EMAIL_RECOVERY_PROOF: 'Account recovery verification',
+      ADMIN_EMAIL_RECOVERED: 'Account email corrected',
+      COOKBOOK_OWNERSHIP_TRANSFERRED: 'Cookbook ownership transferred',
       COOKBOOK_OWNER_INVITATION: 'Cookbook owner invitation',
     },
   },
@@ -552,6 +572,19 @@ export const en: Translation = {
     conflict: 'That category URL name is already in use.',
     invalidParent: 'The selected parent category is invalid.',
     accessDenied: 'You do not have permission to manage categories in this cookbook.',
+  },
+  adminAudit: {
+    navigation: 'Audit retention',
+    title: 'Audit retention settings',
+    description: 'Set how long administrative audit events and public report notices are retained.',
+    limit: 'Retention in days',
+    limitHelp:
+      'Enter a whole number from 1 to 3,650 days. The default is 365 days. Unlimited retention is not supported.',
+    applyHelp:
+      'Changes apply at the next API startup or automatic cleanup, which runs every three hours. Shortening retention also removes existing records older than the new period. Increasing it cannot restore deleted records. Database backups follow their separate retention policy.',
+    save: 'Save audit retention',
+    saved: 'Audit retention saved.',
+    invalidLimit: 'Enter a whole number from 1 to 3,650.',
   },
   adminMedia: {
     navigation: 'Media',

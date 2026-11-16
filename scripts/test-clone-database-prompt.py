@@ -51,21 +51,24 @@ def main() -> None:
         enter_secret(b"other-secret-value")
         await_text(b"Passwords do not match.")
         await_text(b"New test password for all users (including admin@local): ")
-        enter_secret(b"abc")
+        enter_secret(b"")
         await_text(b"Repeat password: ")
-        enter_secret(b"abc")
-        await_text(b"bits of estimated entropy")
+        enter_secret(b"")
+        await_text(b"must not be empty")
         await_text(b"New test password for all users (including admin@local): ")
-        enter_secret(b"eR7!vQ2#nL9@xC4$kM8%pT6&zA1*")
+        enter_secret(b"abc")
         await_text(b"Repeat password: ")
-        enter_secret(b"eR7!vQ2#nL9@xC4$kM8%pT6&zA1*")
+        enter_secret(b"abc")
         assert b"Exporting source" not in transcript, "Copy started before password confirmation"
         await_text(b"Exporting source")
-        await_text(b"Clone complete. Test passwords are set for all users; admin@local is ready.")
+        await_text(b"Clone complete.")
         assert process.wait(timeout=10) == 0
-        for secret in [b"first-secret-value", b"other-secret-value", b"abc", b"eR7!vQ2#nL9@xC4$kM8%pT6&zA1*"]:
+        for secret in [b"first-secret-value", b"other-secret-value", b"abc"]:
             assert secret not in transcript, "Password was echoed in terminal output"
-        print("PASS: hidden interactive password, confirmation mismatch, policy rejection, retry, completion")
+        print(
+            "PASS: hidden interactive password, confirmation mismatch, "
+            "empty-password rejection, retry, weak-password completion"
+        )
     finally:
         if process.poll() is None:
             process.terminate()

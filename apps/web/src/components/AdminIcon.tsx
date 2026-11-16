@@ -6,6 +6,9 @@ import {
   faArrowDown,
   faArrowUp,
   faBars,
+  faBan,
+  faEnvelope,
+  faUnlock,
   faChevronDown,
   faChevronLeft,
   faChevronRight,
@@ -29,6 +32,9 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 type IconName =
   | 'add'
   | 'aliases'
+  | 'block'
+  | 'emailRecovery'
+  | 'unblock'
   | 'close'
   | 'categoryCollapsed'
   | 'categoryExpanded'
@@ -55,6 +61,9 @@ type IconName =
 const iconByName: Readonly<Record<IconName, IconDefinition>> = {
   add: faPlus,
   aliases: faTags,
+  block: faBan,
+  emailRecovery: faEnvelope,
+  unblock: faUnlock,
   close: faXmark,
   categoryCollapsed: faChevronRight,
   categoryExpanded: faChevronDown,
