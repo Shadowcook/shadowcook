@@ -1,7 +1,7 @@
 import type { Pool, PoolClient } from 'pg';
 import { loadSmtpConfiguration } from '../admin/mail-routes.js';
 import { createSmtpTransport, senderAddress } from './smtp.js';
-import { emailTemplateDefinition, renderEmailTemplate } from './templates.js';
+import { emailTemplateDefinition, renderEmailBody, renderEmailTemplate } from './templates.js';
 import type { EmailTemplateKey } from './templates.js';
 
 export async function sendInstanceMail(
@@ -54,6 +54,6 @@ export async function sendTemplatedInstanceMail(
     instanceSecretKey,
     recipient,
     renderEmailTemplate(template.subject_template, resolvedVariables),
-    renderEmailTemplate(template.body_template, resolvedVariables),
+    renderEmailBody(template.body_template, templateKey, resolvedVariables),
   );
 }

@@ -33,7 +33,7 @@ export function registerCookbookIdentityRoutes(api: FastifyInstance, pool: Pool)
       reply.header('Cache-Control', 'no-store');
       const publicId: string = (request.params as { publicId: string }).publicId;
       const owned: QueryResult = await pool.query(
-        'SELECT 1 FROM tenant WHERE public_id::text = $1 AND owner_principal_id = $2',
+        'SELECT 1 FROM tenant WHERE public_id::text = $1 AND owner_principal_id = $2 AND disabled_at IS NULL',
         [publicId, user.principal_id],
       );
       if (owned.rowCount !== 1)
@@ -103,7 +103,7 @@ export function registerCookbookIdentityRoutes(api: FastifyInstance, pool: Pool)
           // The predicate and reset release are atomic with the identity update.
           const result: QueryResult = await pool.query(
             `UPDATE tenant SET display_name = $1, slug = $2, name_reset_required = false, updated_at = now()
-         WHERE public_id::text = $3 AND owner_principal_id = $4
+         WHERE public_id::text = $3 AND owner_principal_id = $4 AND disabled_at IS NULL
            AND (NOT name_reset_required OR (display_name <> $1 AND slug <> $2))`,
             [
               name,
@@ -114,7 +114,7 @@ export function registerCookbookIdentityRoutes(api: FastifyInstance, pool: Pool)
           );
           if (result.rowCount === 1) return reply.code(204).send();
           const owned: QueryResult = await pool.query(
-            'SELECT 1 FROM tenant WHERE public_id::text = $1 AND owner_principal_id = $2',
+            'SELECT 1 FROM tenant WHERE public_id::text = $1 AND owner_principal_id = $2 AND disabled_at IS NULL',
             [(request.params as { publicId: string }).publicId, user.principal_id],
           );
           return owned.rowCount === 1

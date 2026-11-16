@@ -77,7 +77,8 @@ async function handleRequest(
           context.url.pathname !== '/settings/cookbooks' &&
           context.url.pathname !== '/admin' &&
           context.url.pathname !== '/admin/tenants' &&
-          context.url.pathname !== '/logout'
+          context.url.pathname !== '/logout' &&
+          !context.url.pathname.startsWith('/auth/email-recovery/')
         )
           return Response.redirect(new URL('/settings/cookbooks', context.url), 302);
       }

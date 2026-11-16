@@ -17,7 +17,7 @@ export function registerRecipeTrashRoutes(api: FastifyInstance, pool: Pool): voi
       `SELECT recipe.public_id AS "publicId", recipe.slug, revision.title,
          recipe.deleted_at AS "deletedAt",
          recipe.deleted_at + recipe.deletion_retention_days * interval '24 hours' AS "expiresAt"
-       FROM recipe INNER JOIN recipe_revision AS revision
+       FROM ordinary_recipe AS recipe INNER JOIN recipe_revision AS revision
          ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
        WHERE recipe.tenant_id = $1 AND recipe.deleted_at IS NOT NULL
          AND recipe.deleted_at + recipe.deletion_retention_days * interval '24 hours' > now()
@@ -41,7 +41,7 @@ export function registerRecipeTrashRoutes(api: FastifyInstance, pool: Pool): voi
     );
     if (tenantId === null) return;
     const result: QueryResult = await pool.query(
-      `UPDATE recipe SET deleted_at = now(), deletion_retention_days = tenant.recipe_retention_days, updated_at = now()
+      `UPDATE ordinary_recipe AS recipe SET deleted_at = now(), deletion_retention_days = tenant.recipe_retention_days, updated_at = now()
        FROM tenant WHERE tenant.id = recipe.tenant_id AND recipe.tenant_id = $1
          AND recipe.public_id::text = $2 AND recipe.deleted_at IS NULL RETURNING recipe.id`,
       [tenantId, publicId],
@@ -65,7 +65,7 @@ export function registerRecipeTrashRoutes(api: FastifyInstance, pool: Pool): voi
     );
     if (tenantId === null) return;
     const result: QueryResult = await pool.query(
-      `UPDATE recipe SET deleted_at = NULL, deletion_retention_days = NULL, updated_at = now()
+      `UPDATE ordinary_recipe AS recipe SET deleted_at = NULL, deletion_retention_days = NULL, updated_at = now()
        WHERE tenant_id = $1 AND public_id::text = $2 AND deleted_at IS NOT NULL
          AND deleted_at + deletion_retention_days * interval '24 hours' > now() RETURNING id`,
       [tenantId, publicId],

@@ -65,11 +65,11 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
          SELECT 1 FROM ingredient_usage
          INNER JOIN recipe_step ON recipe_step.id = ingredient_usage.recipe_step_id
          INNER JOIN recipe_revision ON recipe_revision.id = recipe_step.recipe_revision_id
-         INNER JOIN recipe ON recipe.id = recipe_revision.recipe_id
+         INNER JOIN ordinary_recipe AS recipe ON recipe.id = recipe_revision.recipe_id
          WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND ingredient_usage.unit_id = unit.id
        ) OR EXISTS (
          SELECT 1 FROM recipe_import_unit_source source
-         INNER JOIN recipe ON recipe.id = source.recipe_id
+         INNER JOIN ordinary_recipe AS recipe ON recipe.id = source.recipe_id
          WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND source.unit_id = unit.id
        ) ORDER BY unit.public_id`,
       tenantId,
@@ -80,7 +80,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
         recipe.visibility_override, recipe.discoverability_override, recipe.is_featured,
         published.public_id AS published_revision_public_id,
         draft.public_id AS draft_revision_public_id, recipe.created_at, recipe.updated_at
-       FROM recipe
+       FROM ordinary_recipe AS recipe
        LEFT JOIN recipe_revision AS published ON published.id = recipe.published_revision_id
        LEFT JOIN recipe_revision AS draft ON draft.id = recipe.draft_revision_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 ORDER BY recipe.public_id`,
@@ -99,7 +99,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
           INNER JOIN category ON category.id = recipe_revision_category.category_id
           WHERE recipe_revision_category.recipe_revision_id = revision.id
           ORDER BY category.public_id) AS category_public_ids
-       FROM recipe_revision AS revision INNER JOIN recipe ON recipe.id = revision.recipe_id
+       FROM recipe_revision AS revision INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
        LEFT JOIN user_account ON user_account.principal_id = revision.created_by_principal_id
        LEFT JOIN service_account ON service_account.principal_id = revision.created_by_principal_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 ORDER BY recipe.public_id, revision.revision_no`,
@@ -125,7 +125,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
           ORDER BY recipe_step.sort_order) AS included_step_keys
        FROM recipe_variant AS variant
        INNER JOIN recipe_revision AS revision ON revision.id = variant.recipe_revision_id
-       INNER JOIN recipe ON recipe.id = revision.recipe_id
+       INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 ORDER BY revision.public_id, variant.variant_key`,
       tenantId,
     );
@@ -134,7 +134,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
       `SELECT revision.public_id AS revision_public_id, step.step_key, step.sort_order, step.instruction
        FROM recipe_step AS step
        INNER JOIN recipe_revision AS revision ON revision.id = step.recipe_revision_id
-       INNER JOIN recipe ON recipe.id = revision.recipe_id
+       INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
        WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 ORDER BY revision.public_id, step.sort_order`,
       tenantId,
     );
@@ -147,7 +147,7 @@ export async function loadCookbookExport(pool: Pool, tenantId: string): Promise<
        FROM ingredient_usage AS usage
        INNER JOIN recipe_step AS step ON step.id = usage.recipe_step_id
        INNER JOIN recipe_revision AS revision ON revision.id = step.recipe_revision_id
-       INNER JOIN recipe ON recipe.id = revision.recipe_id
+       INNER JOIN ordinary_recipe AS recipe ON recipe.id = revision.recipe_id
        LEFT JOIN ingredient ON ingredient.id = usage.ingredient_id
        LEFT JOIN ingredient_alias AS alias ON alias.id = usage.ingredient_alias_id
        LEFT JOIN unit ON unit.id = usage.unit_id

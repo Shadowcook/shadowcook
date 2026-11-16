@@ -572,6 +572,19 @@ label {
     600 0.82rem Arial,
     sans-serif;
 }
+label:has(> input[type='checkbox']) {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+label:has(> input[type='checkbox']) > input[type='checkbox'] {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0.1em 0 0;
+  padding: 0;
+}
 .radio-option {
   display: flex;
   align-items: center;
@@ -980,11 +993,14 @@ table.account-settings-panel__cookbook-table td:nth-child(4) {
 table.account-settings-panel__cookbook-table th:nth-child(4) {
   width: 20%;
 }
+.user-table {
+  min-width: 56rem;
+}
 .user-table th:nth-child(1) {
   width: 16%;
 }
 .user-table th:nth-child(2) {
-  width: 22%;
+  width: auto;
 }
 .user-table th:nth-child(3) {
   width: 22%;
@@ -996,7 +1012,7 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
   width: 12%;
 }
 .user-table th:nth-child(6) {
-  width: 14%;
+  width: 9rem;
 }
 .user-table td:nth-child(3),
 .user-table td:nth-child(4) {
@@ -1004,8 +1020,14 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.user-table th,
+.user-table td {
+  overflow-wrap: anywhere;
+}
 .user-table-container {
-  overflow-x: visible;
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
 }
 .tenant-user-table {
   min-width: 40rem;
@@ -1047,11 +1069,27 @@ table.account-settings-panel__cookbook-table th:nth-child(4) {
   flex-wrap: nowrap;
   gap: 0.35rem;
 }
-.tenant-actions button {
+.tenant-actions > button {
   width: 2.1rem;
   min-width: 2.1rem;
   padding: 0.45rem;
   line-height: 1;
+}
+.admin-record-actions {
+  flex-wrap: wrap;
+  align-items: center;
+}
+.admin-record-actions > button {
+  display: inline-flex;
+  flex: 0 0 2.1rem;
+  height: 2.1rem;
+  align-items: center;
+  justify-content: center;
+}
+.admin-create-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 .admin-icon {
   display: block;
@@ -1300,6 +1338,9 @@ body:has(.application-dialog[open]) {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.deletion-dialog__confirmation {
+  margin-block-start: 1rem;
+}
 .application-dialog__actions {
   display: flex;
   justify-content: flex-end;
@@ -1391,7 +1432,8 @@ body:has(.application-dialog[open]) {
 .role-assignment__actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.65rem;
+  gap: 1rem;
+  margin-top: 1.25rem;
 }
 .toast {
   position: fixed;
@@ -1585,6 +1627,25 @@ body:has(.application-dialog[open]) {
 }
 
 .report-description {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.report-history article {
+  margin-block: 1rem;
+  padding: 1rem;
+  border: 1px solid #d8cbb8;
+  border-radius: 0.5rem;
+  overflow-wrap: anywhere;
+}
+
+.report-history article:target,
+.report-history article:focus-visible {
+  outline: 2px solid #bf4c2d;
+  outline-offset: 2px;
+}
+
+.report-history pre {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }

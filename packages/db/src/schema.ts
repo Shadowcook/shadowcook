@@ -180,6 +180,7 @@ export interface UserInvitationTable {
 }
 
 export interface RecipeTable {
+  moderation_blocked_at: Generated<Timestamp | null>;
   id: Generated<Uuid>;
   tenant_id: string;
   public_id: Generated<Uuid>;
@@ -349,7 +350,60 @@ export interface ApplicationSeedTable {
  * initial migration. These core tables are typed now because they are the
  * first persistence boundary used by the API.
  */
+export interface AdministrativeAuditEventTable {
+  id: Generated<Uuid>;
+  created_at: Generated<Timestamp>;
+  revision_public_id: string | null;
+  media_public_id: string | null;
+  actor_principal_id: string;
+  action: string;
+  target_type: 'COOKBOOK' | 'RECIPE' | 'USER' | 'INSTANCE' | 'REPORT';
+  target_public_id: string;
+  cookbook_public_id: string | null;
+  reason: string;
+  previous_state: unknown;
+  new_state: unknown;
+  request_id: string;
+  related_report_public_id: string | null;
+  outcome: 'SUCCEEDED';
+}
+
+export interface AdministrativeAuditPolicyTable {
+  singleton: Generated<boolean>;
+  retention_days: number;
+}
+
+export interface AdministrativeEmailRecoveryTable {
+  reason: string;
+  related_report_public_id: string | null;
+  user_account_id: string;
+  actor_principal_id: string;
+  new_email: string;
+  token_hash: Buffer;
+  expires_at: Timestamp;
+  created_at: Generated<Timestamp>;
+}
+export interface AdministrativeReportEventTable {
+  report_public_id: string;
+  event_id: string;
+}
+export interface AdministrativeReportNoticeTable {
+  public_id: Generated<Uuid>;
+  report_public_id: string;
+  recipient_user_id: string;
+  recipient_role: 'REPORTER' | 'TARGET';
+  message: string;
+  review_instructions: string;
+  delivery_status: Generated<'PENDING' | 'SENT' | 'FAILED'>;
+  created_at: Generated<Timestamp>;
+  delivered_at: Timestamp | null;
+}
 export interface Database {
+  administrative_report_event: AdministrativeReportEventTable;
+  administrative_report_notice: AdministrativeReportNoticeTable;
+  administrative_email_recovery: AdministrativeEmailRecoveryTable;
+  administrative_audit_event: AdministrativeAuditEventTable;
+  administrative_audit_policy: AdministrativeAuditPolicyTable;
   instance_report_settings: InstanceReportSettingsTable;
   content_report: ContentReportTable;
   content_report_notification: ContentReportNotificationTable;

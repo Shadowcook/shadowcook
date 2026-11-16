@@ -97,7 +97,13 @@ export default function AccountCookbookSettings({ text }: { text: Translation })
                   cookbooks.map((cookbook: OwnedCookbook): JSX.Element => (
                     <tr key={cookbook.slug}>
                       <td>
-                        <a href={`/${encodeURIComponent(cookbook.slug)}`}>{cookbook.name}</a>
+                        {cookbook.disabled ? (
+                          <span>
+                            {cookbook.name} · {text.moderation.blocked}
+                          </span>
+                        ) : (
+                          <a href={`/${encodeURIComponent(cookbook.slug)}`}>{cookbook.name}</a>
+                        )}
                       </td>
                       <td>{cookbook.recipeCount}</td>
                       <td>{cookbook.userCount}</td>
@@ -107,7 +113,11 @@ export default function AccountCookbookSettings({ text }: { text: Translation })
                           : text.accountSettings.no}
                       </td>
                       <td>
-                        <button type="button" onClick={(): void => setEditing(cookbook)}>
+                        <button
+                          type="button"
+                          disabled={cookbook.disabled}
+                          onClick={(): void => setEditing(cookbook)}
+                        >
                           {text.cookbookIdentity.rename}
                         </button>
                       </td>
@@ -151,4 +161,5 @@ interface OwnedCookbook extends CookbookIdentity {
   recipeCount: number;
   userCount: number;
   showOnStartPage: boolean;
+  disabled: boolean;
 }

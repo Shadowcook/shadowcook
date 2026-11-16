@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { Pool } from 'pg';
 import type { QueryResult } from 'pg';
-import { verifyPassword } from '../../src/auth/password.js';
+import { validatePassword, verifyPassword } from '../../src/auth/password.js';
 import { configureCloneAdministrator } from '../../src/development/clone-administrator.js';
 
 interface AdministratorRow {
@@ -61,18 +61,16 @@ async function main(): Promise<void> {
     assert.equal(administrator.role_code, 'administrator');
     assert.equal(administrator.password_change_required, false);
     assert.equal(administrator.disabled_at, null);
-    assert.equal(
-      await verifyPassword('eR7!vQ2#nL9@xC4$kM8%pT6&zA1*', administrator.password_hash),
-      true,
-    );
-    await assertUserPasswords(pool, 'eR7!vQ2#nL9@xC4$kM8%pT6&zA1*');
+    assert.equal(await verifyPassword('abc', administrator.password_hash), true);
+    await assertUserPasswords(pool, 'abc');
     await assert.rejects(configureCloneAdministrator(pool, ''), /must not be empty/);
-    await assert.rejects(configureCloneAdministrator(pool, 'password'), /estimated entropy/);
+    await assert.rejects(configureCloneAdministrator(pool, 'x'.repeat(1025)), /1024 characters/);
+    assert.throws((): void => validatePassword('abc', 256), /estimated entropy/);
     const afterFailure: QueryResult<{ password_hash: string }> = await pool.query<{
       password_hash: string;
     }>('SELECT password_hash FROM user_account WHERE id = $1', [administrator.id]);
     assert.equal(afterFailure.rows[0].password_hash, administrator.password_hash);
-    await assertUserPasswords(pool, 'eR7!vQ2#nL9@xC4$kM8%pT6&zA1*');
+    await assertUserPasswords(pool, 'abc');
 
     await pool.query(
       `INSERT INTO user_session (user_account_id, token_hash, expires_at)
@@ -83,7 +81,7 @@ async function main(): Promise<void> {
        VALUES (true, 'EMAIL_CODE_ONLY')
        ON CONFLICT (singleton) DO UPDATE SET login_mode = 'EMAIL_CODE_ONLY'`,
     );
-    const newPassword: string = 'bQ8@pR6!xV9#cL3$mN7%kT4&zA2*';
+    const newPassword: string = 'password';
     await configureCloneAdministrator(pool, newPassword);
     const updated: QueryResult<{ id: string; password_hash: string }> = await pool.query<{
       id: string;
@@ -93,10 +91,7 @@ async function main(): Promise<void> {
     assert.equal(updated.rows[0].id, administrator.id);
     assert.equal(await verifyPassword(newPassword, updated.rows[0].password_hash), true);
     await assertUserPasswords(pool, newPassword);
-    assert.equal(
-      await verifyPassword('eR7!vQ2#nL9@xC4$kM8%pT6&zA1*', updated.rows[0].password_hash),
-      false,
-    );
+    assert.equal(await verifyPassword('abc', updated.rows[0].password_hash), false);
     const sessions: QueryResult<{ count: string }> = await pool.query<{ count: string }>(
       'SELECT count(*) FROM user_session WHERE revoked_at IS NULL',
     );
@@ -106,7 +101,7 @@ async function main(): Promise<void> {
     );
     assert.equal(mode.rows[0].login_mode, 'PASSWORD_OR_EMAIL_CODE');
     console.log(
-      'PASS: all user passwords verify; statuses preserved; admin role, password policy, reset, session revocation, and password login',
+      'PASS: all user passwords verify; statuses preserved; admin role, entropy exemption, reset, session revocation, and password login',
     );
   } finally {
     await pool.end();

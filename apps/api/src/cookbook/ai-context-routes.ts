@@ -110,6 +110,7 @@ export function registerAiContextRoutes(
          AND bootstrap_expires_at > now()
          AND expires_at > now()
          AND revoked_at IS NULL
+         AND NOT EXISTS (SELECT 1 FROM recipe r WHERE r.tenant_id = ai_context_grant.tenant_id AND r.public_id = ai_context_grant.scope_public_id AND ai_context_grant.scope_type = 'RECIPE' AND r.moderation_blocked_at IS NOT NULL)
        RETURNING id, tenant_id, scope_type, scope_public_id, expires_at`,
       [tokenHash(accessToken), tokenHash(bootstrapToken)],
     );
@@ -290,7 +291,7 @@ async function scopePublicIdForInput(
     );
     return tenant.rows[0]?.public_id ?? null;
   }
-  const table: string = type === 'RECIPE' ? 'recipe' : 'category';
+  const table: string = type === 'RECIPE' ? 'ordinary_recipe' : 'category';
   const result = await pool.query(
     `SELECT public_id FROM ${table} WHERE tenant_id = $1 AND public_id = $2${type === 'RECIPE' ? ' AND deleted_at IS NULL' : ''}`,
     [tenantId, publicId],
@@ -305,7 +306,8 @@ async function activeGrant(pool: Pool, request: FastifyRequest): Promise<GrantRo
     `UPDATE ai_context_grant SET last_used_at = now()
      WHERE access_token_hash = $1 AND bootstrap_consumed_at IS NOT NULL
        AND revoked_at IS NULL AND expires_at > now()
-       AND EXISTS (SELECT 1 FROM tenant WHERE tenant.id = ai_context_grant.tenant_id AND NOT tenant.name_reset_required)
+       AND NOT EXISTS (SELECT 1 FROM recipe r WHERE r.tenant_id = ai_context_grant.tenant_id AND r.public_id = ai_context_grant.scope_public_id AND ai_context_grant.scope_type = 'RECIPE' AND r.moderation_blocked_at IS NOT NULL)
+       AND EXISTS (SELECT 1 FROM tenant WHERE tenant.id = ai_context_grant.tenant_id AND tenant.disabled_at IS NULL AND NOT tenant.name_reset_required)
      RETURNING id, tenant_id, scope_type, scope_public_id, expires_at`,
     [tokenHash(token)],
   );
@@ -339,7 +341,7 @@ async function overviewForGrant(pool: Pool, grant: GrantRow): Promise<unknown> {
        UNION SELECT category.id FROM category INNER JOIN subtree ON category.parent_id = subtree.id
      )
      SELECT DISTINCT recipe.public_id, recipe.slug, revision.title, revision.summary
-     FROM recipe INNER JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
+     FROM ordinary_recipe AS recipe INNER JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
      WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND (
        ($3 = 'TENANT') OR
@@ -379,7 +381,7 @@ async function recipeForGrant(
        UNION SELECT category.id FROM category INNER JOIN subtree ON category.parent_id = subtree.id
      )
      SELECT recipe.public_id, recipe.slug, revision.id AS revision_id, revision.title, revision.summary, ${recipeFactsSql('revision')}
-     FROM recipe INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
+     FROM ordinary_recipe AS recipe INNER JOIN recipe_revision AS revision ON revision.id = recipe.published_revision_id
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
      WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $4 AND (
        ($3 = 'TENANT') OR
@@ -448,7 +450,7 @@ async function scopedRecipe(
        SELECT id FROM category WHERE tenant_id = $1 AND ($3 = 'TENANT' OR public_id = $2)
        UNION SELECT category.id FROM category INNER JOIN subtree ON category.parent_id = subtree.id
      )
-     SELECT recipe.id, recipe.draft_revision_id FROM recipe
+     SELECT recipe.id, recipe.draft_revision_id FROM ordinary_recipe AS recipe
      LEFT JOIN recipe_revision AS revision ON revision.id = COALESCE(recipe.draft_revision_id, recipe.published_revision_id)
      LEFT JOIN recipe_revision_category ON recipe_revision_category.recipe_revision_id = revision.id
      WHERE recipe.deleted_at IS NULL AND recipe.tenant_id = $1 AND recipe.public_id = $4 AND (

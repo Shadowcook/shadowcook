@@ -1,3 +1,8 @@
+import { workflowGerman } from '../features/admin/reports/translations.ts';
+import { safetyGerman } from '../features/admin/safety/translations.ts';
+import { moderationGerman } from '../features/admin/moderation/translations.ts';
+import { ownershipGerman } from '../features/admin/ownership/translations.ts';
+import { inspectionGerman } from '../features/admin/inspection/translations.ts';
 import { errorGerman } from './errors.ts';
 import { landingGerman } from '../components/landing/translations.ts';
 import type { Translation } from './types';
@@ -5,6 +10,11 @@ import { recipeImportGerman } from '../features/cookbook/import/translations.ts'
 import { reportGerman } from '../features/reports/translations.ts';
 
 export const de: Translation = {
+  workflow: workflowGerman,
+  safety: safetyGerman,
+  moderation: moderationGerman,
+  ownership: ownershipGerman,
+  inspection: inspectionGerman,
   cookbookIdentity: {
     cancelReset: 'Force Reset aufheben',
     cancelResetDescription:
@@ -377,6 +387,16 @@ export const de: Translation = {
       ADMIN_PASSWORD_RESET: 'Administrativ angefordertes Zurücksetzen des Passworts',
       INSTANCE_USER_INVITATION: 'Einladung eines Instanzbenutzers',
       COOKBOOK_USER_INVITATION: 'Einladung zu einem Kochbuch',
+      REPORT_DECISION_NOTICE: 'Öffentliche Entscheidungs- und Prüfmitteilung',
+      RECIPE_RESTRICTED: 'Rezeptzugriff gesperrt',
+      RECIPE_DELETED: 'Rezept dauerhaft gelöscht',
+      COOKBOOK_DELETED: 'Kochbuch dauerhaft gelöscht',
+      RECIPE_RESTRICTION_LIFTED: 'Rezeptsperre aufgehoben',
+      COOKBOOK_RESTRICTION_LIFTED: 'Kochbuchsperre aufgehoben',
+      COOKBOOK_RESTRICTED: 'Kochbuchzugriff gesperrt',
+      ADMIN_EMAIL_RECOVERY_PROOF: 'Kontowiederherstellung verifizieren',
+      ADMIN_EMAIL_RECOVERED: 'Konto-E-Mail korrigiert',
+      COOKBOOK_OWNERSHIP_TRANSFERRED: 'Kochbuch-Eigentum übertragen',
       COOKBOOK_OWNER_INVITATION: 'Einladung als Kochbuchbesitzer',
     },
   },
@@ -571,6 +591,20 @@ export const de: Translation = {
     conflict: 'Dieser Kategorie-URL-Name wird bereits verwendet.',
     invalidParent: 'Die ausgewählte übergeordnete Kategorie ist ungültig.',
     accessDenied: 'Du hast keine Berechtigung, Kategorien in diesem Kochbuch zu verwalten.',
+  },
+  adminAudit: {
+    navigation: 'Audit-Aufbewahrung',
+    title: 'Audit-Aufbewahrung einstellen',
+    description:
+      'Lege fest, wie lange administrative Audit-Ereignisse und öffentliche Mitteilungen zu Meldungen aufbewahrt werden.',
+    limit: 'Aufbewahrung in Tagen',
+    limitHelp:
+      'Gib eine ganze Zahl von 1 bis 3.650 Tagen ein. Der Standard beträgt 365 Tage. Eine unbegrenzte Aufbewahrung ist nicht möglich.',
+    applyHelp:
+      'Änderungen gelten beim nächsten API-Start oder bei der automatischen Bereinigung alle drei Stunden. Eine kürzere Frist entfernt auch vorhandene ältere Einträge. Eine längere Frist stellt gelöschte Einträge nicht wieder her. Datenbanksicherungen haben eigene Aufbewahrungsregeln.',
+    save: 'Audit-Aufbewahrung speichern',
+    saved: 'Audit-Aufbewahrung gespeichert.',
+    invalidLimit: 'Gib eine ganze Zahl von 1 bis 3.650 ein.',
   },
   adminMedia: {
     navigation: 'Medien',

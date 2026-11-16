@@ -3,6 +3,7 @@ import CookbookScreen from '../features/cookbook/CookbookScreen';
 import AdminArea from '../features/admin/AdminArea';
 import InvitationScreen from './InvitationScreen';
 import TenantSelection from './TenantSelection';
+import EmailRecoveryConfirmation from './EmailRecoveryConfirmation';
 import PasswordResetScreen from './PasswordResetScreen';
 import UserInvitationScreen from './UserInvitationScreen';
 import RegistrationScreen from './RegistrationScreen';
@@ -58,6 +59,7 @@ const isCookbookPath: boolean =
   path !== '/login' &&
   !path.startsWith('/invitations/') &&
   !path.startsWith('/password-reset/') &&
+  !path.startsWith('/auth/email-recovery/') &&
   path !== '/register' &&
   path !== '/settings' &&
   !path.startsWith('/settings/') &&
@@ -85,6 +87,16 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
     <meta name="description" content={pageMetadata.description} />
     <Favicon />
     <title>{pageMetadata.title}</title>
+    {
+      path.startsWith('/admin/') || path.startsWith('/auth/email-recovery/') ? (
+        <>
+          <>
+            <meta name="robots" content="noindex, nofollow" />
+            <meta name="referrer" content="no-referrer" />
+          </>
+        </>
+      ) : null
+    }
     {
       path === '/explore' && (
         <link rel="canonical" href={publicCanonicalUrl(Astro.url, '/explore')} />
@@ -114,6 +126,12 @@ const initialManagementRoute: ManagementRoute | undefined = isTenantManagementPa
             client:load
             locale={locale}
             token={path.slice('/invitations/'.length)}
+          />
+        ) : path.startsWith('/auth/email-recovery/') ? (
+          <EmailRecoveryConfirmation
+            client:load
+            text={text}
+            token={path.slice('/auth/email-recovery/'.length)}
           />
         ) : path.startsWith('/password-reset/') ? (
           <PasswordResetScreen

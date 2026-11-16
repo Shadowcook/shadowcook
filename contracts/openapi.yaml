@@ -4,10 +4,1746 @@ info:
   version: 0.1.0
   description: >-
     Sessions with pending owner cookbook resets return 403 COOKBOOK_NAME_RESET_REQUIRED for normal API operations until every cookbook identity is repaired. Authentication, password recovery, invitation acceptance, account cookbook listing, identity repair routes and permission-checked cookbook administration remain available.
+    Ordinary recipe surfaces exclude administratively restricted recipes and disabled/identity-locked cookbooks, including shares, media, history, trash, export and AI readers. Cookbook moderation now requires instance:administer, reason and confirmation; tenant:create alone is insufficient. Owners cannot rename disabled cookbooks.
     Responses include X-Request-ID for support correlation. Unless a route explicitly specifies another cache policy, successful responses use Cache-Control private, no-store. Errors use Cache-Control no-store.
     Domain errors retain their documented payloads. Framework and unexpected failures use
     the common safe error payload. The web proxy returns 503 UPSTREAM_UNAVAILABLE if the API is unreachable.
 paths:
+  /admin/reports/{publicId}/notices:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'createReportPublicNotice',
+          'description': 'Creates a separate, confirmed public notice to the reporter or current reported account/cookbook owner; expected recipient identity is rechecked under locks. Deleted accounts and unavailable target owners cannot receive a new notice. Private report description, resultNote and administrative reason are never automatically included. Requires a separate public explanation and actionable review/contact instructions. Commits notice/audit before one SMTP attempt; delivery failure does not roll back creation. No automatic delivery retry or enforcement occurs. A process interruption can leave PENDING (unknown delivery outcome); inspect history before creating a replacement. Public notice content expires with the audit retention period. Requires an active human instance:administer browser session; any Authorization header is rejected. Required password changes and owned-cookbook identity repairs remain enforced. Responses use private/no-store, noindex/nofollow and no-referrer. Audit failure releases no history and rolls back mutations.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ReportNoticeInput' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Scoped result.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'type': 'object',
+                              'additionalProperties': false,
+                              'properties':
+                                {
+                                  'noticePublicId': { 'type': 'string', 'format': 'uuid' },
+                                  'deliveryStatus':
+                                    { 'type': 'string', 'enum': ['SENT', 'FAILED'] },
+                                },
+                              'required': ['noticePublicId', 'deliveryStatus'],
+                            },
+                        },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_REPORT_HISTORY, INVALID_REPORT_NOTICE or INVALID_ADMINISTRATIVE_PURPOSE; unknown fields and missing purpose/confirmation are rejected.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND: report or scoped retained audit event unavailable.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '409':
+                {
+                  'description': 'STALE_NOTICE_RECIPIENT: selected recipient no longer matches the current target/reporter account. Reload report context.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
+  /admin/reports/{publicId}/events:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'associateReportAdministrativeEvent',
+          'description': 'Adds an idempotent reference to a retained non-REPORT event for the exact report target, its current parent cookbook, or nested content of a cookbook report. Foreign cookbook/recipe events are rejected. This does not modify the original event, repeat enforcement or change the ticket decision. Repeating a successful association records another linking action but not a duplicate reference. Requires an active human instance:administer browser session; any Authorization header is rejected. Required password changes and owned-cookbook identity repairs remain enforced. Responses use private/no-store, noindex/nofollow and no-referrer. Audit failure releases no history and rolls back mutations.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'properties':
+                            {
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'confirmed': { 'type': 'boolean', 'const': true },
+                              'auditEventPublicId': { 'type': 'string', 'format': 'uuid' },
+                            },
+                          'required': ['reason', 'confirmed', 'auditEventPublicId'],
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Association committed and audited.' },
+              '400':
+                {
+                  'description': 'INVALID_REPORT_HISTORY, INVALID_REPORT_NOTICE or INVALID_ADMINISTRATIVE_PURPOSE; unknown fields and missing purpose/confirmation are rejected.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND: report or scoped retained audit event unavailable.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/reports/{publicId}/history:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'readReportAdministrativeHistory',
+          'description': 'Audited read of retained automatic report correlations and explicit event associations, plus public notices and delivery outcomes. Events and notices each have a 25-row page, ordered by createdAt and UUID descending. History-read events are recorded but excluded from these results to prevent their own pagination churn. recheckPath is null for unavailable targets. Original events cannot be edited or deleted through this interface. Requires an active human instance:administer browser session; any Authorization header is rejected. Required password changes and owned-cookbook identity repairs remain enforced. Responses use private/no-store, noindex/nofollow and no-referrer. Audit failure releases no history and rolls back mutations.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'properties':
+                            {
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'page':
+                                {
+                                  'type': 'integer',
+                                  'minimum': 1,
+                                  'maximum': 100000,
+                                  'default': 1,
+                                },
+                            },
+                          'required': ['reason'],
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Scoped result.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ReportAdministrativeHistory' },
+                        },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_REPORT_HISTORY, INVALID_REPORT_NOTICE or INVALID_ADMINISTRATIVE_PURPOSE; unknown fields and missing purpose/confirmation are rejected.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND: report or scoped retained audit event unavailable.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /auth/email-recovery/complete:
+    post:
+      operationId: confirmAdministrativeEmailRecovery
+      description: Confirms possession of the administrator-selected new mailbox without any session. Single-use token expires in one hour. Disabled/deleted accounts, expired, replaced and consumed tokens are rejected. Atomically changes the unique email, revokes account access, consumes pending recovery and audits recipient confirmation attributed to the initiating administrator. Prior/new-address notifications follow commit; delivery failures are logged and never undo correction. Uses private/no-store. Does not change passwords, ownership, memberships or content.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [token]
+              properties:
+                token:
+                  type: string
+                  pattern: '^[A-Za-z0-9_-]{43}$'
+      responses:
+        '204':
+          description: New address confirmed; no account details returned.
+        '400':
+          description: INVALID_RECOVERY_PROOF; malformed, expired, replaced, used or ineligible target.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: EMAIL_UNAVAILABLE or LAST_USABLE_ADMINISTRATOR; transaction rolled back.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        default:
+          $ref: '#/components/responses/UnexpectedError'
+  /admin/users/{publicId}/email-recovery:
+    {
+      'post':
+        {
+          'operationId': 'requestAdminEmailRecovery',
+          'description': 'Active human administrator browser session, reason and confirmation required; bearer headers denied. Sends a single-use confirmation link to the normalized available new address. One-hour expiry and one-minute resend cooldown. Replacement invalidates previous links. The address stays unchanged until recipient confirmation, which requires no administrator session or follow-up. Returns mail delivery outcomes without tokens or addresses. No automatic mail retry. Uses private/no-store; audit failure rolls back issuance.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'properties':
+                            {
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'relatedReportPublicId':
+                                { 'type': ['string', 'null'], 'format': 'uuid' },
+                              'confirmed': { 'type': 'boolean', 'const': true },
+                              'email': { 'type': 'string', 'format': 'email', 'maxLength': 254 },
+                            },
+                          'required': ['reason', 'confirmed', 'email'],
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Per-recipient delivery outcome; no verification token or email address is returned.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/RecoveryDeliveries' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_ACCOUNT_ACTION, INVALID_EMAIL, INVALID_ADMINISTRATIVE_PURPOSE.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'EMAIL_UNAVAILABLE, RECOVERY_ACCOUNT_DISABLED, LAST_USABLE_ADMINISTRATOR.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
+
+  /admin/tenants/{publicId}/recipes/{recipeId}/deletion-preview:
+    {
+      'post':
+        {
+          'operationId': 'reviewRecipeDeletion',
+          'description': 'Audited scope review including trashed/restricted content. memberCount reports cookbook members; recipe deletion preserves those memberships. Active human instance:administer browser session required; bearer headers denied. Requires reason, with optional existing-report correlation. Success uses private/no-store. Audit failures roll back mutations. Before deletion, capture the non-deleted canonical cookbook owner and target identity under locks. After commit, attempt one RECIPE_DELETED or COOKBOOK_DELETED email with optional userReason. Cookbook deletion sends one summary without per-recipe emails. No trash move occurs. Private reason is never supplied to the template. Email failure or missing recipient does not undo deletion; identifier-only delivery outcomes are logged. No automatic retry or durable queue; interruption after commit may prevent delivery. Preview, failed, rolled-back and repeated deletion requests send no email.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionPurpose' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Audited scoped counts, including restricted and trashed content.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/DeletionScope' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_DELETION or INVALID_ADMINISTRATIVE_PURPOSE: invalid fields, target UUID or reason/report.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'recipeId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
+  /admin/tenants/{publicId}/recipes/{recipeId}:
+    {
+      'delete':
+        {
+          'operationId': 'permanentlyDeleteRecipe',
+          'description': 'Permanent live deletion. Exact target UUID and affirmative preservation review required. expectedScope must match fresh locked counts or the request is rejected. Recipe deletion preserves media shared with other recipes; cookbook deletion queues its media, refuses cross-cookbook media references and removes inbound grants. Audit is inserted before deletion in the same transaction. Files are removed by durable asynchronous cleanup. Backups and existing downloads are unaffected. Cookbook preview/deletion remains available during owned-cookbook identity repair; password change is still required. Active human instance:administer browser session required; bearer headers denied. Requires reason, with optional existing-report correlation. Success uses private/no-store. Audit failures roll back mutations. Before deletion, capture the non-deleted canonical cookbook owner and target identity under locks. After commit, attempt one RECIPE_DELETED or COOKBOOK_DELETED email with optional userReason. Cookbook deletion sends one summary without per-recipe emails. No trash move occurs. Private reason is never supplied to the template. Email failure or missing recipient does not undo deletion; identifier-only delivery outcomes are logged. No automatic retry or durable queue; interruption after commit may prevent delivery. Preview, failed, rolled-back and repeated deletion requests send no email.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/AdministrativeDeletion' } },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Operation committed and audited.' },
+              '400':
+                {
+                  'description': 'INVALID_DELETION or INVALID_ADMINISTRATIVE_PURPOSE: invalid scope fields, exact UUID confirmation, preservation review or reason/report.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'STALE_DELETION_PREVIEW.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'recipeId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
+  /admin/tenants/{publicId}/deletion-preview:
+    {
+      'post':
+        {
+          'operationId': 'reviewCookbookDeletion',
+          'description': 'Audited scope review including trashed/restricted content. memberCount reports cookbook members; recipe deletion preserves those memberships. Active human instance:administer browser session required; bearer headers denied. Requires reason, with optional existing-report correlation. Success uses private/no-store. Audit failures roll back mutations. Before deletion, capture the non-deleted canonical cookbook owner and target identity under locks. After commit, attempt one RECIPE_DELETED or COOKBOOK_DELETED email with optional userReason. Cookbook deletion sends one summary without per-recipe emails. No trash move occurs. Private reason is never supplied to the template. Email failure or missing recipient does not undo deletion; identifier-only delivery outcomes are logged. No automatic retry or durable queue; interruption after commit may prevent delivery. Preview, failed, rolled-back and repeated deletion requests send no email.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionPurpose' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Audited scoped counts, including restricted and trashed content.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/DeletionScope' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_DELETION or INVALID_ADMINISTRATIVE_PURPOSE: invalid fields, target UUID or reason/report.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
+  /admin/tenants/{publicId}/recipes/{recipeId}/moderation:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'recipeId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'moderateRecipe',
+          'summary': 'Explicit instance:administer browser-session moderation with reason, confirmation and atomic audit. Tenant managers and bearer credentials are denied. Restrictions are independent of identity reset, visibility and trash; unrestriction does not publish or restore content. A pending owner identity reset does not prevent these specific administrative moderation actions; password changes remain mandatory.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'required': ['blocked', 'reason', 'confirmed'],
+                          'allOf':
+                            [
+                              {
+                                'if':
+                                  {
+                                    'properties': { 'blocked': { 'const': true } },
+                                    'required': ['blocked'],
+                                  },
+                                'then':
+                                  {
+                                    'required': ['userReason'],
+                                    'properties':
+                                      { 'userReason': { 'minLength': 1, 'pattern': '\S' } },
+                                  },
+                              },
+                            ],
+                          'properties':
+                            {
+                              'blocked': { 'type': 'boolean' },
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'confirmed': { 'type': 'boolean', 'const': true },
+                              'userReason':
+                                {
+                                  'type': 'string',
+                                  'maxLength': 2000,
+                                  'description': 'Public explanation sent verbatim in the restriction email, trimmed before validation. Required and nonblank when blocked is true. Independent of private reason; not persisted in audit state or request logs. When lifting a restriction, this explanation is optional and included if supplied.',
+                                },
+                              'relatedReportPublicId':
+                                { 'type': ['string', 'null'], 'format': 'uuid' },
+                            },
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204':
+                {
+                  'description': 'Restriction changed and audited. On a transition to blocked, RECIPE_RESTRICTED email is attempted after commit for the current non-deleted canonical cookbook owner, including disabled owners. On a transition to unblocked, RECIPE_RESTRICTION_LIFTED email is attempted after commit, with optional userReason. No email on unchanged state. The separate userReason is included through user_reason; customized bodies without that placeholder have it appended. Private reasons are excluded. SMTP failures or missing recipients are logged without undoing the restriction; delivery is attempted once without automatic retry. No content returned.',
+                },
+              '400':
+                {
+                  'description': 'INVALID_MODERATION, INVALID_ADMINISTRATIVE_PURPOSE or safe REQUEST_FAILED for invalid confirmation/fields.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED or PASSWORD_CHANGE_REQUIRED.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource unavailable, safe REQUEST_FAILED.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/ownership-candidates:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'findOwnershipCandidates',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/OwnershipCandidatesInput' } },
+                },
+            },
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '400':
+                {
+                  'description': 'INVALID_OWNERSHIP_INPUT, INVALID_ADMINISTRATIVE_PURPOSE or INVALID_OWNERSHIP_RECIPIENT.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Active human instance:administer session required; bearer headers rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'TENANT_NOT_FOUND.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '409':
+                {
+                  'description': 'OWNERSHIP_CHANGED or OWNERSHIP_ROLE_CONFLICT; reload or explicitly review inconsistent roles before retrying.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '200':
+                {
+                  'description': 'Audited response, Cache-Control private/no-store, noindex/nofollow and no-referrer. Search returns up to 50 active human accounts. Transfer commits canonical owner, memberships, roles, invitation revocation and audit atomically; expected owner is checked under a row lock. Restrictions and authored content are preserved. Notifications are attempted only after commit; FAILED does not undo the transfer and there is no automatic delivery retry. Transfers can exceed self-service ownership limits. Inconsistent role permissions or third-party Owner-role assignments require explicit review. Null expected owner supports unclaimed cookbooks and revokes pending owner invitations.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/OwnershipCandidates' } },
+                    },
+                },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/ownership-transfer:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'transferCookbookOwnership',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/OwnershipTransferInput' } },
+                },
+            },
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '400':
+                {
+                  'description': 'INVALID_OWNERSHIP_INPUT, INVALID_ADMINISTRATIVE_PURPOSE or INVALID_OWNERSHIP_RECIPIENT.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Active human instance:administer session required; bearer headers rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'TENANT_NOT_FOUND.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '409':
+                {
+                  'description': 'OWNERSHIP_CHANGED or OWNERSHIP_ROLE_CONFLICT; reload or explicitly review inconsistent roles before retrying.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '200':
+                {
+                  'description': 'Audited response, Cache-Control private/no-store, noindex/nofollow and no-referrer. Search returns up to 50 active human accounts. Transfer commits canonical owner, memberships, roles, invitation revocation and audit atomically; expected owner is checked under a row lock. Restrictions and authored content are preserved. Notifications are attempted only after commit; FAILED does not undo the transfer and there is no automatic delivery retry. Transfers can exceed self-service ownership limits. Inconsistent role permissions or third-party Owner-role assignments require explicit review. Null expected owner supports unclaimed cookbooks and revokes pending owner invitations.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/OwnershipTransferResponse' } },
+                    },
+                },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/inspection:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminCookbook',
+          'summary': 'Justified administrative cookbook inspection, including private, disabled and identity-reset-locked cookbooks.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionPurpose' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/InspectionOverview' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID or INVALID_ADMINISTRATIVE_PURPOSE; malformed JSON uses safe framework error.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/inspection/recipes:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminRecipes',
+          'summary': 'Audited, purpose-gated paginated recipes inspection. Only the requested page is returned.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionListInput' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/InspectionRecipesPage' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID, INVALID_ADMINISTRATIVE_PURPOSE or invalid page/search input (safe REQUEST_FAILED error).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/inspection/members:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminMembers',
+          'summary': 'Audited, purpose-gated paginated members inspection. Only the requested page is returned.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionListInput' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/InspectionMembersPage' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID, INVALID_ADMINISTRATIVE_PURPOSE or invalid page/search input (safe REQUEST_FAILED error).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/inspection/reports:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminReports',
+          'summary': 'Audited, purpose-gated paginated reports inspection. Only the requested page is returned.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionListInput' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/InspectionReportsPage' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID, INVALID_ADMINISTRATIVE_PURPOSE or invalid page/search input (safe REQUEST_FAILED error).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/recipes/{recipeId}/revisions/inspection:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'recipeId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminRevisions',
+          'summary': 'Audited, purpose-gated paginated revisions inspection. Only the requested page is returned.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionListInput' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/InspectionRevisionsPage' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID, INVALID_ADMINISTRATIVE_PURPOSE or invalid page/search input (safe REQUEST_FAILED error).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/recipes/{recipeId}/revisions/{revisionId}/inspection:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'recipeId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'revisionId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminRevision',
+          'summary': 'Justified administrative revision inspection, including private, disabled and identity-reset-locked cookbooks.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionPurpose' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/InspectionRevision' } },
+                    },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID or INVALID_ADMINISTRATIVE_PURPOSE; malformed JSON uses safe framework error.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
+  /admin/tenants/{publicId}/recipes/{recipeId}/revisions/{revisionId}/media/{assetId}/inspection:
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'recipeId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'revisionId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+          {
+            'name': 'assetId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'post':
+        {
+          'operationId': 'inspectAdminMedia',
+          'summary': 'Justified administrative media inspection, including private, disabled and identity-reset-locked cookbooks.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/InspectionPurpose' } },
+                },
+            },
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Read-only content released only after durable audit. Cache-Control: private, no-store; X-Robots-Tag: noindex, nofollow; Referrer-Policy: no-referrer. All nested IDs must belong to the specified parent chain. No membership or content changes.',
+                  'content':
+                    { 'image/jpeg': { 'schema': { 'type': 'string', 'format': 'binary' } } },
+                },
+              '400':
+                {
+                  'description': 'INVALID_INSPECTION_ID or INVALID_ADMINISTRATIVE_PURPOSE; malformed JSON uses safe framework error.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED. Only active human instance:administer browser sessions are accepted; any Authorization header is rejected.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource or image unavailable (safe REQUEST_FAILED response).',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+        },
+    }
   /cookbook/tenants/{tenantSlug}/recipes/{publicId}/image:
     parameters:
       - { name: tenantSlug, in: path, required: true, schema: { type: string } }
@@ -831,83 +2567,215 @@ paths:
         '401': { $ref: '#/components/responses/AuthenticationRequired' }
         '403': { $ref: '#/components/responses/ReportForbidden' }
   /admin/reports:
-    get:
-      operationId: listContentReports
-      summary: Lists reports and active assignable administrators.
-      description: Requires instance administration permission. Reports are ordered by creation time descending, then public ID; page size is 50.
-      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
-      parameters:
-        - name: status
-          in: query
-          schema: { $ref: '#/components/schemas/ReportStatus' }
-        - name: page
-          in: query
-          schema: { type: integer, minimum: 1, default: 1 }
-      responses:
-        default: { $ref: '#/components/responses/UnexpectedError' }
-        '200':
-          description: Report page.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [reports, administrators, page, pageSize, totalReports]
-                properties:
-                  reports: { type: array, items: { $ref: '#/components/schemas/ContentReport' } }
-                  administrators:
-                    { type: array, items: { $ref: '#/components/schemas/ReportUser' } }
-                  page: { type: integer, minimum: 1 }
-                  pageSize: { type: integer, const: 50 }
-                  totalReports: { type: integer, minimum: 0 }
-        '400': { $ref: '#/components/responses/ReportInvalid' }
-        '401': { $ref: '#/components/responses/AuthenticationRequired' }
-        '403': { $ref: '#/components/responses/ReportForbidden' }
+    {
+      'get':
+        {
+          'operationId': 'listContentReports',
+          'summary': 'Lists reports and active assignable administrators.',
+          'description': 'Requires instance administration permission. Reports are ordered by creation time descending, then public ID; page size is 50. Requires an active human administrator browser session without Authorization headers. Required password changes and owned-cookbook identity repairs remain enforced. Responses use private/no-store, noindex/nofollow and no-referrer.',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              {
+                'name': 'status',
+                'in': 'query',
+                'schema': { '$ref': '#/components/schemas/ReportStatus' },
+              },
+              {
+                'name': 'page',
+                'in': 'query',
+                'schema': { 'type': 'integer', 'minimum': 1, 'default': 1, 'maximum': 100000 },
+              },
+            ],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '200':
+                {
+                  'description': 'Report page.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'type': 'object',
+                              'additionalProperties': false,
+                              'required':
+                                ['reports', 'administrators', 'page', 'pageSize', 'totalReports'],
+                              'properties':
+                                {
+                                  'reports':
+                                    {
+                                      'type': 'array',
+                                      'items': { '$ref': '#/components/schemas/ContentReport' },
+                                    },
+                                  'administrators':
+                                    {
+                                      'type': 'array',
+                                      'items': { '$ref': '#/components/schemas/ReportUser' },
+                                    },
+                                  'page': { 'type': 'integer', 'minimum': 1 },
+                                  'pageSize': { 'type': 'integer', 'const': 50 },
+                                  'totalReports': { 'type': 'integer', 'minimum': 0 },
+                                },
+                            },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/ReportInvalid' },
+              '401': { '$ref': '#/components/responses/AuthenticationRequired' },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
   /admin/reports/{publicId}:
-    parameters:
-      - name: publicId
-        in: path
-        required: true
-        schema: { type: string, format: uuid }
-    get:
-      operationId: getContentReport
-      summary: Returns a report ticket and active assignable administrators.
-      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
-      responses:
-        default: { $ref: '#/components/responses/UnexpectedError' }
-        '200':
-          description: Report details; requires instance administration permission.
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [report, administrators]
-                properties:
-                  report: { $ref: '#/components/schemas/ContentReport' }
-                  administrators:
-                    { type: array, items: { $ref: '#/components/schemas/ReportUser' } }
-        '400': { $ref: '#/components/responses/ReportInvalid' }
-        '401': { $ref: '#/components/responses/AuthenticationRequired' }
-        '403': { $ref: '#/components/responses/ReportForbidden' }
-        '404': { $ref: '#/components/responses/ReportNotFound' }
-    put:
-      operationId: updateContentReport
-      summary: Updates ticket status, result, result note, and administrator assignment.
-      description: Requires instance administration permission. Closed tickets require a result; open and investigating tickets require a null result. Results record a decision and do not execute blocking or deletion. Assignment accepts an active administrator public ID or null. Reporter and target cannot be changed.
-      security: [{ sessionCookie: [] }, { bearerAuth: [] }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema: { $ref: '#/components/schemas/ContentReportUpdate' }
-      responses:
-        default: { $ref: '#/components/responses/UnexpectedError' }
-        '204': { description: Ticket saved. }
-        '400': { $ref: '#/components/responses/ReportInvalid' }
-        '401': { $ref: '#/components/responses/AuthenticationRequired' }
-        '403': { $ref: '#/components/responses/ReportForbidden' }
-        '404': { $ref: '#/components/responses/ReportNotFound' }
+    {
+      'parameters':
+        [
+          {
+            'name': 'publicId',
+            'in': 'path',
+            'required': true,
+            'schema': { 'type': 'string', 'format': 'uuid' },
+          },
+        ],
+      'get':
+        {
+          'operationId': 'getContentReport',
+          'summary': 'Returns a report ticket and active assignable administrators.',
+          'security': [{ 'sessionCookie': [] }],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '200':
+                {
+                  'description': 'Report details; requires instance administration permission.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'type': 'object',
+                              'additionalProperties': false,
+                              'required': ['report', 'administrators', 'context'],
+                              'properties':
+                                {
+                                  'report': { '$ref': '#/components/schemas/ContentReport' },
+                                  'administrators':
+                                    {
+                                      'type': 'array',
+                                      'items': { '$ref': '#/components/schemas/ReportUser' },
+                                    },
+                                  'context':
+                                    { '$ref': '#/components/schemas/ReportAdministrationContext' },
+                                },
+                            },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/ReportInvalid' },
+              '401': { '$ref': '#/components/responses/AuthenticationRequired' },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404': { '$ref': '#/components/responses/ReportNotFound' },
+            },
+          'description': ' Requires an active human administrator browser session without Authorization headers. Required password changes and owned-cookbook identity repairs remain enforced. Responses use private/no-store, noindex/nofollow and no-referrer.',
+        },
+      'put':
+        {
+          'operationId': 'updateContentReport',
+          'summary': 'Updates ticket status, result, result note, and administrator assignment.',
+          'description': 'Requires instance administration permission. Closed tickets require a result; open and investigating tickets require a null result. Results record a decision and do not execute blocking or deletion. Assignment accepts an active administrator public ID or null. Reporter and target cannot be changed. Requires an active human administrator browser session without Authorization headers. Required password changes and owned-cookbook identity repairs remain enforced. Responses use private/no-store, noindex/nofollow and no-referrer. Saves ticket decision/assignment and minimal prior/new workflow audit atomically. Does not execute enforcement, ownership transfer, deletion or user notification. Internal resultNote remains separate from public notices.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContentReportUpdate' } },
+                },
+            },
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '204': { 'description': 'Ticket saved.' },
+              '400':
+                {
+                  'description': 'INVALID_REPORT_UPDATE, INVALID_REPORT_ASSIGNEE or INVALID_ADMINISTRATIVE_PURPOSE.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401': { '$ref': '#/components/responses/AuthenticationRequired' },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404': { '$ref': '#/components/responses/ReportNotFound' },
+            },
+        },
+    }
   /account/cookbook-slug-preview:
     get:
       operationId: getCookbookSlugPreview
@@ -1628,7 +3496,8 @@ paths:
                     items:
                       type: object
                       additionalProperties: false
-                      required: [publicId, name, slug, recipeCount, userCount, showOnStartPage]
+                      required:
+                        [publicId, name, slug, recipeCount, userCount, showOnStartPage, disabled]
                       properties:
                         publicId: { type: string, format: uuid }
                         name: { type: string }
@@ -1636,6 +3505,11 @@ paths:
                         recipeCount: { type: integer, minimum: 0 }
                         userCount: { type: integer, minimum: 0 }
                         showOnStartPage: { type: boolean }
+                        disabled:
+                          {
+                            type: boolean,
+                            description: Administrative restriction; owner identity edits are denied while disabled.,
+                          }
                   maxCookbooksPerOwner: { type: integer, minimum: 1, maximum: 100 }
         '401': { description: Authentication is required. }
     post:
@@ -2762,184 +4636,327 @@ paths:
         '403': { description: Instance permission or password change required. }
         '404': { description: Cookbook not found. }
   /admin/tenants/{publicId}:
-    patch:
-      operationId: updateTenant
-      summary: Changes a tenant enabled state. Administrators cannot rename cookbooks.
-      security: [{ sessionCookie: [] }]
-      parameters:
-        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody:
-        required: true
-        content:
-          {
-            application/json:
-              {
-                schema:
-                  {
-                    type: object,
-                    additionalProperties: false,
-                    properties: { disabled: { type: boolean } },
-                    minProperties: 1,
-                  },
-              },
-          }
-      responses:
+    {
+      'patch':
         {
-          default: { $ref: '#/components/responses/UnexpectedError' },
-          '204': { description: Tenant updated. },
-          '400':
+          'operationId': 'updateTenant',
+          'summary': 'Explicit instance:administer browser-session moderation with reason, confirmation and atomic audit. Tenant managers and bearer credentials are denied. Restrictions are independent of identity reset, visibility and trash; unrestriction does not publish or restore content. A pending owner identity reset does not prevent these specific administrative moderation actions; password changes remain mandatory.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
             {
-              description: Invalid update,
-              content:
+              'required': true,
+              'content':
                 {
-                  application/json:
+                  'application/json':
                     {
-                      schema:
+                      'schema':
                         {
-                          'anyOf':
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'required': ['disabled', 'reason', 'confirmed'],
+                          'allOf':
                             [
-                              { '$ref': '#/components/schemas/ApiError' },
-                              { '$ref': '#/components/schemas/UnhandledApiError' },
+                              {
+                                'if':
+                                  {
+                                    'properties': { 'disabled': { 'const': true } },
+                                    'required': ['disabled'],
+                                  },
+                                'then':
+                                  {
+                                    'required': ['userReason'],
+                                    'properties':
+                                      { 'userReason': { 'minLength': 1, 'pattern': '\S' } },
+                                  },
+                              },
                             ],
-                        },
-                    },
-                },
-            },
-          '409':
-            {
-              description: Tenant slug conflict,
-              content:
-                {
-                  application/json:
-                    {
-                      schema:
-                        {
-                          'anyOf':
-                            [
-                              { '$ref': '#/components/schemas/ApiError' },
-                              { '$ref': '#/components/schemas/UnhandledApiError' },
-                            ],
-                        },
-                    },
-                },
-            },
-          '404':
-            {
-              description: Tenant not found,
-              content:
-                {
-                  application/json:
-                    {
-                      schema:
-                        {
-                          'anyOf':
-                            [
-                              { '$ref': '#/components/schemas/ApiError' },
-                              { '$ref': '#/components/schemas/UnhandledApiError' },
-                            ],
-                        },
-                    },
-                },
-            },
-        }
-    delete:
-      operationId: deleteTenant
-      summary: Permanently deletes a tenant and all tenant-owned data.
-      security: [{ sessionCookie: [] }]
-      parameters:
-        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        {
-          default: { $ref: '#/components/responses/UnexpectedError' },
-          '204': { description: Tenant and tenant-owned data deleted. },
-          '404':
-            {
-              description: Tenant not found,
-              content:
-                {
-                  application/json:
-                    {
-                      schema:
-                        {
-                          'anyOf':
-                            [
-                              { '$ref': '#/components/schemas/ApiError' },
-                              { '$ref': '#/components/schemas/UnhandledApiError' },
-                            ],
-                        },
-                    },
-                },
-            },
-        }
-  /admin/users:
-    get:
-      operationId: listUsers
-      security: [{ sessionCookie: [] }]
-      responses:
-        {
-          default: { $ref: '#/components/responses/UnexpectedError' },
-          '200':
-            {
-              description: Users,
-              their lifecycle state,
-              and tenant memberships.,
-              content:
-                {
-                  application/json:
-                    {
-                      schema:
-                        {
-                          type: object,
-                          additionalProperties: false,
-                          required: [users],
-                          properties:
+                          'properties':
                             {
-                              users:
+                              'disabled': { 'type': 'boolean' },
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'confirmed': { 'type': 'boolean', 'const': true },
+                              'userReason':
                                 {
-                                  type: array,
-                                  items:
+                                  'type': 'string',
+                                  'maxLength': 2000,
+                                  'description': 'Public explanation sent verbatim in the restriction email, trimmed before validation. Required and nonblank when disabled is true. Independent of private reason; not persisted in audit state or request logs. When lifting a restriction, this explanation is optional and included if supplied.',
+                                },
+                              'relatedReportPublicId':
+                                { 'type': ['string', 'null'], 'format': 'uuid' },
+                            },
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204':
+                {
+                  'description': 'Restriction changed and audited. On a transition to disabled, COOKBOOK_RESTRICTED email is attempted after commit for the current non-deleted canonical cookbook owner, including disabled owners. On a transition to enabled, COOKBOOK_RESTRICTION_LIFTED email is attempted after commit, with optional userReason. No email on unchanged state and no per-recipe emails. The separate userReason is included through user_reason; customized bodies without that placeholder have it appended. Private reasons are excluded. SMTP failures or missing recipients are logged without undoing the restriction; delivery is attempted once without automatic retry. No content returned.',
+                },
+              '400':
+                {
+                  'description': 'INVALID_MODERATION, INVALID_ADMINISTRATIVE_PURPOSE or safe REQUEST_FAILED for invalid confirmation/fields.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED or PASSWORD_CHANGE_REQUIRED.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Scoped resource unavailable, safe REQUEST_FAILED.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+      'delete':
+        {
+          'operationId': 'deleteTenant',
+          'description': 'Permanent live deletion. Exact target UUID and affirmative preservation review required. expectedScope must match fresh locked counts or the request is rejected. Recipe deletion preserves media shared with other recipes; cookbook deletion queues its media, refuses cross-cookbook media references and removes inbound grants. Audit is inserted before deletion in the same transaction. Files are removed by durable asynchronous cleanup. Backups and existing downloads are unaffected. Cookbook preview/deletion remains available during owned-cookbook identity repair; password change is still required. Active human instance:administer browser session required; bearer headers denied. Requires reason, with optional existing-report correlation. Success uses private/no-store. Audit failures roll back mutations. Before deletion, capture the non-deleted canonical cookbook owner and target identity under locks. After commit, attempt one RECIPE_DELETED or COOKBOOK_DELETED email with optional userReason. Cookbook deletion sends one summary without per-recipe emails. No trash move occurs. Private reason is never supplied to the template. Email failure or missing recipient does not undo deletion; identifier-only delivery outcomes are logged. No automatic retry or durable queue; interruption after commit may prevent delivery. Preview, failed, rolled-back and repeated deletion requests send no email.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/AdministrativeDeletion' } },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Operation committed and audited.' },
+              '400':
+                {
+                  'description': 'INVALID_DELETION or INVALID_ADMINISTRATIVE_PURPOSE: invalid scope fields, exact UUID confirmation, preservation review or reason/report.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'STALE_DELETION_PREVIEW, MEDIA_SHARED_OUTSIDE_SCOPE.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
+  /admin/users:
+    {
+      'get':
+        {
+          'operationId': 'listUsers',
+          'security': [{ 'sessionCookie': [] }, { 'bearerAuth': [] }],
+          'responses':
+            {
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '200':
+                {
+                  'description': 'Users, lifecycle state, memberships and canonical owned cookbooks.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'type': 'object',
+                              'additionalProperties': false,
+                              'required': ['users'],
+                              'properties':
+                                {
+                                  'users':
                                     {
-                                      type: object,
-                                      additionalProperties: false,
-                                      required:
-                                        [
-                                          public_id,
-                                          email,
-                                          display_name,
-                                          password_change_required,
-                                          disabled_at,
-                                          deleted_at,
-                                          last_login_at,
-                                          tenants,
-                                          instance_roles,
-                                        ],
-                                      properties:
+                                      'type': 'array',
+                                      'items':
                                         {
-                                          public_id: { type: string, format: uuid },
-                                          email: { type: string, format: email },
-                                          display_name: { type: string },
-                                          password_change_required: { type: boolean },
-                                          disabled_at:
-                                            { type: [string, 'null'], format: date-time },
-                                          deleted_at: { type: [string, 'null'], format: date-time },
-                                          last_login_at:
-                                            { type: [string, 'null'], format: date-time },
-                                          tenants:
+                                          'type': 'object',
+                                          'additionalProperties': false,
+                                          'required':
+                                            [
+                                              'public_id',
+                                              'email',
+                                              'display_name',
+                                              'password_change_required',
+                                              'disabled_at',
+                                              'deleted_at',
+                                              'last_login_at',
+                                              'tenants',
+                                              'instance_roles',
+                                              'owned_cookbooks',
+                                            ],
+                                          'properties':
                                             {
-                                              type: array,
-                                              items:
+                                              'public_id': { 'type': 'string', 'format': 'uuid' },
+                                              'email': { 'type': 'string', 'format': 'email' },
+                                              'display_name': { 'type': 'string' },
+                                              'password_change_required': { 'type': 'boolean' },
+                                              'disabled_at':
                                                 {
-                                                  type: object,
-                                                  additionalProperties: false,
-                                                  required: [publicId, name],
-                                                  properties:
+                                                  'type': ['string', 'null'],
+                                                  'format': 'date-time',
+                                                },
+                                              'deleted_at':
+                                                {
+                                                  'type': ['string', 'null'],
+                                                  'format': 'date-time',
+                                                },
+                                              'last_login_at':
+                                                {
+                                                  'type': ['string', 'null'],
+                                                  'format': 'date-time',
+                                                },
+                                              'tenants':
+                                                {
+                                                  'type': 'array',
+                                                  'items':
                                                     {
-                                                      publicId: { type: string, format: uuid },
-                                                      name: { type: string },
+                                                      'type': 'object',
+                                                      'additionalProperties': false,
+                                                      'required': ['publicId', 'name'],
+                                                      'properties':
+                                                        {
+                                                          'publicId':
+                                                            { 'type': 'string', 'format': 'uuid' },
+                                                          'name': { 'type': 'string' },
+                                                        },
+                                                    },
+                                                },
+                                              'instance_roles':
+                                                { 'type': 'array', 'items': { 'type': 'string' } },
+                                              'owned_cookbooks':
+                                                {
+                                                  'type': 'array',
+                                                  'items':
+                                                    {
+                                                      'type': 'object',
+                                                      'additionalProperties': false,
+                                                      'properties':
+                                                        {
+                                                          'publicId':
+                                                            { 'type': 'string', 'format': 'uuid' },
+                                                          'name': { 'type': 'string' },
+                                                        },
+                                                      'required': ['publicId', 'name'],
                                                     },
                                                 },
                                             },
-                                          instance_roles: { type: array, items: { type: string } },
                                         },
                                     },
                                 },
@@ -2947,10 +4964,12 @@ paths:
                         },
                     },
                 },
+              '401': { 'description': 'Authentication required.' },
+              '403': { 'description': 'Instance administration permission required.' },
             },
-          '401': { description: Authentication required. },
-          '403': { description: Instance administration permission required. },
-        }
+          'description': 'Requires an active human principal with instance:administer; accepts browser session or human OAuth bearer, not service accounts.',
+        },
+    }
   /admin/instance-roles:
     get:
       operationId: listInstanceRoles
@@ -2994,30 +5013,148 @@ paths:
           '403': { description: Instance administration permission required. },
         }
   /admin/users/{publicId}/instance-roles:
-    put:
-      operationId: replaceUserInstanceRoles
-      summary: Replaces a user's instance role assignments.
-      security: [{ sessionCookie: [] }]
-      parameters:
-        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              required: [roleCodes]
-              properties: { roleCodes: { type: array, items: { type: string }, uniqueItems: true } }
-      responses:
+    {
+      'put':
         {
-          default: { $ref: '#/components/responses/UnexpectedError' },
-          '204': { description: Instance roles replaced. },
-          '400': { description: Invalid instance role assignment. },
-          '401': { description: Authentication required. },
-          '403': { description: Instance administration permission required. },
-          '404': { description: Active user not found. },
-        }
+          'operationId': 'updateUserInstanceRoles',
+          'description': 'Serialized role replacement cannot remove the last usable active human administrator. Usability considers current login mode, password verifier or configured SMTP. Active human instance:administer browser session required; bearer headers denied. Requires reason, with optional existing-report correlation. Success uses private/no-store. Audit failures roll back mutations. Before deletion, capture the non-deleted canonical cookbook owner and target identity under locks. After commit, attempt one RECIPE_DELETED or COOKBOOK_DELETED email with optional userReason. Cookbook deletion sends one summary without per-recipe emails. No trash move occurs. Private reason is never supplied to the template. Email failure or missing recipient does not undo deletion; identifier-only delivery outcomes are logged. No automatic retry or durable queue; interruption after commit may prevent delivery. Preview, failed, rolled-back and repeated deletion requests send no email.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'properties':
+                            {
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'relatedReportPublicId':
+                                { 'type': ['string', 'null'], 'format': 'uuid' },
+                              'confirmed': { 'type': 'boolean', 'const': true },
+                              'roleCodes':
+                                {
+                                  'type': 'array',
+                                  'uniqueItems': true,
+                                  'maxItems': 32,
+                                  'items': { 'type': 'string' },
+                                },
+                            },
+                          'required': ['reason', 'confirmed', 'roleCodes'],
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Operation committed and audited.' },
+              '400':
+                {
+                  'description': 'Invalid fields, reason, confirmation or recovery proof.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'LAST_USABLE_ADMINISTRATOR.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
   /cookbook/tenant-users:
     get:
       operationId: listTenantUsers
@@ -3195,46 +5332,295 @@ paths:
           '404': { description: Tenant or tenant user not found. },
         }
   /admin/users/{publicId}:
-    patch:
-      operationId: updateUser
-      security: [{ sessionCookie: [] }]
-      parameters:
-        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
-      requestBody:
-        required: true
-        content:
-          {
-            application/json:
+    {
+      'patch':
+        {
+          'operationId': 'updateUser',
+          'description': 'Display-name-only edits require instance:administer and accept an active human browser session or human OAuth bearer. They retain the existing non-recovery behavior and are not audited by the administrative operation service. Lifecycle changes require an active human administrator browser session without any Authorization header, reason and confirmation; required password changes and pending owned-cookbook identity repairs remain enforced. Deactivation revokes account-bound access, recovery state and pending invitations while preserving ownership/content. The last usable administrator is protected. Lifecycle responses use private/no-store and audit failure rolls back changes.',
+          'security': [{ 'sessionCookie': [] }, { 'bearerAuth': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'oneOf':
+                            [
+                              {
+                                'type': 'object',
+                                'additionalProperties': false,
+                                'properties':
+                                  {
+                                    'displayName':
+                                      { 'type': 'string', 'minLength': 1, 'maxLength': 120 },
+                                  },
+                                'required': ['displayName'],
+                              },
+                              {
+                                'type': 'object',
+                                'additionalProperties': false,
+                                'properties':
+                                  {
+                                    'reason':
+                                      { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                                    'relatedReportPublicId':
+                                      { 'type': ['string', 'null'], 'format': 'uuid' },
+                                    'confirmed': { 'type': 'boolean', 'const': true },
+                                    'disabled': { 'type': 'boolean' },
+                                  },
+                                'required': ['reason', 'confirmed', 'disabled'],
+                              },
+                            ],
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204':
+                {
+                  'description': 'Display name updated, or lifecycle change committed and audited.',
+                },
+              '400':
+                {
+                  'description': 'INVALID_USER_UPDATE, INVALID_ACCOUNT_ACTION or INVALID_ADMINISTRATIVE_PURPOSE.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'USER_NOT_FOUND for display-name editing; RESOURCE_NOT_FOUND for lifecycle actions.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'LAST_USABLE_ADMINISTRATOR.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
               {
-                schema:
-                  {
-                    type: object,
-                    additionalProperties: false,
-                    minProperties: 1,
-                    properties:
-                      { displayName: { type: string, minLength: 1 }, disabled: { type: boolean } },
-                  },
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
               },
-          }
-      responses:
+            ],
+        },
+      'delete':
         {
-          default: { $ref: '#/components/responses/UnexpectedError' },
-          '204': { description: User updated. },
-          '400': { description: Invalid user update. },
-          '404': { description: Active user not found. },
-        }
-    delete:
-      operationId: deleteUser
-      summary: Soft-deletes a user, revokes sessions, and releases the email address for a new account.
-      security: [{ sessionCookie: [] }]
-      parameters:
-        [{ name: publicId, in: path, required: true, schema: { type: string, format: uuid } }]
-      responses:
-        {
-          default: { $ref: '#/components/responses/UnexpectedError' },
-          '204': { description: User soft-deleted. },
-          '404': { description: Active user not found. },
-        }
+          'operationId': 'deleteUser',
+          'description': 'Soft deletion only after all canonical cookbook ownership has been transferred or deleted, including restricted cookbooks. Exact account UUID confirmation required. Revokes account access; principal/content attribution remains. Last usable administrator is protected. Active human instance:administer browser session required; bearer headers denied. Requires reason, with optional existing-report correlation. Success uses private/no-store. Audit failures roll back mutations. Before deletion, capture the non-deleted canonical cookbook owner and target identity under locks. After commit, attempt one RECIPE_DELETED or COOKBOOK_DELETED email with optional userReason. Cookbook deletion sends one summary without per-recipe emails. No trash move occurs. Private reason is never supplied to the template. Email failure or missing recipient does not undo deletion; identifier-only delivery outcomes are logged. No automatic retry or durable queue; interruption after commit may prevent delivery. Preview, failed, rolled-back and repeated deletion requests send no email.',
+          'security': [{ 'sessionCookie': [] }],
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    {
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'properties':
+                            {
+                              'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+                              'relatedReportPublicId':
+                                { 'type': ['string', 'null'], 'format': 'uuid' },
+                              'confirmed': { 'type': 'boolean', 'const': true },
+                              'confirmation': { 'type': 'string', 'format': 'uuid' },
+                            },
+                          'required': ['reason', 'confirmed', 'confirmation'],
+                        },
+                    },
+                },
+            },
+          'responses':
+            {
+              '204': { 'description': 'Operation committed and audited.' },
+              '400':
+                {
+                  'description': 'Invalid fields, reason, confirmation or recovery proof.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '401':
+                {
+                  'description': 'AUTHENTICATION_REQUIRED',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '403':
+                {
+                  'description': 'ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '404':
+                {
+                  'description': 'RESOURCE_NOT_FOUND',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'LAST_USABLE_ADMINISTRATOR, OWNED_COOKBOOKS_REMAIN.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+            },
+          'parameters':
+            [
+              {
+                'name': 'publicId',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+        },
+    }
   /admin/users/invitations:
     post:
       operationId: inviteUser
@@ -3425,105 +5811,146 @@ paths:
                 },
             }
   /invitations/{token}/accept:
-    post:
-      operationId: acceptTenantInvitation
-      summary: Accepts a cookbook-owner invitation and completes the profile of a new account.
-      parameters: [{ name: token, in: path, required: true, schema: { type: string } }]
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              additionalProperties: false
-              description: New accounts require firstName, lastName, and displayName in addition to the email code. Existing accounts require only the email code; their profile is unchanged.
-              required: [code]
-              properties:
-                code: { type: string, pattern: '^[0-9]{6}$' }
-                firstName: { $ref: '#/components/schemas/ProfileName' }
-                lastName: { $ref: '#/components/schemas/ProfileName' }
-                displayName: { $ref: '#/components/schemas/ProfileName' }
-      responses:
-        default: { $ref: '#/components/responses/UnexpectedError' }
-        '200':
-          description: Invitation accepted and browser session started.
-          headers:
-            Set-Cookie:
-              schema: { type: string }
-          content:
-            application/json:
-              schema:
-                type: object
-                additionalProperties: false
-                required: [cookbookSlug, hasPassword, passwordChangeRequired]
-                properties:
-                  cookbookSlug: { type: string }
-                  hasPassword: { type: boolean }
-                  passwordChangeRequired: { type: boolean }
-        '400':
-          description: INVALID_EMAIL_CODE for malformed code input or INVALID_ACCOUNT_PROFILE for missing or invalid names on a new account. Profile validation does not consume the email code.
-          content:
+    {
+      'post':
+        {
+          'operationId': 'acceptTenantInvitation',
+          'summary': 'Accepts a cookbook-owner invitation and completes the profile of a new account.',
+          'parameters':
+            [{ 'name': 'token', 'in': 'path', 'required': true, 'schema': { 'type': 'string' } }],
+          'requestBody':
             {
-              application/json:
+              'required': true,
+              'content':
                 {
-                  schema:
+                  'application/json':
                     {
-                      'anyOf':
-                        [
-                          { '$ref': '#/components/schemas/ApiError' },
-                          { '$ref': '#/components/schemas/UnhandledApiError' },
-                        ],
+                      'schema':
+                        {
+                          'type': 'object',
+                          'additionalProperties': false,
+                          'description': 'New accounts require firstName, lastName, and displayName in addition to the email code. Existing accounts require only the email code; their profile is unchanged.',
+                          'required': ['code'],
+                          'properties':
+                            {
+                              'code': { 'type': 'string', 'pattern': '^[0-9]{6}$' },
+                              'firstName': { '$ref': '#/components/schemas/ProfileName' },
+                              'lastName': { '$ref': '#/components/schemas/ProfileName' },
+                              'displayName': { '$ref': '#/components/schemas/ProfileName' },
+                            },
+                        },
                     },
                 },
-            }
-        '401':
-          description: Invalid email code.
-          content:
+            },
+          'responses':
             {
-              application/json:
+              'default': { '$ref': '#/components/responses/UnexpectedError' },
+              '200':
                 {
-                  schema:
+                  'description': 'Invitation accepted and browser session started.',
+                  'headers': { 'Set-Cookie': { 'schema': { 'type': 'string' } } },
+                  'content':
                     {
-                      'anyOf':
-                        [
-                          { '$ref': '#/components/schemas/ApiError' },
-                          { '$ref': '#/components/schemas/UnhandledApiError' },
-                        ],
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'type': 'object',
+                              'additionalProperties': false,
+                              'required': ['cookbookSlug', 'hasPassword', 'passwordChangeRequired'],
+                              'properties':
+                                {
+                                  'cookbookSlug': { 'type': 'string' },
+                                  'hasPassword': { 'type': 'boolean' },
+                                  'passwordChangeRequired': { 'type': 'boolean' },
+                                },
+                            },
+                        },
                     },
                 },
-            }
-        '403':
-          description: The active session uses a different email address.
-          content:
-            {
-              application/json:
+              '400':
                 {
-                  schema:
+                  'description': 'INVALID_EMAIL_CODE for malformed code input or INVALID_ACCOUNT_PROFILE for missing or invalid names on a new account. Profile validation does not consume the email code.',
+                  'content':
                     {
-                      'anyOf':
-                        [
-                          { '$ref': '#/components/schemas/ApiError' },
-                          { '$ref': '#/components/schemas/UnhandledApiError' },
-                        ],
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
                     },
                 },
-            }
-        '404':
-          description: Invitation unavailable.
-          content:
-            {
-              application/json:
+              '401':
                 {
-                  schema:
+                  'description': 'Invalid email code.',
+                  'content':
                     {
-                      'anyOf':
-                        [
-                          { '$ref': '#/components/schemas/ApiError' },
-                          { '$ref': '#/components/schemas/UnhandledApiError' },
-                        ],
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
                     },
                 },
-            }
+              '403':
+                {
+                  'description': 'The active session uses a different email address. ACCOUNT_DISABLED rejects disabled invited accounts without membership creation.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+              '409':
+                {
+                  'description': 'OWNER_ALREADY_ASSIGNED; an ownership transfer or another acceptance assigned an owner before this invitation could commit.',
+                  'content':
+                    {
+                      'application/json': { 'schema': { '$ref': '#/components/schemas/ApiError' } },
+                    },
+                },
+              '404':
+                {
+                  'description': 'Invitation unavailable.',
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            {
+                              'anyOf':
+                                [
+                                  { '$ref': '#/components/schemas/ApiError' },
+                                  { '$ref': '#/components/schemas/UnhandledApiError' },
+                                ],
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }
   /health:
     get:
       operationId: getHealth
@@ -4147,7 +6574,7 @@ paths:
     get:
       operationId: listInstanceEmailTemplates
       summary: Returns resolved system email templates and permitted placeholders.
-      description: Registration verification supports first_name, last_name, and display_name from the pending registration on initial delivery and resends. Its built-in greeting uses first_name. recipient_name uses the pending display name, falling back to first name and email. first_name falls back to display name and email; display_name falls back to first name and email; a missing last_name is empty. Customized templates retain their contents.
+      description: Registration verification supports first_name, last_name, and display_name from the pending registration on initial delivery and resends. Its built-in greeting uses first_name. recipient_name uses the pending display name, falling back to first name and email. first_name falls back to display name and email; display_name falls back to first name and email; a missing last_name is empty. Customized templates retain their contents. Restriction templates support user_reason for the separately authored public explanation; when their customized body omits the placeholder, delivery appends the explanation after rendering. Internal administrative reasons are never supplied to restriction templates.
       security: [{ sessionCookie: [] }]
       responses:
         default: { $ref: '#/components/responses/UnexpectedError' }
@@ -4182,6 +6609,16 @@ paths:
               INSTANCE_USER_INVITATION,
               COOKBOOK_USER_INVITATION,
               COOKBOOK_OWNER_INVITATION,
+              COOKBOOK_OWNERSHIP_TRANSFERRED,
+              ADMIN_EMAIL_RECOVERY_PROOF,
+              ADMIN_EMAIL_RECOVERED,
+              REPORT_DECISION_NOTICE,
+              RECIPE_RESTRICTED,
+              COOKBOOK_RESTRICTED,
+              RECIPE_RESTRICTION_LIFTED,
+              COOKBOOK_RESTRICTION_LIFTED,
+              RECIPE_DELETED,
+              COOKBOOK_DELETED,
             ]
     put:
       operationId: saveInstanceEmailTemplate
@@ -4361,6 +6798,61 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/CookbookTenantSelection'
+  /admin/audit-settings:
+    get:
+      operationId: getAdministrativeAuditSettings
+      summary: Returns the administrative audit retention policy.
+      description: >-
+        Requires an active human instance:administer browser session without a required
+        password change or pending cookbook identity repair. Any Authorization header is
+        rejected. Returns the policy only; no audit events are exposed.
+      security: [{ sessionCookie: [] }]
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '200':
+          description: Current retention period; initially 365 days.
+          headers:
+            Cache-Control:
+              schema: { type: string, const: no-store }
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AdministrativeAuditSettings' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+    put:
+      operationId: updateAdministrativeAuditSettings
+      summary: Updates the administrative audit retention policy.
+      description: >-
+        Requires the same active human administrator session as GET; any Authorization
+        header is rejected. The period applies to all administrative audit events and
+        public report notices at the next API startup or three-hour cleanup. One day
+        equals 24 hours. Reducing the period also expires existing older records;
+        increasing it does not restore deleted records. Saving does not prune immediately
+        or change backup retention. No event editing or deletion API is exposed.
+      security: [{ sessionCookie: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AdministrativeAuditSettings' }
+      responses:
+        default: { $ref: '#/components/responses/UnexpectedError' }
+        '204': { description: Audit retention settings saved. }
+        '400':
+          description: INVALID_AUDIT_SETTINGS; exactly one retentionDays integer from 1 through 3650 is required.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
+        '401': { $ref: '#/components/responses/AuthenticationRequired' }
+        '403':
+          description: ADMIN_SESSION_REQUIRED, INSTANCE_PERMISSION_REQUIRED, PASSWORD_CHANGE_REQUIRED or COOKBOOK_NAME_RESET_REQUIRED.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ApiError' }
   /admin/media-settings:
     get:
       operationId: getInstanceMediaSettings
@@ -6462,6 +8954,751 @@ components:
             },
         }
   schemas:
+    ReportAdministrationContext:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'available': { 'type': 'boolean' },
+            'cookbookPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'recipePublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'inspectionPath': { 'type': ['string', 'null'] },
+            'accountPath': { 'type': ['string', 'null'] },
+            'cookbookDisabled': { 'type': ['boolean', 'null'] },
+            'identityResetRequired': { 'type': ['boolean', 'null'] },
+            'recipeBlocked': { 'type': ['boolean', 'null'] },
+            'trashed': { 'type': ['boolean', 'null'] },
+            'accountDisabled': { 'type': ['boolean', 'null'] },
+            'recipients':
+              {
+                'type': 'array',
+                'maxItems': 2,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'properties':
+                      {
+                        'role': { 'type': 'string', 'enum': ['REPORTER', 'TARGET'] },
+                        'publicId': { 'type': 'string', 'format': 'uuid' },
+                        'displayName': { 'type': 'string' },
+                      },
+                    'required': ['role', 'publicId', 'displayName'],
+                  },
+              },
+          },
+        'required':
+          [
+            'available',
+            'cookbookPublicId',
+            'recipePublicId',
+            'inspectionPath',
+            'accountPath',
+            'cookbookDisabled',
+            'identityResetRequired',
+            'recipeBlocked',
+            'trashed',
+            'accountDisabled',
+            'recipients',
+          ],
+      }
+    AdministrativeEventState:
+      {
+        'type': ['object', 'null'],
+        'additionalProperties': false,
+        'properties':
+          {
+            'disabled': { 'type': 'boolean' },
+            'nameResetRequired': { 'type': 'boolean' },
+            'moderationBlocked': { 'type': 'boolean' },
+            'membershipRetained': { 'type': 'boolean' },
+            'preservationReviewed': { 'type': 'boolean' },
+            'recipeCount': { 'type': 'integer', 'minimum': 0 },
+            'revisionCount': { 'type': 'integer', 'minimum': 0 },
+            'shareCount': { 'type': 'integer', 'minimum': 0 },
+            'mediaCount': { 'type': 'integer', 'minimum': 0 },
+            'memberCount': { 'type': 'integer', 'minimum': 0 },
+            'ownerPrincipalId': { 'type': 'string', 'format': 'uuid' },
+            'auditEventPublicId': { 'type': 'string', 'format': 'uuid' },
+            'noticePublicId': { 'type': 'string', 'format': 'uuid' },
+            'assigneePublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'reportResult': { 'type': ['string', 'null'], 'pattern': '^[A-Z_]{1,64}$' },
+            'status': { 'type': 'string', 'pattern': '^[A-Za-z0-9_:-]{1,64}$' },
+            'confirmation': { 'type': 'string', 'enum': ['RECIPIENT_LINK'] },
+            'roleCode': { 'type': 'string', 'pattern': '^[A-Za-z0-9_:-]{1,64}$' },
+            'roleCodes':
+              {
+                'type': 'array',
+                'maxItems': 32,
+                'uniqueItems': true,
+                'items': { 'type': 'string', 'pattern': '^[a-z][a-z0-9-]{0,63}$' },
+              },
+          },
+      }
+    ReportAdministrativeEvent:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'publicId': { 'type': 'string', 'format': 'uuid' },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+            'actorPrincipalId': { 'type': 'string', 'format': 'uuid' },
+            'action': { 'type': 'string', 'pattern': '^ADMIN_[A-Z0-9_]{1,100}$' },
+            'targetType':
+              { 'type': 'string', 'enum': ['COOKBOOK', 'RECIPE', 'USER', 'INSTANCE', 'REPORT'] },
+            'targetPublicId': { 'type': 'string', 'format': 'uuid' },
+            'cookbookPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'revisionPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'mediaPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+            'previousState': { '$ref': '#/components/schemas/AdministrativeEventState' },
+            'newState': { '$ref': '#/components/schemas/AdministrativeEventState' },
+            'requestId': { 'type': 'string', 'minLength': 1, 'maxLength': 200 },
+            'outcome': { 'type': 'string', 'const': 'SUCCEEDED' },
+            'recheckPath': { 'type': ['string', 'null'] },
+          },
+        'required':
+          [
+            'publicId',
+            'createdAt',
+            'actorPrincipalId',
+            'action',
+            'targetType',
+            'targetPublicId',
+            'cookbookPublicId',
+            'revisionPublicId',
+            'mediaPublicId',
+            'reason',
+            'previousState',
+            'newState',
+            'requestId',
+            'outcome',
+            'recheckPath',
+          ],
+      }
+    ReportPublicNotice:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'publicId': { 'type': 'string', 'format': 'uuid' },
+            'recipientPublicId': { 'type': 'string', 'format': 'uuid' },
+            'recipientRole': { 'type': 'string', 'enum': ['REPORTER', 'TARGET'] },
+            'message': { 'type': 'string', 'minLength': 1, 'maxLength': 5000 },
+            'reviewInstructions': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+            'deliveryStatus': { 'type': 'string', 'enum': ['PENDING', 'SENT', 'FAILED'] },
+            'createdAt': { 'type': 'string', 'format': 'date-time' },
+            'deliveredAt': { 'type': ['string', 'null'], 'format': 'date-time' },
+          },
+        'required':
+          [
+            'publicId',
+            'recipientPublicId',
+            'recipientRole',
+            'message',
+            'reviewInstructions',
+            'deliveryStatus',
+            'createdAt',
+            'deliveredAt',
+          ],
+      }
+    ReportAdministrativeHistory:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'events':
+              {
+                'type': 'array',
+                'maxItems': 25,
+                'items': { '$ref': '#/components/schemas/ReportAdministrativeEvent' },
+              },
+            'notices':
+              {
+                'type': 'array',
+                'maxItems': 25,
+                'items': { '$ref': '#/components/schemas/ReportPublicNotice' },
+              },
+            'page': { 'type': 'integer', 'minimum': 1, 'maximum': 100000, 'default': 1 },
+            'pageSize': { 'type': 'integer', 'const': 25 },
+            'totalEvents': { 'type': 'integer', 'minimum': 0 },
+            'totalNotices': { 'type': 'integer', 'minimum': 0 },
+          },
+        'required': ['events', 'notices', 'page', 'pageSize', 'totalEvents', 'totalNotices'],
+      }
+    ReportNoticeInput:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+            'confirmed': { 'type': 'boolean', 'const': true },
+            'recipientRole': { 'type': 'string', 'enum': ['REPORTER', 'TARGET'] },
+            'expectedRecipientPublicId': { 'type': 'string', 'format': 'uuid' },
+            'message': { 'type': 'string', 'minLength': 1, 'maxLength': 5000 },
+            'reviewInstructions': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+          },
+        'required':
+          [
+            'reason',
+            'confirmed',
+            'recipientRole',
+            'expectedRecipientPublicId',
+            'message',
+            'reviewInstructions',
+          ],
+      }
+    DeletionScope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'recipeCount': { 'type': 'integer', 'minimum': 0 },
+            'revisionCount': { 'type': 'integer', 'minimum': 0 },
+            'shareCount': { 'type': 'integer', 'minimum': 0 },
+            'mediaCount': { 'type': 'integer', 'minimum': 0 },
+            'memberCount': { 'type': 'integer', 'minimum': 0 },
+          },
+        'required': ['recipeCount', 'revisionCount', 'shareCount', 'mediaCount', 'memberCount'],
+      }
+    AdministrativeDeletion:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+            'userReason':
+              {
+                'type': 'string',
+                'maxLength': 2000,
+                'description': 'Optional public explanation, trimmed before validation, sent only in the deletion email through user_reason. Not included in the private audit reason or request logs. May be empty or omitted.',
+              },
+            'relatedReportPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'confirmation': { 'type': 'string', 'format': 'uuid' },
+            'preservationReviewed': { 'type': 'boolean', 'const': true },
+            'expectedScope': { '$ref': '#/components/schemas/DeletionScope' },
+          },
+        'required': ['reason', 'confirmation', 'preservationReviewed', 'expectedScope'],
+      }
+    RecoveryDeliveries:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'deliveries':
+              {
+                'type': 'array',
+                'minItems': 1,
+                'maxItems': 2,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'properties':
+                      {
+                        'recipient': { 'type': 'string', 'enum': ['OLD_ADDRESS', 'NEW_ADDRESS'] },
+                        'status': { 'type': 'string', 'enum': ['SENT', 'FAILED'] },
+                      },
+                    'required': ['recipient', 'status'],
+                  },
+              },
+          },
+        'required': ['deliveries'],
+      }
+    OwnershipCandidatesInput:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'reason':
+              {
+                'type': 'string',
+                'minLength': 1,
+                'maxLength': 2000,
+                'description': 'Trimmed mandatory reason documenting recovery verification; never include identity documents or secrets.',
+              },
+            'relatedReportPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'query': { 'type': 'string', 'minLength': 2, 'maxLength': 254 },
+          },
+        'required': ['reason', 'query'],
+      }
+    OwnershipCandidates:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'users':
+              {
+                'type': 'array',
+                'maxItems': 50,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'properties':
+                      {
+                        'publicId': { 'type': 'string', 'format': 'uuid' },
+                        'displayName': { 'type': 'string' },
+                        'email': { 'type': 'string', 'format': 'email' },
+                      },
+                    'required': ['publicId', 'displayName', 'email'],
+                  },
+              },
+          },
+        'required': ['users'],
+      }
+    OwnershipTransferInput:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'reason':
+              {
+                'type': 'string',
+                'minLength': 1,
+                'maxLength': 2000,
+                'description': 'Trimmed mandatory reason documenting recovery verification; never include identity documents or secrets.',
+              },
+            'relatedReportPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'recipientPublicId': { 'type': 'string', 'format': 'uuid' },
+            'expectedOwnerPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'formerOwnerRole': { 'type': 'string', 'enum': ['REMOVE', 'Viewer', 'Editor'] },
+            'confirmed': { 'type': 'boolean', 'const': true },
+          },
+        'required':
+          ['reason', 'recipientPublicId', 'expectedOwnerPublicId', 'formerOwnerRole', 'confirmed'],
+      }
+    OwnershipTransferResponse:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'properties':
+          {
+            'cookbookPublicId': { 'type': 'string', 'format': 'uuid' },
+            'oldOwnerPublicId': { 'type': ['string', 'null'], 'format': 'uuid' },
+            'newOwnerPublicId': { 'type': 'string', 'format': 'uuid' },
+            'formerOwnerRole': { 'type': 'string', 'enum': ['REMOVE', 'Viewer', 'Editor'] },
+            'notifications':
+              {
+                'type': 'array',
+                'minItems': 1,
+                'maxItems': 2,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'properties':
+                      {
+                        'recipient': { 'type': 'string', 'enum': ['OLD_OWNER', 'NEW_OWNER'] },
+                        'status': { 'type': 'string', 'enum': ['SENT', 'FAILED'] },
+                      },
+                    'required': ['recipient', 'status'],
+                  },
+              },
+          },
+        'required':
+          [
+            'cookbookPublicId',
+            'oldOwnerPublicId',
+            'newOwnerPublicId',
+            'formerOwnerRole',
+            'notifications',
+          ],
+      }
+    InspectionPurpose:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['reason'],
+        'properties':
+          {
+            'reason':
+              {
+                'type': 'string',
+                'minLength': 1,
+                'maxLength': 2000,
+                'description': 'Trimmed nonblank legitimate administrative purpose. Never send it in a URL.',
+              },
+            'relatedReportPublicId':
+              {
+                'type': ['string', 'null'],
+                'format': 'uuid',
+                'description': 'Optional public UUID of an existing content report.',
+              },
+          },
+      }
+    InspectionOverview:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['cookbook', 'counts'],
+        'properties':
+          {
+            'cookbook':
+              {
+                'type': 'object',
+                'additionalProperties': false,
+                'required':
+                  [
+                    'public_id',
+                    'display_name',
+                    'slug',
+                    'description',
+                    'disabled_at',
+                    'name_reset_required',
+                    'created_at',
+                    'updated_at',
+                    'owner_public_id',
+                    'owner_name',
+                  ],
+                'properties':
+                  {
+                    'public_id': { 'type': 'string', 'format': 'uuid' },
+                    'display_name': { 'type': 'string' },
+                    'slug': { 'type': 'string' },
+                    'description': { 'type': ['string', 'null'] },
+                    'disabled_at': { 'type': ['string', 'null'], 'format': 'date-time' },
+                    'name_reset_required': { 'type': 'boolean' },
+                    'created_at': { 'type': 'string', 'format': 'date-time' },
+                    'updated_at': { 'type': 'string', 'format': 'date-time' },
+                    'owner_public_id': { 'type': ['string', 'null'], 'format': 'uuid' },
+                    'owner_name': { 'type': ['string', 'null'] },
+                  },
+              },
+            'counts':
+              {
+                'type': 'object',
+                'additionalProperties': false,
+                'required': ['recipes', 'members', 'reports'],
+                'properties':
+                  {
+                    'recipes': { 'type': 'integer', 'minimum': 0 },
+                    'members': { 'type': 'integer', 'minimum': 0 },
+                    'reports': { 'type': 'integer', 'minimum': 0 },
+                  },
+              },
+          },
+      }
+    InspectionListInput:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['reason'],
+        'properties':
+          {
+            'reason':
+              {
+                'type': 'string',
+                'minLength': 1,
+                'maxLength': 2000,
+                'description': 'Trimmed nonblank legitimate administrative purpose. Never send it in a URL.',
+              },
+            'relatedReportPublicId':
+              {
+                'type': ['string', 'null'],
+                'format': 'uuid',
+                'description': 'Optional public UUID of an existing content report.',
+              },
+            'query':
+              {
+                'type': 'string',
+                'maxLength': 254,
+                'default': '',
+                'description': 'Trimmed literal case-insensitive substring; recipes match latest title/slug/exact UUID, revisions match title/exact UUID, members match name/exact account UUID, reports match status/exact report UUID. Kept out of URLs.',
+              },
+            'page': { 'type': 'integer', 'minimum': 1, 'maximum': 1000000, 'default': 1 },
+            'pageSize': { 'type': 'integer', 'minimum': 1, 'maximum': 50, 'default': 25 },
+          },
+      }
+    InspectionRecipesPage:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['items', 'total', 'page', 'pageSize'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'maxItems': 50,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required':
+                      ['public_id', 'slug', 'title', 'deleted_at', 'moderation_blocked_at'],
+                    'properties':
+                      {
+                        'public_id': { 'type': 'string', 'format': 'uuid' },
+                        'slug': { 'type': 'string' },
+                        'deleted_at': { 'type': ['string', 'null'], 'format': 'date-time' },
+                        'moderation_blocked_at':
+                          { 'type': ['string', 'null'], 'format': 'date-time' },
+                        'title':
+                          {
+                            'type': ['string', 'null'],
+                            'description': 'Title of the latest revision, or null when no revision exists. No revision list is embedded.',
+                          },
+                      },
+                  },
+              },
+            'total': { 'type': 'integer', 'minimum': 0 },
+            'page': { 'type': 'integer', 'minimum': 1 },
+            'pageSize': { 'type': 'integer', 'minimum': 1, 'maximum': 50 },
+          },
+      }
+    InspectionMembersPage:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['items', 'total', 'page', 'pageSize'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'maxItems': 50,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required': ['public_id', 'display_name', 'joined_at', 'roles'],
+                    'properties':
+                      {
+                        'public_id': { 'type': 'string', 'format': 'uuid' },
+                        'display_name': { 'type': 'string' },
+                        'joined_at': { 'type': 'string', 'format': 'date-time' },
+                        'roles': { 'type': 'array', 'items': { 'type': 'string' } },
+                      },
+                  },
+              },
+            'total': { 'type': 'integer', 'minimum': 0 },
+            'page': { 'type': 'integer', 'minimum': 1 },
+            'pageSize': { 'type': 'integer', 'minimum': 1, 'maximum': 50 },
+          },
+      }
+    InspectionReportsPage:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['items', 'total', 'page', 'pageSize'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'maxItems': 50,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required':
+                      ['public_id', 'target_type', 'target_public_id', 'status', 'created_at'],
+                    'properties':
+                      {
+                        'public_id': { 'type': 'string', 'format': 'uuid' },
+                        'target_type': { 'type': 'string', 'enum': ['COOKBOOK', 'RECIPE'] },
+                        'target_public_id': { 'type': 'string', 'format': 'uuid' },
+                        'status':
+                          { 'type': 'string', 'enum': ['OPEN', 'UNDER_INVESTIGATION', 'CLOSED'] },
+                        'created_at': { 'type': 'string', 'format': 'date-time' },
+                      },
+                  },
+              },
+            'total': { 'type': 'integer', 'minimum': 0 },
+            'page': { 'type': 'integer', 'minimum': 1 },
+            'pageSize': { 'type': 'integer', 'minimum': 1, 'maximum': 50 },
+          },
+      }
+    InspectionRevisionsPage:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['items', 'total', 'page', 'pageSize'],
+        'properties':
+          {
+            'items':
+              {
+                'type': 'array',
+                'maxItems': 50,
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required': ['public_id', 'title', 'status', 'revision_no', 'published_at'],
+                    'properties':
+                      {
+                        'public_id': { 'type': 'string', 'format': 'uuid' },
+                        'title': { 'type': 'string' },
+                        'status': { 'type': 'string', 'enum': ['DRAFT', 'PUBLISHED', 'ARCHIVED'] },
+                        'revision_no': { 'type': 'integer' },
+                        'published_at': { 'type': ['string', 'null'], 'format': 'date-time' },
+                      },
+                  },
+              },
+            'total': { 'type': 'integer', 'minimum': 0 },
+            'page': { 'type': 'integer', 'minimum': 1 },
+            'pageSize': { 'type': 'integer', 'minimum': 1, 'maximum': 50 },
+          },
+      }
+    InspectionRevision:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['revision', 'steps', 'categories', 'media', 'variants'],
+        'properties':
+          {
+            'revision':
+              {
+                'type': 'object',
+                'additionalProperties': false,
+                'required':
+                  [
+                    'public_id',
+                    'title',
+                    'status',
+                    'revision_no',
+                    'published_at',
+                    'summary',
+                    'created_at',
+                  ],
+                'properties':
+                  {
+                    'public_id': { 'type': 'string', 'format': 'uuid' },
+                    'title': { 'type': 'string' },
+                    'status': { 'type': 'string', 'enum': ['DRAFT', 'PUBLISHED', 'ARCHIVED'] },
+                    'revision_no': { 'type': 'integer' },
+                    'published_at': { 'type': ['string', 'null'], 'format': 'date-time' },
+                    'summary': { 'type': ['string', 'null'] },
+                    'created_at': { 'type': 'string', 'format': 'date-time' },
+                  },
+              },
+            'steps':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required': ['step_key', 'sort_order', 'instruction', 'ingredients'],
+                    'properties':
+                      {
+                        'step_key': { 'type': 'string', 'format': 'uuid' },
+                        'sort_order': { 'type': 'integer' },
+                        'instruction': { 'type': 'string' },
+                        'ingredients':
+                          {
+                            'type': 'array',
+                            'items':
+                              {
+                                'type': 'object',
+                                'additionalProperties': false,
+                                'required':
+                                  ['name', 'amount', 'unit', 'note', 'special_kind', 'optional'],
+                                'properties':
+                                  {
+                                    'name': { 'type': ['string', 'null'] },
+                                    'amount': { 'type': ['string', 'null'] },
+                                    'unit': { 'type': ['string', 'null'] },
+                                    'note': { 'type': ['string', 'null'] },
+                                    'special_kind':
+                                      {
+                                        'type': ['string', 'null'],
+                                        'enum':
+                                          [
+                                            null,
+                                            'NO_ICON',
+                                            'REMOVE',
+                                            'ADD',
+                                            'INFO',
+                                            'IMPORTANT',
+                                            'COOK',
+                                            'COOL',
+                                            'HEAT',
+                                            'WAIT',
+                                            'WORK_STEP',
+                                          ],
+                                      },
+                                    'optional': { 'type': 'boolean' },
+                                  },
+                              },
+                          },
+                      },
+                  },
+              },
+            'categories':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required': ['public_id', 'name'],
+                    'properties':
+                      {
+                        'public_id': { 'type': 'string', 'format': 'uuid' },
+                        'name': { 'type': 'string' },
+                      },
+                  },
+              },
+            'media':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required': ['public_id'],
+                    'properties': { 'public_id': { 'type': 'string', 'format': 'uuid' } },
+                  },
+              },
+            'variants':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required':
+                      [
+                        'variant_key',
+                        'name',
+                        'is_default',
+                        'is_visible',
+                        'metadata',
+                        'diet',
+                        'step_keys',
+                      ],
+                    'properties':
+                      {
+                        'variant_key': { 'type': 'string', 'format': 'uuid' },
+                        'name': { 'type': 'string' },
+                        'is_default': { 'type': 'boolean' },
+                        'is_visible': { 'type': 'boolean' },
+                        'metadata': { '$ref': '#/components/schemas/RecipeContentMetadata' },
+                        'diet':
+                          {
+                            'type': ['string', 'null'],
+                            'enum': [null, 'VEGAN', 'VEGETARIAN', 'OMNI'],
+                          },
+                        'step_keys':
+                          { 'type': 'array', 'items': { 'type': 'string', 'format': 'uuid' } },
+                      },
+                  },
+              },
+          },
+      }
     UnhandledApiError:
       type: object
       description: Safe framework request error, unhandled server exception, or unavailable web proxy upstream.
@@ -7771,7 +11008,11 @@ components:
         disabled_at: { type: [string, 'null'], format: date-time }
         name_reset_required: { type: boolean }
         recipe_count: { type: integer, minimum: 0 }
-        owner_name: { type: [string, 'null'] }
+        owner_name:
+          {
+            type: [string, 'null'],
+            description: 'Canonical owner display name, resolved from tenant.owner_principal_id; null for unclaimed cookbooks.',
+          }
     TenantRecipePolicy:
       type: object
       additionalProperties: false
@@ -7797,6 +11038,12 @@ components:
         frontpageRecipeCount: { type: integer, minimum: 1, maximum: 100 }
         frontpageHeading: { type: [string, 'null'], minLength: 1, maxLength: 80 }
         description: { type: [string, 'null'], minLength: 1, maxLength: 280 }
+    AdministrativeAuditSettings:
+      type: object
+      additionalProperties: false
+      required: [retentionDays]
+      properties:
+        retentionDays: { type: integer, minimum: 1, maximum: 3650 }
     InstanceMediaSettings:
       type: object
       additionalProperties: false
@@ -8243,6 +11490,16 @@ components:
               INSTANCE_USER_INVITATION,
               COOKBOOK_USER_INVITATION,
               COOKBOOK_OWNER_INVITATION,
+              COOKBOOK_OWNERSHIP_TRANSFERRED,
+              ADMIN_EMAIL_RECOVERY_PROOF,
+              ADMIN_EMAIL_RECOVERED,
+              REPORT_DECISION_NOTICE,
+              RECIPE_RESTRICTED,
+              COOKBOOK_RESTRICTED,
+              RECIPE_RESTRICTION_LIFTED,
+              COOKBOOK_RESTRICTION_LIFTED,
+              RECIPE_DELETED,
+              COOKBOOK_DELETED,
             ]
         subject: { type: string, minLength: 1, maxLength: 300 }
         body: { type: string, minLength: 1, maxLength: 20000 }

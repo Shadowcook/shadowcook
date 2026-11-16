@@ -174,7 +174,7 @@ test('force reset hides the cookbook and forces both identity fields to change, 
         method: 'PATCH',
         url: `/admin/tenants/${publicId}`,
         headers: { cookie: adminCookie },
-        payload: { disabled: false },
+        payload: { disabled: false, reason: 'Administrative restriction review', confirmed: true },
       })
     ).statusCode,
     204,
@@ -264,7 +264,12 @@ test('administrators can cancel a reset independently of deactivation and preser
     method: 'PATCH',
     url: `/admin/tenants/${publicId}`,
     headers: { cookie: adminCookie },
-    payload: { disabled: true },
+    payload: {
+      disabled: true,
+      reason: 'Administrative restriction review',
+      confirmed: true,
+      userReason: 'Content is under moderation review.',
+    },
   });
   assert.equal(disable.statusCode, 204);
   assert.equal(
@@ -288,7 +293,7 @@ test('administrators can cancel a reset independently of deactivation and preser
     method: 'PATCH',
     url: `/admin/tenants/${publicId}`,
     headers: { cookie: adminCookie },
-    payload: { disabled: false },
+    payload: { disabled: false, reason: 'Administrative restriction review', confirmed: true },
   });
   assert.equal(enable.statusCode, 204);
   const visible: LightMyRequestResponse = await api.inject({

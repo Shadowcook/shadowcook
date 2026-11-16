@@ -104,7 +104,7 @@ async function harness(
   );
   const render = (): ElementNode => {
     cursor = 0;
-    return module.exports.default({ locale: 'en' });
+    return module.exports.default({ locale: 'en', canInspect: true });
   };
   render();
   await new Promise<void>((resolve): void => {
@@ -190,31 +190,20 @@ test('a pending reset offers cancellation with a confirmation and uses DELETE', 
   );
 });
 
-test('a disabled cookbook with a pending reset exposes a separate enable action', async (): Promise<void> => {
+test('a disabled cookbook keeps moderation separate from the pending identity reset', async (): Promise<void> => {
   const editor: Awaited<ReturnType<typeof harness>> = await harness(
     new Response(null, { status: 204 }),
     true,
     true,
   );
   const tree: ElementNode = editor.render();
-  const enable: ElementNode | undefined = nodes(tree, 'button').find(
-    (node: ElementNode): boolean => node.props['aria-label'] === en.dashboard.enable,
-  );
-  assert.ok(enable);
+  const control: ElementNode = nodes(tree, '../moderation/ModerationControl')[0];
+  assert.ok(control);
+  assert.equal(control.props.blocked, true);
+  assert.equal(editor.writes(), 0);
   assert.ok(
     nodes(tree, 'p').some(
       (node: ElementNode): boolean => node.props.children === en.cookbookIdentity.disabled,
     ),
   );
-  enable.props.onClick();
-  await new Promise<void>((resolve): void => {
-    setImmediate(resolve);
-  });
-  assert.deepEqual(editor.requests(), [
-    {
-      url: '/api/admin/tenants/tenant-id',
-      method: 'PATCH',
-      body: JSON.stringify({ disabled: false }),
-    },
-  ]);
 });
