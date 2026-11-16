@@ -100,6 +100,7 @@ export interface CookbookResponse {
 }
 
 export interface CookbookFrontpage {
+  shuffleSeed: string;
   recipes: Recipe[];
   page: number;
   pageSize: number;

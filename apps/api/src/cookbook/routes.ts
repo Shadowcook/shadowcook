@@ -209,6 +209,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       tenantSlug?: unknown;
       frontpagePage?: unknown;
       refreshFrontpageShuffle?: unknown;
+      frontpageShuffleSeed?: unknown;
       recipeFilter?: unknown;
       diet?: unknown;
     };
@@ -326,6 +327,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       pool,
       request,
       query.refreshFrontpageShuffle === 'true',
+      query.frontpageShuffleSeed,
     );
     const frontpageCount = await pool.query<FrontpageCountRow>(
       `SELECT count(*)::integer AS total_recipes
@@ -486,6 +488,7 @@ export function registerCookbookRoutes(api: FastifyInstance, pool: Pool): void {
       recipes: recipes.rows,
       frontpage: {
         recipes: frontpageRecipes.rows,
+        shuffleSeed: frontpageSeed,
         page,
         pageSize: tenant.frontpage_recipe_count,
         totalPages: totalFrontpagePages,
@@ -695,6 +698,7 @@ async function loadRecipeLinks(
 
 function emptyFrontpage(): {
   recipes: RecipeRow[];
+  shuffleSeed: string;
   page: number;
   pageSize: number;
   totalPages: number;
@@ -703,6 +707,7 @@ function emptyFrontpage(): {
   return {
     recipes: [],
     page: 1,
+    shuffleSeed: randomUUID(),
     pageSize: defaultFrontpageRecipeCount,
     totalPages: 0,
     totalRecipes: 0,
@@ -724,7 +729,16 @@ async function resolveFrontpageShuffleSeed(
   pool: Pool,
   request: FastifyRequest,
   refresh: boolean,
+  suppliedSeed: unknown,
 ): Promise<string> {
+  if (
+    !refresh &&
+    typeof suppliedSeed === 'string' &&
+    suppliedSeed.length > 0 &&
+    suppliedSeed.length <= 100
+  ) {
+    return suppliedSeed;
+  }
   if (refresh) return (await refreshFrontpageShuffleSeed(pool, request)) ?? randomUUID();
   return (
     (await frontpageShuffleSeed(pool, request)) ??

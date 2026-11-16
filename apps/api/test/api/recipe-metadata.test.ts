@@ -586,3 +586,57 @@ test('new variants inherit default facts before explicit overrides and remain in
   assert.equal(nextVariant.metadata.totalMinutes, 10);
   assert.equal(nextVariant.diet, null);
 });
+
+test('featured pagination retains a page seed for guests and members until a reload', async (): Promise<void> => {
+  await database.pool.query('UPDATE tenant SET frontpage_recipe_count = 2 WHERE id = $1', [
+    tenant.id,
+  ]);
+  for (let index: number = 0; index < 7; index += 1) {
+    const created: FactsResponse = await create(`shuffle-${index}`);
+    await publish(created.publicId);
+  }
+
+  interface FeaturedPage {
+    recipes: { public_id: string }[];
+    shuffleSeed: string;
+    totalPages: number;
+    totalRecipes: number;
+  }
+
+  const requestHeaders: Record<string, string>[] = [{}, { cookie }];
+  for (const headers of requestHeaders) {
+    async function load(query: string): Promise<FeaturedPage> {
+      const response: LightMyRequestResponse = await api.inject({
+        method: 'GET',
+        url: `/cookbook?tenantSlug=${tenant.slug}&${query}`,
+        headers,
+      });
+      assert.equal(response.statusCode, 200, response.body);
+      return response.json<{ frontpage: FeaturedPage }>().frontpage;
+    }
+
+    const initial: FeaturedPage = await load('refreshFrontpageShuffle=true');
+    assert.ok(initial.shuffleSeed.length > 0);
+    const seedQuery: string = `frontpageShuffleSeed=${encodeURIComponent(initial.shuffleSeed)}`;
+    // A reload in another tab sharing the same login must not reorder this page.
+    const reloaded: FeaturedPage = await load(`refreshFrontpageShuffle=true&${seedQuery}`);
+    assert.notEqual(reloaded.shuffleSeed, initial.shuffleSeed);
+
+    const publicIds: string[] = [];
+    for (let page: number = 1; page <= initial.totalPages; page += 1) {
+      const current: FeaturedPage = await load(`frontpagePage=${page}&${seedQuery}`);
+      assert.equal(current.shuffleSeed, initial.shuffleSeed);
+      publicIds.push(
+        ...current.recipes.map((recipe: { public_id: string }): string => recipe.public_id),
+      );
+    }
+    assert.equal(publicIds.length, initial.totalRecipes);
+    assert.equal(new Set(publicIds).size, initial.totalRecipes);
+    const returned: FeaturedPage = await load(`frontpagePage=1&${seedQuery}`);
+    assert.deepEqual(returned.recipes, initial.recipes);
+    const filtered: FeaturedPage = await load(`recipeFilter=shuffle&${seedQuery}`);
+    assert.equal(filtered.shuffleSeed, initial.shuffleSeed);
+    const restored: FeaturedPage = await load(seedQuery);
+    assert.deepEqual(restored.recipes, initial.recipes);
+  }
+});
