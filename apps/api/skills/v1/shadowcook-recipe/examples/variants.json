@@ -85,8 +85,13 @@
       },
       {
         "key": "simmer",
-        "instruction": "Zum Kochen bringen.\n20 Minuten bei geringer Hitze köcheln, dann pürieren.\nBeim Pürieren auf heiße Spritzer achten.",
+        "instruction": "Die vorbereitete Tomatenmischung zum Kochen bringen und anschließend sanft köcheln lassen. Währenddessen gelegentlich umrühren, damit nichts am Topfboden ansetzt.",
         "entries": [
+          {
+            "key": "prepared-tomato-mixture",
+            "kind": "text",
+            "text": "Vorbereitete Tomatenmischung"
+          },
           {
             "key": "heat-simmer",
             "kind": "special",
@@ -98,9 +103,20 @@
             "kind": "special",
             "specialKind": "COOK",
             "note": "20 min"
+          }
+        ]
+      },
+      {
+        "key": "puree",
+        "instruction": "Die gekochte Tomatenmischung fein pürieren. Dabei auf heiße Spritzer achten.",
+        "entries": [
+          {
+            "key": "simmered-tomatoes",
+            "kind": "text",
+            "text": "Gekochte Tomatenmischung"
           },
           {
-            "key": "important-simmer",
+            "key": "important-puree",
             "kind": "special",
             "specialKind": "IMPORTANT"
           }
@@ -128,7 +144,7 @@
       },
       {
         "key": "serve",
-        "instruction": "Nach Geschmack abschmecken und die fertige Suppe heiß servieren.",
+        "instruction": "Die fertige Suppe abschmecken und servieren.",
         "entries": [
           {
             "key": "prepared-soup",
@@ -151,7 +167,7 @@
         "slug": "klassisch",
         "isDefault": true,
         "isVisible": true,
-        "includedStepKeys": ["prepare", "simmer", "serve"]
+        "includedStepKeys": ["prepare", "simmer", "puree", "serve"]
       },
       {
         "key": "fresh",
@@ -159,7 +175,7 @@
         "slug": "mit-basilikum",
         "isDefault": false,
         "isVisible": true,
-        "includedStepKeys": ["prepare", "simmer", "fresh-finish", "serve"]
+        "includedStepKeys": ["prepare", "simmer", "puree", "fresh-finish", "serve"]
       }
     ]
   }

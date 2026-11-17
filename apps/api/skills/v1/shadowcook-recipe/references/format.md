@@ -26,7 +26,7 @@ existing Shadowcook UUIDs. Different entity collections may reuse the same key.
 Source catalogue names and authored text are retained. Category paths are suggestions,
 for example `[["Main courses", "Soups"], ["Quick meals"]]`; their segments run from
 root to leaf. They do not assert local category membership. An empty or omitted list
-leaves category selection to a import review. Publication requires a category.
+leaves category selection to an import review. Publication requires a category.
 
 ## Step entries
 
@@ -59,10 +59,73 @@ Special entries may contain only their icon with no note. Keep warnings complete
 in the instruction; a dedicated warning step may have an empty `entries` array or
 an `IMPORTANT` marker without a note. Include such a step in every affected variant.
 
-For example, use a `COOL` note of ">= 12 Stunden" beside the instruction
-"Mindestens 12 Stunden gekühlt durchziehen lassen." The sidebar carries the compact
-parameter; the instruction carries the complete action and context. This is an
-authoring rule; the structural validator does not classify prose automatically.
+### Step granularity: active work and passive phases
+
+Separate active handling from a distinct passive phase that follows it. Examples
+include resting a salted ingredient, chilling a dough, marinating meat, letting
+bread proof and allowing a cooked preparation to cool. A passive phase deserves
+its own step when it has a meaningful duration, environmental condition or
+readiness requirement, even when the original recipe describes everything in a
+single sentence.
+
+- Put preparation ingredients in the step where they are introduced.
+- In the later passive step, reference the prepared component using a `text` entry;
+  do not introduce or count its original ingredients again.
+- Put the time, temperature and other adjustable conditions in `WAIT`, `COOL` or
+  another suitable technical entry. The instruction says what should rest, where,
+  how it is covered or otherwise handled, and why when useful.
+- Preserve genuinely related operations as one step; do not mechanically create a
+  step for every cut, stir or transfer. A cooking process that needs monitoring or
+  handling can remain a single coherent cooking phase. Separate waiting when its
+  own duration or environment makes it an independent stage.
+- On splitting a step, update **every variant's** `includedStepKeys` to include
+  the new phase where appropriate, in global step order.
+
+For example, separate "Hähnchen schneiden und salzen" from "Hähnchen gekühlt
+ruhen lassen". The second step references `Gesalzenes Hähnchen` as `text` and has
+`WAIT: 30 min` and `COOL: 4 °C`; it does not list the original Hähnchen and Salz
+as newly consumed ingredients.
+
+### Single source of truth for technical parameters
+
+The left-hand entries are authoritative for every technical parameter represented
+there. Never repeat the same parameter or its numeric value in the step's prose
+`instruction`, in another instruction that refers to the same operation, or as a
+second conflicting note. This applies to ingredient quantities and units,
+durations, temperatures, dimensions, equipment settings and similar editable
+values. Matching values are still duplication: they can diverge after an edit.
+
+The left column specifies **what and how much**, along with settings and timing.
+The prose explains **what to do and how**, describes sensory endpoints and the
+reason for techniques, and states complete warnings. Refer to a value without
+restating it ("bei der angegebenen Temperatur", "bis zum angegebenen Zeitpunkt")
+only if that reference is helpful; natural, concise instructions are preferable.
+Do not remove sensory cues or essential safety instructions merely to avoid a
+number. If an essential technical parameter cannot be expressed meaningfully in
+an entry, state it once in prose and do not add a duplicate entry.
+
+**Correct:**
+
+```json
+{
+  "key": "chill-chicken",
+  "instruction": "Das gesalzene Hähnchen abdecken und im Kühlschrank ruhen lassen, damit das Salz einziehen kann.",
+  "entries": [
+    {"key": "chicken-prepared", "kind": "text", "text": "Gesalzenes Hähnchen"},
+    {"key": "chicken-chill", "kind": "special", "specialKind": "COOL", "note": "4 °C"},
+    {"key": "chicken-wait", "kind": "special", "specialKind": "WAIT", "note": "30 min"}
+  ]
+}
+```
+
+**Incorrect:** the same entries paired with the instruction "Das gesalzene
+Hähnchen 30 Minuten bei 4 °C im Kühlschrank ruhen lassen." That duplicates both
+technical values in the prose.
+
+Likewise, `COOL` with note `">= 12 Stunden"` pairs with "Abgedeckt im
+Kühlschrank durchziehen lassen.", **not** "Mindestens 12 Stunden gekühlt
+durchziehen lassen." A sensible sensory goal ("bis die Oberfläche goldbraun ist")
+does not duplicate a technical setting such as a burner level or cooking time.
 
 Amounts are non-negative decimal strings such as `"2"` and `"0.5"`, with at most
 12 integer digits and 12 fractional digits. Use a decimal point, no grouping separator,
@@ -76,9 +139,11 @@ ladyfingers, use "passend zugeschnitten", not "ca., passend zugeschnitten".
 Compatible preparation details and clearly labelled approximate equivalents in
 another unit, such as "ca. 4 Stück, Größe L" beside a fixed weight of egg yolk,
 may supplement the structured quantity; the structured weight remains authoritative.
-If only a range or "to taste" is known, omit `amount` and put that information in
-the note rather than inventing an exact amount. Include the unit with a range in
-the note and omit `unitKey` when the complete quantity is expressed there.
+Avoid redundant equivalents when they are not needed: each additional value can
+become outdated when editing the recipe. If only a range or "to taste" is known,
+omit `amount` and put that information in the note rather than inventing an exact
+amount. Include the unit with a range in the note and omit `unitKey` when the
+complete quantity is expressed there.
 
 ## Units and matching
 
@@ -165,11 +230,18 @@ After schema validation, check:
 7. Notes agree with structured quantities and do not repeat or weaken them with
    competing amounts, ranges or approximation qualifiers. A range-only quantity
    has no invented exact `amount`.
+8. Distinct passive phases have their own steps; steps that refer to prepared
+   components use `text` entries without re-counting original ingredients.
+9. Technical values represented in entries are not duplicated in any related prose
+   instructions. Read the prose as if a technical value had been edited: it must
+   still be correct without further changes.
 
 The bundled validator checks structural rules and the mechanically verifiable
 semantic constraints. It cannot authenticate provenance, establish whether an amount
 is correct, detect natural-language contradictions between notes and structured
-quantities, or prove that an arbitrary text field contains no private information.
+quantities, prove that an arbitrary text field contains no private information,
+or automatically enforce step granularity and single-source-of-truth editorial rules.
+These require a manual authoring review.
 
 ## Upload and draft import
 
@@ -195,13 +267,13 @@ and 5000 entries. Source identities within each catalogue must be unique.
 The import UI is a wizard with Next, Previous and Finish controls. It presents an
 informational recipe overview, editable URL/category/variant details, then assignment
 tables. Empty variant-name inputs use the UI locale's default variant label. Existing
-step memberships and variant slugs are retained. Searchable assignment boxes keep the
-permitted new-entry choice first, then the original ingredient's suggestions above
-the currently filtered catalogue entries. Selecting a new entry clears and disables
-the alias checkbox.
+step memberships and variant slugs are retained. Searchable assignment boxes keep
+the permitted new-entry choice first, then the original ingredient's suggestions
+above the currently filtered catalogue entries. Selecting a new entry clears and
+disables the alias checkbox.
 
-For an existing ingredient mapping, optional `addAsAlias: true` explicitly adds that
-document ingredient's original `name` as an alias of the selected local ingredient.
+For an existing ingredient mapping, optional `addAsAlias: true` explicitly adds
+that document ingredient's original `name` as an alias of the selected local ingredient.
 It requires `ingredient:update` and commits together with the recipe; equivalent
 existing aliases are reused. The option applies only to existing ingredient mappings,
 not to unit mappings or new-entry creation. The preview exposes
