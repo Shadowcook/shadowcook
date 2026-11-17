@@ -41,25 +41,44 @@ or special entries, consult [the variant example](examples/variants.json) and
   specify `360 g Butter`, not a number of butter packages or vague "pieces".
   Do not replace a meaningful mass requirement with an approximate item count.
 - Describe the transformation and allocation of prepared components in the step's
-  `instruction`. For example, separate four eggs, use all four yolks and the whites
-  of three eggs, then refer to the separated yolks and whites as `text` components
-  in the steps where they are used. Similarly, introduce `50 g Butter` and `50 g
-  Mehl` to make a roux, then refer to the prepared roux as a component when adding
-  it to a sauce. If a component's exact processed mass is essential (e.g. `80 g`
-  separated yolk), instruct the cook to weigh that amount in `instruction` and
-  ensure the original ingredient quantity is sufficient to provide it. Do not
-  presume that a component's final mass equals the sum of its inputs: evaporation,
-  draining, trimming and other processing can change its mass. When the entire
-  prepared component is used, say so rather than inventing its mass.
+  `instruction`. For example, separate the eggs and allocate the required yolks and
+  whites using quantities in their technical entries, then refer to those components
+  as `text` entries in later steps. Likewise, introduce butter and flour as
+  `ingredient` entries when making a roux, then refer to the prepared roux as a
+  component when adding it to a sauce. If a component's exact processed mass is
+  essential, put the required amount in a technical `text` entry for that component;
+  instruct the cook to weigh or separate the specified portion without repeating
+  the amount in prose. Ensure that the original ingredients supply enough material.
+  Do not presume that a component's final mass equals the sum of its inputs:
+  evaporation, draining, trimming and other processing can change its mass. When
+  the entire prepared component is used, say so rather than inventing its mass.
 - Keep the left-hand technical column strictly compact: ingredient/component names,
   quantities, units, short preparation states, temperatures, durations and technical
   parameters only. Entry `text` and `note` are not places for prose, explanations,
   full-sentence instructions or warnings. For example, a `COOL` note may say
-  ">= 12 Stunden"; put "Mindestens 12 Stunden gekühlt durchziehen lassen." in the
-  step's `instruction`. Put complete warnings in `instruction`, in a separate step
+  ">= 12 Stunden"; the matching `instruction` says "Abgedeckt im Kühlschrank
+  durchziehen lassen." Put complete warnings in `instruction`, in a separate step
   when useful. Preserve their full meaning; do not truncate them to fit the column.
   An `IMPORTANT`, `INFO` or `NO_ICON` entry does not change this rule. Special entries
   may omit `note` when the icon alone supplies the technical marker.
+- **Separate active preparation from distinct passive phases.** Resting, chilling,
+  marinating, proofing, cooling and other waiting phases with their own duration or
+  conditions should be separate steps from the preceding handling. Their entries
+  reference the previously prepared component as `text` (do not re-list its source
+  ingredients) and use suitable technical markers such as `WAIT` or `COOL`. Keep
+  tightly connected active operations together; do not split every physical action
+  into its own step. A controlled cooking phase that requires monitoring or handling
+  may remain a coherent cooking step. See [the format guide](references/format.md).
+- **Single source of truth:** when a technical value appears in a step's structured
+  entries, never repeat it in the step's `instruction`, nor in another prose step
+  that refers to the same parameter. This includes ingredient amounts and units,
+  durations, temperatures, dimensions, equipment settings and other adjustable
+  parameters. Technical entries say what/how much/at what setting; prose says what
+  to do, how and why, describes the sensory target and gives complete warnings.
+  A change to a technical entry must not require editing prose to prevent a
+  contradiction. If an essential technical detail cannot be represented meaningfully
+  by an entry, put it in `instruction` once rather than omitting it. Do not duplicate
+  it in an entry. See the examples and [the format guide](references/format.md).
 - Order steps and entries through their arrays. Variants explicitly list included
   step keys; exactly one variant is default and it must be visible.
 - Use decimal strings for amounts and unit conversions. Omit unknown amounts and
@@ -100,14 +119,18 @@ When using an unpacked skill, resources are relative to this `SKILL.md`.
 Validate both the schema and the semantic rules in the format guide, including a
 manual check that notes agree with structured quantities, original ingredients
 use appropriate units, and prepared components are not counted again as
-purchased ingredients. A bundled validator performs both checks with Python 3.10
-or newer:
+purchased ingredients. In addition, review step granularity: active preparation
+must not swallow an independent passive waiting phase. Review every step for
+repeated amounts, times, temperatures or other technical parameters across the
+left-hand entries and prose. A bundled validator checks structural and
+mechanically verifiable semantic constraints with Python 3.10 or newer:
 
 ```sh
 python3 -m pip install -r scripts/requirements.txt
 python3 scripts/validate_recipe.py /path/to/recipe.shadowcook.json
 ```
 
+The bundled validator does not automatically enforce these editorial rules.
 Use an available environment with these dependencies, or install them in an isolated
 environment. If the script cannot run, use another Draft-07 JSON Schema validator
 and check the semantic rules explicitly. State when validation was not performed.

@@ -28,8 +28,16 @@ in recipe JSON. Shadowcook selects the pictogram. These entries are part of a st
 
 A special entry has no `ingredientKey`, `text`, `amount`, `unitKey` or `isOptional`.
 Use its note only for a compact technical parameter, such as "180 °C", "low heat"
-or ">= 12 Stunden". Put actions and context in the step instruction: for example,
-"Cover and rest for 30 minutes." or "Mindestens 12 Stunden gekühlt durchziehen lassen."
+or ">= 12 Stunden". Put actions and context in the step instruction, without
+repeating the value from the entry: for example, pair `WAIT: 30 min` with
+"Den Teig abgedeckt ruhen lassen." and `COOL: >= 12 Stunden` with
+"Abgedeckt im Kühlschrank durchziehen lassen." Do not repeat the technical
+value in prose, even when the duplicated value would initially agree.
+
+When a rest, chilling or other passive phase follows an active preparation, give
+it a separate step. The waiting step references the prepared component as a
+`text` entry rather than listing its original ingredients a second time.
+
 Never put prose, explanations, tips or full warnings in the left-hand technical
 column, including `INFO`, `IMPORTANT` and `NO_ICON` notes. Omit a note when the icon
 alone is sufficient. Keep the complete warning in the instruction, optionally in
@@ -56,5 +64,5 @@ Normal ingredient rows remain ingredient entries even when an adjacent special r
 describes an action involving them. An `ADD` row does not replace the ingredient usage.
 
 Diet pictograms are separate recipe-level classifications: `VEGAN` uses a leaf,
-`VEGETARIAN` an egg. `OMNI` and unclassified content show no diet icon. Diet is never
+`VEGETARIAN` an egg. `OMNI` and unclassified recipes have no diet icon. Diet is never
 specified through a special entry. Other UI icons are not recipe content.
